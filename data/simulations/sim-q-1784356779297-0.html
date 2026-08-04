@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel-Joint Playground: Engineering Sim</title>
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --glass: rgba(255, 255, 255, 0.05);
+            --neon: #00f2ff;
+            --accent: #bc13fe;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg);
+            color: white;
+        }
+
+        #app {
+            display: grid;
+            grid-template-rows: 80px 1fr 100px;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        header {
+            display: flex;
+            align-items: center;
+            padding: 0 2rem;
+            background: rgba(0,0,0,0.3);
+            border-bottom: 1px solid var(--neon);
+            justify-content: space-between;
+        }
+
+        #viewport {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        #controls {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            align-items: center;
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .card {
+            padding: 10px 20px;
+            background: var(--glass);
+            border: 1px solid var(--neon);
+            border-radius: 8px;
+            cursor: grab;
+            user-select: none;
+        }
+
+        .modal {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(20, 20, 30, 0.9);
+            padding: 40px;
+            border: 2px solid var(--neon);
+            display: none;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <header>
+        <h3>Steel-Joint Playground v1.0</h3>
+        <button onclick="narrate()">Explain Concept</button>
+    </header>
+    
+    <div id="viewport">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div id="controls">
+        <div class="card" draggable="true" ondragstart="drag(event, 'Permanent')">High Strength</div>
+        <div class="card" draggable="true" ondragstart="drag(event, 'Reusable')">Modular/Reusable</div>
+        <div class="card" draggable="true" ondragstart="drag(event, 'Noise')">Loud Installation</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    let stress = 0;
+    let weldPulse = 0;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function playSound(freq, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function narrate() {
+        const msg = new SpeechSynthesisUtterance("Welding acts like a permanent magic glue, while bolts are like building blocks we can take apart!");
+        window.speechSynthesis.speak(msg);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+
+        // Welded Joint
+        ctx.fillStyle = "#333";
+        ctx.fillRect(w*0.2, h*0.3, 50, 200);
+        ctx.strokeStyle = `hsl(180, 100%, ${50 + Math.sin(weldPulse)*20}%)`;
+        ctx.lineWidth = 10;
+        ctx.strokeRect(w*0.2, h*0.3 + 100, 50, 20); // Weld
+        weldPulse += 0.1;
+
+        // Bolted Joint
+        ctx.fillRect(w*0.7, h*0.3, 50, 200);
+        ctx.fillStyle = "silver";
+        const offset = Math.sin(stress * 0.5) * (stress * 2);
+        ctx.fillRect(w*0.7 + offset, h*0.3 + 80, 50, 40);
+
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('mousemove', (e) => {
+        stress = (e.clientX / window.innerWidth) * 10;
+        if (Math.random() > 0.95) playSound(100 + stress * 50);
+    });
+
+    function drag(ev, type) { ev.dataTransfer.setData("text", type); }
+    
+    // Drop logic
+    canvas.addEventListener('dragover', (e) => e.preventDefault());
+    canvas.addEventListener('drop', (e) => {
+        const type = e.dataTransfer.getData("text");
+        const x = e.clientX;
+        // Simple logic check
+        if ((type === 'Permanent' && x < window.innerWidth/2) || (type === 'Reusable' && x > window.innerWidth/2)) {
+            playSound(400, 'square');
+        } else {
+            playSound(100, 'sawtooth');
+            alert("Try again! Consider the structural permanence.");
+        }
+    });
+
+    draw();
+</script>
+</body>
+</html>

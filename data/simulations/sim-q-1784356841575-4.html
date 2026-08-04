@@ -1,0 +1,1720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HydroSense: Infiltration Dynamics Simulator</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-surface-solid: #111827;
+            --border-glow: rgba(6, 182, 212, 0.15);
+            --border-light: rgba(255, 255, 255, 0.08);
+            
+            --color-rain: #0ea5e9;
+            --color-infil: #10b981;
+            --color-runoff: #f59e0b;
+            --color-text-main: #f3f4f6;
+            --color-text-muted: #9ca3af;
+            
+            --glow-rain: 0 0 12px rgba(14, 165, 233, 0.5);
+            --glow-infil: 0 0 12px rgba(16, 185, 129, 0.5);
+            --glow-runoff: 0 0 12px rgba(245, 158, 11, 0.5);
+            --glass-blur: blur(12px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--color-text-main);
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.03) 0%, transparent 40%);
+            min-height: 100vh;
+        }
+
+        /* App Layout */
+        .app-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Header Styles */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 30px;
+            background: var(--bg-surface);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-light);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .logo-section h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .logo-section p {
+            font-size: 0.8rem;
+            color: var(--color-text-muted);
+            font-weight: 500;
+            margin-top: 2px;
+        }
+
+        /* Sound Control Banner */
+        .audio-banner {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            padding: 8px 16px;
+            border-radius: 9999px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .audio-banner:hover {
+            background: rgba(6, 182, 212, 0.2);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .audio-banner.active {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        .audio-banner i {
+            color: #06b6d4;
+        }
+
+        .audio-banner.active i {
+            color: #10b981;
+        }
+
+        .audio-banner span {
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        /* Grid Layout */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphic Panel Styles */
+        .panel {
+            background: var(--bg-surface);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-bottom: 1px solid var(--border-light);
+            padding-bottom: 12px;
+            color: var(--color-text-main);
+        }
+
+        .panel-title i {
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Control Inputs Styles */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--color-text-muted);
+        }
+
+        .control-value {
+            color: #0ea5e9;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+        }
+
+        /* Custom Selector Dropdown */
+        .custom-select {
+            appearance: none;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-light);
+            padding: 12px 16px;
+            border-radius: 12px;
+            color: var(--color-text-main);
+            font-family: inherit;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .custom-select:focus {
+            border-color: #0ea5e9;
+            box-shadow: 0 0 12px rgba(14, 165, 233, 0.15);
+        }
+
+        /* Sleek Sliders */
+        .slider-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 9999px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            box-shadow: var(--glow-rain);
+            border: 2px solid #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #38bdf8;
+        }
+
+        /* Switch Toggles */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 12px 16px;
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .4s;
+            border-radius: 34px;
+            border: 1px solid var(--border-light);
+        }
+
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-round {
+            background-color: #10b981;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        input:checked + .slider-round:before {
+            transform: translateX(24px);
+        }
+
+        /* Visualizer and Graphics Columns */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Canvas Panel */
+        .canvas-card {
+            position: relative;
+            overflow: hidden;
+            padding: 0; /* Clear padding for canvas flush fit */
+            border-radius: 20px;
+            border: 1px solid var(--border-light);
+            background: var(--bg-surface);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            height: 480px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD Live Values Overlays */
+        .hud-overlay {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            pointer-events: none;
+            display: flex;
+            gap: 15px;
+        }
+
+        .hud-stat {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-light);
+            padding: 10px 16px;
+            border-radius: 12px;
+            backdrop-filter: var(--glass-blur);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .hud-stat-title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-text-muted);
+            font-weight: 700;
+        }
+
+        .hud-stat-val {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 800;
+            font-size: 1.1rem;
+        }
+
+        /* Controls Over Simulation */
+        .simulation-controls {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-light);
+            color: var(--color-text-main);
+            padding: 12px 20px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: var(--glass-blur);
+        }
+
+        .btn:hover {
+            background: var(--bg-surface-solid);
+            border-color: #0ea5e9;
+            transform: translateY(-2px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #0ea5e9, #6366f1);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+            transform: translateY(-2px);
+        }
+
+        /* Real-time Graph & Math Row */
+        .analysis-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 900px) {
+            .analysis-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .chart-container {
+            height: 320px;
+            position: relative;
+        }
+
+        /* Mathematical Formulas Card */
+        .math-card {
+            background: var(--bg-surface);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-light);
+            border-radius: 20px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .equation-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            padding: 16px;
+            font-family: 'JetBrains Mono', monospace;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            position: relative;
+        }
+
+        .equation-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--color-text-muted);
+            font-weight: 700;
+        }
+
+        .equation {
+            font-size: 1.1rem;
+            color: #38bdf8;
+            text-align: center;
+            padding: 10px 0;
+        }
+
+        .equation span.hl {
+            transition: color 0.3s ease;
+        }
+
+        /* Live Parameter Matrix */
+        .parameter-matrix {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .param-cell {
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .param-cell-label {
+            font-size: 0.75rem;
+            color: var(--color-text-muted);
+            font-weight: 600;
+        }
+
+        .param-cell-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* Dynamic Status Overlay Info Box */
+        .info-bar {
+            background: rgba(15, 23, 42, 0.8);
+            border-left: 4px solid #0ea5e9;
+            padding: 14px 20px;
+            border-radius: 0 12px 12px 0;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: #cbd5e1;
+            transition: all 0.3s;
+        }
+
+        /* Custom Tooltip Styling */
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.15);
+            font-size: 0.65rem;
+            color: var(--color-text-muted);
+            cursor: help;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <!-- Header -->
+    <header>
+        <div class="logo-section">
+            <h1><i class="fa-solid fa-droplet"></i> HYDROSENSE</h1>
+            <p>Civil Engineering Hydrology Courseware • Unit 2 Infiltration Dynamics</p>
+        </div>
+        
+        <!-- Native Web Audio Engine Control -->
+        <div id="audioActivationBtn" class="audio-banner">
+            <i class="fa-solid fa-volume-xmark"></i>
+            <span id="audioStatusText">ENABLE SYNCHRONIZED SIMULATION SOUNDS & COGNITIVE TTS VOICE</span>
+        </div>
+    </header>
+
+    <!-- Main Grid Dashboard -->
+    <main class="main-grid">
+        
+        <!-- Left Column: Controls and Parameters -->
+        <aside class="panel">
+            <div class="panel-title">
+                <i class="fa-solid fa-sliders"></i>
+                <h2>Control Dashboard</h2>
+            </div>
+
+            <!-- Soil Selector dropdown -->
+            <div class="control-group">
+                <label class="control-label" for="soilType">
+                    <span>Soil Profile Type</span>
+                    <i class="fa-solid fa-info-circle tooltip-icon" title="Soil matrix affects capillary suction and pore networks."></i>
+                </label>
+                <select id="soilType" class="custom-select">
+                    <option value="sandy">Sandy Soil (Coarse Texture)</option>
+                    <option value="loamy">Loamy Soil (Medium Texture)</option>
+                    <option value="clayey">Clayey Soil (Fine Texture)</option>
+                </select>
+            </div>
+
+            <!-- Rainfall Intensity -->
+            <div class="control-group">
+                <label class="control-label" for="rainIntensity">
+                    <span>Rainfall Intensity (i)</span>
+                    <span class="control-value" id="val-intensity">85 mm/hr</span>
+                </label>
+                <div class="slider-wrapper">
+                    <input type="range" id="rainIntensity" class="custom-slider" min="10" max="200" value="85">
+                </div>
+            </div>
+
+            <!-- Initial Soil Moisture State -->
+            <div class="control-group">
+                <label class="control-label" for="soilMoisture">
+                    <span>Initial Soil Moisture</span>
+                    <span class="control-value" id="val-moisture">Dry (10%)</span>
+                </label>
+                <div class="slider-wrapper">
+                    <input type="range" id="soilMoisture" class="custom-slider" min="0" max="100" value="10">
+                </div>
+            </div>
+
+            <!-- Vegetative Cover Slider -->
+            <div class="control-group">
+                <label class="control-label" for="vegCover">
+                    <span>Vegetative Cover Density</span>
+                    <span class="control-value" id="val-veg">Sparse (20%)</span>
+                </label>
+                <div class="slider-wrapper">
+                    <input type="range" id="vegCover" class="custom-slider" min="0" max="100" value="20">
+                </div>
+            </div>
+
+            <!-- Slope Slider -->
+            <div class="control-group">
+                <label class="control-label" for="slope">
+                    <span>Ground Slope</span>
+                    <span class="control-value" id="val-slope">Flat (2°)</span>
+                </label>
+                <div class="slider-wrapper">
+                    <input type="range" id="slope" class="custom-slider" min="0" max="45" value="2">
+                </div>
+            </div>
+
+            <!-- Speech Settings -->
+            <div class="toggle-container">
+                <div class="control-label">
+                    <span>Dynamic TTS Narration</span>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="voiceToggle" checked>
+                    <span class="slider-round"></span>
+                </label>
+            </div>
+            
+            <div class="info-bar" id="explanatoryBar">
+                Press START STORM to begin the water flow simulation. Watch the soil layers react in real-time.
+            </div>
+        </aside>
+
+        <!-- Right Column: Canvas, Math, Graph -->
+        <section class="workspace">
+            
+            <!-- Dynamic Sandbox Canvas -->
+            <div class="canvas-card">
+                <!-- HUD Data -->
+                <div class="hud-overlay">
+                    <div class="hud-stat">
+                        <span class="hud-stat-title">Rain Intensity</span>
+                        <span class="hud-stat-val" id="hud-intensity" style="color: var(--color-rain);">85 mm/hr</span>
+                    </div>
+                    <div class="hud-stat">
+                        <span class="hud-stat-title">Infiltration Rate (f)</span>
+                        <span class="hud-stat-val" id="hud-infiltration" style="color: var(--color-infil);">--</span>
+                    </div>
+                    <div class="hud-stat">
+                        <span class="hud-stat-title">Runoff Generated (R)</span>
+                        <span class="hud-stat-val" id="hud-runoff" style="color: var(--color-runoff);">--</span>
+                    </div>
+                    <div class="hud-stat">
+                        <span class="hud-stat-title">Storm Time</span>
+                        <span class="hud-stat-val" id="hud-time" style="color: #a78bfa;">0.00 hr</span>
+                    </div>
+                </div>
+
+                <!-- Sim Core Control Buttons -->
+                <div class="simulation-controls">
+                    <button class="btn btn-primary" id="playBtn"><i class="fa-solid fa-play"></i> Start Storm</button>
+                    <button class="btn" id="resetBtn"><i class="fa-solid fa-rotate-right"></i> Reset</button>
+                </div>
+
+                <canvas id="simCanvas"></canvas>
+            </div>
+
+            <!-- Plotting and Math Rows -->
+            <div class="analysis-row">
+                
+                <!-- Real-time Curve Plotting Card -->
+                <div class="panel">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <h2>Horton's Infiltration Capacity Curves</h2>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="infiltrationChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Equation Solver & Vector Math Panel -->
+                <div class="math-card">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-calculator"></i>
+                        <h2>Real-time Hydrologic Math Model</h2>
+                    </div>
+                    
+                    <!-- Horton's Equation box -->
+                    <div class="equation-box">
+                        <span class="equation-title">Horton's Classical Equation</span>
+                        <div class="equation" id="equation-display">
+                            f<sub>p</sub>(t) = f<sub>c</sub> + (f<sub>0</sub> - f<sub>c</sub>)e<sup>-kt</sup>
+                        </div>
+                    </div>
+
+                    <!-- Computed Hydrologic Balances -->
+                    <div class="parameter-matrix">
+                        <div class="param-cell">
+                            <span class="param-cell-label">Initial Cap. (f<sub>0</sub>)</span>
+                            <span class="param-cell-value" id="math-f0" style="color: #38bdf8;">--</span>
+                        </div>
+                        <div class="param-cell">
+                            <span class="param-cell-label">Ultimate Cap. (f<sub>c</sub>)</span>
+                            <span class="param-cell-value" id="math-fc" style="color: #38bdf8;">--</span>
+                        </div>
+                        <div class="param-cell">
+                            <span class="param-cell-label">Decay Const. (k)</span>
+                            <span class="param-cell-value" id="math-k" style="color: #c084fc;">--</span>
+                        </div>
+                        <div class="param-cell">
+                            <span class="param-cell-label">Active Capacity (f<sub>p</sub>)</span>
+                            <span class="param-cell-value" id="math-fp" style="color: #818cf8;">--</span>
+                        </div>
+                    </div>
+
+                    <!-- Wetting vs Runoff Logic Box -->
+                    <div class="equation-box" style="border-left: 3px solid #10b981;">
+                        <span class="equation-title">Infiltration Governing Law</span>
+                        <div class="equation" id="law-display" style="font-size: 0.95rem; color: #10b981;">
+                            if i &le; f<sub>p</sub> &rarr; f = i, R = 0
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+</div>
+
+<script>
+    // --- 1. Hydrology Constant Specifications & Definitions ---
+    const SOIL_PARAMS = {
+        sandy: {
+            f0: 160,       // mm/hr
+            fc: 30,        // mm/hr
+            k: 4.5,        // hr^-1 (Rapid decay)
+            baseColor: '#6f503c',
+            saturatedColor: '#36281e',
+            description: "Coarse pore structures generate extreme infiltration rates. Low runoff."
+        },
+        loamy: {
+            f0: 90,
+            fc: 12,
+            k: 2.8,        // hr^-1
+            baseColor: '#5c4033',
+            saturatedColor: '#2b1e18',
+            description: "Balanced soil matrix results in moderated capacity and controlled runoff."
+        },
+        clayey: {
+            f0: 35,
+            fc: 3,
+            k: 1.5,        // hr^-1 (Slower decay)
+            baseColor: '#5a463d',
+            saturatedColor: '#221a16',
+            description: "Dense matrix with high cohesion leads to fast sealing and extreme runoff."
+        }
+    };
+
+    // --- 2. Central State Manager ---
+    const state = {
+        soilType: 'sandy',
+        rainIntensity: 85,    // mm/hr
+        soilMoisture: 10,     // %
+        vegCover: 20,         // %
+        slope: 2,             // degrees
+        
+        // Simulation parameters
+        isRunning: false,
+        time: 0,              // hours (0 to 6 hr)
+        maxTime: 6,           // total curve duration
+        simSpeed: 0.08,       // delta time added per loop frame in simulation hours
+
+        // Wetting front details
+        wettingFrontDepth: 0, // relative visual depth (0 to 1)
+        cumulativeInfiltration: 0,
+        
+        // Visual element models
+        rainParticles: [],
+        infilParticles: [],
+        runoffParticles: [],
+        
+        // TTS Control
+        voiceEnabled: true,
+        lastNarratedFactor: null,
+        speechCooldown: false
+    };
+
+    // --- 3. Web Audio Engine & Synthesizer Core ---
+    class HydrologyAudioEngine {
+        constructor() {
+            this.ctx = null;
+            this.masterGain = null;
+            this.rainGain = null;
+            this.runoffGain = null;
+            this.rainNoise = null;
+            this.runoffHum = null;
+            this.initialized = false;
+        }
+
+        async init() {
+            if (this.initialized) return;
+            try {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioContext();
+                
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                this.masterGain.connect(this.ctx.destination);
+                
+                this.setupRainSynth();
+                this.setupRunoffSynth();
+                
+                this.initialized = true;
+                this.playUIBeep(600, 0.1);
+            } catch (err) {
+                console.error("Audio initialization issue:", err);
+            }
+        }
+
+        setupRainSynth() {
+            // Procedural Rain Generator using White Noise with dynamic bandpass filter
+            const bufferSize = 2 * this.ctx.sampleRate;
+            const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const noiseSource = this.ctx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            noiseSource.loop = true;
+
+            this.rainFilter = this.ctx.createBiquadFilter();
+            this.rainFilter.type = 'lowpass';
+            this.rainFilter.frequency.setValueAtTime(1000, this.ctx.currentTime);
+
+            this.rainGain = this.ctx.createGain();
+            this.rainGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+            noiseSource.connect(this.rainFilter);
+            this.rainFilter.connect(this.rainGain);
+            this.rainGain.connect(this.masterGain);
+            noiseSource.start();
+        }
+
+        setupRunoffSynth() {
+            // Low rumbling/gurgling synthesizer for fast surface runoff
+            this.runoffHum = this.ctx.createOscillator();
+            this.runoffHum.type = 'sawtooth';
+            this.runoffHum.frequency.setValueAtTime(55, this.ctx.currentTime); // A1 note rumble
+
+            this.runoffFilter = this.ctx.createBiquadFilter();
+            this.runoffFilter.type = 'lowpass';
+            this.runoffFilter.frequency.setValueAtTime(150, this.ctx.currentTime);
+
+            this.runoffGain = this.ctx.createGain();
+            this.runoffGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+            this.runoffHum.connect(this.runoffFilter);
+            this.runoffFilter.connect(this.runoffGain);
+            this.runoffGain.connect(this.masterGain);
+            this.runoffHum.start();
+        }
+
+        updateSoundScape(intensity, infiltrationRate, runoffRate) {
+            if (!this.initialized || this.ctx.state === 'suspended') return;
+
+            // Scale rain frequency and gain with intensity
+            const relativeRain = intensity / 200;
+            if (state.isRunning) {
+                this.rainGain.gain.setTargetAtTime(relativeRain * 0.18, this.ctx.currentTime, 0.2);
+                this.rainFilter.frequency.setTargetAtTime(600 + (relativeRain * 1200), this.ctx.currentTime, 0.2);
+                
+                // Runoff hum maps to generated runoff volume
+                const relativeRunoff = Math.min(runoffRate / 150, 1);
+                this.runoffGain.gain.setTargetAtTime(relativeRunoff * 0.22, this.ctx.currentTime, 0.3);
+                this.runoffHum.frequency.setTargetAtTime(45 + (relativeRunoff * 35), this.ctx.currentTime, 0.5);
+            } else {
+                this.rainGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+                this.runoffGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.2);
+            }
+        }
+
+        playUIBeep(freq, duration) {
+            if (!this.initialized) return;
+            const osc = this.ctx.createOscillator();
+            const gainNode = this.ctx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(this.ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+            gainNode.gain.setValueAtTime(0.04, this.ctx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+            osc.start();
+            osc.stop(this.ctx.currentTime + duration);
+        }
+    }
+
+    const audioEngine = new HydrologyAudioEngine();
+
+    // --- 4. Speech Synthesis Manager ---
+    function speakHydrologyConcept(conceptKey, customText = "") {
+        if (!state.voiceEnabled) return;
+        if (state.speechCooldown && !customText) return;
+
+        // Set short cool-down to prevent audio speech overlap
+        state.speechCooldown = true;
+        setTimeout(() => { state.speechCooldown = false; }, 8000);
+
+        window.speechSynthesis.cancel(); // Stop pre-existing voice queue
+        
+        let utteranceText = customText;
+        if (!utteranceText) {
+            switch(conceptKey) {
+                case 'sandy':
+                    utteranceText = "Sandy soil profiles have high macroporosity and low capillary suction, providing dynamic hydraulic pathways that yield excellent infiltration rates and negligible surface runoff.";
+                    break;
+                case 'loamy':
+                    utteranceText = "Loamy soil textures consist of highly balanced fractions of sand, silt, and clay. This balanced distribution maintains steady infiltration curves with medium runoff volumes.";
+                    break;
+                case 'clayey':
+                    utteranceText = "Clay profiles possess micro pores that retain water via powerful surface tension. Wet clay particles swell, sealing pathways. This lowers capacity rapidly, creating fast surface runoff.";
+                    break;
+                case 'slope':
+                    utteranceText = `Elevating ground slope to ${state.slope} degrees accelerates surface runoff velocity. This reduces the hydraulic retention or opportunity time, causing lower net infiltration capacity.`;
+                    break;
+                case 'veg':
+                    utteranceText = `Increasing vegetative cover to ${state.vegCover} percent buffers raindrop kinetic energy, preventing soil surface sealing, and expands infiltration pathways through root biopores.`;
+                    break;
+                case 'moisture':
+                    utteranceText = `An initial moisture content of ${state.soilMoisture} percent reduces initial matric potential gradients, compressing the capacity curve downwards towards steady state saturation limits.`;
+                    break;
+            }
+        }
+
+        const utterance = new SpeechSynthesisUtterance(utteranceText);
+        utterance.rate = 1.05;
+        utterance.pitch = 0.95;
+        
+        // Find a clean English narrator voice if possible
+        const voices = window.speechSynthesis.getVoices();
+        const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
+        if (preferredVoice) utterance.voice = preferredVoice;
+
+        window.speechSynthesis.speak(utterance);
+    }
+
+    // --- 5. Interactive Chart.js Implementation ---
+    let infiltrationChart;
+    
+    function initInfiltrationChart() {
+        const ctx = document.getElementById('infiltrationChart').getContext('2d');
+        
+        const data = generateCurveData();
+
+        infiltrationChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.timeArray,
+                datasets: [
+                    {
+                        label: "Infiltration Capacity (fp)",
+                        data: data.capacityArray,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.05)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.15,
+                        pointRadius: 0
+                    },
+                    {
+                        label: "Rainfall Intensity (i)",
+                        data: Array(data.timeArray.length).fill(state.rainIntensity),
+                        borderColor: '#f43f5e',
+                        borderDash: [5, 5],
+                        borderWidth: 1.5,
+                        pointRadius: 0,
+                        fill: false
+                    },
+                    {
+                        label: "Actual Infiltration (f)",
+                        data: data.actualInfilArray,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.2)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.15,
+                        pointRadius: 0
+                    },
+                    {
+                        label: "Timeline Marker",
+                        data: [],
+                        borderColor: '#a78bfa',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        fill: false
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: {
+                            color: '#e2e8f0',
+                            font: { family: 'Plus Jakarta Sans', size: 10, weight: '600' },
+                            padding: 12
+                        }
+                    },
+                    tooltip: {
+                        enabled: true,
+                        mode: 'index',
+                        intersect: false
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        min: 0,
+                        max: 6,
+                        title: { display: true, text: 'Storm Time (hours)', color: '#94a3b8', font: { weight: 'bold' } },
+                        ticks: { color: '#64748b' },
+                        grid: { color: 'rgba(255, 255, 255, 0.03)' }
+                    },
+                    y: {
+                        min: 0,
+                        max: 220,
+                        title: { display: true, text: 'Rate (mm/hr)', color: '#94a3b8', font: { weight: 'bold' } },
+                        ticks: { color: '#64748b' },
+                        grid: { color: 'rgba(255, 255, 255, 0.03)' }
+                    }
+                }
+            }
+        });
+    }
+
+    function generateCurveData() {
+        // Calculate variables adjusted by vegetation, slope, initial moisture
+        const soil = SOIL_PARAMS[state.soilType];
+        
+        // Base values
+        let f0 = soil.f0;
+        let fc = soil.fc;
+        let k = soil.k;
+        
+        // Influence of Initial Soil Moisture:
+        // High initial moisture decreases f0 to near fc because capillary potential drops.
+        const moistureFraction = state.soilMoisture / 100;
+        f0 = fc + (f0 - fc) * (1 - moistureFraction * 0.8);
+
+        // Influence of Vegetative Cover:
+        // Vegetation buffers structure (increases fc slightly) and adds macro-pores (increases both f0 & fc)
+        const vegFraction = state.vegCover / 100;
+        fc = fc * (1 + vegFraction * 0.6);
+        f0 = f0 * (1 + vegFraction * 0.35);
+
+        // Influence of Ground Slope:
+        // Increasing slope slightly reduces final infiltration rate due to reduced gravity/capillary balance vector alignment
+        const slopeRad = (state.slope * Math.PI) / 180;
+        const slopeReductionFactor = 1.0 - 0.25 * Math.sin(slopeRad);
+        fc *= slopeReductionFactor;
+        f0 *= slopeReductionFactor;
+
+        const timeArray = [];
+        const capacityArray = [];
+        const actualInfilArray = [];
+        
+        const steps = 60;
+        const dt = state.maxTime / steps;
+
+        for (let j = 0; j <= steps; j++) {
+            const tVal = j * dt;
+            timeArray.push(Number(tVal.toFixed(2)));
+            
+            // Horton formula: fp = fc + (f0 - fc) * e^(-kt)
+            const fp = fc + (f0 - fc) * Math.exp(-k * tVal);
+            capacityArray.push(Number(fp.toFixed(2)));
+            
+            // Actual Infiltration rate cannot exceed rainfall intensity
+            const actualInfil = Math.min(state.rainIntensity, fp);
+            actualInfilArray.push(Number(actualInfil.toFixed(2)));
+        }
+
+        return { timeArray, capacityArray, actualInfilArray, f0, fc, k };
+    }
+
+    function updateInfiltrationChart() {
+        if (!infiltrationChart) return;
+        const data = generateCurveData();
+        
+        infiltrationChart.data.datasets[0].data = data.capacityArray.map((v, i) => ({ x: data.timeArray[i], y: v }));
+        infiltrationChart.data.datasets[1].data = Array(data.timeArray.length).fill(state.rainIntensity).map((v, i) => ({ x: data.timeArray[i], y: v }));
+        infiltrationChart.data.datasets[2].data = data.actualInfilArray.map((v, i) => ({ x: data.timeArray[i], y: v }));
+        
+        // Render timeline dynamic marker at state.time
+        infiltrationChart.data.datasets[3].data = [
+            { x: state.time, y: 0 },
+            { x: state.time, y: Math.max(state.rainIntensity, Math.max(...data.capacityArray)) + 15 }
+        ];
+
+        infiltrationChart.update('none'); // Quick silent update
+        
+        // Update Mathematics panel metrics live
+        document.getElementById('math-f0').innerText = data.f0.toFixed(1) + " mm/hr";
+        document.getElementById('math-fc').innerText = data.fc.toFixed(1) + " mm/hr";
+        document.getElementById('math-k').innerText = data.k.toFixed(2) + " /hr";
+    }
+
+    // --- 6. Live HUD Equations Engine ---
+    function updateMathematicalFormulaDisplay(activeFp, activef, activeR) {
+        const eqBox = document.getElementById('equation-display');
+        const lawBox = document.getElementById('law-display');
+
+        // Dynamic formula output
+        eqBox.innerHTML = `f<sub>p</sub>(${state.time.toFixed(2)}) = <span class="hl" style="color:#06b6d4">${activeFp.toFixed(1)}</span> mm/hr`;
+        document.getElementById('math-fp').innerText = activeFp.toFixed(1) + " mm/hr";
+
+        if (state.rainIntensity <= activeFp) {
+            lawBox.innerHTML = `<span style="color: #10b981;">i &le; f<sub>p</sub> (Rainfall Infiltrates completely):<br><b>f = i = ${activef.toFixed(1)} mm/hr</b> | Runoff R = 0</span>`;
+            lawBox.parentElement.style.borderLeftColor = "#10b981";
+        } else {
+            lawBox.innerHTML = `<span style="color: #f59e0b;">i &gt; f<sub>p</sub> (Intensity exceeds threshold! Runoff generated):<br><b>f = f<sub>p</sub> = ${activef.toFixed(1)} mm/hr</b> | <b>R = i - f<sub>p</sub> = ${activeR.toFixed(1)} mm/hr</b></span>`;
+            lawBox.parentElement.style.borderLeftColor = "#f59e0b";
+        }
+    }
+
+
+    // --- 7. Sandbox Visualizer (Canvas Rendering Engine) ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Handle high DPI display issues
+    function resizeCanvas() {
+        const rect = canvas.parentNode.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Particle Classes
+    class RainDrop {
+        constructor() {
+            this.reset();
+            this.y = Math.random() * 80 - 80; // offset entry
+        }
+        reset() {
+            this.x = Math.random() * (canvas.width / window.devicePixelRatio);
+            this.y = 0;
+            this.vy = 8 + Math.random() * 5 + (state.rainIntensity / 40);
+            this.length = 10 + Math.random() * 8;
+        }
+        update() {
+            this.y += this.vy;
+            // Retrieve dynamic terrain boundary line height profile
+            const limit = getGroundHeightAt(this.x);
+            if (this.y >= limit) {
+                spawnSurfaceSplashes(this.x, limit);
+                this.reset();
+            }
+        }
+        draw() {
+            ctx.strokeStyle = 'rgba(14, 165, 233, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x, this.y + this.length);
+            ctx.stroke();
+        }
+    }
+
+    class SoilWaterParticle {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.vy = 0.5 + Math.random() * 0.8;
+            this.vx = (Math.random() - 0.5) * 0.4;
+            this.opacity = 0.9;
+        }
+        update(limitBottom) {
+            this.y += this.vy;
+            this.x += this.vx;
+            this.opacity -= 0.003;
+            if (this.y >= limitBottom) {
+                this.opacity = 0;
+            }
+        }
+        draw() {
+            ctx.fillStyle = `rgba(16, 185, 129, ${this.opacity})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 1.8, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    class RunoffParticle {
+        constructor(x, y, dir) {
+            this.x = x;
+            this.y = y;
+            // Dir: +1 left-to-right (downslope), -1 right-to-left
+            this.vx = dir * (2 + Math.random() * 3 + (state.slope / 10));
+            this.vy = 0;
+            this.opacity = 0.85;
+        }
+        update() {
+            this.x += this.vx;
+            this.y = getGroundHeightAt(this.x);
+            this.opacity -= 0.01;
+        }
+        draw() {
+            ctx.fillStyle = `rgba(245, 158, 11, ${this.opacity})`;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y - 2, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function getGroundHeightAt(x) {
+        // Ground height calculated from Center baseline using trigonometric slope adjustments
+        const w = canvas.width / window.devicePixelRatio;
+        const midX = w / 2;
+        const baselineY = 240; 
+        const slopeRad = (state.slope * Math.PI) / 180;
+        return baselineY + (x - midX) * Math.sin(slopeRad);
+    }
+
+    function spawnSurfaceSplashes(x, groundY) {
+        // Compute relative dynamic partition balance
+        const soil = SOIL_PARAMS[state.soilType];
+        const activeFp = calculateHortonInfiltrationCapacity();
+        const actualf = Math.min(state.rainIntensity, activeFp);
+        const actualR = Math.max(0, state.rainIntensity - activeFp);
+        
+        // Infiltration Probability
+        const totalStormWater = actualf + actualR;
+        const infilChance = totalStormWater > 0 ? (actualf / totalStormWater) : 1;
+
+        if (state.isRunning) {
+            if (Math.random() < infilChance) {
+                // Absorbed into dynamic pore network (Wetting soil)
+                if (state.infilParticles.length < 280) {
+                    state.infilParticles.push(new SoilWaterParticle(x, groundY));
+                }
+            } else {
+                // Added directly to surface runoff system
+                if (state.runoffParticles.length < 250) {
+                    // Slide down the slope
+                    const slopeRad = (state.slope * Math.PI) / 180;
+                    const dir = Math.sin(slopeRad) >= 0 ? 1 : -1;
+                    state.runoffParticles.push(new RunoffParticle(x, groundY, dir));
+                }
+            }
+        }
+    }
+
+    function calculateHortonInfiltrationCapacity() {
+        const soil = SOIL_PARAMS[state.soilType];
+        let f0 = soil.f0;
+        let fc = soil.fc;
+        let k = soil.k;
+        
+        // Apply scaling modifiers
+        const moistureFraction = state.soilMoisture / 100;
+        f0 = fc + (f0 - fc) * (1 - moistureFraction * 0.8);
+
+        const vegFraction = state.vegCover / 100;
+        fc = fc * (1 + vegFraction * 0.6);
+        f0 = f0 * (1 + vegFraction * 0.35);
+
+        const slopeRad = (state.slope * Math.PI) / 180;
+        const slopeReductionFactor = 1.0 - 0.25 * Math.sin(slopeRad);
+        fc *= slopeReductionFactor;
+        f0 *= slopeReductionFactor;
+
+        return fc + (f0 - fc) * Math.exp(-k * state.time);
+    }
+
+    // Canvas Loop & Drawing Elements
+    function drawSimulation() {
+        const w = canvas.width / window.devicePixelRatio;
+        const h = canvas.height / window.devicePixelRatio;
+        
+        ctx.clearRect(0, 0, w, h);
+        
+        // --- 1. Draw Clouds ---
+        drawAtmosphericSky(ctx, w);
+
+        // --- 2. Draw Soil Solid Block and Dynamic Wetting Zone ---
+        drawGeotechnicalLayers(ctx, w, h);
+
+        // --- 3. Draw Vegetation Canopy Layers ---
+        drawVegetationCanopy(ctx, w);
+
+        // --- 4. Draw Flow Process Vector Mechanics ---
+        drawEngineeringVectorOverlay(ctx, w);
+
+        // --- 5. Update and Draw Fluid Particles ---
+        updateAndDrawParticles(ctx, h);
+
+        requestAnimationFrame(drawSimulation);
+    }
+
+    function drawAtmosphericSky(ctx, w) {
+        const skyGlow = ctx.createLinearGradient(0, 0, 0, 160);
+        skyGlow.addColorStop(0, '#0d1527');
+        skyGlow.addColorStop(1, '#080c14');
+        ctx.fillStyle = skyGlow;
+        ctx.fillRect(0, 0, w, 180);
+
+        // Styled digital cloud elements
+        ctx.fillStyle = 'rgba(30, 41, 59, 0.4)';
+        ctx.beginPath();
+        ctx.ellipse(w*0.3, 50, 80, 25, 0, 0, Math.PI * 2);
+        ctx.ellipse(w*0.7, 70, 110, 30, 0, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    function drawGeotechnicalLayers(ctx, w, h) {
+        const soil = SOIL_PARAMS[state.soilType];
+        
+        // Bottom profile
+        ctx.beginPath();
+        ctx.moveTo(0, h);
+        
+        // Follow Ground Boundary
+        for (let x = 0; x <= w; x++) {
+            ctx.lineTo(x, getGroundHeightAt(x));
+        }
+        ctx.lineTo(w, h);
+        ctx.closePath();
+        
+        // Background Dry Soil Fill
+        ctx.fillStyle = soil.baseColor;
+        ctx.fill();
+
+        // Dynamically compute wetting front interface (Green-Ampt approximation)
+        // More Infiltration = Deeper Saturation wetting profile line
+        const saturationYOffset = state.wettingFrontDepth * 150; 
+        
+        if (saturationYOffset > 0) {
+            ctx.beginPath();
+            ctx.moveTo(0, h);
+            
+            // Follow saturation front line contour
+            for (let x = 0; x <= w; x++) {
+                const groundY = getGroundHeightAt(x);
+                // Draw wetting front with slight natural sinusoidal variance
+                const frontLine = groundY + saturationYOffset + Math.sin(x/30 + state.time*5) * 4;
+                ctx.lineTo(x, Math.min(frontLine, h));
+            }
+            ctx.lineTo(w, h);
+            ctx.closePath();
+            
+            // Background Dry Soil fill again (Wetting soil goes above)
+            ctx.fillStyle = soil.baseColor;
+            ctx.fill();
+
+            // Saturated Upper layer soil fill
+            ctx.beginPath();
+            for (let x = 0; x <= w; x++) {
+                ctx.lineTo(x, getGroundHeightAt(x));
+            }
+            for (let x = w; x >= 0; x--) {
+                const groundY = getGroundHeightAt(x);
+                const frontLine = groundY + saturationYOffset + Math.sin(x/30 + state.time*5) * 4;
+                ctx.lineTo(x, Math.min(frontLine, h));
+            }
+            ctx.closePath();
+            ctx.fillStyle = soil.saturatedColor;
+            ctx.fill();
+
+            // Draw visual wetting front boundary line
+            ctx.beginPath();
+            for (let x = 0; x <= w; x++) {
+                const groundY = getGroundHeightAt(x);
+                const frontLine = groundY + saturationYOffset + Math.sin(x/30 + state.time*5) * 4;
+                ctx.lineTo(x, Math.min(frontLine, h - 2));
+            }
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+        }
+
+        // Draw Soil Surface Boundary Line
+        ctx.beginPath();
+        for (let x = 0; x <= w; x++) {
+            ctx.lineTo(x, getGroundHeightAt(x));
+        }
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+    }
+
+    function drawVegetationCanopy(ctx, w) {
+        const vegDensity = state.vegCover; 
+        if (vegDensity === 0) return;
+
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 2;
+
+        // Draw stylized biopore root grass blades
+        const step = Math.max(4, Math.floor(100 / vegDensity) * 10);
+        for (let x = 10; x < w; x += step) {
+            const groundY = getGroundHeightAt(x);
+            
+            // Dynamic oscillation in wind
+            const wind = Math.sin(Date.now() / 250 + x) * 4;
+
+            ctx.beginPath();
+            ctx.moveTo(x, groundY);
+            ctx.quadraticCurveTo(x + wind/2, groundY - 10, x + wind, groundY - 18);
+            ctx.stroke();
+
+            // Draw miniature root structure downwards
+            ctx.strokeStyle = 'rgba(16, 185, 129, 0.25)';
+            ctx.beginPath();
+            ctx.moveTo(x, groundY);
+            ctx.lineTo(x - 2, groundY + 15);
+            ctx.moveTo(x, groundY);
+            ctx.lineTo(x + 4, groundY + 10);
+            ctx.stroke();
+            ctx.strokeStyle = '#10b981'; // Restore
+        }
+    }
+
+    function drawEngineeringVectorOverlay(ctx, w) {
+        const midX = w / 2;
+        const midY = getGroundHeightAt(midX);
+        
+        // Active variables calculation
+        const activeFp = calculateHortonInfiltrationCapacity();
+        const activef = Math.min(state.rainIntensity, activeFp);
+        const activeR = Math.max(0, state.rainIntensity - activeFp);
+
+        // Vector scale factor
+        const scale = 0.5;
+
+        // Draw Rainfall vector (Rose arrow pointing down)
+        const rainLen = state.rainIntensity * scale;
+        if (rainLen > 4) {
+            drawVectorArrow(ctx, midX, midY - 70 - rainLen, midX, midY - 10, '#f43f5e', "i");
+        }
+
+        // Draw Infiltration vector (Green arrow pointing into soil)
+        const infilLen = activef * scale;
+        if (infilLen > 4) {
+            drawVectorArrow(ctx, midX - 25, midY + 10, midX - 25, midY + 10 + infilLen, '#10b981', "f");
+        }
+
+        // Draw Runoff vector (Amber arrow along ground plane slope)
+        const runoffLen = activeR * scale;
+        if (runoffLen > 4) {
+            const slopeRad = (state.slope * Math.PI) / 180;
+            const dirX = Math.cos(slopeRad);
+            const dirY = Math.sin(slopeRad);
+            drawVectorArrow(ctx, 
+                midX + 25, 
+                midY + 5, 
+                midX + 25 + (dirX * runoffLen), 
+                midY + 5 + (dirY * runoffLen), 
+                '#f59e0b', 
+                "R"
+            );
+        }
+    }
+
+    function drawVectorArrow(ctx, fromx, fromy, tox, toy, color, label) {
+        ctx.strokeStyle = color;
+        ctx.fillStyle = color;
+        ctx.lineWidth = 4;
+        
+        // Arrow Line
+        ctx.beginPath();
+        ctx.moveTo(fromx, fromy);
+        ctx.lineTo(tox, toy);
+        ctx.stroke();
+
+        // Arrow Head
+        const angle = Math.atan2(toy - fromy, tox - fromx);
+        ctx.beginPath();
+        ctx.moveTo(tox, toy);
+        ctx.lineTo(tox - 8 * Math.cos(angle - Math.PI / 6), toy - 8 * Math.sin(angle - Math.PI / 6));
+        ctx.lineTo(tox - 8 * Math.cos(angle + Math.PI / 6), toy - 8 * Math.sin(angle + Math.PI / 6));
+        ctx.closePath();
+        ctx.fill();
+
+        // Label Glow Box
+        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(tox + 10, toy - 10, 16, 14);
+        ctx.fillStyle = color;
+        ctx.fillText(label, tox + 12, toy + 1);
+    }
+
+    function updateAndDrawParticles(ctx, h) {
+        // Handle Rain particles based on active intensity
+        const desiredRainCount = Math.floor(state.rainIntensity * 1.5);
+        while (state.rainParticles.length < desiredRainCount) {
+            state.rainParticles.push(new RainDrop());
+        }
+        while (state.rainParticles.length > desiredRainCount) {
+            state.rainParticles.pop();
+        }
+
+        state.rainParticles.forEach(p => {
+            p.update();
+            p.draw();
+        });
+
+        // Soil Infiltrated particles updating
+        state.infilParticles.forEach((p, idx) => {
+            const groundLimitY = getGroundHeightAt(p.x);
+            const limitBottom = groundLimitY + state.wettingFrontDepth * 150;
+            p.update(limitBottom);
+            p.draw();
+            if (p.opacity <= 0) {
+                state.infilParticles.splice(idx, 1);
+            }
+        });
+
+        // Runoff particles updating
+        state.runoffParticles.forEach((p, idx) => {
+            p.update();
+            p.draw();
+            if (p.opacity <= 0 || p.x < 0 || p.x > (canvas.width / window.devicePixelRatio)) {
+                state.runoffParticles.splice(idx, 1);
+            }
+        });
+    }
+
+
+    // --- 8. Simulation Main State Engine and Hydrologic Loops ---
+    let lastFrameTime = performance.now();
+
+    function updateSimulationPhysics() {
+        if (!state.isRunning) return;
+
+        // Speed of storm simulation mapping: dt per physical loop iteration
+        const dt = state.simSpeed;
+        state.time += dt;
+
+        if (state.time >= state.maxTime) {
+            state.time = state.maxTime;
+            state.isRunning = false;
+            document.getElementById('playBtn').innerHTML = '<i class="fa-solid fa-play"></i> Start Storm';
+            speakHydrologyConcept('completion', "The storm event has finished. Note the dynamic shift on Horton's curve as active capacity asymptotically approaches the ultimate infiltration rate.");
+        }
+
+        // Active parameter calculations
+        const activeFp = calculateHortonInfiltrationCapacity();
+        const activef = Math.min(state.rainIntensity, activeFp);
+        const activeR = Math.max(0, state.rainIntensity - activeFp);
+
+        // Track Cumulative Infiltration Volume to drive Saturation Wetting Front depth
+        // Trapizoidal dynamic accumulation: f_avg * dt
+        state.cumulativeInfiltration += activef * dt;
+        
+        // Map dynamic visual saturation boundary depth (0 to 1 scale)
+        // Deep clayey soils seal early so wet fronts stay shallow compared to sandy matrices.
+        const porousCoeff = state.soilType === 'sandy' ? 0.0035 : state.soilType === 'loamy' ? 0.0055 : 0.009;
+        state.wettingFrontDepth = Math.min(1.0, state.cumulativeInfiltration * porousCoeff);
+
+        // Update active displays
+        document.getElementById('hud-time').innerText = state.time.toFixed(2) + " hr";
+        document.getElementById('hud-infiltration').innerText = activef.toFixed(1) + " mm/hr";
+        document.getElementById('hud-runoff').innerText = activeR.toFixed(1) + " mm/hr";
+
+        updateInfiltrationChart();
+        updateMathematicalFormulaDisplay(activeFp, activef, activeR);
+        audioEngine.updateSoundScape(state.rainIntensity, activef, activeR);
+    }
+
+    // High performance timing loop
+    function simPhysicsLoop() {
+        const now = performance.now();
+        if (state.isRunning) {
+            updateSimulationPhysics();
+        }
+        setTimeout(simPhysicsLoop, 150); // Locked execution intervals for computational ease
+    }
+
+
+    // --- 9. Inputs & Controllers Binding ---
+    function setupInteractions() {
+        
+        // Soil Dropdown
+        document.getElementById('soilType').addEventListener('change', (e) => {
+            state.soilType = e.target.value;
+            audioEngine.playUIBeep(450, 0.08);
+            resetSimulation();
+            
+            // Dynamic Information box update
+            const desc = SOIL_PARAMS[state.soilType].description;
+            document.getElementById('explanatoryBar').innerText = desc;
+            
+            speakHydrologyConcept(state.soilType);
+        });
+
+        // Sliders binding
+        bindSlider('rainIntensity', 'val-intensity', ' mm/hr', (v) => {
+            state.rainIntensity = Number(v);
+            document.getElementById('hud-intensity').innerText = v + " mm/hr";
+            updateInfiltrationChart();
+        });
+
+        bindSlider('soilMoisture', 'val-moisture', '%', (v) => {
+            state.soilMoisture = Number(v);
+            
+            // Textual moisture state label
+            let label = "Dry";
+            if (v > 35) label = "Slightly Moist";
+            if (v > 70) label = "Highly Saturated";
+            document.getElementById('val-moisture').innerText = `${label} (${v}%)`;
+
+            resetSimulation();
+            speakHydrologyConcept('moisture');
+        });
+
+        bindSlider('vegCover', 'val-veg', '%', (v) => {
+            state.vegCover = Number(v);
+            
+            let label = "Sparse";
+            if (v > 40) label = "Moderate";
+            if (v > 75) label = "Dense Canopy";
+            document.getElementById('val-veg').innerText = `${label} (${v}%)`;
+
+            resetSimulation();
+            speakHydrologyConcept('veg');
+        });
+
+        bindSlider('slope', 'val-slope', '°', (v) => {
+            state.slope = Number(v);
+            
+            let label = "Flat";
+            if (v > 10) label = "Moderate Slope";
+            if (v > 28) label = "Steep Slope";
+            document.getElementById('val-slope').innerText = `${label} (${v}°)`;
+
+            resetSimulation();
+            speakHydrologyConcept('slope');
+        });
+
+        // Speech Toggle
+        document.getElementById('voiceToggle').addEventListener('change', (e) => {
+            state.voiceEnabled = e.target.checked;
+            audioEngine.playUIBeep(500, 0.05);
+        });
+
+        // Play/Pause Button
+        document.getElementById('playBtn').addEventListener('click', () => {
+            audioEngine.init(); // browser permission trigger
+            audioEngine.playUIBeep(650, 0.1);
+            
+            state.isRunning = !state.isRunning;
+            if (state.isRunning) {
+                document.getElementById('playBtn').innerHTML = '<i class="fa-solid fa-pause"></i> Pause Storm';
+                speakHydrologyConcept('start', "Starting simulated rainfall event. Observe down-slope runoff development as soil matrix starts sealing.");
+            } else {
+                document.getElementById('playBtn').innerHTML = '<i class="fa-solid fa-play"></i> Resume Storm';
+                audioEngine.updateSoundScape(0, 0, 0); // quiet down audio
+            }
+        });
+
+        // Reset Button
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            audioEngine.playUIBeep(400, 0.12);
+            resetSimulation();
+        });
+
+        // Web Audio Initial Unlock Hook banner
+        document.getElementById('audioActivationBtn').addEventListener('click', () => {
+            audioEngine.init();
+            const btn = document.getElementById('audioActivationBtn');
+            btn.classList.add('active');
+            btn.innerHTML = `<i class="fa-solid fa-volume-high"></i> <span>HYDRODYNAMIC SOUND ENGINE ACTIVE</span>`;
+            
+            speakHydrologyConcept('welcome', "Welcome to the Hydrosense Infiltration Lab. Click Start Storm to analyze Horton equations.");
+        });
+    }
+
+    function bindSlider(id, valId, suffix, onUpdate) {
+        const el = document.getElementById(id);
+        el.addEventListener('input', (e) => {
+            const val = e.target.value;
+            document.getElementById(valId).innerText = val + suffix;
+            onUpdate(val);
+        });
+    }
+
+    function resetSimulation() {
+        state.time = 0;
+        state.wettingFrontDepth = 0;
+        state.cumulativeInfiltration = 0;
+        state.rainParticles = [];
+        state.infilParticles = [];
+        state.runoffParticles = [];
+        
+        document.getElementById('hud-time').innerText = "0.00 hr";
+        document.getElementById('hud-infiltration').innerText = "--";
+        document.getElementById('hud-runoff').innerText = "--";
+        
+        updateInfiltrationChart();
+        const activeFp = calculateHortonInfiltrationCapacity();
+        updateMathematicalFormulaDisplay(activeFp, Math.min(state.rainIntensity, activeFp), 0);
+        
+        audioEngine.updateSoundScape(0, 0, 0);
+    }
+
+
+    // --- 10. Initialization Entrypoint ---
+    window.addEventListener('load', () => {
+        initInfiltrationChart();
+        setupInteractions();
+        resetSimulation();
+        
+        // Start continuous visual loop and computational timeline loop
+        drawSimulation();
+        simPhysicsLoop();
+    });
+
+</script>
+</body>
+</html>

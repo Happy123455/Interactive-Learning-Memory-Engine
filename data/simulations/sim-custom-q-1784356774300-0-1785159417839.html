@@ -1,0 +1,1572 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steel Connection Playground - Interactive Engineering Simulator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              bg: '#080c14',
+              card: '#0e1626',
+              border: '#1e293b',
+              accent: '#00f3ff',
+              magenta: '#ff007f',
+              green: '#00ff88',
+              amber: '#ffb700',
+              red: '#ff3366',
+            }
+          },
+          boxShadow: {
+            'neon-cyan': '0 0 15px rgba(0, 243, 255, 0.4)',
+            'neon-magenta': '0 0 15px rgba(255, 0, 127, 0.4)',
+            'neon-green': '0 0 15px rgba(0, 255, 136, 0.4)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #080c14;
+      color: #e2e8f0;
+      user-select: none;
+    }
+
+    /* Grid layout fitting strictly inside 100vh */
+    .viewport-grid {
+      display: grid;
+      grid-template-rows: 56px 1fr;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .main-workspace {
+      display: grid;
+      grid-template-columns: 320px 1fr 360px;
+      height: calc(100vh - 56px);
+      overflow: hidden;
+    }
+
+    @media (max-width: 1280px) {
+      .main-workspace {
+        grid-template-columns: 280px 1fr 310px;
+      }
+    }
+
+    /* Custom Cyber Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #080c14;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #00f3ff;
+    }
+
+    /* Glow pulse animation */
+    @keyframes pulseGlow {
+      0%, 100% { filter: drop-shadow(0 0 4px #00f3ff); }
+      50% { filter: drop-shadow(0 0 12px #00f3ff); }
+    }
+    .glow-pulse {
+      animation: pulseGlow 2s infinite;
+    }
+
+    /* Custom Slider Aesthetics */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: #1a2333;
+      border-radius: 4px;
+      height: 6px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: #00f3ff;
+      cursor: pointer;
+      box-shadow: 0 0 8px #00f3ff;
+      transition: transform 0.1s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+<body class="font-sans antialiased text-slate-200">
+
+  <div class="viewport-grid">
+    <!-- TOP HEADER NAVBAR -->
+    <header class="bg-cyber-card border-b border-cyber-border px-4 flex items-center justify-between z-20">
+      <div class="flex items-center space-x-3">
+        <div class="w-8 h-8 rounded-lg bg-cyan-950 border border-cyber-accent flex items-center justify-center text-cyber-accent font-bold font-mono text-lg shadow-neon-cyan">
+          ⚙️
+        </div>
+        <div>
+          <h1 class="text-base font-bold tracking-wider text-white flex items-center gap-2">
+            STEEL CONNECTION <span class="text-cyber-accent font-mono text-xs px-2 py-0.5 rounded bg-cyan-950 border border-cyber-accent/40">PLAYGROUND v2.0</span>
+          </h1>
+          <p class="text-[10px] text-slate-400 font-mono">IS 800:2007 & AISC 360 INTERACTIVE SIMULATOR</p>
+        </div>
+      </div>
+
+      <!-- Mode Selector -->
+      <div class="flex items-center space-x-1 bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+        <button id="modeFinPlate" onclick="setConnectionMode('fin')" class="px-3 py-1 rounded text-xs font-semibold font-mono transition-all bg-cyber-accent text-slate-950 shadow-neon-cyan">
+          FIN PLATE (PINNED)
+        </button>
+        <button id="modeEndPlate" onclick="setConnectionMode('endplate')" class="px-3 py-1 rounded text-xs font-semibold font-mono transition-all text-slate-400 hover:text-white">
+          END PLATE (RIGID)
+        </button>
+        <button id="modeCleat" onclick="setConnectionMode('cleat')" class="px-3 py-1 rounded text-xs font-semibold font-mono transition-all text-slate-400 hover:text-white">
+          ANGLE CLEAT
+        </button>
+      </div>
+
+      <!-- Controls & Toggles -->
+      <div class="flex items-center space-x-3">
+        <!-- Voiceover Switch -->
+        <button id="ttsToggle" onclick="toggleVoiceover()" class="flex items-center space-x-1.5 px-2.5 py-1 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-xs text-slate-300 transition-colors">
+          <span id="ttsIcon">🔊</span>
+          <span id="ttsText" class="font-mono">VOICEOVER: ON</span>
+        </button>
+
+        <!-- Audio Mute Switch -->
+        <button id="audioToggle" onclick="toggleAudio()" class="p-1.5 rounded border border-slate-700 bg-slate-800/60 hover:bg-slate-800 text-xs text-slate-300">
+          <span id="audioIcon">🎵</span>
+        </button>
+
+        <!-- Reset Button -->
+        <button onclick="resetSimulation()" class="px-3 py-1 rounded border border-cyber-magenta/50 text-cyber-magenta bg-magenta-950/20 hover:bg-cyber-magenta hover:text-white text-xs font-mono font-bold transition-all">
+          ↺ RESET
+        </button>
+      </div>
+    </header>
+
+    <!-- MAIN WORKSPACE LAYOUT -->
+    <main class="main-workspace">
+      
+      <!-- LEFT SIDEBAR: Controls, Blueprints & Parts Assembly -->
+      <aside class="bg-cyber-card/90 border-r border-cyber-border flex flex-col h-full overflow-hidden">
+        <!-- Sidebar Navigation Tabs -->
+        <div class="flex border-b border-cyber-border bg-slate-950/50 text-xs font-mono">
+          <button id="tabBtnAssemble" onclick="switchSidebarTab('assemble')" class="flex-1 py-2.5 text-center font-bold text-cyber-accent border-b-2 border-cyber-accent bg-slate-900/40">
+            ASSEMBLE
+          </button>
+          <button id="tabBtnBlueprint" onclick="switchSidebarTab('blueprint')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200">
+            IDENTIFY
+          </button>
+          <button id="tabBtnParams" onclick="switchSidebarTab('params')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200">
+            PARAMS
+          </button>
+        </div>
+
+        <!-- TAB 1: ASSEMBLE & PARTS LIBRARY -->
+        <div id="tabAssemble" class="p-4 flex-1 overflow-y-auto space-y-4">
+          <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+            <h3 class="text-xs font-mono font-bold text-cyber-accent uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span>🧩</span> Drag-and-Drop Parts
+            </h3>
+            <p class="text-[11px] text-slate-400 leading-snug">
+              Drag bolts and stiffeners onto the highlighted target zones on the canvas connection to construct the joint.
+            </p>
+          </div>
+
+          <!-- Draggable Items Container -->
+          <div class="space-y-3">
+            <!-- Bolt Cluster M16 -->
+            <div draggable="true" id="dragBoltM16" ondragstart="handlePartDragStart(event, 'M16')" class="p-3 bg-slate-900/90 border border-cyan-500/30 hover:border-cyber-accent rounded-lg cursor-grab active:cursor-grabbing hover:bg-slate-800/80 transition-all flex items-center justify-between group">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded bg-cyan-950 border border-cyber-accent/50 flex items-center justify-center font-mono text-cyber-accent font-bold text-sm group-hover:scale-110 transition-transform">
+                  M16
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">M16 Bolt Cluster</div>
+                  <div class="text-[10px] text-slate-400 font-mono">Class 4.6 / 8.8 High Strength</div>
+                </div>
+              </div>
+              <span class="text-xs text-cyber-accent font-mono font-bold">DRAG ➔</span>
+            </div>
+
+            <!-- Bolt Cluster M20 -->
+            <div draggable="true" id="dragBoltM20" ondragstart="handlePartDragStart(event, 'M20')" class="p-3 bg-slate-900/90 border border-cyan-500/30 hover:border-cyber-accent rounded-lg cursor-grab active:cursor-grabbing hover:bg-slate-800/80 transition-all flex items-center justify-between group">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded bg-cyan-950 border border-cyber-accent/50 flex items-center justify-center font-mono text-cyber-accent font-bold text-sm group-hover:scale-110 transition-transform">
+                  M20
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">M20 Bolt Cluster</div>
+                  <div class="text-[10px] text-slate-400 font-mono">Standard Heavy Structural</div>
+                </div>
+              </div>
+              <span class="text-xs text-cyber-accent font-mono font-bold">DRAG ➔</span>
+            </div>
+
+            <!-- Bolt Cluster M24 -->
+            <div draggable="true" id="dragBoltM24" ondragstart="handlePartDragStart(event, 'M24')" class="p-3 bg-slate-900/90 border border-cyan-500/30 hover:border-cyber-accent rounded-lg cursor-grab active:cursor-grabbing hover:bg-slate-800/80 transition-all flex items-center justify-between group">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded bg-cyan-950 border border-cyber-accent/50 flex items-center justify-center font-mono text-cyber-accent font-bold text-sm group-hover:scale-110 transition-transform">
+                  M24
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">M24 Bolt Cluster</div>
+                  <div class="text-[10px] text-slate-400 font-mono">Heavy Duty Capacity</div>
+                </div>
+              </div>
+              <span class="text-xs text-cyber-accent font-mono font-bold">DRAG ➔</span>
+            </div>
+
+            <!-- Web Stiffener Plate (For Rigid) -->
+            <div draggable="true" id="dragStiffener" ondragstart="handlePartDragStart(event, 'Stiffener')" class="p-3 bg-slate-900/90 border border-magenta-500/30 hover:border-cyber-magenta rounded-lg cursor-grab active:cursor-grabbing hover:bg-slate-800/80 transition-all flex items-center justify-between group">
+              <div class="flex items-center space-x-3">
+                <div class="w-9 h-9 rounded bg-magenta-950 border border-cyber-magenta/50 flex items-center justify-center font-mono text-cyber-magenta font-bold text-sm group-hover:scale-110 transition-transform">
+                  STF
+                </div>
+                <div>
+                  <div class="text-xs font-bold text-white">Flange Stiffener Plate</div>
+                  <div class="text-[10px] text-slate-400 font-mono">Prevents Column Web Buckling</div>
+                </div>
+              </div>
+              <span class="text-xs text-cyber-magenta font-mono font-bold">DRAG ➔</span>
+            </div>
+          </div>
+
+          <!-- Quick Action Auto-Assemble Button -->
+          <div class="pt-2">
+            <button onclick="autoAssemble()" class="w-full py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-mono font-bold text-xs rounded-lg shadow-neon-cyan transition-all">
+              ⚡ AUTO-ASSEMBLE OPTIMAL BOLTS
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 2: BLUEPRINT IDENTIFICATION CHECKLIST -->
+        <div id="tabBlueprint" class="p-4 flex-1 overflow-y-auto space-y-3 hidden">
+          <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+            <h3 class="text-xs font-mono font-bold text-cyber-green uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span>🔍</span> Component Identification
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Click elements to highlight them on the canvas blueprint and hear an ELI5 breakdown of their structural role.
+            </p>
+          </div>
+
+          <div class="space-y-2">
+            <button onclick="highlightComponent('column')" class="w-full p-2.5 bg-slate-900 border border-slate-800 hover:border-cyber-accent rounded text-left flex items-center justify-between group">
+              <div>
+                <span class="text-xs font-bold text-white group-hover:text-cyber-accent">1. Supporting Column</span>
+                <p class="text-[10px] text-slate-400">ISMB 400 Heavy Flange Column</p>
+              </div>
+              <span class="text-xs font-mono text-slate-500">HIGHLIGHT</span>
+            </button>
+
+            <button onclick="highlightComponent('beam')" class="w-full p-2.5 bg-slate-900 border border-slate-800 hover:border-cyber-magenta rounded text-left flex items-center justify-between group">
+              <div>
+                <span class="text-xs font-bold text-white group-hover:text-cyber-magenta">2. Supported Beam</span>
+                <p class="text-[10px] text-slate-400">ISMB 300 Cantilever Beam</p>
+              </div>
+              <span class="text-xs font-mono text-slate-500">HIGHLIGHT</span>
+            </button>
+
+            <button onclick="highlightComponent('plate')" class="w-full p-2.5 bg-slate-900 border border-slate-800 hover:border-cyber-green rounded text-left flex items-center justify-between group">
+              <div>
+                <span class="text-xs font-bold text-white group-hover:text-cyber-green">3. Fin / End Plate</span>
+                <p class="text-[10px] text-slate-400">10mm Thick Fe410 Steel Plate</p>
+              </div>
+              <span class="text-xs font-mono text-slate-500">HIGHLIGHT</span>
+            </button>
+
+            <button onclick="highlightComponent('bolts')" class="w-full p-2.5 bg-slate-900 border border-slate-800 hover:border-cyber-amber rounded text-left flex items-center justify-between group">
+              <div>
+                <span class="text-xs font-bold text-white group-hover:text-cyber-amber">4. Bolt Group Zone</span>
+                <p class="text-[10px] text-slate-400">Shear Plane & Bearing Interface</p>
+              </div>
+              <span class="text-xs font-mono text-slate-500">HIGHLIGHT</span>
+            </button>
+
+            <button onclick="highlightComponent('shear_zone')" class="w-full p-2.5 bg-slate-900 border border-slate-800 hover:border-cyber-red rounded text-left flex items-center justify-between group">
+              <div>
+                <span class="text-xs font-bold text-white group-hover:text-cyber-red">5. Shear Force Plane</span>
+                <p class="text-[10px] text-slate-400">Critical Vertical Cutting Plane</p>
+              </div>
+              <span class="text-xs font-mono text-slate-500">HIGHLIGHT</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- TAB 3: PARAMETRIC SLIDERS -->
+        <div id="tabParams" class="p-4 flex-1 overflow-y-auto space-y-4 hidden">
+          <!-- Load Slider -->
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-200">Shear Load (V):</span>
+              <span id="valLoad" class="font-mono text-cyber-accent font-bold">100 kN</span>
+            </div>
+            <input type="range" id="sliderLoad" min="10" max="300" step="5" value="100" oninput="updateParams()" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>10 kN</span>
+              <span>300 kN</span>
+            </div>
+          </div>
+
+          <!-- Bolt Pitch Distance Slider -->
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-200">Bolt Pitch (p):</span>
+              <span id="valPitch" class="font-mono text-cyber-green font-bold">60 mm</span>
+            </div>
+            <input type="range" id="sliderPitch" min="40" max="120" step="5" value="60" oninput="updateParams()" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>Min: 2.5d (50mm)</span>
+              <span>120 mm</span>
+            </div>
+          </div>
+
+          <!-- Edge Distance Slider -->
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-200">Edge Distance (e):</span>
+              <span id="valEdge" class="font-mono text-cyber-magenta font-bold">40 mm</span>
+            </div>
+            <input type="range" id="sliderEdge" min="25" max="80" step="2" value="40" oninput="updateParams()" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>Min: 1.7d0 (34mm)</span>
+              <span>80 mm</span>
+            </div>
+          </div>
+
+          <!-- Plate Thickness Slider -->
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800 space-y-2">
+            <div class="flex justify-between items-center text-xs">
+              <span class="font-bold text-slate-200">Plate Thickness (t):</span>
+              <span id="valPlateThick" class="font-mono text-cyber-amber font-bold">10 mm</span>
+            </div>
+            <input type="range" id="sliderPlateThick" min="6" max="25" step="1" value="10" oninput="updateParams()" class="w-full">
+            <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+              <span>6 mm</span>
+              <span>25 mm</span>
+            </div>
+          </div>
+
+          <!-- Bolt Grade Dropdown -->
+          <div class="bg-slate-900/90 rounded-lg p-3 border border-slate-800 space-y-1.5">
+            <label class="text-xs font-bold text-slate-200 block">Bolt Grade (Property Class):</label>
+            <select id="selectBoltGrade" onchange="updateParams()" class="w-full bg-slate-950 border border-slate-700 text-xs font-mono text-slate-200 rounded p-1.5 focus:border-cyber-accent focus:outline-none">
+              <option value="4.6">Grade 4.6 (fu = 400 MPa, fy = 240 MPa)</option>
+              <option value="8.8" selected>Grade 8.8 HSFG (fu = 800 MPa, fy = 640 MPa)</option>
+              <option value="10.9">Grade 10.9 High Tensile (fu = 1000 MPa, fy = 900 MPa)</option>
+            </select>
+          </div>
+        </div>
+      </aside>
+
+      <!-- CENTER VIEWPORT: Interactive Canvas & Overlay Tooltips -->
+      <section class="relative flex flex-col h-full bg-cyber-bg overflow-hidden border-r border-cyber-border">
+        
+        <!-- Live Status Overlay Banner -->
+        <div class="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+          <div class="flex items-center space-x-2 bg-slate-950/80 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg">
+            <div id="statusIndicatorDot" class="w-3 h-3 rounded-full bg-cyber-green shadow-neon-green animate-pulse"></div>
+            <span id="statusText" class="text-xs font-mono font-bold text-cyber-green">STATUS: CONNECTION SAFE</span>
+          </div>
+
+          <div class="flex items-center space-x-2 bg-slate-950/80 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-lg font-mono text-xs">
+            <span class="text-slate-400">Demand/Capacity (D/C):</span>
+            <span id="dcRatioText" class="text-cyber-accent font-bold">0.48</span>
+          </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div id="canvasContainer" class="w-full h-full relative cursor-crosshair">
+          <canvas id="simCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <!-- Dynamic ELI5 Voiceover & Caption Bar -->
+        <div class="bg-slate-950/90 border-t border-cyber-border p-3 flex items-start space-x-3 z-10">
+          <div class="w-8 h-8 rounded-full bg-cyan-950 border border-cyber-accent flex-shrink-0 flex items-center justify-center text-lg">
+            🤖
+          </div>
+          <div class="flex-1">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-mono font-bold text-cyber-accent uppercase tracking-wider">EngiBot ELI5 Narrator</span>
+              <span id="speechState" class="text-[9px] font-mono text-slate-500">READY</span>
+            </div>
+            <p id="eli5Caption" class="text-xs text-slate-300 font-sans mt-0.5 leading-snug">
+              "Welcome engineer! Drag bolts onto the fin plate to fasten the beam arm to the column torso!"
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- RIGHT SIDEBAR: Calculations, Formulae & Challenges -->
+      <aside class="bg-cyber-card/90 border-l border-cyber-border flex flex-col h-full overflow-hidden">
+        
+        <!-- Right Panel Tabs -->
+        <div class="flex border-b border-cyber-border bg-slate-950/50 text-xs font-mono">
+          <button id="tabBtnMath" onclick="switchRightTab('math')" class="flex-1 py-2.5 text-center font-bold text-cyber-accent border-b-2 border-cyber-accent bg-slate-900/40">
+            FORMULAS
+          </button>
+          <button id="tabBtnCodebook" onclick="switchRightTab('codebook')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200">
+            IS 800
+          </button>
+          <button id="tabBtnChallenge" onclick="switchRightTab('challenge')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200">
+            CHALLENGES
+          </button>
+        </div>
+
+        <!-- RIGHT TAB 1: FORMULAS & CALCULATIONS -->
+        <div id="rightTabMath" class="p-4 flex-1 overflow-y-auto space-y-4">
+          <!-- Bolt Capacity Summary Card -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3 space-y-2">
+            <h3 class="text-xs font-mono font-bold text-cyber-accent uppercase tracking-wider border-b border-slate-800 pb-1">
+              📊 Live Capacity Breakdown
+            </h3>
+            <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-400">Shear Cap / Bolt</div>
+                <div id="calcVsb" class="text-cyber-accent font-bold text-sm">45.2 kN</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-400">Bearing Cap / Bolt</div>
+                <div id="calcVpb" class="text-cyber-green font-bold text-sm">62.8 kN</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-400">Total Connection Cap</div>
+                <div id="calcVrd" class="text-cyber-amber font-bold text-sm">180.8 kN</div>
+              </div>
+              <div class="bg-slate-950 p-2 rounded border border-slate-800">
+                <div class="text-[10px] text-slate-400">Applied Force (V)</div>
+                <div id="calcVed" class="text-white font-bold text-sm">100.0 kN</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Formula Step 1: Shear Capacity -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-lg p-3 space-y-1.5 font-mono text-xs">
+            <div class="text-cyber-accent font-bold text-[11px]">1. Bolt Shear Capacity (IS 800 Cl 10.3.3):</div>
+            <div class="p-1.5 bg-slate-950 rounded text-slate-300 text-[10px] border border-slate-800">
+              V<sub>dsb</sub> = [ f<sub>u</sub> / (√3 × γ<sub>mb</sub>) ] × A<sub>nb</sub>
+            </div>
+            <p id="formulaShearDetail" class="text-[10px] text-slate-400">
+              = [800 / (1.732 × 1.25)] × 245 mm² = 45.2 kN
+            </p>
+          </div>
+
+          <!-- Formula Step 2: Bearing Capacity -->
+          <div class="bg-slate-900/80 border border-slate-800 rounded-lg p-3 space-y-1.5 font-mono text-xs">
+            <div class="text-cyber-green font-bold text-[11px]">2. Plate Bearing Capacity (IS 800 Cl 10.3.4):</div>
+            <div class="p-1.5 bg-slate-950 rounded text-slate-300 text-[10px] border border-slate-800">
+              V<sub>dpb</sub> = [ 2.5 × k<sub>b</sub> × d × t × f<sub>u</sub> ] / γ<sub>mb</sub>
+            </div>
+            <p id="formulaBearingDetail" class="text-[10px] text-slate-400">
+              k<sub>b</sub> = min(e/3d0, p/3d0-0.25, fub/fu, 1.0) = 0.61
+            </p>
+          </div>
+
+          <!-- Live Graph Canvas -->
+          <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3 space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold text-slate-300">Capacity vs Pitch (p)</span>
+              <span class="text-[10px] font-mono text-cyber-accent">LIVE GRAPH</span>
+            </div>
+            <div class="w-full h-32 relative">
+              <canvas id="graphCanvas" class="w-full h-full block rounded bg-slate-950 border border-slate-800"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT TAB 2: IS 800 CODEBOOK UNLOCKS -->
+        <div id="rightTabCodebook" class="p-4 flex-1 overflow-y-auto space-y-3 hidden">
+          <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+            <h3 class="text-xs font-mono font-bold text-cyber-amber uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span>📖</span> IS 800:2007 Codebook Clauses
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Interactive design rules for Indian Standard Code of Practice for General Construction in Steel.
+            </p>
+          </div>
+
+          <!-- Clause 10.3.2 -->
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1">
+            <div class="flex justify-between items-center text-xs font-mono">
+              <span class="text-cyber-accent font-bold">Clause 10.3.2</span>
+              <span class="text-[10px] text-slate-500">Clearances</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Standard clearance hole size $d_0 = d + 2\text{mm}$ for bolts up to M24.
+            </p>
+          </div>
+
+          <!-- Clause 10.2.2 Pitch -->
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1">
+            <div class="flex justify-between items-center text-xs font-mono">
+              <span class="text-cyber-green font-bold">Clause 10.2.2</span>
+              <span class="text-[10px] text-slate-500">Minimum Pitch</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Pitch distance shall not be less than <strong class="text-cyber-green">2.5 × nominal diameter</strong> of the bolt ($p \ge 2.5d$).
+            </p>
+          </div>
+
+          <!-- Clause 10.2.4 Edge -->
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1">
+            <div class="flex justify-between items-center text-xs font-mono">
+              <span class="text-cyber-magenta font-bold">Clause 10.2.4</span>
+              <span class="text-[10px] text-slate-500">Edge Distance</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Minimum edge distance $e \ge 1.7 \times d_0$ for hand flame-cut edges, or $1.5 \times d_0$ for machine sheared edges.
+            </p>
+          </div>
+
+          <!-- Clause 10.3.5 Block Shear -->
+          <div class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1">
+            <div class="flex justify-between items-center text-xs font-mono">
+              <span class="text-cyber-amber font-bold">Clause 10.3.5</span>
+              <span class="text-[10px] text-slate-500">Block Shear Failure</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Block shear strength is governed by tearing along a plane of shear and tension yielding across an perpendicular plane.
+            </p>
+          </div>
+        </div>
+
+        <!-- RIGHT TAB 3: GAMIFIED CHALLENGES -->
+        <div id="rightTabChallenge" class="p-4 flex-1 overflow-y-auto space-y-3 hidden">
+          <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800">
+            <h3 class="text-xs font-mono font-bold text-cyber-magenta uppercase tracking-wider mb-1 flex items-center gap-1.5">
+              <span>🏆</span> Design Challenges
+            </h3>
+            <p class="text-[11px] text-slate-400">
+              Solve real-world structural engineering tasks to earn badges and unlock achievements!
+            </p>
+          </div>
+
+          <!-- Challenge 1 -->
+          <div id="cardChallenge1" class="p-3 bg-slate-900 border border-cyber-accent/50 rounded-lg space-y-2">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">Level 1: Safe Fin Connection</span>
+              <span id="badgeC1" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">INCOMPLETE</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Assemble at least 4 x M20 bolts and configure pitch/edge parameters so the connection safely sustains a <strong>120 kN</strong> shear load ($D/C \le 1.0$).
+            </p>
+            <button onclick="checkChallenge1()" class="w-full py-1.5 bg-cyber-accent/20 hover:bg-cyber-accent text-cyber-accent hover:text-slate-950 border border-cyber-accent/50 rounded text-xs font-mono font-bold transition-all">
+              VERIFY LEVEL 1
+            </button>
+          </div>
+
+          <!-- Challenge 2 -->
+          <div id="cardChallenge2" class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-2 opacity-80">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">Level 2: Prevent Tear-Out Failure</span>
+              <span id="badgeC2" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">LOCKED</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Set edge distance $e$ and pitch $p$ high enough so bearing capacity factor $k_b \ge 0.70$ under 180 kN load.
+            </p>
+            <button onclick="checkChallenge2()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-bold transition-all">
+              VERIFY LEVEL 2
+            </button>
+          </div>
+
+          <!-- Challenge 3 -->
+          <div id="cardChallenge3" class="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-2 opacity-80">
+            <div class="flex items-center justify-between text-xs">
+              <span class="font-bold text-white">Level 3: Rigid Frame Stiffeners</span>
+              <span id="badgeC3" class="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-400">LOCKED</span>
+            </div>
+            <p class="text-[11px] text-slate-300">
+              Switch to Rigid End-Plate mode, attach stiffener plates, and support 250 kN load without yield!
+            </p>
+            <button onclick="checkChallenge3()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs font-mono font-bold transition-all">
+              VERIFY LEVEL 3
+            </button>
+          </div>
+        </div>
+      </aside>
+
+    </main>
+  </div>
+
+  <script>
+    // Global Simulation State
+    const state = {
+      mode: 'fin', // 'fin', 'endplate', 'cleat'
+      load: 100, // kN
+      pitch: 60, // mm
+      edge: 40, // mm
+      plateThick: 10, // mm
+      boltGrade: 8.8,
+      boltDiameter: 20, // mm (M20 default)
+      boltCount: 4,
+      boltsAssembled: true,
+      hasStiffener: false,
+      highlightPart: null,
+      audioEnabled: true,
+      voiceoverEnabled: true,
+      
+      // Canvas interaction drag state
+      draggedPart: null,
+      mousePos: { x: 0, y: 0 },
+      isDragging: false,
+      beamAngle: 0, // Deflection angle for pinned joint
+      
+      // Physics calculations result cache
+      results: {
+        Vsb: 0,
+        Vpb: 0,
+        Vrd: 0,
+        dcRatio: 0,
+        kb: 0,
+        isSafe: true
+      }
+    };
+
+    // Web Audio Synthesizer Engine (No external sound files required)
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    // Play metallic snap chime sound
+    function playSnapSound() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1800, audioCtx.currentTime + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(400, audioCtx.currentTime + 0.2);
+        
+        gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.25);
+      } catch (e) { console.error(e); }
+    }
+
+    // Play pitch-shifting slider click sound
+    function playSliderClick(val) {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        const freq = 300 + (val * 4);
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.04);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.04);
+      } catch (e) { console.error(e); }
+    }
+
+    // Play failure alert tone
+    function playFailureSound() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+        osc.frequency.setValueAtTime(120, audioCtx.currentTime + 0.1);
+        
+        gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) { console.error(e); }
+    }
+
+    // Web Speech API Voiceover Manager
+    function speak(text) {
+      document.getElementById('eli5Caption').innerText = `"${text}"`;
+      if (!state.voiceoverEnabled || !('speechSynthesis' in window)) return;
+      
+      window.speechSynthesis.cancel(); // Stop any ongoing speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      
+      document.getElementById('speechState').innerText = 'SPEAKING...';
+      document.getElementById('speechState').classList.add('text-cyber-accent');
+      
+      utterance.onend = () => {
+        document.getElementById('speechState').innerText = 'READY';
+        document.getElementById('speechState').classList.remove('text-cyber-accent');
+      };
+      
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleVoiceover() {
+      state.voiceoverEnabled = !state.voiceoverEnabled;
+      const btnText = document.getElementById('ttsText');
+      const btnIcon = document.getElementById('ttsIcon');
+      
+      if (state.voiceoverEnabled) {
+        btnText.innerText = 'VOICEOVER: ON';
+        btnIcon.innerText = '🔊';
+        speak('Voiceover enabled.');
+      } else {
+        btnText.innerText = 'VOICEOVER: OFF';
+        btnIcon.innerText = '🔇';
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function toggleAudio() {
+      state.audioEnabled = !state.audioEnabled;
+      document.getElementById('audioIcon').innerText = state.audioEnabled ? '🎵' : '🔇';
+    }
+
+    // IS 800 Structural Engineering Math Engine
+    function calculateEngineering() {
+      const d = state.boltDiameter; // mm
+      const d0 = d + 2; // clearance hole size
+      const p = state.pitch; // mm
+      const e = state.edge; // mm
+      const t = state.plateThick; // mm
+      const fu = 410; // Fe410 steel plate ultimate tensile strength
+      
+      // Bolt Material Properties
+      let fub = 800; // Grade 8.8
+      if (state.boltGrade == 4.6) fub = 400;
+      if (state.boltGrade == 10.9) fub = 1000;
+      
+      const gamma_mb = 1.25; // Partial safety factor for bolts
+      
+      // Tensile Stress Area Anb
+      const Anb = 0.78 * (Math.PI * (d / 2) * (d / 2));
+      
+      // 1. Bolt Shear Capacity Vdsb (IS 800 Cl 10.3.3)
+      const Vnsb = (fub / Math.sqrt(3)) * Anb;
+      const Vdsb = Vnsb / (gamma_mb * 1000); // kN per bolt
+      
+      // 2. Bearing Capacity Vdpb (IS 800 Cl 10.3.4)
+      const e_term = e / (3 * d0);
+      const p_term = (p / (3 * d0)) - 0.25;
+      const fub_fu_term = fub / fu;
+      
+      const kb = Math.min(e_term, p_term, fub_fu_term, 1.0);
+      
+      const Vnpb = 2.5 * kb * d * t * fu;
+      const Vdpb = Vnpb / (gamma_mb * 1000); // kN per bolt
+      
+      // Governing single bolt capacity
+      const V_bolt_governing = Math.min(Vdsb, Vdpb);
+      
+      // Total connection capacity
+      const n_bolts = state.boltsAssembled ? state.boltCount : 0;
+      const Vrd = n_bolts * V_bolt_governing;
+      
+      const Ved = state.load; // Applied Shear Force
+      const dcRatio = Vrd > 0 ? (Ved / Vrd) : 99.0;
+      const isSafe = (dcRatio <= 1.0) && state.boltsAssembled;
+      
+      // Save results to state
+      state.results = {
+        Vsb: Vdsb,
+        Vpb: Vdpb,
+        Vrd: Vrd,
+        dcRatio: dcRatio,
+        kb: kb,
+        isSafe: isSafe
+      };
+
+      // Update UI elements
+      document.getElementById('calcVsb').innerText = `${Vdsb.toFixed(1)} kN`;
+      document.getElementById('calcVpb').innerText = `${Vdpb.toFixed(1)} kN`;
+      document.getElementById('calcVrd').innerText = `${Vrd.toFixed(1)} kN`;
+      document.getElementById('calcVed').innerText = `${Ved.toFixed(1)} kN`;
+      document.getElementById('dcRatioText').innerText = dcRatio.toFixed(2);
+
+      document.getElementById('formulaShearDetail').innerText = 
+        `= [${fub} / (1.732 × 1.25)] × ${Anb.toFixed(0)} mm² = ${Vdsb.toFixed(1)} kN`;
+        
+      document.getElementById('formulaBearingDetail').innerText = 
+        `kb = min(${e_term.toFixed(2)}, ${p_term.toFixed(2)}, ${fub_fu_term.toFixed(2)}, 1.0) = ${kb.toFixed(2)}`;
+
+      // Update Status Indicator
+      const statusDot = document.getElementById('statusIndicatorDot');
+      const statusText = document.getElementById('statusText');
+      
+      if (!state.boltsAssembled) {
+        statusDot.className = "w-3 h-3 rounded-full bg-cyber-amber shadow-neon-amber animate-pulse";
+        statusText.innerText = "STATUS: UNASSEMBLED - DRAG BOLTS!";
+        statusText.className = "text-xs font-mono font-bold text-cyber-amber";
+      } else if (isSafe) {
+        statusDot.className = "w-3 h-3 rounded-full bg-cyber-green shadow-neon-green animate-pulse";
+        statusText.innerText = "STATUS: CONNECTION SAFE (PASS)";
+        statusText.className = "text-xs font-mono font-bold text-cyber-green";
+      } else {
+        statusDot.className = "w-3 h-3 rounded-full bg-cyber-red shadow-neon-red animate-pulse";
+        statusText.innerText = "STATUS: FAILURE - CAPACITY EXCEEDED!";
+        statusText.className = "text-xs font-mono font-bold text-cyber-red";
+      }
+
+      // Calculate pinned connection deflection beam angle
+      if (state.mode === 'fin' || state.mode === 'cleat') {
+        state.beamAngle = (state.load / 300) * 0.04; // Small rotation angle
+      } else {
+        state.beamAngle = 0; // Rigid joint does not rotate
+      }
+
+      drawGraph();
+    }
+
+    // Interactive Main Viewport Canvas Simulation
+    let canvas, ctx;
+
+    function initCanvas() {
+      const container = document.getElementById('canvasContainer');
+      canvas = document.getElementById('simCanvas');
+      ctx = canvas.getContext('2d');
+
+      // Adjust high DPI canvas resolution
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = container.clientWidth * dpr;
+      canvas.height = container.clientHeight * dpr;
+      ctx.scale(dpr, dpr);
+
+      // Add Drag & Touch Event Listeners
+      canvas.addEventListener('mousedown', handleCanvasMouseDown);
+      canvas.addEventListener('mousemove', handleCanvasMouseMove);
+      canvas.addEventListener('mouseup', handleCanvasMouseUp);
+    }
+
+    function renderSimulation() {
+      if (!canvas || !ctx) return;
+      
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Draw Grid Background
+      drawGrid(width, height);
+
+      const centerX = width * 0.35;
+      const centerY = height * 0.5;
+
+      // 2. Draw Supporting ISMB 400 Column (Vertical)
+      drawColumn(centerX, centerY);
+
+      // Save context for beam rotation (Pinned joint dynamic response)
+      ctx.save();
+      ctx.translate(centerX + 25, centerY);
+      ctx.rotate(state.beamAngle);
+
+      // 3. Draw Fin Plate / Cleat Angle / End Plate
+      drawConnectionPlate(0, 0);
+
+      // 4. Draw Supported ISMB 300 Beam (Horizontal Cantilever)
+      drawBeam(0, 0);
+
+      // 5. Draw Bolt Group interface
+      if (state.boltsAssembled) {
+        drawBoltGroup(0, 0);
+      } else {
+        drawSnapTargetZones(0, 0);
+      }
+
+      // 6. Draw Applied Heavy Load Vectors and Cantilever Load Box
+      drawLoadVectorAndWeight(320, 0);
+
+      ctx.restore();
+
+      // 7. Draw Active Dragged Part under cursor
+      if (state.isDragging && state.draggedPart) {
+        drawDraggedItemOverlay(state.mousePos.x, state.mousePos.y, state.draggedPart);
+      }
+
+      requestAnimationFrame(renderSimulation);
+    }
+
+    // Canvas Background Cyber Grid
+    function drawGrid(w, h) {
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+      ctx.lineWidth = 1;
+      const step = 30;
+
+      for (let x = 0; x < w; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+    }
+
+    // Draw Steel Column
+    function drawColumn(x, y) {
+      const colWidth = 50;
+      const colHeight = 420;
+
+      ctx.save();
+      
+      // Column Flanges & Web Neon Cyber Styling
+      const isHighlighted = state.highlightPart === 'column';
+      ctx.strokeStyle = isHighlighted ? '#00f3ff' : '#334155';
+      ctx.fillStyle = isHighlighted ? 'rgba(0, 243, 255, 0.15)' : '#0f172a';
+      ctx.lineWidth = isHighlighted ? 3 : 2;
+
+      // Column Box Profile
+      ctx.beginPath();
+      ctx.rect(x - colWidth, y - colHeight / 2, colWidth, colHeight);
+      ctx.fill();
+      ctx.stroke();
+
+      // Column Center Line
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = 'rgba(0, 243, 255, 0.3)';
+      ctx.beginPath();
+      ctx.moveTo(x - colWidth / 2, y - colHeight / 2 - 20);
+      ctx.lineTo(x - colWidth / 2, y + colHeight / 2 + 20);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Label
+      ctx.fillStyle = isHighlighted ? '#00f3ff' : '#94a3b8';
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.fillText('ISMB 400 COLUMN', x - colWidth - 10, y - colHeight / 2 - 10);
+
+      ctx.restore();
+    }
+
+    // Draw Cantilever Beam
+    function drawBeam(x, y) {
+      const beamHeight = 160;
+      const beamLength = 360;
+
+      ctx.save();
+      const isHighlighted = state.highlightPart === 'beam';
+      ctx.strokeStyle = isHighlighted ? '#ff007f' : '#475569';
+      ctx.fillStyle = isHighlighted ? 'rgba(255, 0, 127, 0.15)' : '#1e293b';
+      ctx.lineWidth = isHighlighted ? 3 : 2;
+
+      // Beam Web Body
+      ctx.beginPath();
+      ctx.rect(x + 10, y - beamHeight / 2, beamLength, beamHeight);
+      ctx.fill();
+      ctx.stroke();
+
+      // Flange Lines (Top & Bottom Flanges)
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = isHighlighted ? '#ff007f' : '#64748b';
+      
+      // Top flange
+      ctx.beginPath();
+      ctx.moveTo(x + 10, y - beamHeight / 2);
+      ctx.lineTo(x + 10 + beamLength, y - beamHeight / 2);
+      ctx.stroke();
+
+      // Bottom flange
+      ctx.beginPath();
+      ctx.moveTo(x + 10, y + beamHeight / 2);
+      ctx.lineTo(x + 10 + beamLength, y + beamHeight / 2);
+      ctx.stroke();
+
+      // Label
+      ctx.fillStyle = isHighlighted ? '#ff007f' : '#94a3b8';
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.fillText('ISMB 300 BEAM', x + 150, y - beamHeight / 2 - 10);
+
+      ctx.restore();
+    }
+
+    // Draw Connection Fin Plate / End Plate
+    function drawConnectionPlate(x, y) {
+      ctx.save();
+      const isHighlighted = state.highlightPart === 'plate';
+      ctx.strokeStyle = isHighlighted ? '#00ff88' : '#00f3ff';
+      ctx.fillStyle = isHighlighted ? 'rgba(0, 255, 136, 0.25)' : 'rgba(0, 243, 255, 0.12)';
+      ctx.lineWidth = 2;
+
+      if (state.mode === 'fin') {
+        // Fin Plate (Welded to Column, bolted to beam web)
+        const plateW = 90;
+        const plateH = (state.boltCount / 2) * state.pitch + (2 * state.edge);
+
+        ctx.beginPath();
+        ctx.rect(x - 25, y - plateH / 2, plateW, plateH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Weld Symbol lines
+        ctx.strokeStyle = '#ff007f';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(x - 25, y - plateH / 2);
+        ctx.lineTo(x - 25, y + plateH / 2);
+        ctx.stroke();
+
+      } else if (state.mode === 'endplate') {
+        // End Plate (Welded to Beam end, bolted to column flange)
+        const plateW = 20;
+        const plateH = 220;
+
+        ctx.beginPath();
+        ctx.rect(x - 10, y - plateH / 2, plateW, plateH);
+        ctx.fill();
+        ctx.stroke();
+
+        // Top & Bottom Stiffener Plates if present
+        if (state.hasStiffener) {
+          ctx.fillStyle = 'rgba(255, 0, 127, 0.3)';
+          ctx.strokeStyle = '#ff007f';
+          
+          // Top Stiffener Triangle
+          ctx.beginPath();
+          ctx.moveTo(x + 10, y - 80);
+          ctx.lineTo(x + 80, y - 80);
+          ctx.lineTo(x + 10, y - 130);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+
+          // Bottom Stiffener Triangle
+          ctx.beginPath();
+          ctx.moveTo(x + 10, y + 80);
+          ctx.lineTo(x + 80, y + 80);
+          ctx.lineTo(x + 10, y + 130);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
+      ctx.restore();
+    }
+
+    // Draw Bolts with Pitch & Edge distance annotations
+    function drawBoltGroup(x, y) {
+      ctx.save();
+      const numRows = Math.ceil(state.boltCount / 2);
+      const pitch = state.pitch * 0.6; // Scale for canvas view
+      const edge = state.edge * 0.6;
+      const radius = (state.boltDiameter / 2) * 0.6;
+
+      const isHighlighted = state.highlightPart === 'bolts';
+
+      for (let r = 0; r < numRows; r++) {
+        for (let c = 0; c < 2; c++) {
+          const boltX = x + (c * 40) + edge;
+          const boltY = y - ((numRows - 1) * pitch) / 2 + (r * pitch);
+
+          // Outer washer halo
+          ctx.beginPath();
+          ctx.arc(boltX, boltY, radius + 4, 0, Math.PI * 2);
+          ctx.fillStyle = isHighlighted ? 'rgba(255, 183, 0, 0.4)' : 'rgba(0, 243, 255, 0.2)';
+          ctx.fill();
+
+          // Bolt Hexagon Body
+          ctx.beginPath();
+          ctx.arc(boltX, boltY, radius, 0, Math.PI * 2);
+          ctx.fillStyle = state.results.isSafe ? '#00f3ff' : '#ff3366';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.fill();
+          ctx.stroke();
+
+          // Bolt Inner thread cross
+          ctx.strokeStyle = '#080c14';
+          ctx.beginPath();
+          ctx.moveTo(boltX - 3, boltY);
+          ctx.lineTo(boltX + 3, boltY);
+          ctx.moveTo(boltX, boltY - 3);
+          ctx.lineTo(boltX, boltY + 3);
+          ctx.stroke();
+
+          // Reaction shear force vector arrows on individual bolts
+          if (state.boltsAssembled) {
+            ctx.strokeStyle = 'rgba(0, 255, 136, 0.8)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(boltX, boltY);
+            ctx.lineTo(boltX, boltY + (state.load / state.boltCount) * 0.3);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Draw Pitch Dimension Line Annotation
+      if (numRows > 1) {
+        const xDim = x + edge + 55;
+        const yTop = y - ((numRows - 1) * pitch) / 2;
+        const yBot = yTop + pitch;
+
+        ctx.strokeStyle = '#00ff88';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(xDim, yTop);
+        ctx.lineTo(xDim, yBot);
+        ctx.stroke();
+
+        ctx.fillStyle = '#00ff88';
+        ctx.font = '9px "JetBrains Mono"';
+        ctx.fillText(`p = ${state.pitch}mm`, xDim + 4, (yTop + yBot) / 2 + 3);
+      }
+
+      ctx.restore();
+    }
+
+    // Snap halo visual targets when un-assembled
+    function drawSnapTargetZones(x, y) {
+      ctx.save();
+      ctx.strokeStyle = '#ffb700';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+
+      const radius = 25;
+      ctx.beginPath();
+      ctx.arc(x + 30, y, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.fillStyle = 'rgba(255, 183, 0, 0.15)';
+      ctx.fill();
+
+      ctx.fillStyle = '#ffb700';
+      ctx.font = '10px "JetBrains Mono"';
+      ctx.fillText('SNAP BOLT HERE', x + 60, y + 4);
+
+      ctx.restore();
+    }
+
+    // Heavy Cantilever Load Box and Vector Arrows
+    function drawLoadVectorAndWeight(x, y) {
+      ctx.save();
+
+      // Heavy Weight Hanging Box
+      ctx.fillStyle = state.results.isSafe ? '#1e293b' : 'rgba(255, 51, 102, 0.2)';
+      ctx.strokeStyle = state.results.isSafe ? '#00f3ff' : '#ff3366';
+      ctx.lineWidth = 2;
+
+      const boxW = 60;
+      const boxH = 50;
+
+      ctx.beginPath();
+      ctx.rect(x - boxW / 2, y + 80, boxW, boxH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Weight Text
+      ctx.fillStyle = state.results.isSafe ? '#00f3ff' : '#ff3366';
+      ctx.font = 'bold 11px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${state.load} kN`, x, y + 110);
+
+      // Force Vector Arrow
+      const arrowLength = Math.min(100, 30 + state.load * 0.3);
+      ctx.strokeStyle = '#ff007f';
+      ctx.fillStyle = '#ff007f';
+      ctx.lineWidth = 3;
+
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x, y + arrowLength);
+      ctx.stroke();
+
+      // Arrow Head
+      ctx.beginPath();
+      ctx.moveTo(x - 6, y + arrowLength - 10);
+      ctx.lineTo(x, y + arrowLength);
+      ctx.lineTo(x + 6, y + arrowLength - 10);
+      ctx.closePath();
+      ctx.fill();
+
+      // Force Label
+      ctx.font = 'bold 11px "JetBrains Mono"';
+      ctx.fillText(`V = ${state.load} kN`, x + 40, y + arrowLength / 2);
+
+      ctx.restore();
+    }
+
+    // Canvas Item Drag Overlay
+    function drawDraggedItemOverlay(mx, my, partType) {
+      ctx.save();
+      ctx.translate(mx, my);
+
+      ctx.fillStyle = 'rgba(0, 243, 255, 0.3)';
+      ctx.strokeStyle = '#00f3ff';
+      ctx.lineWidth = 2;
+
+      ctx.beginPath();
+      ctx.arc(0, 0, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px "JetBrains Mono"';
+      ctx.textAlign = 'center';
+      ctx.fillText(partType, 0, 4);
+
+      ctx.restore();
+    }
+
+    // Live Graph Renderer (Capacity vs Pitch)
+    function drawGraph() {
+      const gCanvas = document.getElementById('graphCanvas');
+      if (!gCanvas) return;
+      const gCtx = gCanvas.getContext('2d');
+
+      const w = gCanvas.width = gCanvas.clientWidth;
+      const h = gCanvas.height = gCanvas.clientHeight;
+
+      gCtx.clearRect(0, 0, w, h);
+
+      // Draw Axes
+      gCtx.strokeStyle = '#334155';
+      gCtx.lineWidth = 1;
+      gCtx.beginPath();
+      gCtx.moveTo(25, 10);
+      gCtx.lineTo(25, h - 20);
+      gCtx.lineTo(w - 10, h - 20);
+      gCtx.stroke();
+
+      // Plot curve: Capacity vs Pitch (p from 40mm to 120mm)
+      gCtx.strokeStyle = '#00f3ff';
+      gCtx.lineWidth = 2;
+      gCtx.beginPath();
+
+      const origPitch = state.pitch;
+      const d = state.boltDiameter;
+      const d0 = d + 2;
+      const t = state.plateThick;
+      const fu = 410;
+      const fub = state.boltGrade == 4.6 ? 400 : (state.boltGrade == 10.9 ? 1000 : 800);
+
+      let currentX = 0, currentY = 0;
+
+      for (let pVal = 40; pVal <= 120; pVal += 2) {
+        const e_term = state.edge / (3 * d0);
+        const p_term = (pVal / (3 * d0)) - 0.25;
+        const kb = Math.min(e_term, p_term, fub / fu, 1.0);
+        
+        const Vdsb = ((fub / Math.sqrt(3)) * (0.78 * Math.PI * (d/2)*(d/2))) / 1250;
+        const Vdpb = (2.5 * kb * d * t * fu) / 1250;
+        const cap = state.boltCount * Math.min(Vdsb, Vdpb);
+
+        const xPx = 25 + ((pVal - 40) / 80) * (w - 35);
+        const yPx = (h - 20) - Math.min(1.0, cap / 300) * (h - 30);
+
+        if (pVal === 40) gCtx.moveTo(xPx, yPx);
+        else gCtx.lineTo(xPx, yPx);
+
+        if (Math.abs(pVal - origPitch) < 2) {
+          currentX = xPx;
+          currentY = yPx;
+        }
+      }
+      gCtx.stroke();
+
+      // Current Value Pulsing Dot
+      if (currentX > 0) {
+        gCtx.fillStyle = '#ff007f';
+        gCtx.beginPath();
+        gCtx.arc(currentX, currentY, 4, 0, Math.PI * 2);
+        gCtx.fill();
+      }
+
+      // Graph Axis Labels
+      gCtx.fillStyle = '#64748b';
+      gCtx.font = '8px "JetBrains Mono"';
+      gCtx.fillText('p (mm)', w - 30, h - 5);
+      gCtx.fillText('Vrd', 5, 12);
+    }
+
+    // Drag and Drop Event Handlers
+    function handlePartDragStart(e, partType) {
+      e.dataTransfer.setData('text/plain', partType);
+      state.draggedPart = partType;
+    }
+
+    function handleCanvasMouseDown(e) {
+      const rect = canvas.getBoundingClientRect();
+      state.mousePos.x = e.clientX - rect.left;
+      state.mousePos.y = e.clientY - rect.top;
+      state.isDragging = true;
+    }
+
+    function handleCanvasMouseMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      state.mousePos.x = e.clientX - rect.left;
+      state.mousePos.y = e.clientY - rect.top;
+    }
+
+    function handleCanvasMouseUp(e) {
+      if (state.isDragging) {
+        // Snap check
+        if (!state.boltsAssembled) {
+          state.boltsAssembled = true;
+          playSnapSound();
+          speak("Click! Bolts locked securely into precision holes!");
+        }
+      }
+      state.isDragging = false;
+      state.draggedPart = null;
+    }
+
+    // HTML5 Drag Drop listeners on Canvas Container
+    function setupCanvasDropZone() {
+      const container = document.getElementById('canvasContainer');
+      
+      container.addEventListener('dragover', (e) => {
+        e.preventDefault();
+      });
+
+      container.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const partType = e.dataTransfer.getData('text/plain');
+        
+        if (partType.startsWith('M')) {
+          state.boltDiameter = parseInt(partType.replace('M', ''));
+          state.boltsAssembled = true;
+          playSnapSound();
+          speak(`Assembled ${partType} Bolt cluster into connection plate!`);
+        } else if (partType === 'Stiffener') {
+          state.hasStiffener = true;
+          state.mode = 'endplate';
+          updateModeUI();
+          playSnapSound();
+          speak("Attached web stiffener plate to prevent flange column bending!");
+        }
+        
+        calculateEngineering();
+      });
+    }
+
+    // Mode Switcher
+    function setConnectionMode(m) {
+      state.mode = m;
+      updateModeUI();
+      
+      if (m === 'fin') {
+        speak("Switched to Fin Plate Shear Connection. Like holding hands with open palms—it carries vertical weight but allows natural rotation!");
+      } else if (m === 'endplate') {
+        speak("Switched to Rigid End Plate Connection. Fully locked joint that transfers both vertical shear and heavy bending moments!");
+      } else {
+        speak("Switched to Double Angle Cleat Connection. Flexible bracket holding the beam web.");
+      }
+      
+      calculateEngineering();
+    }
+
+    function updateModeUI() {
+      ['fin', 'endplate', 'cleat'].forEach(m => {
+        const btn = document.getElementById(m === 'fin' ? 'modeFinPlate' : (m === 'endplate' ? 'modeEndPlate' : 'modeCleat'));
+        if (state.mode === m) {
+          btn.className = "px-3 py-1 rounded text-xs font-semibold font-mono transition-all bg-cyber-accent text-slate-950 shadow-neon-cyan";
+        } else {
+          btn.className = "px-3 py-1 rounded text-xs font-semibold font-mono transition-all text-slate-400 hover:text-white";
+        }
+      });
+    }
+
+    // Parameter Sliders Listener
+    function updateParams() {
+      state.load = parseFloat(document.getElementById('sliderLoad').value);
+      state.pitch = parseFloat(document.getElementById('sliderPitch').value);
+      state.edge = parseFloat(document.getElementById('sliderEdge').value);
+      state.plateThick = parseFloat(document.getElementById('sliderPlateThick').value);
+      state.boltGrade = parseFloat(document.getElementById('selectBoltGrade').value);
+
+      document.getElementById('valLoad').innerText = `${state.load} kN`;
+      document.getElementById('valPitch').innerText = `${state.pitch} mm`;
+      document.getElementById('valEdge').innerText = `${state.edge} mm`;
+      document.getElementById('valPlateThick').innerText = `${state.plateThick} mm`;
+
+      playSliderClick(state.pitch);
+      calculateEngineering();
+    }
+
+    // Blueprint Identification Highlights
+    function highlightComponent(part) {
+      state.highlightPart = part;
+      
+      const explanations = {
+        column: "The Column is like your body torso—solid, vertical, supporting all structural loads!",
+        beam: "The Beam is like your extended arm holding heavy weight at the edge.",
+        plate: "The Fin Plate acts like a wrist bracket bridging the arm directly to the torso.",
+        bolts: "Bolts act like strong gripping fingers clamping steel plates together.",
+        shear_zone: "The Shear Zone is where force tries to slice vertically through the bolts!"
+      };
+      
+      speak(explanations[part] || "Highlighting component.");
+      
+      setTimeout(() => {
+        state.highlightPart = null;
+      }, 4000);
+    }
+
+    // Auto-Assemble Button
+    function autoAssemble() {
+      state.boltsAssembled = true;
+      state.boltCount = 4;
+      state.boltDiameter = 20;
+      playSnapSound();
+      speak("Auto-assembled optimal 4 x M20 bolt configuration!");
+      calculateEngineering();
+    }
+
+    // Reset Simulation
+    function resetSimulation() {
+      state.load = 100;
+      state.pitch = 60;
+      state.edge = 40;
+      state.plateThick = 10;
+      state.boltsAssembled = true;
+      state.mode = 'fin';
+      
+      document.getElementById('sliderLoad').value = 100;
+      document.getElementById('sliderPitch').value = 60;
+      document.getElementById('sliderEdge').value = 40;
+      document.getElementById('sliderPlateThick').value = 10;
+      
+      updateModeUI();
+      updateParams();
+      speak("Simulation reset to default parameters.");
+    }
+
+    // Challenge System
+    function checkChallenge1() {
+      calculateEngineering();
+      if (state.results.isSafe && state.load >= 120 && state.boltsAssembled) {
+        document.getElementById('badgeC1').innerText = 'COMPLETED ✓';
+        document.getElementById('badgeC1').className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-cyber-green/20 text-cyber-green font-bold border border-cyber-green/50';
+        speak("Congratulations! Level 1 Challenge Complete: Safe Fin Connection designed!");
+        playSnapSound();
+      } else {
+        speak("Level 1 incomplete. Make sure bolts are assembled and connection capacity exceeds 120 kN!");
+        playFailureSound();
+      }
+    }
+
+    function checkChallenge2() {
+      if (state.results.kb >= 0.70 && state.load >= 180 && state.results.isSafe) {
+        document.getElementById('badgeC2').innerText = 'COMPLETED ✓';
+        document.getElementById('badgeC2').className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-cyber-green/20 text-cyber-green font-bold border border-cyber-green/50';
+        speak("Awesome engineering! Level 2 Tear-Out Prevention Challenge Mastered!");
+      } else {
+        speak("Increase pitch and edge distance to maximize bearing factor kb above 0.70!");
+        playFailureSound();
+      }
+    }
+
+    function checkChallenge3() {
+      if (state.mode === 'endplate' && state.hasStiffener && state.results.isSafe && state.load >= 250) {
+        document.getElementById('badgeC3').innerText = 'COMPLETED ✓';
+        document.getElementById('badgeC3').className = 'text-[10px] font-mono px-2 py-0.5 rounded bg-cyber-green/20 text-cyber-green font-bold border border-cyber-green/50';
+        speak("Master Engineer! You designed a fully rigid moment frame connection!");
+      } else {
+        speak("Switch to End-Plate mode, attach stiffeners, and increase load to 250 kN!");
+        playFailureSound();
+      }
+    }
+
+    // UI Tab Navigation
+    function switchSidebarTab(tab) {
+      ['assemble', 'blueprint', 'params'].forEach(t => {
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          btn.className = "flex-1 py-2.5 text-center font-bold text-cyber-accent border-b-2 border-cyber-accent bg-slate-900/40";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200";
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    function switchRightTab(tab) {
+      ['math', 'codebook', 'challenge'].forEach(t => {
+        const btn = document.getElementById(`tabBtn${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        const content = document.getElementById(`rightTab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+        if (t === tab) {
+          btn.className = "flex-1 py-2.5 text-center font-bold text-cyber-accent border-b-2 border-cyber-accent bg-slate-900/40";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200";
+          content.classList.add('hidden');
+        }
+      });
+    }
+
+    // Application Initialization
+    window.onload = function() {
+      initCanvas();
+      setupCanvasDropZone();
+      calculateEngineering();
+      renderSimulation();
+      
+      window.addEventListener('resize', () => {
+        initCanvas();
+        calculateEngineering();
+      });
+
+      speak("Steel Connection Playground loaded. Let's build strong structures!");
+    };
+  </script>
+</body>
+</html>

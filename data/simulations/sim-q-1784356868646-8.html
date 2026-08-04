@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Neon Traffic Lab: Road User & Vehicle Dynamics</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@500;700;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Premium CSS Variables & Reset */
+    :root {
+      --bg-dark: #080710;
+      --bg-panel: rgba(18, 18, 28, 0.75);
+      --border-glow: rgba(0, 240, 255, 0.2);
+      --cyan: #00f0ff;
+      --pink: #ff007f;
+      --yellow: #ffee00;
+      --green: #39ff14;
+      --purple: #8a2be2;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+      --font-display: 'Orbitron', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'Fira Code', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(20, 10, 45, 0.5) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(5, 30, 60, 0.5) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: var(--font-body);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Strict 100vh Layout */
+    #app-container {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      padding: 10px 20px 20px 20px;
+      gap: 12px;
+    }
+
+    /* Header Styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 15px;
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.05);
+    }
+
+    .title-area h1 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 900;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--cyan), var(--pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .title-area p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .global-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-icon {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-icon:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+      transform: translateY(-1px);
+    }
+
+    .btn-icon.active {
+      background: rgba(255, 0, 127, 0.2);
+      border-color: var(--pink);
+      color: #fff;
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.3);
+    }
+
+    /* Dashboard Main Split Layout */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 12px;
+      flex: 1;
+      min-height: 0; /* Important for scrollable boxes */
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-header h2 {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--cyan);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .panel-body {
+      padding: 16px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Sandbox Config Panel (Left) */
+    .sandbox-chip-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .group-label {
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .chip-container {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .emoji-chip {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      cursor: grab;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .emoji-chip:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: scale(1.03);
+    }
+
+    .emoji-chip:active {
+      cursor: grabbing;
+    }
+
+    .emoji-chip .emoji {
+      font-size: 1.5rem;
+    }
+
+    .emoji-chip .chip-name {
+      font-size: 0.65rem;
+      font-weight: 600;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .emoji-chip .chip-val {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    /* Target Drop Slots */
+    .drop-slot {
+      border: 2px dashed rgba(0, 240, 255, 0.2);
+      background: rgba(0, 240, 255, 0.02);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: all 0.3s ease;
+      min-height: 60px;
+    }
+
+    .drop-slot.drag-over {
+      background: rgba(0, 240, 255, 0.08);
+      border-color: var(--cyan);
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.1);
+    }
+
+    .slot-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .slot-info {
+      flex: 1;
+    }
+
+    .slot-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+    }
+
+    .slot-value {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    /* Advanced Sliders */
+    .slider-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-bottom: 8px;
+    }
+
+    .slider-title {
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .slider-value {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type=range]:focus {
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 6px;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -5px;
+      transition: all 0.2s ease;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    input[type="range"]#grade-slider::-webkit-slider-thumb {
+      background: var(--pink);
+      box-shadow: 0 0 8px var(--pink);
+    }
+
+    /* Center Visual Simulator Panel */
+    .visual-container {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      gap: 12px;
+      min-height: 0;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      background: #020205;
+      border-radius: 12px;
+      border: 1px solid var(--border-glow);
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Canvas Overlays */
+    .canvas-hud {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-badge {
+      background: rgba(8, 7, 16, 0.8);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--cyan);
+      font-family: var(--font-display);
+      font-size: 0.65rem;
+      padding: 4px 8px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      width: fit-content;
+    }
+
+    .simulation-controls {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 8px;
+      background: rgba(8, 7, 16, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 6px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .sim-btn {
+      background: transparent;
+      border: none;
+      color: #fff;
+      font-family: var(--font-display);
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      padding: 8px 16px;
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .sim-btn-brake {
+      background: var(--pink);
+      box-shadow: 0 0 10px rgba(255, 0, 127, 0.4);
+    }
+
+    .sim-btn-brake:hover {
+      background: #ff2a93;
+      transform: translateY(-1px);
+    }
+
+    .sim-btn-reset {
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .sim-btn-reset:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    /* Math and Analytics Panel (Right) */
+    .math-panel {
+      font-family: var(--font-body);
+    }
+
+    .equation-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .equation-display {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      background: rgba(0, 0, 0, 0.4);
+      padding: 10px;
+      border-radius: 6px;
+      border-left: 3px solid var(--cyan);
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+
+    .eq-var {
+      transition: all 0.2s ease;
+      display: inline-block;
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+
+    .eq-dr { color: var(--yellow); font-weight: bold; }
+    .eq-db { color: var(--pink); font-weight: bold; }
+    .eq-ssd { color: var(--cyan); font-weight: bold; }
+
+    .breakdown-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+      padding: 6px 0;
+    }
+
+    .breakdown-row:last-child {
+      border: none;
+    }
+
+    .breakdown-label {
+      color: var(--text-muted);
+    }
+
+    .breakdown-val {
+      font-family: var(--font-mono);
+      font-weight: 600;
+    }
+
+    /* Mini Graph SVG container */
+    .graph-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .graph-header {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .graph-svg-wrapper {
+      flex: 1;
+      min-height: 0;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 6px;
+      padding: 5px;
+    }
+
+    /* ELI5 Fun Tip Overlay */
+    .eli5-tip {
+      background: rgba(138, 43, 226, 0.12);
+      border: 1px solid rgba(138, 43, 226, 0.4);
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 0.72rem;
+      line-height: 1.4;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .eli5-tip .tip-icon {
+      font-size: 1.5rem;
+      line-height: 1;
+    }
+
+    /* Toast Notification System */
+    #toast {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-50px);
+      background: rgba(8, 7, 16, 0.95);
+      border: 1px solid var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- Top Bar Control Panel -->
+    <header>
+      <div class="title-area">
+        <h1><span>🚥</span> NEON TRAFFIC LAB</h1>
+        <p>Road User &amp; Vehicle Dynamics Interactive Sandbox</p>
+      </div>
+      <div class="global-controls">
+        <button id="btn-audio" class="btn-icon">
+          <span id="audio-icon">🔊</span> Synthesizer
+        </button>
+        <button id="btn-speech" class="btn-icon active">
+          <span id="speech-icon">🗣️</span> Voice Explainer
+        </button>
+      </div>
+    </header>
+
+    <!-- App Dashboard Grid -->
+    <div class="dashboard-grid">
+      
+      <!-- Left Panel: Configurations -->
+      <aside class="glass-panel">
+        <div class="panel-header">
+          <h2><span>⚙️</span> Sandbox Config</h2>
+        </div>
+        
+        <div class="panel-body">
+          
+          <!-- Road Users (Brain/Reaction) Drag Source -->
+          <div class="sandbox-chip-group">
+            <div class="group-label">
+              <span>🧠 1. Road Users</span>
+              <span style="color: var(--yellow);">t (Reaction Time)</span>
+            </div>
+            <div class="chip-container">
+              <div class="emoji-chip" draggable="true" data-type="driver" data-id="cat" title="Click or Drag onto slot">
+                <span class="emoji">⚡😾</span>
+                <span class="chip-name">Laser Cat</span>
+                <span class="chip-val">0.7s</span>
+              </div>
+              <div class="emoji-chip" draggable="true" data-type="driver" data-id="human" title="Click or Drag onto slot">
+                <span class="emoji">🧑‍✈️</span>
+                <span class="chip-name">Std. Human</span>
+                <span class="chip-val">2.5s</span>
+              </div>
+              <div class="emoji-chip" draggable="true" data-type="driver" data-id="sloth" title="Click or Drag onto slot">
+                <span class="emoji">🦥💤</span>
+                <span class="chip-name">Sleepy Sloth</span>
+                <span class="chip-val">3.5s</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Target Driver Slot -->
+          <div class="drop-slot" id="slot-driver" data-type="driver">
+            <div class="slot-icon" id="slot-driver-icon">🧠</div>
+            <div class="slot-info">
+              <div class="slot-title">Active Driver (Reaction)</div>
+              <div class="slot-value" id="slot-driver-value" style="color: var(--yellow)">Standard Human (2.5s)</div>
+            </div>
+          </div>
+
+          <!-- Vehicles (Chassis/Friction) Drag Source -->
+          <div class="sandbox-chip-group">
+            <div class="group-label">
+              <span>🚗 2. Vehicle Wheels</span>
+              <span style="color: var(--pink);">f (Friction)</span>
+            </div>
+            <div class="chip-container">
+              <div class="emoji-chip" draggable="true" data-type="vehicle" data-id="cheetah" title="Click or Drag onto slot">
+                <span class="emoji">🐆🏁</span>
+                <span class="chip-name">Cheetah Grip</span>
+                <span class="chip-val">f=0.85</span>
+              </div>
+              <div class="emoji-chip" draggable="true" data-type="vehicle" data-id="sedan" title="Click or Drag onto slot">
+                <span class="emoji">🚗</span>
+                <span class="chip-name">Standard Sedan</span>
+                <span class="chip-val">f=0.50</span>
+              </div>
+              <div class="emoji-chip" draggable="true" data-type="vehicle" data-id="hippo" title="Click or Drag onto slot">
+                <span class="emoji">🦛💦</span>
+                <span class="chip-name">Heavy Hippo</span>
+                <span class="chip-val">f=0.25</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Target Vehicle Slot -->
+          <div class="drop-slot" id="slot-vehicle" data-type="vehicle">
+            <div class="slot-icon" id="slot-vehicle-icon">🚗</div>
+            <div class="slot-info">
+              <div class="slot-title">Active Vehicle (Friction)</div>
+              <div class="slot-value" id="slot-vehicle-value" style="color: var(--pink)">Standard Sedan (f=0.50)</div>
+            </div>
+          </div>
+
+          <!-- Sliders -->
+          <div class="slider-card">
+            <div class="slider-header">
+              <span class="slider-title">🚗 Initial Speed (v)</span>
+              <span class="slider-value" id="val-speed">60 km/h</span>
+            </div>
+            <input type="range" id="speed-slider" min="10" max="120" step="5" value="60">
+          </div>
+
+          <div class="slider-card">
+            <div class="slider-header">
+              <span class="slider-title">⛰️ Road Slope (G)</span>
+              <span class="slider-value" id="val-grade">0 %</span>
+            </div>
+            <input type="range" id="grade-slider" min="-15" max="15" step="1" value="0">
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- Center Panel: Physics & Scene Simulation -->
+      <main class="visual-container">
+        
+        <div class="canvas-wrapper">
+          <div class="canvas-hud">
+            <div class="hud-badge" id="hud-status">Status: cruising</div>
+          </div>
+          <canvas id="sim-canvas"></canvas>
+          
+          <div class="simulation-controls">
+            <button class="sim-btn sim-btn-brake" id="btn-brake">🚨 EMERGENCY BRAKE!</button>
+            <button class="sim-btn sim-btn-reset" id="btn-reset">🔄 RESET</button>
+          </div>
+        </div>
+
+      </main>
+
+      <!-- Right Panel: Equations & Active Graph Analytics -->
+      <aside class="glass-panel math-panel">
+        <div class="panel-header">
+          <h2><span>📊</span> Physics Analytics</h2>
+        </div>
+        
+        <div class="panel-body">
+          
+          <div class="equation-card">
+            <div class="group-label">🚗 Dynamic SSD Equation</div>
+            <div class="equation-display">
+              <span class="eq-ssd">SSD</span> = <span class="eq-dr">v•t</span> + <span class="eq-db">v² / [2g(f ± G)]</span>
+            </div>
+            <div class="equation-display" id="equation-numerical" style="font-size:0.75rem; border-color: var(--pink)">
+              SSD = 16.7•2.5 + 16.7²/[2•9.81•0.50]
+            </div>
+          </div>
+
+          <div>
+            <div class="group-label" style="margin-bottom:6px;">📈 Distance Breakdown</div>
+            
+            <div class="breakdown-row">
+              <span class="breakdown-label">Perception-Reaction (Reaction Time)</span>
+              <span class="breakdown-val" style="color: var(--yellow);" id="val-t">2.50 s</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="breakdown-label">Friction Coefficient (Tires/Road)</span>
+              <span class="breakdown-val" style="color: var(--pink);" id="val-f">0.50</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="breakdown-label">Reaction Distance (d<sub>r</sub>)</span>
+              <span class="breakdown-val" style="color: var(--yellow);" id="val-dr">41.67 m</span>
+            </div>
+            <div class="breakdown-row">
+              <span class="breakdown-label">Braking Distance (d<sub>b</sub>)</span>
+              <span class="breakdown-val" style="color: var(--pink);" id="val-db">28.31 m</span>
+            </div>
+            <div class="breakdown-row" style="border-top: 1px solid rgba(255,255,255,0.1); padding-top: 8px;">
+              <span class="breakdown-label" style="font-weight: bold; color: var(--cyan)">Total Stopping Sight Distance</span>
+              <span class="breakdown-val" style="color: var(--cyan); font-weight: bold;" id="val-ssd">69.98 m</span>
+            </div>
+          </div>
+
+          <!-- Mini Graph Panel -->
+          <div class="graph-card">
+            <div class="graph-header">
+              <span>Speed vs Stopping Distance (SSD)</span>
+              <span style="font-size:0.6rem; color:var(--cyan)">LIVE PLOT</span>
+            </div>
+            <div class="graph-svg-wrapper">
+              <svg id="svg-graph" viewBox="0 0 280 150" width="100%" height="100%">
+                <!-- Background grid lines are generated in JavaScript -->
+                <path id="graph-dr-curve" d="" fill="none" stroke="var(--yellow)" stroke-width="2" opacity="0.6"/>
+                <path id="graph-ssd-curve" d="" fill="none" stroke="var(--cyan)" stroke-width="3"/>
+                <circle id="graph-dot" cx="0" cy="0" r="5" fill="var(--pink)" stroke="#fff" stroke-width="1.5" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="eli5-tip">
+            <span class="tip-icon">💡</span>
+            <div>
+              <strong>ELI5 Tip:</strong> Reaction distance is how far you glide *before* your foot even touches the brake pedal. Braking distance is the physical skid mark distance!
+            </div>
+          </div>
+
+        </div>
+      </aside>
+
+    </div>
+
+  </div>
+
+  <div id="toast">🔔 System Message</div>
+
+  <!-- Main Simulator Engine -->
+  <script>
+    // State Variables
+    const state = {
+      // Driver Parameters
+      driver: {
+        id: 'human',
+        name: 'Standard Human',
+        t: 2.5,
+        emoji: '🧑‍✈️'
+      },
+      // Vehicle Parameters
+      vehicle: {
+        id: 'sedan',
+        name: 'Standard Sedan',
+        f: 0.50,
+        emoji: '🚗'
+      },
+      speedKmh: 60, // km/h
+      grade: 0.00, // as decimal (slope)
+      g: 9.81, // gravity acceleration
+      
+      // Visual Simulator State
+      simRunning: true,
+      carState: 'cruising', // cruising, braking, stopped, crashed
+      carProgress: 0.2, // normal baseline coordinates
+      carSpeedMultiplier: 1.0,
+      obstacleX: 0.85, // relative location
+      hasCrashed: false,
+      smokeParticles: [],
+      
+      // Synth State
+      audioActive: false,
+      speechActive: true,
+      
+      // Live Calculated Outputs
+      dr: 0,
+      db: 0,
+      ssd: 0
+    };
+
+    // Configuration Collections
+    const driversConfig = {
+      cat: { name: 'Laser Cat', t: 0.7, emoji: '⚡😾', desc: "Wow! Laser Cat reacted in just 0.7 seconds. Fast as lightning! Reaction distance shrinks." },
+      human: { name: 'Standard Human', t: 2.5, emoji: '🧑‍✈️', desc: "Standard human reaction time is 2.5 seconds, which is the official highway design standard." },
+      sloth: { name: 'Sleepy Sloth', t: 3.5, emoji: '🦥💤', desc: "Whoa, the Sleepy Sloth is super slow! It takes them 3.5 seconds to hit the brakes. Look how long that reaction glide is!" }
+    };
+
+    const vehiclesConfig = {
+      cheetah: { name: 'Cheetah Grip', f: 0.85, emoji: '🐆🏁', desc: "Super high grip tires! Braking friction increases to 0.85. The vehicle stops almost immediately." },
+      sedan: { name: 'Standard Sedan', f: 0.50, emoji: '🚗', desc: "Typical design friction value for dry conditions is 0.50. Balanced and stable." },
+      hippo: { name: 'Heavy Hippo', f: 0.25, emoji: '🦛💦', desc: "Low friction hazard! At 0.25, the wheels glide endlessly. Look at that long pink braking path!" }
+    };
+
+    // DOM Elements
+    const speedSlider = document.getElementById('speed-slider');
+    const valSpeed = document.getElementById('val-speed');
+    const gradeSlider = document.getElementById('grade-slider');
+    const valGrade = document.getElementById('val-grade');
+
+    const slotDriver = document.getElementById('slot-driver');
+    const slotDriverValue = document.getElementById('slot-driver-value');
+    const slotDriverIcon = document.getElementById('slot-driver-icon');
+
+    const slotVehicle = document.getElementById('slot-vehicle');
+    const slotVehicleValue = document.getElementById('slot-vehicle-value');
+    const slotVehicleIcon = document.getElementById('slot-vehicle-icon');
+
+    const btnAudio = document.getElementById('btn-audio');
+    const btnSpeech = document.getElementById('btn-speech');
+    const btnBrake = document.getElementById('btn-brake');
+    const btnReset = document.getElementById('btn-reset');
+    
+    const valT = document.getElementById('val-t');
+    const valF = document.getElementById('val-f');
+    const valDr = document.getElementById('val-dr');
+    const valDb = document.getElementById('val-db');
+    const valSsd = document.getElementById('val-ssd');
+    const equationNumerical = document.getElementById('equation-numerical');
+    const hudStatus = document.getElementById('hud-status');
+
+    // Canvas Setup
+    const canvas = document.getElementById('sim-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Web Audio State
+    let audioCtx = null;
+    let osc = null;
+    let gainNode = null;
+
+    // Toast Notice helper
+    function showToast(message) {
+      const toast = document.getElementById('toast');
+      toast.innerHTML = `🔔 ${message}`;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 2500);
+    }
+
+    // Mathematical calculations
+    function calculatePhysics() {
+      const v_ms = (state.speedKmh * 1000) / 3600; // speed in meters/second
+      const t = state.driver.t;
+      const f = state.vehicle.f;
+      const G = state.grade;
+
+      // Reaction Distance (dr = v * t)
+      state.dr = v_ms * t;
+
+      // Braking Distance (db = v^2 / (2 * g * (f + G)))
+      // Handle downhill slope where f + G might approach zero or negative value
+      const denominator = 2 * state.g * (f + G);
+      if (denominator <= 0.1) {
+        state.db = (v_ms * v_ms) / 0.1; // Cap to avoid division by zero or infinite skidding
+      } else {
+        state.db = (v_ms * v_ms) / denominator;
+      }
+
+      // Stopping Sight Distance (SSD)
+      state.ssd = state.dr + state.db;
+
+      // Render calculations dynamically inside UI
+      valT.innerText = `${t.toFixed(2)} s`;
+      valF.innerText = `${f.toFixed(2)}`;
+      valDr.innerText = `${state.dr.toFixed(2)} m`;
+      valDb.innerText = `${state.db.toFixed(2)} m`;
+      valSsd.innerText = `${state.ssd.toFixed(2)} m`;
+
+      // Update Math Equation Block
+      equationNumerical.innerHTML = `
+        <span class="eq-ssd">${state.ssd.toFixed(1)}m</span> = 
+        <span class="eq-dr">${v_ms.toFixed(1)}m/s • ${t.toFixed(1)}s</span> + 
+        <span class="eq-db">${v_ms.toFixed(1)}² / [2 • 9.8 • (${f.toFixed(2)} + ${G >= 0 ? '+' : ''}${G.toFixed(2)})]</span>
+      `;
+
+      updateGraphPlot();
+    }
+
+    // High-DPI Responsive Canvas scaling handler
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial call
+
+    // Speech synthesis helper
+    function explainWithTTS(phrase) {
+      if (!state.speechActive) return;
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Terminate existing voices immediately
+        const utterance = new SpeechSynthesisUtterance(phrase);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // Audio Synthesizer Controls
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        osc = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+
+        // High quality sound mapping: lower speed -> deep engine rumble. Higher speed -> whining engine.
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(50 + (state.speedKmh * 1.5), audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime); // keep soft
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+      }
+    }
+
+    function updateAudioTone() {
+      if (audioCtx && osc && state.audioActive) {
+        let pitch = 40 + (state.speedKmh * 1.8);
+        if (state.carState === 'braking') {
+          // dramatic dynamic squeal tone
+          pitch += Math.sin(Date.now() * 0.05) * 30 + 100;
+          gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        } else if (state.carState === 'stopped') {
+          pitch = 0;
+          gainNode.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        } else {
+          gainNode.gain.setValueAtTime(0.06, audioCtx.currentTime);
+        }
+        
+        if (pitch > 0) {
+          osc.frequency.setTargetAtTime(pitch, audioCtx.currentTime, 0.15);
+        }
+      }
+    }
+
+    function toggleAudio() {
+      state.audioActive = !state.audioActive;
+      if (state.audioActive) {
+        initAudio();
+        btnAudio.classList.add('active');
+        showToast("Dynamic Audio Synthesizer enabled!");
+      } else {
+        if (audioCtx) {
+          audioCtx.close();
+          audioCtx = null;
+          osc = null;
+        }
+        btnAudio.classList.remove('active');
+        showToast("Synthesizer muted.");
+      }
+    }
+
+    btnAudio.addEventListener('click', toggleAudio);
+    btnSpeech.addEventListener('click', () => {
+      state.speechActive = !state.speechActive;
+      btnSpeech.classList.toggle('active', state.speechActive);
+      showToast(state.speechActive ? "Voice explanations turned ON" : "Voice explanations muted");
+    });
+
+    // Custom Interactive SVG Curve Plotter
+    function updateGraphPlot() {
+      const pathDr = document.getElementById('graph-dr-curve');
+      const pathSsd = document.getElementById('graph-ssd-curve');
+      const dot = document.getElementById('graph-dot');
+      
+      const width = 280;
+      const height = 150;
+      const padding = 20;
+      const plotWidth = width - padding * 2;
+      const plotHeight = height - padding * 2;
+
+      // Clear existing axes indicators if necessary
+      let axes = document.getElementById('graph-axes');
+      if (!axes) {
+        axes = document.createElementNS("http://www.w3.org/2000/svg", "g");
+        axes.setAttribute("id", "graph-axes");
+        axes.innerHTML = `
+          <!-- grid -->
+          <line x1="${padding}" y1="${height - padding}" x2="${width - padding}" y2="${height - padding}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <line x1="${padding}" y1="${padding}" x2="${padding}" y2="${height - padding}" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
+          <text x="${width - padding}" y="${height - 4}" fill="var(--text-muted)" font-size="7" text-anchor="end">SPEED →</text>
+          <text x="${padding + 4}" y="${padding + 6}" fill="var(--text-muted)" font-size="7">SSD (m)</text>
+        `;
+        document.getElementById('svg-graph').prepend(axes);
+      }
+
+      // Map speeds from 10 to 120
+      let maxSSDOnGraph = 180; // Upper bound limit for canvas
+      let pointsDr = [];
+      let pointsSsd = [];
+
+      for (let s = 10; s <= 120; s += 5) {
+        const v_ms = (s * 1000) / 3600;
+        const dr = v_ms * state.driver.t;
+        const denominator = 2 * state.g * (state.vehicle.f + state.grade);
+        const db = denominator > 0.1 ? (v_ms * v_ms) / denominator : (v_ms * v_ms) / 0.1;
+        const ssd = dr + db;
+
+        const x = padding + ((s - 10) / 110) * plotWidth;
+        const yDr = height - padding - (dr / maxSSDOnGraph) * plotHeight;
+        const ySsd = height - padding - (ssd / maxSSDOnGraph) * plotHeight;
+
+        pointsDr.push(`${x},${yDr}`);
+        pointsSsd.push(`${x},${ySsd}`);
+      }
+
+      pathDr.setAttribute('d', `M ${pointsDr.join(' L ')}`);
+      pathSsd.setAttribute('d', `M ${pointsSsd.join(' L ')}`);
+
+      // Draw dot mapping current status
+      const currX = padding + ((state.speedKmh - 10) / 110) * plotWidth;
+      const currY = height - padding - (state.ssd / maxSSDOnGraph) * plotHeight;
+      dot.setAttribute('cx', currX);
+      dot.setAttribute('cy', currY);
+    }
+
+    // Chip Load Triggering Function
+    function applyDriver(driverId) {
+      const cfg = driversConfig[driverId];
+      if (!cfg) return;
+      state.driver = { id: driverId, ...cfg };
+      slotDriverValue.innerText = `${cfg.name} (${cfg.t}s)`;
+      slotDriverIcon.innerText = cfg.emoji.replace(/[^\p{Emoji}]/gu, ''); // Keep emojis nice
+      calculatePhysics();
+      explainWithTTS(cfg.desc);
+      showToast(`Driver loaded: ${cfg.name}`);
+    }
+
+    function applyVehicle(vehicleId) {
+      const cfg = vehiclesConfig[vehicleId];
+      if (!cfg) return;
+      state.vehicle = { id: vehicleId, ...cfg };
+      slotVehicleValue.innerText = `${cfg.name} (f = ${cfg.f.toFixed(2)})`;
+      slotVehicleIcon.innerText = cfg.emoji.replace(/[^\p{Emoji}]/gu, '');
+      calculatePhysics();
+      explainWithTTS(cfg.desc);
+      showToast(`Vehicle parameters applied: ${cfg.name}`);
+    }
+
+    // Drag-and-Drop Implementation & Fallback Click Support
+    document.querySelectorAll('.emoji-chip').forEach(chip => {
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          type: chip.getAttribute('data-type'),
+          id: chip.getAttribute('data-id')
+        }));
+      });
+
+      // Quick-click alternative implementation
+      chip.addEventListener('click', () => {
+        const type = chip.getAttribute('data-type');
+        const id = chip.getAttribute('data-id');
+        if (type === 'driver') applyDriver(id);
+        if (type === 'vehicle') applyVehicle(id);
+      });
+    });
+
+    document.querySelectorAll('.drop-slot').forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('drag-over');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('drag-over');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('drag-over');
+        try {
+          const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+          const slotType = slot.getAttribute('data-type');
+          if (data.type === slotType) {
+            if (slotType === 'driver') applyDriver(data.id);
+            if (slotType === 'vehicle') applyVehicle(data.id);
+          } else {
+            showToast("⚠️ Invalid slot combination!");
+          }
+        } catch (err) {
+          console.error("Drop error", err);
+        }
+      });
+    });
+
+    // Control Inputs Hookups
+    speedSlider.addEventListener('input', (e) => {
+      state.speedKmh = parseInt(e.target.value);
+      valSpeed.innerText = `${state.speedKmh} km/h`;
+      calculatePhysics();
+      updateAudioTone();
+    });
+
+    gradeSlider.addEventListener('input', (e) => {
+      const gradePct = parseInt(e.target.value);
+      state.grade = gradePct / 100;
+      valGrade.innerText = `${gradePct > 0 ? '+' : ''}${gradePct} %`;
+      calculatePhysics();
+    });
+
+    // Active Engine Physics Simulation Animation Loop
+    let timeOffset = 0;
+    
+    // Smoke Particle Class
+    class BrakeSmoke {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.vx = -Math.random() * 2 - 1;
+        this.vy = -Math.random() * 1 - 0.5;
+        this.alpha = 1.0;
+        this.size = Math.random() * 8 + 6;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= 0.02;
+      }
+      draw(drawCtx) {
+        drawCtx.save();
+        drawCtx.fillStyle = `rgba(220, 220, 255, ${this.alpha})`;
+        drawCtx.beginPath();
+        drawCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        drawCtx.fill();
+        drawCtx.restore();
+      }
+    }
+
+    // Trigger Brake Action Function
+    function triggerEmergencyBrake() {
+      if (state.carState === 'cruising' && state.speedKmh > 0) {
+        state.carState = 'braking';
+        hudStatus.innerText = "Status: DRIVER REACTING! 🧠";
+        hudStatus.style.borderColor = "var(--yellow)";
+        hudStatus.style.color = "var(--yellow)";
+        
+        let initialV = (state.speedKmh * 1000) / 3600;
+        let t_reaction = state.driver.t;
+        let frictionVal = state.vehicle.f + state.grade;
+        if (frictionVal <= 0.1) frictionVal = 0.1;
+        
+        const timestampStart = Date.now();
+        
+        explainWithTTS(`Watch closely! First, the driver takes ${t_reaction} seconds to process and hit the brakes. The car moves forward in yellow. Then, physical friction slows it down, creating the pink zone!`);
+
+        function runBrakingSimulation() {
+          const elapsed = (Date.now() - timestampStart) / 1000; // seconds elapsed
+          
+          if (elapsed < t_reaction) {
+            // Reaction Phase (constant speed displacement)
+            // Relate progress dynamically. Move vehicle forward proportional to speed
+            state.carProgress += (initialV * 0.005);
+            updateAudioTone();
+          } else {
+            // Braking Phase (De-acceleration starts)
+            hudStatus.innerText = "Status: BRAKES APPLIED! 🛑";
+            hudStatus.style.borderColor = "var(--pink)";
+            hudStatus.style.color = "var(--pink)";
+            
+            const brakingTime = elapsed - t_reaction;
+            const decel = state.g * frictionVal; // decelerating force
+            let currentV = initialV - decel * brakingTime;
+
+            if (currentV <= 0) {
+              currentV = 0;
+              state.carState = 'stopped';
+              hudStatus.innerText = "Status: Stopped safely ✅";
+              hudStatus.style.borderColor = "var(--green)";
+              hudStatus.style.color = "var(--green)";
+              updateAudioTone();
+              return; // Stop animation loop safely
+            } else {
+              // Add physical smoke particles from tires
+              const scaleFac = canvas.getBoundingClientRect().width;
+              state.smokeParticles.push(new BrakeSmoke(state.carProgress * scaleFac, 105));
+            }
+
+            // Integrator calculation step
+            state.carProgress += (currentV * 0.005);
+            updateAudioTone();
+          }
+
+          // Evaluate crashing dynamic conditions
+          const scaleW = canvas.getBoundingClientRect().width;
+          if (state.carProgress >= state.obstacleX) {
+            // CRASH IMPACT
+            state.carState = 'crashed';
+            state.carProgress = state.obstacleX; // cap
+            hudStatus.innerText = "Status: CRASHED DETECTED! 💥";
+            hudStatus.style.borderColor = "var(--pink)";
+            hudStatus.style.color = "var(--pink)";
+            showToast("💥 CRASH! SSD was longer than sight path!");
+            explainWithTTS("Oh no, we crashed! The stopping sight distance was longer than the road visibility! Reduce speed or upgrade tires to stay safe.");
+            updateAudioTone();
+            return;
+          }
+
+          if (state.carState === 'braking') {
+            requestAnimationFrame(runBrakingSimulation);
+          }
+        }
+        
+        requestAnimationFrame(runBrakingSimulation);
+      }
+    }
+
+    function resetSimulation() {
+      state.carState = 'cruising';
+      state.carProgress = 0.2;
+      state.smokeParticles = [];
+      hudStatus.innerText = "Status: cruising";
+      hudStatus.style.borderColor = "var(--cyan)";
+      hudStatus.style.color = "var(--cyan)";
+      updateAudioTone();
+      showToast("Simulation Environment Reset.");
+    }
+
+    btnBrake.addEventListener('click', triggerEmergencyBrake);
+    btnReset.addEventListener('click', resetSimulation);
+
+    // Canvas Road Render Dynamics
+    function drawSimulation() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // 1. Draw Environment Backdrop (Sky gradient, mountains, grade direction)
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, h);
+      skyGrad.addColorStop(0, '#04030a');
+      skyGrad.addColorStop(1, '#0e0b1f');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw Slope Gradient indicator helper
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      for (let j = 0; j < w; j += 40) {
+        ctx.beginPath();
+        ctx.moveTo(j, 0);
+        ctx.lineTo(j, h);
+        ctx.stroke();
+      }
+
+      // 2. Draw Road Bed (Dynamic Gradient depending on Grade G)
+      const roadY = 110;
+      const slopeOffsetY = -state.grade * 100; // Visual slope helper simulation
+
+      ctx.save();
+      // Apply road transformation slope dynamically
+      ctx.translate(0, roadY);
+      
+      // Paint asphalt road
+      ctx.fillStyle = '#111019';
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(w, slopeOffsetY);
+      ctx.lineTo(w, 40 + slopeOffsetY);
+      ctx.lineTo(0, 40);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lane line dashes
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 18]);
+      ctx.beginPath();
+      ctx.moveTo(0, 20);
+      ctx.lineTo(w, 20 + slopeOffsetY);
+      ctx.stroke();
+      ctx.restore();
+
+      // Realtime running streetlights/stars indicators
+      if (state.carState === 'cruising') {
+        timeOffset -= (state.speedKmh * 0.08);
+      }
+
+      // 3. Draw Target Obstacle (Giant Donut hazard!)
+      const obsX = state.obstacleX * w;
+      const obsY = roadY + (state.obstacleX * slopeOffsetY) - 10;
+      ctx.save();
+      ctx.fillStyle = '#ff79c6';
+      ctx.shadowColor = '#ff5555';
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(obsX, obsY, 15, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#f1fa8c';
+      ctx.beginPath();
+      ctx.arc(obsX, obsY, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // Text descriptor over obstacle
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 9px ' + getComputedStyle(document.body).getPropertyValue('--font-display');
+      ctx.shadowColor = 'black';
+      ctx.shadowBlur = 4;
+      ctx.fillText("HAZARD", obsX - 22, obsY - 22);
+
+      // 4. Update and Draw Tire smoke particles
+      for (let k = state.smokeParticles.length - 1; k >= 0; k--) {
+        const particle = state.smokeParticles[k];
+        particle.update();
+        if (particle.alpha <= 0) {
+          state.smokeParticles.splice(k, 1);
+        } else {
+          particle.draw(ctx);
+        }
+      }
+
+      // 5. Draw Dynamic Reaction (dr - Yellow) & Braking (db - Pink) Vector Brackets on top of the road
+      const carX = state.carProgress * w;
+      const scaleMetersToPixels = (w * 0.5) / 100; // calibration mapping: 100m = half screen
+      
+      const pxDr = state.dr * scaleMetersToPixels;
+      const pxDb = state.db * scaleMetersToPixels;
+
+      if (state.carState === 'cruising' || state.carState === 'braking') {
+        // Draw Vector Lines starting from vehicle position
+        ctx.save();
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        
+        // Yellow Reaction Segment line
+        ctx.strokeStyle = 'rgba(255, 238, 0, 0.85)';
+        ctx.shadowColor = 'var(--yellow)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(carX, roadY - 15);
+        ctx.lineTo(carX + pxDr, roadY - 15);
+        ctx.stroke();
+
+        // Pink Braking Segment line
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.85)';
+        ctx.shadowColor = 'var(--pink)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.moveTo(carX + pxDr, roadY - 15);
+        ctx.lineTo(carX + pxDr + pxDb, roadY - 15);
+        ctx.stroke();
+
+        // Value overlays on vectors with background containers for optimal readability
+        ctx.font = 'bold 10px ' + getComputedStyle(document.body).getPropertyValue('--font-mono');
+        ctx.fillStyle = '#080710';
+        
+        // Render Yellow Reaction label background & text
+        const drText = `d_r: ${state.dr.toFixed(1)}m`;
+        const drWidth = ctx.measureText(drText).width;
+        ctx.fillStyle = 'rgba(255, 238, 0, 0.9)';
+        ctx.fillRect(carX + (pxDr / 2) - (drWidth / 2) - 3, roadY - 38, drWidth + 6, 14);
+        ctx.fillStyle = '#000';
+        ctx.fillText(drText, carX + (pxDr / 2) - (drWidth / 2), roadY - 27);
+
+        // Render Pink Braking label background & text
+        const dbText = `d_b: ${state.db.toFixed(1)}m`;
+        const dbWidth = ctx.measureText(dbText).width;
+        ctx.fillStyle = 'rgba(255, 0, 127, 0.9)';
+        ctx.fillRect(carX + pxDr + (pxDb / 2) - (dbWidth / 2) - 3, roadY - 38, dbWidth + 6, 14);
+        ctx.fillStyle = '#fff';
+        ctx.fillText(dbText, carX + pxDr + (pxDb / 2) - (dbWidth / 2), roadY - 27);
+
+        ctx.restore();
+      }
+
+      // 6. Draw Vehicle Chassis (Styled glow box with selected driver + vehicle indicator text)
+      const carY = roadY + (state.carProgress * slopeOffsetY) - 14;
+      ctx.save();
+      ctx.translate(carX, carY);
+      
+      // Neon Glow chassis aura
+      ctx.shadowColor = state.carState === 'crashed' ? 'var(--pink)' : 'var(--cyan)';
+      ctx.shadowBlur = 12;
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.strokeStyle = state.carState === 'crashed' ? 'var(--pink)' : 'var(--cyan)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.roundRect(-24, -8, 48, 18, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Tire drawing
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = '#000';
+      ctx.beginPath();
+      ctx.arc(-15, 12, 6, 0, Math.PI * 2);
+      ctx.arc(15, 12, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Emoji payload indicator representing loaded driver/vehicle configuration
+      ctx.font = '11px Arial';
+      ctx.fillText(state.driver.emoji, -16, 2);
+      ctx.fillText(state.vehicle.emoji, 4, 2);
+
+      ctx.restore();
+
+      requestAnimationFrame(drawSimulation);
+    }
+
+    // Interactive Sweep Gestures Support inside canvas wrapper
+    let isDragging = false;
+    let startX = 0;
+    
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const delta = e.clientX - startX;
+        // Dynamically accelerate or decelerate initial speed slider visually
+        let targetSpeed = state.speedKmh + (delta > 0 ? 5 : -5);
+        if (targetSpeed >= 10 && targetSpeed <= 120) {
+          state.speedKmh = targetSpeed;
+          speedSlider.value = targetSpeed;
+          valSpeed.innerText = `${targetSpeed} km/h`;
+          calculatePhysics();
+          updateAudioTone();
+          startX = e.clientX;
+        }
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+
+    // Start Operations
+    calculatePhysics();
+    drawSimulation();
+  </script>
+</body>
+</html>

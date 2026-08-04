@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gauge Analytics Studio | Rail Engineering</title>
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --glass: rgba(255, 255, 255, 0.05);
+            --cyan: #00f2ff;
+            --purple: #bc00ff;
+            --amber: #ffb800;
+            --text: #e0e6ed;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #app-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 80px 1fr 120px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        header { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; background: var(--glass); border-radius: 10px; border: 1px solid rgba(255,255,255,0.1); }
+
+        #canvas-area { grid-column: 2; position: relative; border-radius: 15px; overflow: hidden; background: radial-gradient(circle at center, #1a1d26 0%, #0a0b10 100%); border: 1px solid var(--cyan); }
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .sidebar { background: var(--glass); border-radius: 10px; padding: 20px; backdrop-filter: blur(10px); }
+        .data-chip { 
+            padding: 15px; margin: 10px 0; background: rgba(0,0,0,0.5); border: 1px solid var(--cyan); 
+            cursor: grab; border-radius: 5px; text-align: center; transition: 0.3s;
+        }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); display: none; align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: #151820; padding: 30px; border: 1px solid var(--purple); width: 60%; border-radius: 15px; }
+
+        .btn { background: var(--purple); border: none; color: white; padding: 10px 20px; border-radius: 5px; cursor: pointer; }
+        
+        .tab-panel { display: flex; gap: 10px; justify-content: center; padding: 10px; }
+        .tab-row { padding: 10px; background: var(--glass); border-left: 4px solid transparent; width: 200px; transition: 0.5s; opacity: 0; }
+        .tab-row.active { opacity: 1; border-color: var(--cyan); }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <header>
+        <h3>GAUGE ANALYTICS STUDIO v1.0</h3>
+        <button class="btn" onclick="openManual()">IS-CODEBOOK</button>
+    </header>
+
+    <div class="sidebar">
+        <h4>DATA CHIPS</h4>
+        <div class="data-chip" draggable="true" ondragstart="drag(event)" id="1676">Broad Gauge: 1676mm</div>
+        <div class="data-chip" draggable="true" ondragstart="drag(event)" id="1000">Meter Gauge: 1000mm</div>
+        <div class="data-chip" draggable="true" ondragstart="drag(event)" id="762">Narrow Gauge: 762mm</div>
+    </div>
+
+    <div id="canvas-area">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="sidebar">
+        <h4>LIVE COMPARISON</h4>
+        <div id="comp-log"></div>
+    </div>
+
+    <footer class="tab-panel" style="grid-column: 1/-1;">
+        <div class="tab-row" id="row-1676">1676mm: BROAD</div>
+        <div class="tab-row" id="row-1000">1000mm: METER</div>
+        <div class="tab-row" id="row-762">762mm: NARROW</div>
+    </footer>
+</div>
+
+<div class="modal" id="manualModal">
+    <div class="modal-content">
+        <h2>IS-Codebook Reference</h2>
+        <p>Broad: 1676mm | Meter: 1000mm | Narrow: 762mm</p>
+        <button class="btn" onclick="closeManual()">CLOSE</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    let tracks = [
+        {id: 1676, x: 200, y: 300, label: "Broad", placed: false},
+        {id: 1000, x: 450, y: 300, label: "Meter", placed: false},
+        {id: 762, x: 700, y: 300, label: "Narrow", placed: false}
+    ];
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        tracks.forEach(t => {
+            ctx.strokeStyle = t.placed ? '#00f2ff' : '#555';
+            ctx.lineWidth = 4;
+            // Draw Rails
+            ctx.strokeRect(t.x, t.y, 50, 50);
+            ctx.fillStyle = "white";
+            ctx.fillText(t.label, t.x + 10, t.y + 30);
+        });
+        requestAnimationFrame(draw);
+    }
+
+    function playSound(freq, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function drag(e) { e.dataTransfer.setData("text", e.target.id); }
+
+    canvas.addEventListener('dragover', e => e.preventDefault());
+    canvas.addEventListener('drop', e => {
+        const id = e.dataTransfer.getData("text");
+        const track = tracks.find(t => t.id == id);
+        if(track) {
+            track.placed = true;
+            document.getElementById('row-' + id).classList.add('active');
+            playSound(440);
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance(track.label + " gauge identified as " + id + " millimeters"));
+        }
+    });
+
+    function openManual() { document.getElementById('manualModal').style.display = 'flex'; }
+    function closeManual() { document.getElementById('manualModal').style.display = 'none'; }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    draw();
+</script>
+</body>
+</html>

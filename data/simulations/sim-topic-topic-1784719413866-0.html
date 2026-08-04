@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limit State Method: Stress-Strain Constitutive Relations</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-surface-glow: rgba(25, 35, 58, 0.8);
+            --border-glow: rgba(255, 255, 255, 0.08);
+            --text-primary: #f3f4f6;
+            --text-secondary: #9ca3af;
+            --concrete-color: #06b6d4;
+            --concrete-glow: rgba(6, 182, 212, 0.4);
+            --steel-color: #ec4899;
+            --steel-glow: rgba(236, 72, 153, 0.4);
+            --warning-color: #ef4444;
+            --warning-glow: rgba(239, 68, 68, 0.4);
+            --accent-color: #3b82f6;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ambient Glow Background Elements */
+        .ambient-bg {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(9, 181, 211, 0.08) 0%, rgba(0,0,0,0) 70%);
+            top: -10%;
+            left: -10%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .ambient-bg-right {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(236, 72, 153, 0.06) 0%, rgba(0,0,0,0) 70%);
+            bottom: -10%;
+            right: -10%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* App Layout */
+        .app-container {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            gap: 24px;
+            height: 100vh;
+            min-height: 800px;
+        }
+
+        /* Header design */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glow);
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .brand h1 {
+            font-family: var(--font-display);
+            font-size: 20px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .brand span {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-accent {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.2), rgba(59, 130, 246, 0.2));
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+
+        .btn-accent:hover {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(59, 130, 246, 0.3));
+            border-color: rgba(6, 182, 212, 0.6);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.2);
+        }
+
+        /* Main Workspace Split */
+        .workspace {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 24px;
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* Left Canvas Panel */
+        .canvas-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glow);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .card-header-tabs {
+            display: flex;
+            background: rgba(0, 0, 0, 0.2);
+            border-bottom: 1px solid var(--border-glow);
+            padding: 8px;
+            gap: 8px;
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            padding: 10px 20px;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 13px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .tab-btn.active {
+            color: var(--text-primary);
+            background: var(--bg-surface-glow);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+        }
+
+        .tab-btn.active::after {
+            content: '';
+            position: absolute;
+            bottom: 4px;
+            left: 20%;
+            right: 20%;
+            height: 2px;
+            border-radius: 2px;
+        }
+
+        .tab-btn[data-material="concrete"].active::after {
+            background: var(--concrete-color);
+            box-shadow: 0 0 8px var(--concrete-color);
+        }
+
+        .tab-btn[data-material="steel"].active::after {
+            background: var(--steel-color);
+            box-shadow: 0 0 8px var(--steel-color);
+        }
+
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            width: 100%;
+            height: calc(100% - 60px);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD Live Overlay */
+        .canvas-hud {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .hud-badge {
+            background: rgba(10, 15, 30, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(8px);
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+        }
+
+        .hud-badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .hud-concrete .hud-badge-dot {
+            background: var(--concrete-color);
+            box-shadow: 0 0 8px var(--concrete-color);
+        }
+
+        .hud-steel .hud-badge-dot {
+            background: var(--steel-color);
+            box-shadow: 0 0 8px var(--steel-color);
+        }
+
+        /* Right Control Panel */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        /* Sidebar Glass Card */
+        .sidebar-card {
+            background: var(--bg-surface);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glow);
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.2);
+        }
+
+        .card-title {
+            font-family: var(--font-display);
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            border-left: 3px solid var(--accent-color);
+            padding-left: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title-concrete {
+            border-color: var(--concrete-color);
+        }
+
+        .card-title-steel {
+            border-color: var(--steel-color);
+        }
+
+        /* Slider Controls Customization */
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .control-value {
+            color: var(--text-primary);
+            font-family: var(--font-display);
+            font-weight: 600;
+        }
+
+        .range-slider-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.2s;
+            border: 2px solid var(--bg-base);
+        }
+
+        /* Dynamic slider colors */
+        .concrete-group .range-slider::-webkit-slider-thumb {
+            background-color: var(--concrete-color);
+            box-shadow: 0 0 10px var(--concrete-glow);
+        }
+
+        .steel-group .range-slider::-webkit-slider-thumb {
+            background-color: var(--steel-color);
+            box-shadow: 0 0 10px var(--steel-glow);
+        }
+
+        .range-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Number Inputs */
+        .number-input-group {
+            display: flex;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 4px 8px;
+        }
+
+        .number-input-group input {
+            background: transparent;
+            border: none;
+            color: #fff;
+            width: 100%;
+            padding: 6px;
+            font-family: var(--font-display);
+            font-weight: bold;
+            font-size: 14px;
+            outline: none;
+        }
+
+        /* Derivation Step Panel */
+        .formula-box {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            padding: 16px;
+            margin-top: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: var(--font-sans);
+            font-size: 13px;
+        }
+
+        .formula-line {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+        }
+
+        .formula-line:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .formula-label {
+            color: var(--text-secondary);
+        }
+
+        .formula-math {
+            font-family: var(--font-display);
+            font-weight: 500;
+            color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .formula-highlight {
+            color: var(--concrete-color);
+            font-weight: 700;
+        }
+
+        .steel-highlight {
+            color: var(--steel-color);
+            font-weight: 700;
+        }
+
+        /* Collapse Section Panel */
+        .collapsible-container {
+            transition: max-height 0.3s ease-out;
+            max-height: 500px;
+            overflow: hidden;
+        }
+
+        .collapsible-container.collapsed {
+            max-height: 0;
+        }
+
+        .toggle-derivation-btn {
+            background: transparent;
+            border: none;
+            color: var(--accent-color);
+            cursor: pointer;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            outline: none;
+        }
+
+        /* Onboarding / Start Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(5, 8, 16, 0.85);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+
+        .modal-card {
+            background: linear-gradient(145deg, #111827, #0b0f19);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 24px;
+            padding: 40px;
+            max-width: 550px;
+            text-align: center;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 40px rgba(6, 182, 212, 0.1);
+        }
+
+        .modal-icon {
+            font-size: 40px;
+            color: var(--concrete-color);
+            margin-bottom: 24px;
+            filter: drop-shadow(0 0 12px var(--concrete-glow));
+        }
+
+        .modal-card h2 {
+            font-family: var(--font-display);
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 700;
+        }
+
+        .modal-card p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 24px;
+        }
+
+        .modal-features {
+            text-align: left;
+            margin-bottom: 30px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 16px;
+        }
+
+        .modal-feature-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+            font-size: 13px;
+            color: var(--text-primary);
+        }
+
+        .modal-feature-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .modal-feature-dot {
+            color: var(--accent-color);
+            margin-top: 2px;
+        }
+
+        .modal-card .btn {
+            width: 100%;
+            justify-content: center;
+            padding: 14px 20px;
+            font-size: 14px;
+            border-radius: 12px;
+        }
+
+        /* Tooltip style on Graph */
+        .graph-tooltip {
+            position: absolute;
+            background: rgba(10, 15, 30, 0.95);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 12px;
+            font-family: var(--font-sans);
+            pointer-events: none;
+            display: none;
+            z-index: 100;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+
+        .graph-tooltip .tooltip-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            margin-bottom: 4px;
+        }
+
+        .graph-tooltip .tooltip-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .tooltip-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 4px;
+        }
+
+        /* UI Animations */
+        @keyframes alert-pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .alert-active {
+            animation: alert-pulse 1s infinite alternate ease-in-out;
+            border-color: var(--warning-color) !important;
+            box-shadow: 0 0 15px var(--warning-glow);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1100px) {
+            .app-container {
+                height: auto;
+                min-height: 100vh;
+                overflow: visible;
+            }
+            .workspace {
+                grid-template-columns: 1fr;
+                overflow: visible;
+            }
+            .canvas-card {
+                height: 500px;
+            }
+            .sidebar {
+                overflow: visible;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-bg"></div>
+    <div class="ambient-bg-right"></div>
+
+    <!-- Onboarding Modal -->
+    <div class="modal-overlay" id="onboardingModal">
+        <div class="modal-card">
+            <div class="modal-icon">
+                <!-- SVG Icon representing a material strength curve graph -->
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 3v18h18"/>
+                    <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" stroke="url(#cyan-grad)"/>
+                    <defs>
+                        <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#06b6d4" />
+                            <stop offset="100%" stop-color="#3b82f6" />
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <h2>Limit State Method Simulator</h2>
+            <p>Explore the constitutive engineering relations of concrete and steel under the Indian Standard (IS 456) & Eurocode Limit State Philosophy.</p>
+            
+            <div class="modal-features">
+                <div class="modal-feature-item">
+                    <span class="modal-feature-dot">⚡</span>
+                    <span><strong>Interactive Stress-Strain Curves:</strong> Dynamically scale characteristics and watch partial safety factors transform target envelopes.</span>
+                </div>
+                <div class="modal-feature-item">
+                    <span class="modal-feature-dot">🎧</span>
+                    <span><strong>Real-time Acoustics:</strong> Sound synthesized using the Web Audio API provides audial response upon hitting peak stress and limit conditions.</span>
+                </div>
+                <div class="modal-feature-item">
+                    <span class="modal-feature-dot">💬</span>
+                    <span><strong>Narrated Insights:</strong> Text-To-Speech engine explaining complex derivation paths for structural components.</span>
+                </div>
+            </div>
+
+            <button class="btn btn-accent" id="startBtn">
+                <span>Enter Simulator & Initialize Sound</span>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 3l14 9-14 9V3z"/></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main Workspace -->
+    <div class="app-container">
+        
+        <!-- Header -->
+        <header>
+            <div class="brand">
+                <span>Core Structural Mechanics</span>
+                <h1>LIMIT STATE METHOD CONSTITUTIVE MODULE</h1>
+            </div>
+            <div class="header-controls">
+                <button class="btn" id="narratorBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+                    </svg>
+                    <span>Narrate Concept</span>
+                </button>
+                <button class="btn" id="resetBtn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"></path>
+                    </svg>
+                    <span>Reset Params</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Body Grid -->
+        <div class="workspace">
+            
+            <!-- Visualizer Card (Left Column) -->
+            <div class="canvas-card" id="canvasCard">
+                <div class="card-header-tabs">
+                    <button class="tab-btn active" data-material="concrete">CONCRETE STRESS-STRAIN</button>
+                    <button class="tab-btn" data-material="steel">STEEL STRESS-STRAIN</button>
+                </div>
+
+                <div class="canvas-container" id="canvasContainer">
+                    <div class="canvas-hud">
+                        <div class="hud-badge hud-concrete" id="hudConcrete">
+                            <span class="hud-badge-dot"></span>
+                            <span>Concrete Parabolic-Rectangular Envelope</span>
+                        </div>
+                        <div class="hud-badge hud-steel" id="hudSteel" style="display: none;">
+                            <span class="hud-badge-dot"></span>
+                            <span>Steel Bilinear Elasto-Plastic Envelope</span>
+                        </div>
+                    </div>
+                    <canvas id="constitutiveCanvas"></canvas>
+                    <div class="graph-tooltip" id="graphTooltip"></div>
+                </div>
+            </div>
+
+            <!-- Controls Panel (Right Column) -->
+            <div class="sidebar">
+
+                <!-- Material Input Card -->
+                <div class="sidebar-card">
+                    <!-- Dynamic material name will slide in here -->
+                    <div class="card-title card-title-concrete" id="sidebarCardTitle">CONCRETE MATERIAL MATRIX</div>
+                    
+                    <!-- Concrete Matrix Controls -->
+                    <div id="concreteControls">
+                        <div class="control-group concrete-group">
+                            <div class="control-label">
+                                <span>Characteristic Strength (f<sub>ck</sub>)</span>
+                                <span class="control-value"><span id="fckVal">30</span> MPa</span>
+                            </div>
+                            <div class="range-slider-container">
+                                <input type="range" class="range-slider" id="fckSlider" min="20" max="60" step="5" value="30">
+                            </div>
+                        </div>
+
+                        <div class="control-group concrete-group">
+                            <div class="control-label">
+                                <span>Partial Safety Factor (&gamma;<sub>c</sub>)</span>
+                                <span class="control-value"><span id="gammacVal">1.50</span></span>
+                            </div>
+                            <div class="range-slider-container">
+                                <input type="range" class="range-slider" id="gammacSlider" min="1.0" max="2.0" step="0.05" value="1.50">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Steel Matrix Controls (Hidden initially) -->
+                    <div id="steelControls" style="display: none;">
+                        <div class="control-group steel-group">
+                            <div class="control-label">
+                                <span>Yield Strength (f<sub>y</sub>)</span>
+                                <span class="control-value"><span id="fyVal">415</span> MPa</span>
+                            </div>
+                            <div class="range-slider-container">
+                                <input type="range" class="range-slider" id="fySlider" min="250" max="550" step="10" value="415">
+                            </div>
+                        </div>
+
+                        <div class="control-group steel-group">
+                            <div class="control-label">
+                                <span>Partial Safety Factor (&gamma;<sub>s</sub>)</span>
+                                <span class="control-value"><span id="gammasVal">1.15</span></span>
+                            </div>
+                            <div class="range-slider-container">
+                                <input type="range" class="range-slider" id="gammasSlider" min="1.0" max="1.8" step="0.05" value="1.15">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Math Equations & Derivation Card -->
+                <div class="sidebar-card">
+                    <div class="card-title" style="border-color: var(--accent-color)">
+                        <span>DERIVATION STEPS</span>
+                        <button class="toggle-derivation-btn" id="toggleDerivationBtn">Hide [−]</button>
+                    </div>
+
+                    <div class="collapsible-container" id="derivationContainer">
+                        <!-- Concrete Formula Presentation -->
+                        <div id="concreteDerivation">
+                            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                In concrete, size-effect factor 0.67 is mapped to match the actual structural member behavior compared to cylinder/cube laboratory results.
+                            </p>
+                            <div class="formula-box">
+                                <div class="formula-line">
+                                    <span class="formula-label">Cube characteristic strength:</span>
+                                    <span class="formula-math">f<sub>ck</sub> = <span id="eqFck" class="formula-highlight">30.00</span> MPa</span>
+                                </div>
+                                <div class="formula-line">
+                                    <span class="formula-label">Structural characteristic strength:</span>
+                                    <span class="formula-math">0.67 · f<sub>ck</sub> = <span id="eqStructFck">20.10</span> MPa</span>
+                                </div>
+                                <div class="formula-line">
+                                    <span class="formula-label">Concrete Safety Factor applied (&gamma;<sub>c</sub>):</span>
+                                    <span class="formula-math">&gamma;<sub>c</sub> = <span id="eqGammaC" style="color: var(--concrete-color)">1.50</span></span>
+                                </div>
+                                <div class="formula-line" style="border-bottom: none; padding-bottom: 0;">
+                                    <span class="formula-label">Ultimate design strength (f<sub>cd</sub>):</span>
+                                    <span class="formula-math">f<sub>cd</sub> = <span id="eqFcd" class="formula-highlight">13.40</span> MPa</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Steel Formula Presentation -->
+                        <div id="steelDerivation" style="display: none;">
+                            <p style="font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 12px;">
+                                Steel curves follow an elastic path defined by Hooke's Law (Young's modulus E<sub>s</sub> = 2 &times; 10<sup>5</sup> MPa) up to the yielded boundary.
+                            </p>
+                            <div class="formula-box">
+                                <div class="formula-line">
+                                    <span class="formula-label">Characteristic Yield limit:</span>
+                                    <span class="formula-math">f<sub>y</sub> = <span id="eqFy" class="steel-highlight">415.00</span> MPa</span>
+                                </div>
+                                <div class="formula-line">
+                                    <span class="formula-label">Steel Safety Factor (&gamma;<sub>s</sub>):</span>
+                                    <span class="formula-math">&gamma;<sub>s</sub> = <span id="eqGammaS" style="color: var(--steel-color)">1.15</span></span>
+                                </div>
+                                <div class="formula-line">
+                                    <span class="formula-label">Ultimate design limit (f<sub>yd</sub>):</span>
+                                    <span class="formula-math">f<sub>yd</sub> = <span id="eqFyd" class="steel-highlight">360.87</span> MPa</span>
+                                </div>
+                                <div class="formula-line" style="border-bottom: none; padding-bottom: 0;">
+                                    <span class="formula-label">Design Strain Yield Limit (&epsilon;<sub>yd</sub>):</span>
+                                    <span class="formula-math">&epsilon;<sub>yd</sub> = <span id="eqEyd">0.00380</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Theory and Legend Information Panel -->
+                <div class="sidebar-card">
+                    <div class="card-title" style="border-color: #6b7280">CONVENTIONAL LIMITS</div>
+                    <div style="font-size: 13px; color: var(--text-secondary); line-height: 1.6;">
+                        <p style="margin-bottom: 8px;">
+                            <strong>Concrete:</strong> Elastic-plastic parabolic up to strain 0.002, transitioning to rigid-plastic plateau limit of <span style="color: var(--warning-color); font-weight: bold;">0.0035</span>.
+                        </p>
+                        <p>
+                            <strong>Steel:</strong> Linearly elastic design up to design strength division boundary, plateauing into yield profile.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Audio & Core Simulator Logic -->
+    <script>
+        // --- Web Audio Synthesizer Implementation ---
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        // Rising Sine Tone on Parameter Scale
+        function playParameterTone(frequencyStart, frequencyEnd, duration = 0.15) {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(frequencyStart, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(frequencyEnd, audioCtx.currentTime + duration);
+                
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {
+                console.warn("Audio Context Error: ", e);
+            }
+        }
+
+        // Limit Strain Hit Impact (Lowpass filtered square wave with immediate decay envelope)
+        function playLimitImpact() {
+            if (!audioCtx) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const filter = audioCtx.createBiquadFilter();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.3);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.35);
+            } catch(e) {
+                console.warn("Audio Context Error: ", e);
+            }
+        }
+
+        // --- Core Simulator State ---
+        const state = {
+            activeMaterial: 'concrete', // 'concrete' or 'steel'
+            concrete: {
+                fck: 30,
+                gammac: 1.5,
+                currentFck: 30, // Interpolation targets
+                currentGammac: 1.5
+            },
+            steel: {
+                fy: 415,
+                gammas: 1.15,
+                currentFy: 415, // Interpolation targets
+                currentGammas: 1.15
+            },
+            canvasHoverPos: { x: null, y: null },
+            lastHoveredState: false // Track strain boundary hits to play sound once
+        };
+
+        // DOM Handles
+        const canvas = document.getElementById('constitutiveCanvas');
+        const ctx = canvas.getContext('2d');
+        const fckSlider = document.getElementById('fckSlider');
+        const fckVal = document.getElementById('fckVal');
+        const gammacSlider = document.getElementById('gammacSlider');
+        const gammacVal = document.getElementById('gammacVal');
+        const fySlider = document.getElementById('fySlider');
+        const fyVal = document.getElementById('fyVal');
+        const gammasSlider = document.getElementById('gammasSlider');
+        const gammasVal = document.getElementById('gammasVal');
+        const startBtn = document.getElementById('startBtn');
+        const onboardingModal = document.getElementById('onboardingModal');
+        const narratorBtn = document.getElementById('narratorBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        const concreteControls = document.getElementById('concreteControls');
+        const steelControls = document.getElementById('steelControls');
+        const sidebarCardTitle = document.getElementById('sidebarCardTitle');
+        const concreteDerivation = document.getElementById('concreteDerivation');
+        const steelDerivation = document.getElementById('steelDerivation');
+        const toggleDerivationBtn = document.getElementById('toggleDerivationBtn');
+        const derivationContainer = document.getElementById('derivationContainer');
+        const hudConcrete = document.getElementById('hudConcrete');
+        const hudSteel = document.getElementById('hudSteel');
+        const graphTooltip = document.getElementById('graphTooltip');
+        const canvasCard = document.getElementById('canvasCard');
+
+        // Dynamic Math Formula elements
+        const eqFck = document.getElementById('eqFck');
+        const eqStructFck = document.getElementById('eqStructFck');
+        const eqGammaC = document.getElementById('eqGammaC');
+        const eqFcd = document.getElementById('eqFcd');
+        const eqFy = document.getElementById('eqFy');
+        const eqGammaS = document.getElementById('eqGammaS');
+        const eqFyd = document.getElementById('eqFyd');
+        const eqEyd = document.getElementById('eqEyd');
+
+        // Setup Resize & Canvas Context Dimensions
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            // Scale resolution for high-DPI displays
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- Tab Management ---
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const material = btn.getAttribute('data-material');
+                switchMaterialTab(material);
+            });
+        });
+
+        function switchMaterialTab(material) {
+            state.activeMaterial = material;
+            
+            tabBtns.forEach(b => {
+                b.classList.remove('active');
+                if (b.getAttribute('data-material') === material) b.classList.add('active');
+            });
+
+            // Adjust controls display
+            if (material === 'concrete') {
+                concreteControls.style.display = 'block';
+                steelControls.style.display = 'none';
+                concreteDerivation.style.display = 'block';
+                steelDerivation.style.display = 'none';
+                hudConcrete.style.display = 'flex';
+                hudSteel.style.display = 'none';
+                sidebarCardTitle.textContent = "CONCRETE MATERIAL MATRIX";
+                sidebarCardTitle.className = "card-title card-title-concrete";
+            } else {
+                concreteControls.style.display = 'none';
+                steelControls.style.display = 'block';
+                concreteDerivation.style.display = 'none';
+                steelDerivation.style.display = 'block';
+                hudConcrete.style.display = 'none';
+                hudSteel.style.display = 'flex';
+                sidebarCardTitle.textContent = "STEEL MATERIAL MATRIX";
+                sidebarCardTitle.className = "card-title card-title-steel";
+            }
+            playParameterTone(350, 600, 0.12);
+        }
+
+        // --- Event Listeners and Parameter Interpolations ---
+        fckSlider.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            fckVal.textContent = v;
+            playParameterTone(150 + v * 5, 250 + v * 6, 0.1);
+            state.concrete.fck = v;
+        });
+
+        gammacSlider.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            gammacVal.textContent = v.toFixed(2);
+            playParameterTone(300 + v * 100, 400 + v * 100, 0.1);
+            state.concrete.gammac = v;
+        });
+
+        fySlider.addEventListener('input', (e) => {
+            const v = parseInt(e.target.value);
+            fyVal.textContent = v;
+            playParameterTone(100 + v * 0.8, 200 + v * 0.8, 0.1);
+            state.steel.fy = v;
+        });
+
+        gammasSlider.addEventListener('input', (e) => {
+            const v = parseFloat(e.target.value);
+            gammasVal.textContent = v.toFixed(2);
+            playParameterTone(250 + v * 120, 350 + v * 120, 0.1);
+            state.steel.gammas = v;
+        });
+
+        // Toggle Derivation Step Drawer
+        toggleDerivationBtn.addEventListener('click', () => {
+            derivationContainer.classList.toggle('collapsed');
+            toggleDerivationBtn.textContent = derivationContainer.classList.contains('collapsed') ? 'Show [+]' : 'Hide [−]';
+            playParameterTone(300, 200, 0.1);
+        });
+
+        // Initialize App on click
+        startBtn.addEventListener('click', () => {
+            initAudio();
+            onboardingModal.style.opacity = '0';
+            setTimeout(() => {
+                onboardingModal.style.display = 'none';
+            }, 500);
+            playParameterTone(220, 880, 0.5);
+        });
+
+        // Reset inputs
+        resetBtn.addEventListener('click', () => {
+            fckSlider.value = 30;
+            gammacSlider.value = 1.50;
+            fySlider.value = 415;
+            gammasSlider.value = 1.15;
+            
+            fckVal.textContent = "30";
+            gammacVal.textContent = "1.50";
+            fyVal.textContent = "415";
+            gammasVal.textContent = "1.15";
+
+            state.concrete.fck = 30;
+            state.concrete.gammac = 1.50;
+            state.steel.fy = 415;
+            state.steel.gammas = 1.15;
+
+            playParameterTone(440, 220, 0.35);
+        });
+
+        // Sound Synthesis feedback integration on boundary hover trigger
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            state.canvasHoverPos.x = e.clientX - rect.left;
+            state.canvasHoverPos.y = e.clientY - rect.top;
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            state.canvasHoverPos.x = null;
+            state.canvasHoverPos.y = null;
+            graphTooltip.style.display = 'none';
+            canvasCard.classList.remove('alert-active');
+            state.lastHoveredState = false;
+        });
+
+        // --- Core Math Formulas ---
+        // Concrete Formulas
+        // Parabolic-rectangular stress curve function
+        function getConcreteStress(strain, fck, gamma) {
+            const ec2 = 0.002;
+            const ecu = 0.0035;
+            const peakStress = (0.67 * fck) / gamma;
+
+            if (strain < 0) return 0;
+            if (strain <= ec2) {
+                // Parabolic transition profile
+                return peakStress * (2 * (strain / ec2) - Math.pow(strain / ec2, 2));
+            } else if (strain <= ecu) {
+                // Plastic plateau profile
+                return peakStress;
+            }
+            return 0; // Exceeded ultimate
+        }
+
+        function getConcreteCharacteristicStress(strain, fck, useStructuralFactor = true) {
+            const ec2 = 0.002;
+            const ecu = 0.0035;
+            const factor = useStructuralFactor ? 0.67 : 1.0;
+            const peakStress = factor * fck;
+
+            if (strain < 0) return 0;
+            if (strain <= ec2) {
+                return peakStress * (2 * (strain / ec2) - Math.pow(strain / ec2, 2));
+            } else if (strain <= ecu) {
+                return peakStress;
+            }
+            return 0;
+        }
+
+        // Steel Formulas
+        // Bilinear Hooke's yield strength
+        function getSteelStress(strain, fy, gamma) {
+            const Es = 2.0e5; // MPa (200 GPa)
+            const fyd = fy / gamma;
+            const yieldStrain = fyd / Es;
+            
+            if (strain < 0) return 0;
+            if (strain <= yieldStrain) {
+                return Es * strain;
+            } else {
+                return fyd;
+            }
+        }
+
+        function getSteelCharacteristicStress(strain, fy) {
+            const Es = 2.0e5;
+            const yieldStrain = fy / Es;
+            if (strain < 0) return 0;
+            if (strain <= yieldStrain) {
+                return Es * strain;
+            } else {
+                return fy;
+            }
+        }
+
+        // --- Speech Synthesis Narrator ---
+        let speechSynth = window.speechSynthesis;
+        let speechUtterance = null;
+
+        narratorBtn.addEventListener('click', () => {
+            initAudio();
+            if (speechSynth.speaking) {
+                speechSynth.cancel();
+                narratorBtn.querySelector('span').textContent = "Narrate Concept";
+                playParameterTone(300, 150, 0.1);
+                return;
+            }
+
+            let text = "";
+            if (state.activeMaterial === 'concrete') {
+                text = `Under Limit State Method rules, characteristic concrete strength is represented by fck. For structural members, lab cylinder variations are accounted for by reducing peak cube strength to zero point six seven fck. Applying our partial safety factor of ${state.concrete.gammac.toFixed(2)} drops the maximum design boundary stress down to ${( (0.67 * state.concrete.fck) / state.concrete.gammac ).toFixed(1)} megapascals. Elastic parabola limits stop at point zero zero two strain, turning completely flat until concrete crushes at point zero zero three five strain.`;
+            } else {
+                text = `For steel reinforcement, the bilinear profile maps elasto-plastic zones. Up to the elastic yield boundary determined by Young's Modulus of two hundred Giga Pascals, stress scales linearly with strain. Applying our partial safety factor of ${state.steel.gammas.toFixed(2)} shrinks the yield limits from ${state.steel.fy} megapascals down to a design boundary of ${(state.steel.fy / state.steel.gammas).toFixed(1)} megapascals.`;
+            }
+
+            speechUtterance = new SpeechSynthesisUtterance(text);
+            
+            // Adjust synthesis speed and pitch
+            speechUtterance.rate = 1.05;
+            speechUtterance.pitch = 1.0;
+
+            speechUtterance.onstart = () => {
+                narratorBtn.querySelector('span').textContent = "Stop Speaking";
+                narratorBtn.classList.add('btn-accent');
+            };
+
+            speechUtterance.onend = () => {
+                narratorBtn.querySelector('span').textContent = "Narrate Concept";
+                narratorBtn.classList.remove('btn-accent');
+            };
+
+            speechSynth.speak(speechUtterance);
+        });
+
+
+        // --- Plot Rendering Engine (RAF-loop) ---
+        function drawGrid(padding, plotWidth, plotHeight, maxStrain, maxStress, xTicks, yTicks) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.font = '10px var(--font-display)';
+
+            // Draw X lines & text ticks
+            for (let i = 0; i <= xTicks; i++) {
+                const ratio = i / xTicks;
+                const strainVal = ratio * maxStrain;
+                const x = padding + ratio * plotWidth;
+
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, padding + plotHeight);
+                ctx.stroke();
+
+                // Draw labels slightly offset below axis line
+                ctx.fillText(strainVal.toFixed(4), x - 12, padding + plotHeight + 16);
+            }
+
+            // Draw Y lines & text ticks
+            for (let i = 0; i <= yTicks; i++) {
+                const ratio = i / yTicks;
+                const stressVal = ratio * maxStress;
+                const y = padding + plotHeight - ratio * plotHeight;
+
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(padding + plotWidth, y);
+                ctx.stroke();
+
+                // Label on left of graph
+                ctx.fillText(Math.round(stressVal) + " MPa", padding - 45, y + 3);
+            }
+        }
+
+        // Draw dynamic arrows for limits
+        function drawVectorArrow(x1, y1, x2, y2, color, labelText) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.5;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Arrow head
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - 8 * Math.cos(angle - Math.PI / 6), y2 - 8 * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - 8 * Math.cos(angle + Math.PI / 6), y2 - 8 * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            if (labelText) {
+                ctx.font = 'bold 9px var(--font-sans)';
+                ctx.fillStyle = '#fff';
+                ctx.fillText(labelText, (x1 + x2)/2 + 8, (y1 + y2)/2 + 3);
+            }
+        }
+
+        function drawApp() {
+            // Smoothly interpolate parameters for smooth animation on drag
+            state.concrete.currentFck += (state.concrete.fck - state.concrete.currentFck) * 0.15;
+            state.concrete.currentGammac += (state.concrete.gammac - state.concrete.currentGammac) * 0.15;
+            state.steel.currentFy += (state.steel.fy - state.steel.currentFy) * 0.15;
+            state.steel.currentGammas += (state.steel.gammas - state.steel.currentGammas) * 0.15;
+
+            // Clear frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const padding = 60;
+            const w = (canvas.width / (window.devicePixelRatio || 1)) - padding * 2;
+            const h = (canvas.height / (window.devicePixelRatio || 1)) - padding * 2;
+
+            if (state.activeMaterial === 'concrete') {
+                const fck = state.concrete.currentFck;
+                const gc = state.concrete.currentGammac;
+
+                // Concrete Plot Setup
+                const maxStrain = 0.004;
+                const maxStress = Math.ceil((fck * 1.25) / 10) * 10;
+
+                // Calculations
+                const peakCubeStress = fck;
+                const peakStructStress = 0.67 * fck;
+                const peakDesignStress = (0.67 * fck) / gc;
+
+                // Update text overlays in the derivation card
+                eqFck.textContent = state.concrete.fck.toFixed(2);
+                eqStructFck.textContent = (0.67 * state.concrete.fck).toFixed(2);
+                eqGammaC.textContent = state.concrete.gammac.toFixed(2);
+                eqFcd.textContent = ((0.67 * state.concrete.fck) / state.concrete.gammac).toFixed(2);
+
+                drawGrid(padding, w, h, maxStrain, maxStress, 8, 5);
+
+                // Mapping coordinates functions
+                const mapX = (strain) => padding + (strain / maxStrain) * w;
+                const mapY = (stress) => padding + h - (stress / maxStress) * h;
+
+                // 1. Draw Cube characteristic boundary curve
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1.5;
+                for (let strain = 0; strain <= 0.0035; strain += 0.0001) {
+                    const stress = getConcreteCharacteristicStress(strain, fck, false);
+                    const cx = mapX(strain);
+                    const cy = mapY(stress);
+                    if (strain === 0) ctx.moveTo(cx, cy);
+                    else ctx.lineTo(cx, cy);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset dash
+
+                // 2. Draw Structural Curve
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(6, 182, 212, 0.3)';
+                ctx.setLineDash([2, 2]);
+                ctx.lineWidth = 1.5;
+                for (let strain = 0; strain <= 0.0035; strain += 0.0001) {
+                    const stress = getConcreteCharacteristicStress(strain, fck, true);
+                    const cx = mapX(strain);
+                    const cy = mapY(stress);
+                    if (strain === 0) ctx.moveTo(cx, cy);
+                    else ctx.lineTo(cx, cy);
+                }
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 3. Draw Design Curve
+                ctx.beginPath();
+                ctx.strokeStyle = varColor('--concrete-color');
+                ctx.shadowColor = varColor('--concrete-glow');
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 3;
+                for (let strain = 0; strain <= 0.0035; strain += 0.00005) {
+                    const stress = getConcreteStress(strain, fck, gc);
+                    const cx = mapX(strain);
+                    const cy = mapY(stress);
+                    if (strain === 0) ctx.moveTo(cx, cy);
+                    else ctx.lineTo(cx, cy);
+                }
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Clear glow shadow on further paths
+
+                // Draw peak lines & indicators
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                // Vertical limit line at 0.0035 strain limit
+                ctx.beginPath();
+                ctx.moveTo(mapX(0.0035), padding - 10);
+                ctx.lineTo(mapX(0.0035), padding + h);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Strain Limit Tag
+                ctx.fillStyle = '#ef4444';
+                ctx.font = '9px var(--font-display)';
+                ctx.fillText("LIMIT STATE OF STRAIN 0.0035", mapX(0.0035) - 60, padding - 15);
+
+                // Draw Reduction vector arrows
+                drawVectorArrow(mapX(0.0031), mapY(peakCubeStress), mapX(0.0031), mapY(peakStructStress), 'rgba(255, 255, 255, 0.3)', 'Size Effect (0.67)');
+                drawVectorArrow(mapX(0.0026), mapY(peakStructStress), mapX(0.0026), mapY(peakDesignStress), varColor('--concrete-color'), `Material Safety Factor (γc)`);
+
+                // Label Curve names directly on canvas for readability
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+                ctx.fillText("Cube fck Curve", mapX(0.0012), mapY(peakCubeStress * 0.98));
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+                ctx.fillText("Structural 0.67 fck Curve", mapX(0.0012), mapY(peakStructStress * 0.93));
+                ctx.fillStyle = varColor('--concrete-color');
+                ctx.fillText("Design Curve (0.446 fck)", mapX(0.0012), mapY(peakDesignStress * 0.85));
+
+                // Interactivity Tooltip updates
+                if (state.canvasHoverPos.x !== null) {
+                    const hx = state.canvasHoverPos.x;
+                    const hy = state.canvasHoverPos.y;
+
+                    // Convert raw position to plot limits strain/stress values
+                    const strainHover = ((hx - padding) / w) * maxStrain;
+                    if (strainHover >= 0 && strainHover <= maxStrain) {
+                        const stressCube = getConcreteCharacteristicStress(strainHover, fck, false);
+                        const stressDesign = getConcreteStress(strainHover, fck, gc);
+
+                        // Draw guidelines on point mapping
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.beginPath();
+                        ctx.moveTo(hx, padding);
+                        ctx.lineTo(hx, padding + h);
+                        ctx.stroke();
+
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.beginPath();
+                        ctx.arc(hx, mapY(stressDesign), 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Coordinate Tooltip DOM output
+                        graphTooltip.style.display = 'block';
+                        graphTooltip.style.left = (hx + 20) + 'px';
+                        graphTooltip.style.top = (hy - 30) + 'px';
+                        
+                        const isCrushed = strainHover > 0.0035;
+                        if (isCrushed) {
+                            if (!state.lastHoveredState) {
+                                playLimitImpact();
+                                state.lastHoveredState = true;
+                            }
+                            canvasCard.classList.add('alert-active');
+                        } else {
+                            canvasCard.classList.remove('alert-active');
+                            state.lastHoveredState = false;
+                        }
+
+                        graphTooltip.innerHTML = `
+                            <div class="tooltip-title" style="color:${isCrushed ? 'var(--warning-color)' : 'var(--concrete-color)'}">
+                                ${isCrushed ? '⚠️ CRITICAL LIMIT EXCEEDED' : 'CONCRETE STRAIN POINT'}
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Strain (&epsilon;):</span>
+                                <span style="font-weight:bold; color: #fff;">${strainHover.toFixed(5)}</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Design Stress (&sigma;<sub>d</sub>):</span>
+                                <span style="font-weight:bold; color:var(--concrete-color);">${stressDesign.toFixed(2)} MPa</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Cube Stress (&sigma;<sub>ck</sub>):</span>
+                                <span style="font-weight:bold; color:#fff;">${stressCube.toFixed(2)} MPa</span>
+                            </div>
+                        `;
+                    }
+                }
+
+            } else {
+                // Steel Plot Setup
+                const fy = state.steel.currentFy;
+                const gs = state.steel.currentGammas;
+                const Es = 2.0e5;
+
+                // Max scale dynamic parameters
+                const maxStrain = 0.005;
+                const maxStress = Math.ceil((fy * 1.25) / 10) * 10;
+
+                const peakCharStress = fy;
+                const peakDesignStress = fy / gs;
+                const designYieldStrain = peakDesignStress / Es;
+                const charYieldStrain = fy / Es;
+
+                // Update steel text overlays
+                eqFy.textContent = state.steel.fy.toFixed(2);
+                eqGammaS.textContent = state.steel.gammas.toFixed(2);
+                eqFyd.textContent = (state.steel.fy / state.steel.gammas).toFixed(2);
+                eqEyd.textContent = (designYieldStrain).toFixed(5);
+
+                drawGrid(padding, w, h, maxStrain, maxStress, 10, 5);
+
+                const mapX = (strain) => padding + (strain / maxStrain) * w;
+                const mapY = (stress) => padding + h - (stress / maxStress) * h;
+
+                // 1. Draw Characteristic Curve
+                ctx.beginPath();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.setLineDash([4, 4]);
+                ctx.lineWidth = 1.5;
+                ctx.moveTo(mapX(0), mapY(0));
+                ctx.lineTo(mapX(charYieldStrain), mapY(peakCharStress));
+                ctx.lineTo(mapX(maxStrain), mapY(peakCharStress));
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // 2. Draw Design curve
+                ctx.beginPath();
+                ctx.strokeStyle = varColor('--steel-color');
+                ctx.shadowColor = varColor('--steel-glow');
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 3;
+                ctx.moveTo(mapX(0), mapY(0));
+                ctx.lineTo(mapX(designYieldStrain), mapY(peakDesignStress));
+                ctx.lineTo(mapX(maxStrain), mapY(peakDesignStress));
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+
+                // Label Curve names directly on canvas
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.fillText(`Characteristic Yield limit f_y = ${state.steel.fy} MPa`, mapX(0.0028), mapY(peakCharStress * 0.95));
+                ctx.fillStyle = varColor('--steel-color');
+                ctx.fillText(`Design Strength Curve (f_y / γ_s)`, mapX(0.0028), mapY(peakDesignStress * 0.85));
+
+                // Draw Red boundary limit representing recommended yield limit line (typically Es * strain_design + 0.002)
+                const typicalLimitStateStrain = designYieldStrain + 0.002;
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([2, 2]);
+                ctx.beginPath();
+                ctx.moveTo(mapX(typicalLimitStateStrain), padding - 10);
+                ctx.lineTo(mapX(typicalLimitStateStrain), padding + h);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Strain limit tag for steel
+                ctx.fillStyle = '#ef4444';
+                ctx.font = '9px var(--font-display)';
+                ctx.fillText(`LIMIT STATE OF REBAR YIELD: ${typicalLimitStateStrain.toFixed(5)}`, mapX(typicalLimitStateStrain) - 60, padding - 15);
+
+                // Safety factor dynamic offset arrows
+                drawVectorArrow(mapX(0.0042), mapY(peakCharStress), mapX(0.0042), mapY(peakDesignStress), varColor('--steel-color'), `Safety Margin (γ_s)`);
+
+                // Interactivity Hover overlay
+                if (state.canvasHoverPos.x !== null) {
+                    const hx = state.canvasHoverPos.x;
+                    const hy = state.canvasHoverPos.y;
+
+                    const strainHover = ((hx - padding) / w) * maxStrain;
+                    if (strainHover >= 0 && strainHover <= maxStrain) {
+                        const stressChar = getSteelCharacteristicStress(strainHover, fy);
+                        const stressDesign = getSteelStress(strainHover, fy, gs);
+
+                        // Draw reference line
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                        ctx.beginPath();
+                        ctx.moveTo(hx, padding);
+                        ctx.lineTo(hx, padding + h);
+                        ctx.stroke();
+
+                        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+                        ctx.beginPath();
+                        ctx.arc(hx, mapY(stressDesign), 4, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Coordinate Tooltip DOM output
+                        graphTooltip.style.display = 'block';
+                        graphTooltip.style.left = (hx + 20) + 'px';
+                        graphTooltip.style.top = (hy - 30) + 'px';
+                        
+                        const isYieldedLimit = strainHover > typicalLimitStateStrain;
+                        if (isYieldedLimit) {
+                            if (!state.lastHoveredState) {
+                                playLimitImpact();
+                                state.lastHoveredState = true;
+                            }
+                            canvasCard.classList.add('alert-active');
+                        } else {
+                            canvasCard.classList.remove('alert-active');
+                            state.lastHoveredState = false;
+                        }
+
+                        graphTooltip.innerHTML = `
+                            <div class="tooltip-title" style="color:${isYieldedLimit ? 'var(--warning-color)' : 'var(--steel-color)'}">
+                                ${isYieldedLimit ? '⚠️ ULTIMATE STRAIN BOUNDARY' : 'STEEL REBAR POINT'}
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Strain (&epsilon;):</span>
+                                <span style="font-weight:bold; color: #fff;">${strainHover.toFixed(5)}</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Design Stress (&sigma;<sub>d</sub>):</span>
+                                <span style="font-weight:bold; color:var(--steel-color);">${stressDesign.toFixed(2)} MPa</span>
+                            </div>
+                            <div class="tooltip-row">
+                                <span>Char. Stress (&sigma;<sub>y</sub>):</span>
+                                <span style="font-weight:bold; color:#fff;">${stressChar.toFixed(2)} MPa</span>
+                            </div>
+                        `;
+                    }
+                }
+            }
+
+            // Loop Frame
+            requestAnimationFrame(drawApp);
+        }
+
+        // Helper: retrieve variables from CSS styles safely
+        function varColor(cssVariableName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(cssVariableName).trim();
+        }
+
+        // Start render-loop
+        requestAnimationFrame(drawApp);
+    </script>
+</body>
+</html>

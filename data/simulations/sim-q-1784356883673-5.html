@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectural Space-Making Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --neon-blue: #00f0ff;
+            --neon-cyan-glow: rgba(0, 240, 255, 0.4);
+            --neon-rose: #f43f5e;
+            --neon-rose-glow: rgba(244, 63, 94, 0.4);
+            --neon-emerald: #10b981;
+            --neon-purple: #a855f7;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Glassmorphic scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo-container h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.05em;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .logo-container p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .global-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-active {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--neon-blue);
+            color: var(--neon-blue);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.15);
+        }
+
+        .main-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.2rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--neon-blue), transparent);
+        }
+
+        .card-enclosure::before {
+            background: linear-gradient(90deg, transparent, var(--neon-rose), transparent);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .card-title-group h2 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        .card-title-group p {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 380px;
+            background: rgba(10, 15, 30, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 1rem;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        .control-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .control-value {
+            color: var(--text-main);
+            font-family: monospace;
+        }
+
+        .slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-cyan-glow);
+            transition: transform 0.1s ease;
+        }
+
+        .card-enclosure .slider::-webkit-slider-thumb {
+            background: var(--neon-rose);
+            box-shadow: 0 0 10px var(--neon-rose-glow);
+        }
+
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Analytics Section */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            padding: 0.8rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            margin-bottom: 0.3rem;
+        }
+
+        .metric-value {
+            font-size: 1.2rem;
+            font-weight: 700;
+            font-family: monospace;
+        }
+
+        .metric-value.cyan { color: var(--neon-blue); }
+        .metric-value.rose { color: var(--neon-rose); }
+        .metric-value.emerald { color: var(--neon-emerald); }
+
+        /* Floating mathematical formulas */
+        .math-overlay {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-family: 'Courier New', Courier, monospace;
+            pointer-events: none;
+            z-index: 5;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+        }
+
+        .math-highlight {
+            color: var(--neon-blue);
+        }
+
+        /* Ambient Indicator Box */
+        .perception-indicator {
+            position: absolute;
+            bottom: 1rem;
+            left: 1rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.8rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            pointer-events: none;
+            z-index: 5;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .pulse-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--neon-emerald);
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+            100% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 8px 3px rgba(16, 185, 129, 0.3); }
+        }
+
+        /* Graph Overlay in dashboard */
+        .bottom-row {
+            grid-column: span 2;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 1200px) {
+            .bottom-row {
+                grid-column: span 1;
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .graph-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .graph-container {
+            height: 160px;
+            width: 100%;
+            background: rgba(10, 15, 30, 0.6);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+
+        .instructions-panel {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .instructions-panel strong {
+            color: var(--text-main);
+        }
+
+        .badge {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+        }
+
+        .badge-cyan { color: var(--neon-blue); background: rgba(0, 240, 255, 0.1); }
+        .badge-rose { color: var(--neon-rose); background: rgba(244, 63, 94, 0.1); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <h1><span>❖</span> SPACE-MAKING LAB</h1>
+            <p>Elements of Architectural Definition & Sensory Illusion</p>
+        </div>
+        <div class="global-controls">
+            <button class="btn" id="btn-audio-toggle">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <span>Enable Synthesizer</span>
+            </button>
+            <button class="btn" id="btn-auto-narrate">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8M8 12h8"/></svg>
+                <span>Auto-Narrate (Off)</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- COLOR MODULE -->
+        <div class="card card-color">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>1. Color & Spatial Perception</h2>
+                    <p>Chromatographic manipulation of distance perception & volume</p>
+                </div>
+                <button class="btn btn-explain" data-concept="color">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    Explain Concept
+                </button>
+            </div>
+
+            <div class="canvas-container">
+                <div class="math-overlay">
+                    <div>Depth Illusion Formula:</div>
+                    <div class="math-highlight">ΔD ∝ (T<sub>K</sub> × S)</div>
+                </div>
+                <div class="perception-indicator">
+                    <div class="pulse-dot" id="color-pulse-dot"></div>
+                    <span id="perception-readout">Spatial Contraction: Moderate</span>
+                </div>
+                <canvas id="canvas-color"></canvas>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-row">
+                    <div class="control-label">
+                        <span>Color Temperature</span>
+                        <span class="control-value" id="val-temp">4500 K</span>
+                    </div>
+                    <input type="range" id="slide-temp" class="slider" min="1500" max="9000" value="4500" step="50">
+                </div>
+                <div class="control-row">
+                    <div class="control-label">
+                        <span>Saturation</span>
+                        <span class="control-value" id="val-sat">60%</span>
+                    </div>
+                    <input type="range" id="slide-sat" class="slider" min="0" max="100" value="60">
+                </div>
+            </div>
+
+            <div class="analytics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Perceived Depth</div>
+                    <div class="metric-value cyan" id="metric-depth">Neutral</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Atmosphere Tone</div>
+                    <div class="metric-value" id="metric-tone" style="color: #a855f7;">Balanced</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Illusion Scale Factor</div>
+                    <div class="metric-value emerald" id="metric-scale">1.0x</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ENCLOSURE MODULE -->
+        <div class="card card-enclosure">
+            <div class="card-header">
+                <div class="card-title-group">
+                    <h2>2. Enclosure & Spatial Boundaries</h2>
+                    <p>Volumetric definition, visual sightlines, and circulation permeability</p>
+                </div>
+                <button class="btn btn-explain" data-concept="enclosure">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+                    Explain Concept
+                </button>
+            </div>
+
+            <div class="canvas-container">
+                <div class="math-overlay">
+                    <div>Enclosure Area (m²):</div>
+                    <div class="math-highlight" id="math-area">A = 0.0 m²</div>
+                </div>
+                <div class="perception-indicator">
+                    <div class="pulse-dot" id="enclosure-pulse-dot" style="background-color: var(--neon-rose);"></div>
+                    <span id="comfort-readout">Scale: comfortable</span>
+                </div>
+                <canvas id="canvas-enclosure"></canvas>
+            </div>
+
+            <div class="control-panel">
+                <div class="control-row">
+                    <div class="control-label">
+                        <span>Boundary Snap Resolution</span>
+                        <span class="control-value" id="val-snap">20px</span>
+                    </div>
+                    <input type="range" id="slide-snap" class="slider" min="1" max="40" value="20">
+                </div>
+                <div class="control-row" style="flex-direction: row; justify-content: space-between; align-items: center; margin-top: 0.5rem;">
+                    <label class="control-label" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="check-grid" checked style="accent-color: var(--neon-rose);">
+                        Show Construction Grid
+                    </label>
+                    <label class="control-label" style="cursor: pointer; display: flex; align-items: center; gap: 0.5rem;">
+                        <input type="checkbox" id="check-sightlines" checked style="accent-color: var(--neon-rose);">
+                        Raycast Sightlines
+                    </label>
+                </div>
+            </div>
+
+            <div class="analytics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Interior Area</div>
+                    <div class="metric-value rose" id="metric-area">34.2 m²</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Enclosure Ratio</div>
+                    <div class="metric-value" id="metric-ratio" style="color: #a855f7;">0.65</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Anthropometric Class</div>
+                    <div class="metric-value emerald" id="metric-class">Perfect</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- LOWER SECTION: ANALYTICS GRAPH & INSTRUCTIONS -->
+        <div class="bottom-row">
+            <div class="graph-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <h3>Mathematical Decay: Space Enclosure vs. Human Comfort</h3>
+                        <p>Plotted real-time trajectory of occupant psychological comfort</p>
+                    </div>
+                </div>
+                <div class="graph-container">
+                    <canvas id="canvas-graph"></canvas>
+                </div>
+            </div>
+
+            <div class="instructions-panel">
+                <h4><span class="badge badge-cyan">Lab Manual</span> Interactive Guide</h4>
+                <p><strong>Color:</strong> Drag the sliders to change temperature. Notice how cool tones (blues/cyans) optically recede, widening the room, whereas warm tones (reds/yellows) pull walls closer, creating physical intimacy or constraint.</p>
+                <p><strong>Enclosure:</strong> Drag the <span style="color: var(--neon-rose); font-weight: bold;">four glowing circular corner handles</span> or the <span style="color: var(--neon-emerald); font-weight: bold;">occupant avatar</span> in the top-down blueprint. Observe dynamic visual sightlines refracting through the dynamic opening wall.</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // =====================================================================
+        // 1. STATE MANAGEMENT
+        // =====================================================================
+        const State = {
+            color: {
+                temp: 4500, // Kelvin scale
+                sat: 60,    // Percent
+            },
+            enclosure: {
+                // Polygon vertices (quadrilateral)
+                points: [
+                    { x: 120, y: 100, active: false }, // TL
+                    { x: 380, y: 100, active: false }, // TR
+                    { x: 380, y: 280, active: false }, // BR
+                    { x: 120, y: 280, active: false }  // BL
+                ],
+                occupant: { x: 250, y: 190, active: false },
+                snapGrid: 20,
+                showGrid: true,
+                showSightlines: true,
+                area: 0,
+                ratio: 0,
+                comfort: 0
+            },
+            audioEnabled: false,
+            autoNarrate: false
+        };
+
+        // Theory Mapping Narrations
+        const ConceptExplanations = {
+            color: "Cool colors expand the perception of depth, creating spatial retreat, while warm colors create a sense of intimacy, thermal projection, and physical contraction.",
+            enclosure: "Boundaries define the threshold from transition to void. Adjusting these boundaries directly alters physical volumetric protection, visual exposure, and the psychological sense of enclosure."
+        };
+
+        // =====================================================================
+        // 2. SYNTH SERVICE (WEB AUDIO API)
+        // =====================================================================
+        class SynthService {
+            constructor() {
+                this.ctx = null;
+                this.mainGain = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContextClass();
+                    
+                    this.mainGain = this.ctx.createGain();
+                    this.mainGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    this.mainGain.connect(this.ctx.destination);
+                } catch (e) {
+                    console.error("Failed to initialize Web Audio API", e);
+                }
+            }
+
+            playHover() {
+                if (!this.ctx || !State.audioEnabled) return;
+                
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const filter = this.ctx.createBiquadFilter();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(110, this.ctx.currentTime + 0.15);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(350, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.mainGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.15);
+            }
+
+            playDrag(speed) {
+                if (!this.ctx || !State.audioEnabled) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'triangle';
+                // Map speed to dynamic frequency range
+                const freq = 80 + Math.min(speed * 3, 200);
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.03, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+                osc.connect(gain);
+                gain.connect(this.mainGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playSnap() {
+                if (!this.ctx || !State.audioEnabled) return;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(880, this.ctx.currentTime + 0.12);
+
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.12);
+
+                osc.connect(gain);
+                gain.connect(this.mainGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+        }
+
+        const Synth = new SynthService();
+
+        // =====================================================================
+        // 3. TEXT-TO-SPEECH (TTS) NARRATOR
+        // =====================================================================
+        const Narrator = {
+            speak(text) {
+                if (!window.speechSynthesis) return;
+                window.speechSynthesis.cancel(); // Stop current speech
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 0.95; // Sleek, smooth delivery
+
+                // Filter for custom natural voices if present
+                const voices = window.speechSynthesis.getVoices();
+                const premiumVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Google') || v.name.includes('Natural')));
+                if (premiumVoice) utterance.voice = premiumVoice;
+
+                window.speechSynthesis.speak(utterance);
+            }
+        };
+
+        // =====================================================================
+        // 4. PHYSICS ENGINE (BOUNDARY INTERACTIONS)
+        // =====================================================================
+        class PhysicsEngine {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.draggedIndex = -1;
+                this.draggingOccupant = false;
+                this.lastMousePos = { x: 0, y: 0 };
+                this.initEvents();
+            }
+
+            initEvents() {
+                const getMousePos = (e) => {
+                    const rect = this.canvas.getBoundingClientRect();
+                    return {
+                        x: e.clientX - rect.left,
+                        y: e.clientY - rect.top
+                    };
+                };
+
+                this.canvas.addEventListener('mousedown', (e) => {
+                    Synth.init(); // Auto-init synth safety check
+                    const pos = getMousePos(e);
+                    
+                    // Check occupant hit first
+                    const occDist = Math.hypot(pos.x - State.enclosure.occupant.x, pos.y - State.enclosure.occupant.y);
+                    if (occDist < 12) {
+                        this.draggingOccupant = true;
+                        State.enclosure.occupant.active = true;
+                        this.lastMousePos = pos;
+                        Synth.playSnap();
+                        return;
+                    }
+
+                    // Check corner handles hits
+                    for (let i = 0; i < State.enclosure.points.length; i++) {
+                        const pt = State.enclosure.points[i];
+                        const dist = Math.hypot(pos.x - pt.x, pos.y - pt.y);
+                        if (dist < 10) {
+                            this.draggedIndex = i;
+                            pt.active = true;
+                            this.lastMousePos = pos;
+                            Synth.playSnap();
+                            break;
+                        }
+                    }
+                });
+
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.draggedIndex === -1 && !this.draggingOccupant) return;
+                    
+                    const pos = getMousePos(e);
+                    const speed = Math.hypot(pos.x - this.lastMousePos.x, pos.y - this.lastMousePos.y);
+                    
+                    if (this.draggingOccupant) {
+                        // Constrain occupant inside polygon boundaries roughly
+                        let targetX = pos.x;
+                        let targetY = pos.y;
+                        
+                        // Limit movement roughly to the inner field
+                        targetX = Math.max(30, Math.min(this.canvas.width - 30, targetX));
+                        targetY = Math.max(30, Math.min(this.canvas.height - 30, targetY));
+                        
+                        State.enclosure.occupant.x = targetX;
+                        State.enclosure.occupant.y = targetY;
+                        Synth.playDrag(speed);
+                    } else {
+                        const pt = State.enclosure.points[this.draggedIndex];
+                        let targetX = pos.x;
+                        let targetY = pos.y;
+
+                        // Grid snapping logic
+                        if (State.enclosure.snapGrid > 1) {
+                            const prevX = pt.x;
+                            const prevY = pt.y;
+                            targetX = Math.round(targetX / State.enclosure.snapGrid) * State.enclosure.snapGrid;
+                            targetY = Math.round(targetY / State.enclosure.snapGrid) * State.enclosure.snapGrid;
+                            
+                            if (targetX !== prevX || targetY !== prevY) {
+                                Synth.playSnap();
+                            }
+                        } else {
+                            Synth.playDrag(speed);
+                        }
+
+                        // Spatial Constraint Boundary Protection
+                        // Constrain vertices strictly to their logical quadrants to prevent inverted polygon geometry
+                        const cx = this.canvas.width / 2;
+                        const cy = this.canvas.height / 2;
+                        const buffer = 30;
+
+                        if (this.draggedIndex === 0) { // Top-Left
+                            targetX = Math.max(buffer, Math.min(cx - buffer, targetX));
+                            targetY = Math.max(buffer, Math.min(cy - buffer, targetY));
+                        } else if (this.draggedIndex === 1) { // Top-Right
+                            targetX = Math.max(cx + buffer, Math.min(this.canvas.width - buffer, targetX));
+                            targetY = Math.max(buffer, Math.min(cy - buffer, targetY));
+                        } else if (this.draggedIndex === 2) { // Bottom-Right
+                            targetX = Math.max(cx + buffer, Math.min(this.canvas.width - buffer, targetX));
+                            targetY = Math.max(cy + buffer, Math.min(this.canvas.height - buffer, targetY));
+                        } else if (this.draggedIndex === 3) { // Bottom-Left
+                            targetX = Math.max(buffer, Math.min(cx - buffer, targetX));
+                            targetY = Math.max(cy + buffer, Math.min(this.canvas.height - buffer, targetY));
+                        }
+
+                        pt.x = targetX;
+                        pt.y = targetY;
+                    }
+
+                    this.lastMousePos = pos;
+                    updateEnclosureMath();
+                });
+
+                const release = () => {
+                    if (this.draggedIndex !== -1) {
+                        State.enclosure.points[this.draggedIndex].active = false;
+                        this.draggedIndex = -1;
+                        if (State.autoNarrate) Narrator.speak("Boundary resized. Observe change in occupant sightlines.");
+                    }
+                    if (this.draggingOccupant) {
+                        State.enclosure.occupant.active = false;
+                        this.draggingOccupant = false;
+                        if (State.autoNarrate) Narrator.speak("Occupant repositioned. Visual isolation is computed dynamically.");
+                    }
+                };
+
+                this.canvas.addEventListener('mouseup', release);
+                this.canvas.addEventListener('mouseleave', release);
+            }
+        }
+
+        // =====================================================================
+        // 5. THEORY CALCULATIONS (MATHEMATICS & COGNITIVE MODELING)
+        // =====================================================================
+        function convertKelvinToRGB(kelvin) {
+            let temp = kelvin / 100;
+            let red, green, blue;
+
+            if (temp <= 66) {
+                red = 255;
+                green = temp;
+                green = 99.4708025861 * Math.log(green) - 161.1195681661;
+                if (temp <= 19) {
+                    blue = 0;
+                } else {
+                    blue = temp - 10;
+                    blue = 138.5177312231 * Math.log(blue) - 305.0447927307;
+                }
+            } else {
+                red = temp - 60;
+                red = 329.698727446 * Math.pow(red, -0.1332047592);
+                green = temp - 60;
+                green = 288.1221695283 * Math.pow(green, -0.0755148492);
+                blue = 255;
+            }
+
+            return {
+                r: Math.max(0, Math.min(255, red)),
+                g: Math.max(0, Math.min(255, green)),
+                b: Math.max(0, Math.min(255, blue))
+            };
+        }
+
+        function calculateShoelaceArea(pts) {
+            let area = 0;
+            const j = pts.length - 1;
+            for (let i = 0; i < pts.length; i++) {
+                const prev = pts[(i + j) % pts.length];
+                const curr = pts[i];
+                area += (prev.x + curr.x) * (prev.y - curr.y);
+            }
+            return Math.abs(area / 2.0);
+        }
+
+        function updateEnclosureMath() {
+            // Shoelace-based actual polygon area
+            const pixelArea = calculateShoelaceArea(State.enclosure.points);
+            // Conversion mapping to simulate real-world m²
+            const convertedArea = pixelArea / 1200; 
+            State.enclosure.area = convertedArea;
+
+            // Calculate boundary ratio (perimeter vs squareness)
+            let perimeter = 0;
+            for (let i = 0; i < 4; i++) {
+                const next = State.enclosure.points[(i + 1) % 4];
+                perimeter += Math.hypot(State.enclosure.points[i].x - next.x, State.enclosure.points[i].y - next.y);
+            }
+            // Ratio relative to absolute standard perfect square bounding
+            State.enclosure.ratio = (perimeter * perimeter) / (16 * pixelArea);
+
+            // Compute psychologically mapped Comfort Indicator Index
+            // We use a beautiful custom non-linear gamma-distribution simulation curve: Comfort = A * exp(1 - A)
+            const optimalArea = 40.0; 
+            const x = State.enclosure.area / optimalArea;
+            const comfortFactor = x * Math.exp(1 - x); // Peaks perfectly at exactly 1.0 (40 m²)
+            State.enclosure.comfort = Math.max(0, Math.min(100, comfortFactor * 100));
+
+            // Dynamic UI updates
+            document.getElementById('math-area').innerText = `A = ${convertedArea.toFixed(1)} m²`;
+            document.getElementById('metric-area').innerText = `${convertedArea.toFixed(1)} m²`;
+            document.getElementById('metric-ratio').innerText = State.enclosure.ratio.toFixed(2);
+
+            let comfortClass = "Balanced";
+            let comfortReadout = "Scale: Optimal Comfort";
+            let colorDot = "var(--neon-emerald)";
+
+            if (convertedArea < 18) {
+                comfortClass = "Claustrophobic";
+                comfortReadout = "Scale: Highly Constrained";
+                colorDot = "var(--neon-rose)";
+            } else if (convertedArea < 30) {
+                comfortClass = "Cozy & Protected";
+                comfortReadout = "Scale: Intimate Protection";
+                colorDot = "var(--neon-blue)";
+            } else if (convertedArea > 75) {
+                comfortClass = "Exposed / Cold";
+                comfortReadout = "Scale: Hyper-Exposed";
+                colorDot = "var(--neon-purple)";
+            }
+
+            document.getElementById('metric-class').innerText = comfortClass;
+            document.getElementById('comfort-readout').innerText = comfortReadout;
+            document.getElementById('enclosure-pulse-dot').style.backgroundColor = colorDot;
+        }
+
+        // =====================================================================
+        // 6. RENDER ENGINE (HTML5 CANVAS DRAWING LOOPS)
+        // =====================================================================
+        class Renderer {
+            constructor() {
+                this.cColor = document.getElementById('canvas-color');
+                this.ctxColor = this.cColor.getContext('2d');
+                
+                this.cEnclosure = document.getElementById('canvas-enclosure');
+                this.ctxEnclosure = this.cEnclosure.getContext('2d');
+
+                this.cGraph = document.getElementById('canvas-graph');
+                this.ctxGraph = this.cGraph.getContext('2d');
+
+                this.resizeCanvases();
+                window.addEventListener('resize', () => this.resizeCanvases());
+            }
+
+            resizeCanvases() {
+                // Handle dynamic physical size adaptation
+                this.cColor.width = this.cColor.parentElement.clientWidth;
+                this.cColor.height = this.cColor.parentElement.clientHeight;
+                
+                this.cEnclosure.width = this.cEnclosure.parentElement.clientWidth;
+                this.cEnclosure.height = this.cEnclosure.parentElement.clientHeight;
+
+                this.cGraph.width = this.cGraph.parentElement.clientWidth;
+                this.cGraph.height = this.cGraph.parentElement.clientHeight;
+            }
+
+            draw() {
+                this.drawColorRoom();
+                this.drawEnclosurePlan();
+                this.drawComfortGraph();
+                requestAnimationFrame(() => this.draw());
+            }
+
+            // --- 3D PERSPECTIVE ROOM RENDERER ---
+            drawColorRoom() {
+                const ctx = this.ctxColor;
+                const w = this.cColor.width;
+                const h = this.cColor.height;
+                ctx.clearRect(0, 0, w, h);
+
+                // Fetch dynamic color configurations
+                const rgbRaw = convertKelvinToRGB(State.color.temp);
+                const satRatio = State.color.sat / 100;
+                
+                // Desaturate dynamically based on input saturation slider values
+                const grayValue = (rgbRaw.r + rgbRaw.g + rgbRaw.b) / 3;
+                const r = Math.round(grayValue + (rgbRaw.r - grayValue) * satRatio);
+                const g = Math.round(grayValue + (rgbRaw.g - grayValue) * satRatio);
+                const b = Math.round(grayValue + (rgbRaw.b - grayValue) * satRatio);
+
+                const baseColor = `rgb(${r}, ${g}, ${b})`;
+                
+                // Compute cognitive depth illusion factor
+                // High temperature (cool ice blue) = recedes = deeper room illusion (scale decreases)
+                // Low temperature (warm amber orange) = advances = shallower room (scale increases)
+                const tempNormalized = (State.color.temp - 1500) / (9000 - 1500); 
+                const roomDepthScale = 0.45 - (tempNormalized * 0.15); // Cooler scale smaller -> deeper visual corridor
+
+                // Center vanishing perspective point
+                const cx = w / 2;
+                const cy = h / 2;
+
+                const bW = w * roomDepthScale;
+                const bH = h * roomDepthScale;
+
+                // Back Wall coordinates
+                const bx1 = cx - bW / 2;
+                const bx2 = cx + bW / 2;
+                const by1 = cy - bH / 2;
+                const by2 = cy + bH / 2;
+
+                // Draw background ambiance gradients
+                const backGrad = ctx.createRadialGradient(cx, cy, 10, cx, cy, w);
+                backGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.25)`);
+                backGrad.addColorStop(1, '#020617');
+                ctx.fillStyle = backGrad;
+                ctx.fillRect(0, 0, w, h);
+
+                // Side Wall gradients (Floor, Left, Right, Ceiling)
+                // Ceiling
+                const ceilGrad = ctx.createLinearGradient(0, 0, 0, by1);
+                ceilGrad.addColorStop(0, '#090d16');
+                ceilGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.35)`);
+                ctx.fillStyle = ceilGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(w, 0);
+                ctx.lineTo(bx2, by1);
+                ctx.lineTo(bx1, by1);
+                ctx.closePath();
+                ctx.fill();
+
+                // Floor
+                const floorGrad = ctx.createLinearGradient(0, h, 0, by2);
+                floorGrad.addColorStop(0, '#020617');
+                floorGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.1)`);
+                ctx.fillStyle = floorGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, h);
+                ctx.lineTo(w, h);
+                ctx.lineTo(bx2, by2);
+                ctx.lineTo(bx1, by2);
+                ctx.closePath();
+                ctx.fill();
+
+                // Left Wall
+                const lWallGrad = ctx.createLinearGradient(0, 0, bx1, 0);
+                lWallGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.1)`);
+                lWallGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.5)`);
+                ctx.fillStyle = lWallGrad;
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(bx1, by1);
+                ctx.lineTo(bx1, by2);
+                ctx.lineTo(0, h);
+                ctx.closePath();
+                ctx.fill();
+
+                // Right Wall
+                const rWallGrad = ctx.createLinearGradient(w, 0, bx2, 0);
+                rWallGrad.addColorStop(0, `rgba(${r}, ${g}, ${b}, 0.1)`);
+                rWallGrad.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0.5)`);
+                ctx.fillStyle = rWallGrad;
+                ctx.beginPath();
+                ctx.moveTo(w, 0);
+                ctx.lineTo(bx2, by1);
+                ctx.lineTo(bx2, by2);
+                ctx.lineTo(w, h);
+                ctx.closePath();
+                ctx.fill();
+
+                // Back Wall Core Face
+                ctx.fillStyle = `rgb(${Math.round(r * 0.85)}, ${Math.round(g * 0.85)}, ${Math.round(b * 0.85)})`;
+                ctx.fillRect(bx1, by1, bW, bH);
+
+                // Perspective wireframe overlays for architectural structural grid feeling
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.6)`;
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(bx1, by1, bW, bH);
+
+                ctx.beginPath();
+                ctx.moveTo(0, 0); ctx.lineTo(bx1, by1);
+                ctx.moveTo(w, 0); ctx.lineTo(bx2, by1);
+                ctx.moveTo(0, h); ctx.lineTo(bx1, by2);
+                ctx.moveTo(w, h); ctx.lineTo(bx2, by2);
+                ctx.stroke();
+
+                // Draw Floor receding line grids
+                ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.15)`;
+                const numGridLines = 10;
+                for (let i = 0; i <= numGridLines; i++) {
+                    const fx = (w / numGridLines) * i;
+                    // Project line onto backwall floor threshold
+                    const bfx = bx1 + (bW / numGridLines) * i;
+                    ctx.beginPath();
+                    ctx.moveTo(fx, h);
+                    ctx.lineTo(bfx, by2);
+                    ctx.stroke();
+                }
+
+                // Render dynamic indicator metric overlay text
+                const depthScalePercent = Math.round((0.5 / roomDepthScale) * 100) - 100;
+                let outcomeText = `Depth Contrast: ${depthScalePercent > 0 ? '+' : ''}${depthScalePercent}%`;
+                let descText = depthScalePercent > 0 ? "Optically Expanded" : "Optically Receding";
+
+                document.getElementById('metric-depth').innerText = depthScalePercent > 0 ? `Expanded (${depthScalePercent}%)` : `Contracted (${depthScalePercent}%)`;
+                document.getElementById('metric-scale').innerText = `${(0.5 / roomDepthScale).toFixed(2)}x`;
+                document.getElementById('metric-tone').innerText = State.color.temp < 3500 ? "Cozy / Intimate" : (State.color.temp > 6500 ? "Expanded / Cold" : "Harmonized");
+                document.getElementById('perception-readout').innerText = `${descText} (${depthScalePercent > 0 ? '+' : ''}${depthScalePercent}%)`;
+
+                const dotColor = depthScalePercent > 0 ? "var(--neon-blue)" : "var(--neon-rose)";
+                document.getElementById('color-pulse-dot').style.backgroundColor = dotColor;
+
+                // Draw scale human silhouette on the backwall center to illustrate standard physical anthropometric references
+                ctx.fillStyle = "rgba(15, 23, 42, 0.7)";
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.3)";
+                ctx.lineWidth = 1;
+                // Head
+                ctx.beginPath();
+                ctx.arc(cx, by2 - 40, 6, 0, Math.PI * 2);
+                ctx.fill(); ctx.stroke();
+                // Body
+                ctx.beginPath();
+                ctx.moveTo(cx, by2 - 34);
+                ctx.lineTo(cx, by2 - 15);
+                ctx.lineTo(cx - 5, by2);
+                ctx.moveTo(cx, by2 - 15);
+                ctx.lineTo(cx + 5, by2);
+                ctx.moveTo(cx - 8, by2 - 28);
+                ctx.lineTo(cx + 8, by2 - 28);
+                ctx.stroke();
+            }
+
+            // --- 2D ENCLOSURE PLAN VIEWER ---
+            drawEnclosurePlan() {
+                const ctx = this.ctxEnclosure;
+                const w = this.cEnclosure.width;
+                const h = this.cEnclosure.height;
+                ctx.clearRect(0, 0, w, h);
+
+                // Optional grid alignment marker system
+                if (State.enclosure.showGrid) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+                    ctx.lineWidth = 1;
+                    for (let x = 0; x < w; x += 20) {
+                        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                    }
+                    for (let y = 0; y < h; y += 20) {
+                        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                    }
+                }
+
+                const pts = State.enclosure.points;
+
+                // Define customized wall configurations (TL to TR has an architectural window opening)
+                // We render sightlines extending through the door openings
+                const wallSegments = [
+                    { p1: pts[0], p2: pts[1], hasOpening: true },   // Top Wall (Door Opening)
+                    { p1: pts[1], p2: pts[2], hasOpening: false },  // Right
+                    { p1: pts[2], p2: pts[3], hasOpening: false },  // Bottom
+                    { p1: pts[3], p2: pts[0], hasOpening: false }   // Left
+                ];
+
+                const occupant = State.enclosure.occupant;
+
+                // --- SIGHTLINE RAYCASTING (DYNAMIC VISUAL FLOW) ---
+                if (State.enclosure.showSightlines) {
+                    const numRays = 120;
+                    ctx.lineWidth = 0.5;
+
+                    for (let r = 0; r < numRays; r++) {
+                        const angle = (r / numRays) * Math.PI * 2;
+                        const rx = Math.cos(angle);
+                        const ry = Math.sin(angle);
+
+                        let closestDist = Infinity;
+                        let hitOpening = false;
+
+                        // Raycast intersection calculations against boundaries
+                        for (let s = 0; s < wallSegments.length; s++) {
+                            const seg = wallSegments[s];
+                            const inter = getLineIntersection(
+                                occupant.x, occupant.y, occupant.x + rx * 800, occupant.y + ry * 800,
+                                seg.p1.x, seg.p1.y, seg.p2.x, seg.p2.y
+                            );
+
+                            if (inter) {
+                                // Identify if ray hits opening doorway window section on segment 0
+                                if (seg.hasOpening) {
+                                    // Calculate distance ratio of hit along the wall
+                                    const wallLen = Math.hypot(seg.p2.x - seg.p1.x, seg.p2.y - seg.p1.y);
+                                    const hitLen = Math.hypot(inter.x - seg.p1.x, inter.y - seg.p1.y);
+                                    const ratio = hitLen / wallLen;
+
+                                    // Window exists exactly from 35% to 65% of the wall span
+                                    if (ratio >= 0.35 && ratio <= 0.65) {
+                                        // Ray passes transparently through wall opening
+                                        continue; 
+                                    }
+                                }
+
+                                if (inter.dist < closestDist) {
+                                    closestDist = inter.dist;
+                                }
+                            }
+                        }
+
+                        // Cap ray to outer bounding box borders if unobstructed
+                        if (closestDist === Infinity) {
+                            closestDist = 600; 
+                            hitOpening = true;
+                        }
+
+                        // Set rendering color scheme depending on visibility protection metrics
+                        ctx.strokeStyle = hitOpening ? 'rgba(0, 240, 255, 0.08)' : 'rgba(244, 63, 94, 0.05)';
+                        ctx.beginPath();
+                        ctx.moveTo(occupant.x, occupant.y);
+                        ctx.lineTo(occupant.x + rx * closestDist, occupant.y + ry * closestDist);
+                        ctx.stroke();
+                    }
+                }
+
+                // --- WALL DRAWING LOOP ---
+                ctx.lineWidth = 5;
+                ctx.lineCap = 'round';
+
+                wallSegments.forEach(seg => {
+                    if (seg.hasOpening) {
+                        // Segment split to render actual door frames
+                        const dx = seg.p2.x - seg.p1.x;
+                        const dy = seg.p2.y - seg.p1.y;
+
+                        const startPt = { x: seg.p1.x + dx * 0.35, y: seg.p1.y + dy * 0.35 };
+                        const endPt = { x: seg.p1.x + dx * 0.65, y: seg.p1.y + dy * 0.65 };
+
+                        // Left panel segment
+                        ctx.strokeStyle = 'var(--text-main)';
+                        ctx.beginPath();
+                        ctx.moveTo(seg.p1.x, seg.p1.y);
+                        ctx.lineTo(startPt.x, startPt.y);
+                        ctx.stroke();
+
+                        // Right panel segment
+                        ctx.beginPath();
+                        ctx.moveTo(endPt.x, endPt.y);
+                        ctx.lineTo(seg.p2.x, seg.p2.y);
+                        ctx.stroke();
+
+                        // Dynamic Door Swing Indicator (Architectural Blueprint details)
+                        ctx.strokeStyle = 'var(--neon-blue)';
+                        ctx.lineWidth = 1.5;
+                        ctx.beginPath();
+                        // Draw door leaf panel rotated open at 45 degrees
+                        const leafAngle = -Math.PI / 4;
+                        const leafX = startPt.x + (endPt.x - startPt.x) * Math.cos(leafAngle) - (endPt.y - startPt.y) * Math.sin(leafAngle);
+                        const leafY = startPt.y + (endPt.x - startPt.x) * Math.sin(leafAngle) + (endPt.y - startPt.y) * Math.cos(leafAngle);
+                        
+                        ctx.moveTo(startPt.x, startPt.y);
+                        ctx.lineTo(leafX, leafY);
+                        ctx.stroke();
+
+                        // Draw arc trace
+                        ctx.setLineDash([2, 4]);
+                        ctx.beginPath();
+                        ctx.arc(startPt.x, startPt.y, Math.hypot(endPt.x - startPt.x, endPt.y - startPt.y), 0, leafAngle, true);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    } else {
+                        // Uniform concrete wall structural profiles
+                        ctx.strokeStyle = 'var(--text-main)';
+                        ctx.beginPath();
+                        ctx.moveTo(seg.p1.x, seg.p1.y);
+                        ctx.lineTo(seg.p2.x, seg.p2.y);
+                        ctx.stroke();
+                    }
+                });
+
+                // --- RE-RENDER INTERACTIVE CORNER HANDLES ---
+                pts.forEach((pt, idx) => {
+                    ctx.shadowBlur = pt.active ? 15 : 5;
+                    ctx.shadowColor = 'var(--neon-rose)';
+
+                    ctx.fillStyle = pt.active ? '#fff' : 'var(--bg-color)';
+                    ctx.strokeStyle = 'var(--neon-rose)';
+                    ctx.lineWidth = 2.5;
+
+                    ctx.beginPath();
+                    ctx.arc(pt.x, pt.y, pt.active ? 10 : 7, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    ctx.shadowBlur = 0; // Reset canvas filter effects
+                });
+
+                // --- OCCUPANT CIRCULATION AVATAR ---
+                ctx.shadowBlur = occupant.active ? 15 : 5;
+                ctx.shadowColor = 'var(--neon-emerald)';
+                ctx.fillStyle = 'var(--bg-color)';
+                ctx.strokeStyle = 'var(--neon-emerald)';
+                ctx.lineWidth = 3;
+
+                ctx.beginPath();
+                ctx.arc(occupant.x, occupant.y, occupant.active ? 13 : 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // --- REAL-TIME PSYCHOLOGICAL SCIENTIFIC COMFORT GRAPH ---
+            drawComfortGraph() {
+                const ctx = this.ctxGraph;
+                const w = this.cGraph.width;
+                const h = this.cGraph.height;
+                ctx.clearRect(0, 0, w, h);
+
+                // Grid lines background mapping
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+                ctx.lineWidth = 1;
+                for (let i = 1; i < 4; i++) {
+                    const y = h * (i / 4);
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+
+                // Render mathematically perfect envelope curve trace
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                const maxAreaRange = 100.0; // max scale boundary computed
+                for (let px = 0; px < w; px++) {
+                    const mappedArea = (px / w) * maxAreaRange;
+                    const x = mappedArea / 40.0; // Peak optimum anchor standard 40 m²
+                    const yVal = x * Math.exp(1 - x) * 100;
+                    
+                    const py = h - (yVal / 100) * (h - 20) - 10;
+                    if (px === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.stroke();
+
+                // Highlight/glowing peak zone indicator threshold area (Cozy limits: 20-55 m²)
+                ctx.fillStyle = 'rgba(16, 185, 129, 0.05)';
+                const rangeX1 = (20 / maxAreaRange) * w;
+                const rangeX2 = (55 / maxAreaRange) * w;
+                ctx.fillRect(rangeX1, 10, rangeX2 - rangeX1, h - 20);
+
+                // Render real-time operating coordinate point
+                const opArea = State.enclosure.area;
+                const opComfort = State.enclosure.comfort;
+                const opX = (Math.min(opArea, maxAreaRange) / maxAreaRange) * w;
+                const opY = h - (opComfort / 100) * (h - 20) - 10;
+
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'var(--neon-rose)';
+                ctx.fillStyle = 'var(--neon-rose)';
+                ctx.beginPath();
+                ctx.arc(opX, opY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                // Context indicator tag layout
+                ctx.fillStyle = 'var(--text-muted)';
+                ctx.font = '10px monospace';
+                ctx.fillText("OPTIMAL PROTECTION SPACE ZONE (20-55 m²)", rangeX1 + 10, 20);
+                ctx.fillStyle = 'var(--neon-rose)';
+                ctx.fillText(`OPERATING FACTOR: ${opArea.toFixed(1)} m² @ ${Math.round(opComfort)}% COMFORT`, opX + 10, opY - 5);
+            }
+        }
+
+        // --- CORE MATHEMATICAL RAY INTERSECTION UTILITY ---
+        function getLineIntersection(p0_x, p0_y, p1_x, p1_y, p2_x, p2_y, p3_x, p3_y) {
+            const s1_x = p1_x - p0_x;
+            const s1_y = p1_y - p0_y;
+            const s2_x = p3_x - p2_x;
+            const s2_y = p3_y - p2_y;
+
+            const s = (-s1_y * (p0_x - p2_x) + s1_x * (p0_y - p2_y)) / (-s2_x * s1_y + s1_x * s2_y);
+            const t = ( s2_x * (p0_y - p2_y) - s2_y * (p0_x - p2_x)) / (-s2_x * s1_y + s1_x * s2_y);
+
+            if (s >= 0 && s <= 1 && t >= 0 && t <= 1) {
+                return {
+                    x: p0_x + (t * s1_x),
+                    y: p0_y + (t * s1_y),
+                    dist: Math.hypot(t * s1_x, t * s1_y)
+                };
+            }
+            return null; // No path collision detected
+        }
+
+        // =====================================================================
+        // 7. INITIALIZATION & BINDINGS (APP STARTUP)
+        // =====================================================================
+        const App = {
+            init() {
+                this.renderer = new Renderer();
+                this.physics = new PhysicsEngine(this.renderer.cEnclosure);
+
+                this.bindUI();
+                updateEnclosureMath();
+                this.renderer.draw(); // Kick off anim rendering framework loop
+            },
+
+            bindUI() {
+                // Interactive slider mappings
+                const tempSlider = document.getElementById('slide-temp');
+                const tempVal = document.getElementById('val-temp');
+                tempSlider.addEventListener('input', (e) => {
+                    State.color.temp = parseInt(e.target.value);
+                    tempVal.innerText = `${State.color.temp} K`;
+                    Synth.init();
+                    Synth.playDrag(10);
+                });
+                tempSlider.addEventListener('change', () => {
+                    if (State.autoNarrate) Narrator.speak(ConceptExplanations.color);
+                });
+
+                const satSlider = document.getElementById('slide-sat');
+                const satVal = document.getElementById('val-sat');
+                satSlider.addEventListener('input', (e) => {
+                    State.color.sat = parseInt(e.target.value);
+                    satVal.innerText = `${State.color.sat}%`;
+                    Synth.init();
+                    Synth.playDrag(10);
+                });
+
+                const snapSlider = document.getElementById('slide-snap');
+                const snapVal = document.getElementById('val-snap');
+                snapSlider.addEventListener('input', (e) => {
+                    State.enclosure.snapGrid = parseInt(e.target.value);
+                    snapVal.innerText = `${State.enclosure.snapGrid}px`;
+                });
+
+                // Display options
+                document.getElementById('check-grid').addEventListener('change', (e) => {
+                    State.enclosure.showGrid = e.target.checked;
+                });
+                document.getElementById('check-sightlines').addEventListener('change', (e) => {
+                    State.enclosure.showSightlines = e.target.checked;
+                });
+
+                // Synth Master enable button interaction
+                const btnAudio = document.getElementById('btn-audio-toggle');
+                btnAudio.addEventListener('click', () => {
+                    State.audioEnabled = !State.audioEnabled;
+                    if (State.audioEnabled) {
+                        Synth.init();
+                        btnAudio.classList.add('btn-active');
+                        btnAudio.querySelector('span').innerText = "Synthesizer Active";
+                        Synth.playSnap();
+                    } else {
+                        btnAudio.classList.remove('btn-active');
+                        btnAudio.querySelector('span').innerText = "Enable Synthesizer";
+                    }
+                });
+
+                // Auto narrative toggle
+                const btnNarrate = document.getElementById('btn-auto-narrate');
+                btnNarrate.addEventListener('click', () => {
+                    State.autoNarrate = !State.autoNarrate;
+                    if (State.autoNarrate) {
+                        btnNarrate.classList.add('btn-active');
+                        btnNarrate.querySelector('span').innerText = "Auto-Narrate (On)";
+                        Narrator.speak("Auto narration enabled. Spatial alterations will now be fully spoken.");
+                    } else {
+                        btnNarrate.classList.remove('btn-active');
+                        btnNarrate.querySelector('span').innerText = "Auto-Narrate (Off)";
+                        window.speechSynthesis.cancel();
+                    }
+                });
+
+                // Manual explanation triggers
+                document.querySelectorAll('.btn-explain').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const concept = e.currentTarget.getAttribute('data-concept');
+                        Narrator.speak(ConceptExplanations[concept]);
+                        Synth.playSnap();
+                    });
+                    btn.addEventListener('mouseenter', () => Synth.playHover());
+                });
+            }
+        };
+
+        // Standard event registration trigger
+        window.addEventListener('DOMContentLoaded', () => App.init());
+    </script>
+</body>
+</html>

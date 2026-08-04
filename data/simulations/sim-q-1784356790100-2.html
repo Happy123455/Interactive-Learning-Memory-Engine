@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Battening System for Steel Compression Members - Interactive Simulator</title>
+    <!-- Chart.js for premium analytics plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-primary: #07070a;
+            --bg-surface: rgba(15, 15, 28, 0.75);
+            --border-glow: rgba(0, 242, 255, 0.15);
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff007f;
+            --accent-yellow: #ffb700;
+            --text-primary: #f0f3f8;
+            --text-secondary: #8a99ad;
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 242, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 127, 0.03) 0%, transparent 40%);
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-glow);
+            background: rgba(7, 7, 10, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-title h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, var(--accent-cyan), #00a2ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 242, 255, 0.2);
+        }
+
+        .header-title p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.6rem 1.2rem;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: rgba(0, 242, 255, 0.1);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.2);
+        }
+
+        .btn-primary {
+            background: rgba(0, 242, 255, 0.15);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .btn-primary:hover {
+            background: rgba(0, 242, 255, 0.25);
+        }
+
+        /* Dashboard Grid Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            height: calc(100vh - 80px);
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow-y: auto;
+            }
+        }
+
+        /* Panels / Glassmorphism Cards */
+        .panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            backdrop-filter: blur(12px);
+            overflow-y: auto;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 8px;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Slider Styles */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .control-value {
+            color: var(--accent-cyan);
+            font-weight: 700;
+        }
+
+        .slider-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 242, 255, 0.8);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle Switches */
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .toggle-label {
+            font-size: 0.85rem;
+            color: var(--text-primary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 34px;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-primary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-cyan);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(22px);
+            background-color: #000;
+        }
+
+        /* Visualization Canvas Area */
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            overflow: hidden;
+            min-height: 450px;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Analytics Panel components */
+        .equation-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            color: #d1d9e6;
+            line-height: 1.4;
+        }
+
+        .equation-highlight {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        .warning-banner {
+            background: rgba(255, 0, 127, 0.1);
+            border: 1px solid var(--accent-magenta);
+            color: var(--accent-magenta);
+            border-radius: 8px;
+            padding: 1rem;
+            font-size: 0.85rem;
+            display: none;
+            align-items: flex-start;
+            gap: 0.75rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 127, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 127, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 127, 0); }
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .metric-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        /* Guided Tour Overlay Modal */
+        .tour-overlay {
+            position: fixed;
+            bottom: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(10, 10, 20, 0.95);
+            border: 2px solid var(--accent-cyan);
+            border-radius: 12px;
+            padding: 1.5rem;
+            width: calc(100% - 2rem);
+            max-width: 600px;
+            box-shadow: 0 0 30px rgba(0, 242, 255, 0.3);
+            display: none;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+        }
+
+        .tour-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.75rem;
+        }
+
+        .tour-title {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        .tour-close {
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+
+        .tour-content {
+            font-size: 0.9rem;
+            color: var(--text-primary);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+
+        .tour-footer {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .interactive-overlay-text {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            border: 1px solid rgba(0, 242, 255, 0.2);
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>BATTENING COMPRESSION SYSTEM</h1>
+            <p>Elementary Structural Steel Design Simulator • IS 800 / AISC Standards</p>
+        </div>
+        <div class="header-controls">
+            <button class="btn btn-primary" id="btnTour">🚀 Guided Tour</button>
+            <button class="btn" id="btnReset">🔄 Reset</button>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        
+        <!-- Left Column: Controls Panel -->
+        <div class="panel">
+            <div class="panel-title">System Inputs</div>
+            
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Effective Length (L<sub>e</sub>)</span>
+                    <span class="control-value" id="valLe">5.0 m</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slideLe" min="2" max="10" step="0.5" value="5">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Batten Spacing (s<sub>c</sub>)</span>
+                    <span class="control-value" id="valSc">600 mm</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slideSc" min="200" max="1500" step="25" value="600">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Applied Axial Load (P)</span>
+                    <span class="control-value" id="valLoad">400 kN</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slideLoad" min="0" max="1500" step="50" value="400">
+                </div>
+            </div>
+
+            <div class="panel-title">Audio & Narration</div>
+
+            <div class="toggle-group">
+                <span class="toggle-label">Enable Audio FX</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggleAudio" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="toggle-group">
+                <span class="toggle-label">Voice Explanation (TTS)</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggleVoice">
+                    <span class="slider"></span>
+                </label>
+            </div>
+
+            <div class="panel-title">Structural Properties</div>
+            <div class="equation-box">
+                <span class="equation-highlight">Profile: Built-up ISMC 200</span><br>
+                Channel Area (A): 2 × 3820 mm²<br>
+                Total Area: 7640 mm²<br>
+                r<sub>y1</sub> (single): 22.3 mm<br>
+                r<sub>x</sub> (built-up): 78.9 mm
+            </div>
+        </div>
+
+        <!-- Middle Column: Canvas Viewports -->
+        <div class="panel" style="padding: 0.75rem;">
+            <div class="canvas-container">
+                <div class="interactive-overlay-text">🖱️ Drag Batten Plates directly in the Elevation View</div>
+                <canvas id="simCanvas"></canvas>
+            </div>
+        </div>
+
+        <!-- Right Column: Analytics & Graphs -->
+        <div class="panel">
+            <div class="panel-title">Real-Time Capacity</div>
+            
+            <div class="warning-banner" id="warningBanner">
+                <strong style="display:block; margin-bottom: 4px;">⚠️ STRUCTURAL DESIGN VIOLATION:</strong>
+                <span id="warningMessage">Batten spacing exceeds standard requirements.</span>
+            </div>
+
+            <div class="metric-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Effective Slenderness (λ<sub>e</sub>)</div>
+                    <div class="metric-value" id="mLambda">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Max Capacity (P<sub>cr</sub>)</div>
+                    <div class="metric-value" id="mPcr" style="color: var(--accent-cyan)">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Local Ratio (λ<sub>c</sub>)</div>
+                    <div class="metric-value" id="mLambdaC">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Load Ratio (P / P<sub>cr</sub>)</div>
+                    <div class="metric-value" id="mRatio">--</div>
+                </div>
+            </div>
+
+            <div class="panel-title">Buckling Envelope Curve</div>
+            <div style="flex-grow: 1; min-height: 200px; position: relative;">
+                <canvas id="chartCanvas"></canvas>
+            </div>
+
+            <div class="panel-title">Governing Formulae</div>
+            <div class="equation-box" style="font-size: 0.8rem;">
+                Modified Slenderness:<br>
+                <span class="equation-highlight">λ<sub>e</sub> = √(λ<sub>0</sub>² + λ<sub>c</sub>²)</span><br>
+                Critical Euler Stress:<br>
+                <span class="equation-highlight">f<sub>cr</sub> = π²E / λ<sub>e</sub>²</span><br>
+                Allowable load:<br>
+                <span class="equation-highlight">P<sub>cr</sub> = f<sub>cr</sub> • A<sub>total</sub></span>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Guided Tour Overlay UI -->
+    <div class="tour-overlay" id="tourOverlay">
+        <div class="tour-header">
+            <span class="tour-title" id="tourTitle">Step 1 of 5: System Overview</span>
+            <button class="tour-close" id="tourClose">&times;</button>
+        </div>
+        <div class="tour-content" id="tourContent">
+            Welcome to the Interactive Built-up Steel Column Simulator! Here you can analyze the stability and engineering limits of multi-component compression members.
+        </div>
+        <div class="tour-footer">
+            <button class="btn" id="tourPrev">Previous</button>
+            <button class="btn btn-primary" id="tourNext">Next Step</button>
+        </div>
+    </div>
+
+    <script>
+        // --- ENGINEERING STRUCTURAL PROPERTY DEFINITIONS ---
+        const STEEL = {
+            E: 200000,          // MPa (N/mm^2)
+            A_single: 3820,     // mm^2 (ISMC 200 standard channel)
+            ry_single: 22.3,    // mm (radius of gyration of individual channel relative to secondary axis)
+            rx_builtup: 78.9,   // mm (radius of gyration of overall built-up profile major axis)
+            fy: 250,            // MPa Yield Stress of structural steel
+        };
+
+        // --- AUDIO ENGINE CLASS ---
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playClick() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            playTick() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(280, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+
+            playWarning() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const filter = this.ctx.createBiquadFilter();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+                
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, this.ctx.currentTime);
+                
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.35);
+            }
+        }
+
+        // --- SPEECH NARRATION ENGINE ---
+        class Narrator {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.enabled = false;
+            }
+
+            speak(text) {
+                if (!this.enabled || !this.synth) return;
+                this.synth.cancel(); // Stop any pending speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
+                utterance.pitch = 1.0;
+                
+                const voices = this.synth.getVoices();
+                const premiumVoice = voices.find(voice => voice.name.includes("Google") || voice.name.includes("Natural"));
+                if (premiumVoice) utterance.voice = premiumVoice;
+                
+                this.synth.speak(utterance);
+            }
+        }
+
+        // --- GLOBAL APP STATE MANAGER ---
+        class App {
+            constructor() {
+                this.audio = new AudioEngine();
+                this.narrator = new Narrator();
+                
+                // Primary state variables
+                this.Le = 5.0; // meters (column effective length)
+                this.sc = 600; // mm (batten spacing)
+                this.load = 400; // kN (applied load)
+                
+                // Computed properties
+                this.lambda0 = 0;
+                this.lambdaC = 0;
+                this.lambdaE = 0;
+                this.pcr = 0;
+                this.hasViolation = false;
+                this.warningType = ""; // 'local', 'limit', 'strength'
+                
+                // Interactive State
+                this.isDragging = false;
+                this.dragIndex = -1;
+
+                this.initChart();
+                this.initDOM();
+                this.initCanvas();
+                this.updateMetrics();
+                this.setupTour();
+                this.animate();
+            }
+
+            initDOM() {
+                // Connect DOM sliders
+                this.slideLe = document.getElementById('slideLe');
+                this.slideSc = document.getElementById('slideSc');
+                this.slideLoad = document.getElementById('slideLoad');
+                
+                this.slideLe.addEventListener('input', (e) => {
+                    this.Le = parseFloat(e.target.value);
+                    document.getElementById('valLe').innerText = this.Le.toFixed(1) + " m";
+                    this.audio.playTick();
+                    this.updateMetrics();
+                });
+
+                this.slideSc.addEventListener('input', (e) => {
+                    this.sc = parseInt(e.target.value);
+                    document.getElementById('valSc').innerText = this.sc + " mm";
+                    this.audio.playTick();
+                    this.updateMetrics();
+                });
+
+                this.slideLoad.addEventListener('input', (e) => {
+                    this.load = parseInt(e.target.value);
+                    document.getElementById('valLoad').innerText = this.load + " kN";
+                    this.audio.playTick();
+                    this.updateMetrics();
+                });
+
+                // Connect Switches & Buttons
+                document.getElementById('toggleAudio').addEventListener('change', (e) => {
+                    this.audio.enabled = e.target.checked;
+                });
+
+                document.getElementById('toggleVoice').addEventListener('change', (e) => {
+                    this.narrator.enabled = e.target.checked;
+                    if (e.target.checked) {
+                        this.narrator.speak("Explanation engine enabled. Structural updates will be described.");
+                    }
+                });
+
+                document.getElementById('btnReset').addEventListener('click', () => {
+                    this.audio.playClick();
+                    this.resetToDefaults();
+                });
+            }
+
+            initCanvas() {
+                this.canvas = document.getElementById('simCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Support HDPI / High Retina scale
+                const resize = () => {
+                    const rect = this.canvas.parentElement.getBoundingClientRect();
+                    this.canvas.width = rect.width * window.devicePixelRatio;
+                    this.canvas.height = rect.height * window.devicePixelRatio;
+                    this.canvas.style.width = rect.width + 'px';
+                    this.canvas.style.height = rect.height + 'px';
+                    this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                };
+                window.addEventListener('resize', resize);
+                resize();
+
+                // Mouse Interactivity for Drag & Drop Battens
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                window.addEventListener('mouseup', () => this.handleMouseUp());
+            }
+
+            resetToDefaults() {
+                this.Le = 5.0;
+                this.sc = 600;
+                this.load = 400;
+                
+                this.slideLe.value = 5.0;
+                this.slideSc.value = 600;
+                this.slideLoad.value = 400;
+
+                document.getElementById('valLe').innerText = "5.0 m";
+                document.getElementById('valSc').innerText = "600 mm";
+                document.getElementById('valLoad').innerText = "400 kN";
+
+                this.updateMetrics();
+            }
+
+            updateMetrics() {
+                // 1. Overall Slenderness ratio λ0
+                this.lambda0 = (this.Le * 1000) / STEEL.rx_builtup;
+                
+                // 2. Component Slenderness ratio λc
+                this.lambdaC = this.sc / STEEL.ry_single;
+                
+                // 3. Modified Effective Slenderness ratio λe (Standard shear correction code model)
+                this.lambdaE = Math.sqrt(Math.pow(this.lambda0, 2) + Math.pow(this.lambdaC, 2));
+                
+                // 4. Critical Euler Buckling Stress (with yield-strength capping limit)
+                let fcr = (Math.pow(Math.PI, 2) * STEEL.E) / Math.pow(this.lambdaE, 2);
+                if (fcr > STEEL.fy) fcr = STEEL.fy; // material yielding limit
+                
+                // 5. Allowable column load capacity (Pcr in kN)
+                const totalArea = STEEL.A_single * 2;
+                this.pcr = (fcr * totalArea) / 1000;
+
+                // Violation & design standards check (IS 800 / AISC codes)
+                const limit1 = 50; // λc limit
+                const limit2 = 0.7 * this.lambda0; // Connection component limiting rule
+                
+                const warningBanner = document.getElementById('warningBanner');
+                const warningMessage = document.getElementById('warningMessage');
+
+                if (this.lambdaC > limit1) {
+                    this.hasViolation = true;
+                    this.warningType = 'local';
+                    warningBanner.style.display = 'flex';
+                    warningMessage.innerText = `Local component slenderness ratio λc (${this.lambdaC.toFixed(1)}) exceeds strict code limit of 50. High local buckling hazard!`;
+                    this.audio.playWarning();
+                } else if (this.lambdaC > limit2) {
+                    this.hasViolation = true;
+                    this.warningType = 'limit';
+                    warningBanner.style.display = 'flex';
+                    warningMessage.innerText = `Batten spacing rule violated: local slenderness λc (${this.lambdaC.toFixed(1)}) must not exceed 0.7 × global slenderness (${limit2.toFixed(1)}).`;
+                    this.audio.playWarning();
+                } else if (this.load > this.pcr) {
+                    this.hasViolation = true;
+                    this.warningType = 'strength';
+                    warningBanner.style.display = 'flex';
+                    warningMessage.innerText = `Global Buckling Failure! Applied load P (${this.load} kN) exceeds critical buckling load capacity Pcr (${this.pcr.toFixed(0)} kN).`;
+                    this.audio.playWarning();
+                } else {
+                    this.hasViolation = false;
+                    this.warningType = '';
+                    warningBanner.style.display = 'none';
+                }
+
+                // Update UI text outputs
+                document.getElementById('mLambda').innerText = this.lambdaE.toFixed(1);
+                document.getElementById('mPcr').innerText = this.pcr.toFixed(0) + " kN";
+                document.getElementById('mLambdaC').innerText = this.lambdaC.toFixed(1);
+                
+                const ratio = this.load / this.pcr;
+                const ratioElem = document.getElementById('mRatio');
+                ratioElem.innerText = ratio.toFixed(2);
+                if (ratio > 1.0) {
+                    ratioElem.style.color = 'var(--accent-magenta)';
+                } else if (ratio > 0.8) {
+                    ratioElem.style.color = 'var(--accent-yellow)';
+                } else {
+                    ratioElem.style.color = 'var(--accent-cyan)';
+                }
+
+                this.updateChart();
+            }
+
+            // --- CANVAS DRAG AND DROP MAPPING ---
+            getCanvasScaleAndOffsets() {
+                const rect = this.canvas.getBoundingClientRect();
+                const pad = 40;
+                const hStart = pad + 40;
+                const hEnd = rect.height - pad - 40;
+                const canvasColHeight = hEnd - hStart;
+                const scale = canvasColHeight / (this.Le * 1000); // px per mm
+                return { hStart, hEnd, canvasColHeight, scale };
+            }
+
+            handleMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                // Check Sectional view click coordinates (only draggable battens on Right panel)
+                const { hStart, hEnd, scale } = this.getCanvasScaleAndOffsets();
+                const colX = rect.width * 0.65; // Horizontal center of the elevational view
+
+                // Generate batten coordinates
+                const h_mm = this.Le * 1000;
+                const battenCount = Math.max(2, Math.floor(h_mm / this.sc) + 1);
+                
+                for (let i = 1; i < battenCount - 1; i++) {
+                    const y_pos = hEnd - (i * this.sc * scale);
+                    // Click sensitivity boundary check
+                    if (Math.abs(mouseY - y_pos) < 15 && Math.abs(mouseX - colX) < 50) {
+                        this.isDragging = true;
+                        this.dragIndex = i;
+                        this.audio.playClick();
+                        break;
+                    }
+                }
+            }
+
+            handleMouseMove(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+                const { hStart, hEnd, scale } = this.getCanvasScaleAndOffsets();
+                const colX = rect.width * 0.65;
+
+                // Handle cursor style update on hover
+                let hoverFound = false;
+                const h_mm = this.Le * 1000;
+                const battenCount = Math.max(2, Math.floor(h_mm / this.sc) + 1);
+
+                for (let i = 1; i < battenCount - 1; i++) {
+                    const y_pos = hEnd - (i * this.sc * scale);
+                    if (Math.abs(mouseY - y_pos) < 12 && Math.abs(mouseX - colX) < 50) {
+                        hoverFound = true;
+                        break;
+                    }
+                }
+                this.canvas.style.cursor = hoverFound ? 'ns-resize' : 'default';
+
+                if (this.isDragging && this.dragIndex !== -1) {
+                    const deltaY_px = hEnd - mouseY;
+                    const deltaY_mm = deltaY_px / scale;
+                    let requestedSc = Math.round(deltaY_mm / this.dragIndex);
+                    
+                    // Clamp slider boundary values
+                    requestedSc = Math.max(200, Math.min(1500, requestedSc));
+                    this.sc = requestedSc;
+                    this.slideSc.value = requestedSc;
+                    document.getElementById('valSc').innerText = requestedSc + " mm";
+                    this.updateMetrics();
+                }
+            }
+
+            handleMouseUp() {
+                if (this.isDragging) {
+                    this.isDragging = false;
+                    this.dragIndex = -1;
+                    this.audio.playTick();
+                    
+                    if (this.narrator.enabled) {
+                        this.narrator.speak(`Batten spacing set to ${this.sc} millimeters. Local buckling limit parameter is now ${this.lambdaC.toFixed(0)}.`);
+                    }
+                }
+            }
+
+            // --- HIGH QUALITY RENDER LOOP ---
+            animate() {
+                this.renderCanvas();
+                requestAnimationFrame(() => this.animate());
+            }
+
+            renderCanvas() {
+                const ctx = this.ctx;
+                const w = this.canvas.width / window.devicePixelRatio;
+                const h = this.canvas.height / window.devicePixelRatio;
+                
+                ctx.clearRect(0, 0, w, h);
+
+                // Draw background vector grid lines
+                ctx.strokeStyle = 'rgba(0, 242, 255, 0.04)';
+                ctx.lineWidth = 1;
+                for (let x = 0; x < w; x += 25) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (let y = 0; y < h; y += 25) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+
+                // Split screen sections: Left - Plan view, Right - Structural Elevation
+                const splitX = w * 0.35;
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.beginPath(); ctx.moveTo(splitX, 0); ctx.lineTo(splitX, h); ctx.stroke();
+
+                this.drawPlanView(ctx, splitX / 2, h / 2);
+                this.drawElevationView(ctx, splitX + (w - splitX) / 2, h);
+            }
+
+            drawPlanView(ctx, cx, cy) {
+                // Section Title
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.font = 'bold 11px var(--font-family)';
+                ctx.fillText("CROSS-SECTION PLAN VIEW", cx - 70, 30);
+
+                const scale = 0.5; // Plan scaling factor
+                const tw = 100 * scale; // flange width
+                const tf = 11 * scale; // flange thickness
+                const tw_web = 6 * scale; // web thickness
+                const d = 200 * scale; // depth of section
+                const spacing = 120 * scale; // distance back-to-back
+
+                // Function to draw structural channel shape (C-section) facing left/right
+                const drawChannel = (offset, flip) => {
+                    ctx.save();
+                    ctx.translate(cx + offset, cy);
+                    if (flip) ctx.scale(-1, 1);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(-tw/2, -d/2);
+                    ctx.lineTo(tw/2, -d/2);
+                    ctx.lineTo(tw/2, -d/2 + tf);
+                    ctx.lineTo(-tw/2 + tw_web, -d/2 + tf);
+                    ctx.lineTo(-tw/2 + tw_web, d/2 - tf);
+                    ctx.lineTo(tw/2, d/2 - tf);
+                    ctx.lineTo(tw/2, d/2);
+                    ctx.lineTo(-tw/2, d/2);
+                    ctx.closePath();
+
+                    ctx.fillStyle = 'rgba(25, 25, 45, 0.9)';
+                    ctx.strokeStyle = 'var(--accent-cyan)';
+                    ctx.lineWidth = 1.5;
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+                };
+
+                // Left & Right ISMC Channel Profile Rendering
+                drawChannel(-spacing/2 - tw/2, false);
+                drawChannel(spacing/2 + tw/2, true);
+
+                // Draw Batten Connection Plate (Connecting the channels)
+                ctx.fillStyle = 'rgba(0, 242, 255, 0.15)';
+                ctx.strokeStyle = 'rgba(0, 242, 255, 0.8)';
+                ctx.lineWidth = 1;
+                const bpW = spacing + tw * 2 + 10;
+                const bpH = 120 * scale;
+                ctx.fillRect(cx - bpW/2, cy - bpH/2, bpW, bpH);
+                ctx.strokeRect(cx - bpW/2, cy - bpH/2, bpW, bpH);
+
+                // Connection bolts details
+                ctx.fillStyle = '#ffcc00';
+                const drawBolt = (bx, by) => {
+                    ctx.beginPath(); ctx.arc(bx, by, 3, 0, Math.PI * 2); ctx.fill();
+                    ctx.strokeStyle = '#000'; ctx.lineWidth = 0.5; ctx.stroke();
+                };
+                
+                // Left & right pattern configuration
+                drawBolt(cx - spacing/2 - 5, cy - bpH/3);
+                drawBolt(cx - spacing/2 - 5, cy + bpH/3);
+                drawBolt(cx + spacing/2 + 5, cy - bpH/3);
+                drawBolt(cx + spacing/2 + 5, cy + bpH/3);
+            }
+
+            drawElevationView(ctx, cx, canvasH) {
+                ctx.fillStyle = 'rgba(255,255,255,0.7)';
+                ctx.font = 'bold 11px var(--font-family)';
+                ctx.fillText("SECTIONAL ELEVATION VIEW", cx - 80, 30);
+
+                const { hStart, hEnd, scale } = this.getCanvasScaleAndOffsets();
+
+                // Compute buckling lateral deflection curve profiles
+                const ratio = this.load / this.pcr;
+                let amp = Math.min(25, ratio * 15); // Global buckle deflection scale
+                if (this.warningType === 'strength') amp += (Math.sin(Date.now() / 150) * 2); // Dynamic failure vibrations!
+
+                // Step-by-step math evaluation for structural rendering
+                const colWidth = 60;
+                const halfW = colWidth / 2;
+
+                // Buckling profile function (Sinusoidal shape)
+                const getDeflection = (y_canvas) => {
+                    const normY = (hEnd - y_canvas) / (hEnd - hStart); // 0 to 1
+                    if (normY < 0 || normY > 1) return 0;
+                    return amp * Math.sin(Math.PI * normY);
+                };
+
+                // Local component bucking deflection ripple function (between battens)
+                const getLocalDeflection = (y_canvas, side) => {
+                    if (this.warningType !== 'local' && this.warningType !== 'limit') return 0;
+                    const y_mm = (hEnd - y_canvas) / scale;
+                    const battenIdx = Math.floor(y_mm / this.sc);
+                    const localY = y_mm - (battenIdx * this.sc);
+                    const localNorm = localY / this.sc; // 0 to 1 in local segment
+                    const localAmp = 6 * (side ? 1 : -1); // outwards deformation ripple
+                    return localAmp * Math.sin(Math.PI * localNorm);
+                };
+
+                // Render Left & Right structural vertical steel channels
+                ctx.strokeStyle = 'var(--accent-cyan)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                
+                // Left side main channel
+                for (let y = hEnd; y >= hStart; y -= 4) {
+                    const def = getDeflection(y) + getLocalDeflection(y, false);
+                    if (y === hEnd) ctx.moveTo(cx - halfW + def, y);
+                    else ctx.lineTo(cx - halfW + def, y);
+                }
+                ctx.stroke();
+
+                // Right side main channel
+                ctx.beginPath();
+                for (let y = hEnd; y >= hStart; y -= 4) {
+                    const def = getDeflection(y) + getLocalDeflection(y, true);
+                    if (y === hEnd) ctx.moveTo(cx + halfW + def, y);
+                    else ctx.lineTo(cx + halfW + def, y);
+                }
+                ctx.stroke();
+
+                // Compute and Draw horizontal Batten plates configuration
+                const h_mm = this.Le * 1000;
+                const battenCount = Math.max(2, Math.floor(h_mm / this.sc) + 1);
+                
+                for (let i = 0; i < battenCount; i++) {
+                    let y_mm = i * this.sc;
+                    if (y_mm > h_mm) y_mm = h_mm; // Limit topmost element boundary
+                    
+                    const y_pos = hEnd - (y_mm * scale);
+                    const def = getDeflection(y_pos);
+
+                    // Batten Plate Rect bounding geometries
+                    const bpWidth = colWidth + 24;
+                    const bpH = 35;
+                    const bpx = cx - bpWidth / 2 + def;
+                    const bpy = y_pos - bpH / 2;
+
+                    // Hover state highlighting for visual dragging
+                    if (this.isDragging && this.dragIndex === i) {
+                        ctx.fillStyle = 'rgba(255, 0, 127, 0.4)';
+                        ctx.strokeStyle = 'var(--accent-magenta)';
+                    } else {
+                        ctx.fillStyle = 'rgba(0, 242, 255, 0.2)';
+                        ctx.strokeStyle = 'var(--accent-cyan)';
+                    }
+                    ctx.lineWidth = 1;
+                    ctx.fillRect(bpx, bpy, bpWidth, bpH);
+                    ctx.strokeRect(bpx, bpy, bpWidth, bpH);
+
+                    // Tiny bolt pins visualization
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.beginPath();
+                    ctx.arc(bpx + 6, bpy + bpH/2, 2, 0, Math.PI * 2);
+                    ctx.arc(bpx + bpWidth - 6, bpy + bpH/2, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Render Neon load direction arrows at top
+                if (this.load > 0) {
+                    const arrowLen = Math.min(60, 20 + (this.load / 1500) * 40);
+                    const topDef = getDeflection(hStart);
+                    
+                    ctx.strokeStyle = this.warningType === 'strength' ? 'var(--accent-magenta)' : 'var(--accent-yellow)';
+                    ctx.lineWidth = 3 + (this.load / 400);
+                    ctx.beginPath();
+                    ctx.moveTo(cx + topDef, hStart - arrowLen);
+                    ctx.lineTo(cx + topDef, hStart - 2);
+                    // Arrow head path
+                    ctx.lineTo(cx + topDef - 6, hStart - 10);
+                    ctx.moveTo(cx + topDef, hStart - 2);
+                    ctx.lineTo(cx + topDef + 6, hStart - 10);
+                    ctx.stroke();
+
+                    // Text value label of Load
+                    ctx.fillStyle = 'var(--text-primary)';
+                    ctx.font = 'bold 11px var(--font-family)';
+                    ctx.fillText(`P = ${this.load} kN`, cx + topDef + 12, hStart - arrowLen / 2);
+                }
+            }
+
+            // --- REAL TIME CHARTING INFRASTRUCTURE ---
+            initChart() {
+                const ctx = document.getElementById('chartCanvas').getContext('2d');
+                
+                // Pre-generate static dataset curve of Buckling Capacity vs. Slenderness Ratio
+                const curveData = [];
+                for (let l = 20; l <= 200; l += 5) {
+                    let fcr = (Math.pow(Math.PI, 2) * STEEL.E) / Math.pow(l, 2);
+                    if (fcr > STEEL.fy) fcr = STEEL.fy;
+                    const p_cap = (fcr * (STEEL.A_single * 2)) / 1000;
+                    curveData.push({ x: l, y: p_cap });
+                }
+
+                this.chart = new Chart(ctx, {
+                    type: 'scatter',
+                    data: {
+                        datasets: [
+                            {
+                                label: 'Design Boundary Capacity',
+                                data: curveData,
+                                showLine: true,
+                                borderColor: 'rgba(0, 242, 255, 0.4)',
+                                borderWidth: 2,
+                                backgroundColor: 'transparent',
+                                pointRadius: 0,
+                                tension: 0.2,
+                            },
+                            {
+                                label: 'Current State',
+                                data: [{ x: 50, y: 400 }],
+                                pointBackgroundColor: '#ff007f',
+                                pointBorderColor: '#fff',
+                                pointRadius: 8,
+                                pointHoverRadius: 10,
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: false }
+                        },
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: { display: true, text: 'Slenderness Ratio (λe)', color: '#8a99ad', font: { size: 10 } },
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#8a99ad', font: { size: 9 } },
+                                min: 20, max: 200
+                            },
+                            y: {
+                                title: { display: true, text: 'Axial Strength Pcr (kN)', color: '#8a99ad', font: { size: 10 } },
+                                grid: { color: 'rgba(255,255,255,0.05)' },
+                                ticks: { color: '#8a99ad', font: { size: 9 } },
+                                min: 0, max: 2000
+                            }
+                        }
+                    }
+                });
+            }
+
+            updateChart() {
+                if (this.chart) {
+                    this.chart.data.datasets[1].data = [{ x: this.lambdaE, y: this.pcr }];
+                    // Dynamically highlight current state color depending on safety criteria
+                    this.chart.data.datasets[1].pointBackgroundColor = this.hasViolation ? 'var(--accent-magenta)' : 'var(--accent-cyan)';
+                    this.chart.update('none'); // Optimized rendering budget update
+                }
+            }
+
+            // --- NARRATED GUIDED TOUR UTILITY ---
+            setupTour() {
+                const tourSteps = [
+                    {
+                        title: "1. System Overview",
+                        text: "Welcome to the Battening System simulation. In civil/structural engineering, built-up steel column systems are implemented to carry high axial loads efficiently, keeping the overall radius of gyration optimal."
+                    },
+                    {
+                        title: "2. Cross-Section Plan View",
+                        text: "Look at the Left portion of the Canvas. It displays the cross section. Two steel ISMC 200 channels are aligned toe-to-toe or back-to-back, structurally unified by horizontal structural plates called Battens."
+                    },
+                    {
+                        title: "3. Batten Plate Spacing (sc)",
+                        text: "Look at the Elevation View on the Right. Battens constrain localized buckling. If batten spacing (sc) is configured too wide, the individual channel profiles will fail prematurely by localized buckling before the overall column fails globally!"
+                    },
+                    {
+                        title: "4. Design Criteria Code Violations",
+                        text: "Structural design regulations state that the individual component local slenderness (λc) must never exceed 50, nor can it exceed 70% of the entire column overall slenderness. Try sliding or dragging a plate to witness structural failure feedback!"
+                    },
+                    {
+                        title: "5. Load Stability Limit",
+                        text: "Euler buckling dictates that load capacities collapse exponentially as slenderness is heightened. Explore adjusting 'Effective Length' and 'Spacing' inputs to see live updates along the Euler graph curve!"
+                    }
+                ];
+
+                let currentStep = 0;
+                const overlay = document.getElementById('tourOverlay');
+                const tTitle = document.getElementById('tourTitle');
+                const tContent = document.getElementById('tourContent');
+                const btnNext = document.getElementById('tourNext');
+                const btnPrev = document.getElementById('tourPrev');
+
+                const displayStep = (idx) => {
+                    tTitle.innerText = tourSteps[idx].title;
+                    tContent.innerText = tourSteps[idx].text;
+                    btnPrev.disabled = idx === 0;
+                    btnNext.innerText = idx === tourSteps.length - 1 ? "Finish Tour" : "Next Step";
+                    
+                    if (this.narrator.enabled) {
+                        this.narrator.speak(tourSteps[idx].text);
+                    }
+                };
+
+                document.getElementById('btnTour').addEventListener('click', () => {
+                    this.audio.playClick();
+                    currentStep = 0;
+                    overlay.style.display = 'block';
+                    displayStep(currentStep);
+                });
+
+                btnNext.addEventListener('click', () => {
+                    this.audio.playClick();
+                    if (currentStep < tourSteps.length - 1) {
+                        currentStep++;
+                        displayStep(currentStep);
+                    } else {
+                        overlay.style.display = 'none';
+                    }
+                });
+
+                btnPrev.addEventListener('click', () => {
+                    this.audio.playClick();
+                    if (currentStep > 0) {
+                        currentStep--;
+                        displayStep(currentStep);
+                    }
+                });
+
+                document.getElementById('tourClose').addEventListener('click', () => {
+                    this.audio.playClick();
+                    overlay.style.display = 'none';
+                    this.narrator.synth.cancel();
+                });
+            }
+        }
+
+        // Initialize application on page load
+        window.addEventListener('DOMContentLoaded', () => {
+            window.appInstance = new App();
+        });
+    </script>
+</body>
+</html>

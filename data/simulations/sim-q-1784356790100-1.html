@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Lacing Lab - Interactive Structural Engineering</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              bg: '#0f172a',
+              card: 'rgba(30, 41, 59, 0.7)',
+              cyan: '#06b6d4',
+              magenta: '#d946ef',
+              lime: '#84cc16',
+              red: '#ef4444',
+              orange: '#f97316'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(6, 182, 212, 0.3);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(6, 182, 212, 0.6);
+    }
+
+    /* Glassmorphism styling */
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+    
+    .glow-lime {
+      box-shadow: 0 0 15px rgba(132, 204, 22, 0.4);
+    }
+
+    .glow-magenta {
+      box-shadow: 0 0 15px rgba(217, 70, 239, 0.4);
+    }
+
+    .glow-red {
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+    }
+
+    /* Pulse & Animations */
+    @keyframes pulse-cyan {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 0.3; }
+    }
+    .pulse-cyan-line {
+      animation: pulse-cyan 2s infinite ease-in-out;
+    }
+
+    /* Disable text selection during drag-and-drop */
+    .no-select {
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    /* Joint Zoom transition effect */
+    .zoom-transition {
+      transition: transform 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+  </style>
+</head>
+<body class="bg-cyber-bg text-slate-100 font-sans overflow-hidden h-screen w-screen flex flex-col no-select">
+
+  <!-- TOP HEADER & AUDIO STATUS BAR -->
+  <header class="h-14 shrink-0 bg-slate-900/90 border-b border-slate-800 flex items-center justify-between px-6 z-20">
+    <div class="flex items-center space-x-3">
+      <!-- Animated Logo Icon -->
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-tr from-cyber-cyan to-cyber-magenta flex items-center justify-center font-bold text-slate-950 shadow-md">
+        𝚺
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-white via-slate-100 to-cyber-cyan">
+          THE LACING LAB
+        </h1>
+        <p class="text-[10px] text-slate-400 font-mono tracking-widest uppercase">IS 800:2007 Structural Engineering Sandbox</p>
+      </div>
+    </div>
+
+    <!-- Active State Badges -->
+    <div class="flex items-center space-x-4">
+      <div id="badge-lacing" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-850 border border-slate-700 text-slate-400 flex items-center gap-1.5 transition-all duration-300">
+        <span class="w-2 h-2 rounded-full bg-slate-500 animate-pulse"></span> Lacing Missing
+      </div>
+      <div id="badge-code" class="px-3 py-1 rounded-full text-xs font-semibold bg-slate-850 border border-slate-700 text-slate-400 flex items-center gap-1.5 transition-all duration-300">
+        <span class="w-2 h-2 rounded-full bg-slate-500"></span> Rules Evaluator
+      </div>
+      
+      <!-- Audio Controls -->
+      <div class="flex items-center gap-2 border-l border-slate-800 pl-4">
+        <button id="btn-audio-toggle" onclick="toggleAudio()" class="w-8 h-8 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 transition-colors" title="Toggle Sound FX">
+          🔊
+        </button>
+        <button id="btn-tts-toggle" onclick="toggleTTS()" class="w-8 h-8 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 transition-colors" title="Toggle Voice Coach (TTS)">
+          🗣️
+        </button>
+        <button onclick="openGuideModal()" class="px-3 h-8 rounded bg-cyan-950/40 border border-cyber-cyan/30 text-cyber-cyan hover:bg-cyan-950/80 text-xs font-bold transition-all">
+          Guide
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- DASHBOARD WRAPPER -->
+  <main class="flex-1 min-h-0 flex overflow-hidden">
+    
+    <!-- LEFT SIDEBAR: STRUCTURAL CONTROLS & CODEBOOK -->
+    <section class="w-80 shrink-0 border-r border-slate-800/80 bg-slate-900/40 flex flex-col min-h-0">
+      
+      <!-- Lacing Tool Dock (Drag Source) -->
+      <div class="p-4 border-b border-slate-800 bg-slate-950/40">
+        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3">🛠️ Tool Dock</h2>
+        <div 
+          id="lacing-tool" 
+          draggable="true" 
+          class="glass-panel cursor-grab active:cursor-grabbing p-4 rounded-xl border border-dashed border-cyber-cyan/50 hover:border-cyber-cyan bg-cyan-950/20 shadow-lg hover:shadow-cyan-950/20 transition-all duration-300"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-extrabold text-cyber-cyan flex items-center gap-1">
+              <span class="text-lg">⚡</span> Single Lacing Flat
+            </span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-mono bg-cyber-cyan/10 text-cyber-cyan">DRAG ME</span>
+          </div>
+          <p class="text-xs text-slate-300 mb-1 leading-relaxed">
+            Drag onto the column column to install built-up diagonal bracing.
+          </p>
+          <div class="text-[10px] font-mono text-slate-400 flex items-center gap-1">
+            <span class="text-cyan-400">⚡ Code criteria:</span> Angle 40° - 70°
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-Time Sliders -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-5">
+        
+        <!-- Parameter Sliders -->
+        <div>
+          <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3">📏 Column Parameters</h2>
+          <div class="space-y-4">
+            <!-- Axial Load -->
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1.5">
+                <span class="text-slate-300">Axial Comp. Load (P)</span>
+                <span id="val-load" class="text-cyber-magenta font-bold">1200 kN</span>
+              </div>
+              <input 
+                type="range" id="slide-load" min="100" max="3000" step="50" value="1200"
+                class="w-full accent-cyber-magenta bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                oninput="updateParameters()"
+              >
+            </div>
+
+            <!-- Lacing Angle -->
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1.5">
+                <span class="text-slate-300">Lacing Angle (θ)</span>
+                <span id="val-angle" class="text-cyber-cyan font-bold">45°</span>
+              </div>
+              <input 
+                type="range" id="slide-angle" min="20" max="85" step="1" value="45"
+                class="w-full accent-cyber-cyan bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                oninput="updateParameters()"
+              >
+            </div>
+
+            <!-- Pitch Spacing -->
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1.5">
+                <span class="text-slate-300">Lacing Pitch (p)</span>
+                <span id="val-pitch" class="text-cyber-lime font-bold">180 mm</span>
+              </div>
+              <input 
+                type="range" id="slide-pitch" min="80" max="400" step="10" value="180"
+                class="w-full accent-cyber-lime bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                oninput="updateParameters()"
+              >
+            </div>
+
+            <!-- Channel Spacing -->
+            <div>
+              <div class="flex justify-between text-xs font-mono mb-1.5">
+                <span class="text-slate-300">Channel Spacing (S)</span>
+                <span id="val-spacing" class="text-amber-400 font-bold">140 mm</span>
+              </div>
+              <input 
+                type="range" id="slide-spacing" min="80" max="250" step="5" value="140"
+                class="w-full accent-amber-400 bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer"
+                oninput="updateParameters()"
+              >
+            </div>
+          </div>
+        </div>
+
+        <!-- IS 800:2007 Engineering Clause Rules Panel -->
+        <div class="border-t border-slate-800 pt-4">
+          <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3">📜 IS 800:2007 Codebook</h2>
+          <div class="space-y-3 font-sans text-xs">
+            
+            <!-- Clause 1: Angle limits -->
+            <div id="rule-angle-card" class="p-3 rounded-lg border bg-slate-950/40 border-slate-800 transition-colors duration-300">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h4 class="font-bold text-slate-200">Clause 7.6.4: Angle of Inclination</h4>
+                  <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    Lacing bars shall be inclined at an angle not less than <strong class="text-cyber-cyan">40°</strong> and not more than <strong class="text-cyber-cyan">70°</strong> to the axis of the member.
+                  </p>
+                </div>
+                <span id="rule-angle-status" class="text-sm">⚠️</span>
+              </div>
+            </div>
+
+            <!-- Clause 2: Transverse Shear -->
+            <div class="p-3 rounded-lg border bg-slate-950/40 border-slate-800">
+              <div>
+                <h4 class="font-bold text-slate-200">Clause 7.6.1.1: Transverse Shear</h4>
+                <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                  Lacing systems shall be designed to resist a transverse shear force, <strong class="text-cyber-magenta">V = 2.5%</strong> of the axial force on the member.
+                </p>
+              </div>
+              <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between font-mono text-[10px] text-slate-400">
+                <span>V = 2.5% × P =</span>
+                <span id="calc-v" class="text-cyber-magenta font-bold">0.0 kN</span>
+              </div>
+            </div>
+
+            <!-- Clause 3: Slenderness ratio constraint -->
+            <div id="rule-slenderness-card" class="p-3 rounded-lg border bg-slate-950/40 border-slate-800 transition-colors duration-300">
+              <div class="flex items-start justify-between">
+                <div>
+                  <h4 class="font-bold text-slate-200">Clause 7.6.5.1: Local Buckling Limit</h4>
+                  <p class="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
+                    The slenderness ratio of the individual column element between lacing connections (<strong class="text-cyber-lime">λ<sub>local</sub></strong>) must not exceed <strong class="text-cyber-lime">50</strong>.
+                  </p>
+                </div>
+                <span id="rule-slenderness-status" class="text-sm">⚠️</span>
+              </div>
+              <div class="mt-2 pt-2 border-t border-slate-800/80 flex items-center justify-between font-mono text-[10px] text-slate-400">
+                <span>λ<sub>local</sub> (approx.) =</span>
+                <span id="calc-lambda" class="font-bold text-slate-300">0.0</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ELI5 / Analogies footer -->
+      <div id="eli5-container" class="p-4 border-t border-slate-800 bg-slate-950/60 font-sans">
+        <div class="flex items-center gap-1.5 text-xs font-bold text-cyber-cyan mb-1">
+          <span>🧠</span> ELI5 (Explain Like I'm 5)
+        </div>
+        <p id="eli5-text" class="text-xs text-slate-300 leading-relaxed italic">
+          "A column without lacing is like two parallel dry spaghetti sticks. Squeeze them, and they immediately pop apart and snap! Let's drag the lacing tool onto the column to tie them together."
+        </p>
+      </div>
+    </section>
+
+    <!-- CENTER PANEL: SANDBOX INTERACTIVE SIMULATION -->
+    <section class="flex-1 flex flex-col min-h-0 relative bg-slate-950/10">
+      
+      <!-- Real-time HUD Status Overlay inside canvas area -->
+      <div class="absolute top-4 left-4 right-4 z-10 flex justify-between items-start pointer-events-none">
+        <!-- Interactive Mode Hints -->
+        <div class="glass-panel p-3 rounded-xl max-w-sm pointer-events-auto">
+          <div class="text-xs font-bold text-slate-200 mb-1 flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+            Interactive Workspace
+          </div>
+          <p id="workspace-action-text" class="text-[11px] text-slate-300 leading-relaxed">
+            Drag the <strong class="text-cyber-cyan">Single Lacing Flat</strong> from the dock on the left, then release it directly onto the main column viewport to assemble.
+          </p>
+        </div>
+
+        <!-- Deflection / Buckling Stats Box -->
+        <div class="glass-panel p-3 rounded-xl w-60 text-xs font-mono pointer-events-auto">
+          <div class="text-slate-400 uppercase text-[10px] mb-2 font-bold tracking-wider">⚡ Physics Engine Monitor</div>
+          <div class="space-y-1">
+            <div class="flex justify-between">
+              <span>Applied Force:</span>
+              <span id="hud-force" class="text-cyber-magenta font-semibold">1200 kN</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Lateral Stiffness:</span>
+              <span id="hud-stiffness" class="text-cyber-cyan font-semibold">10 N/mm</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Max Buckling Defl:</span>
+              <span id="hud-deflection" class="text-cyber-red font-semibold">0.0 mm</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Safety Status:</span>
+              <span id="hud-safety" class="text-emerald-400 font-bold">Stable</span>
+            </div>
+          </div>
+          <!-- Buckle Control Interactive Gesture Help -->
+          <div class="mt-2 pt-2 border-t border-slate-800/80 text-[10px] text-slate-400 leading-snug">
+            💡 Click and hold on column to apply manual lateral wind shear.
+          </div>
+        </div>
+      </div>
+
+      <!-- MAIN INTERACTIVE RENDERING CANVAS CONTAINER -->
+      <div 
+        id="canvas-container" 
+        class="flex-1 w-full relative overflow-hidden transition-all duration-500 flex items-center justify-center cursor-crosshair"
+        ondragover="handleDragOver(event)"
+        ondragleave="handleDragLeave(event)"
+        ondrop="handleDrop(event)"
+      >
+        <!-- Dropping Overlay Highlight -->
+        <div id="drop-overlay" class="absolute inset-0 bg-cyan-950/30 border-4 border-dashed border-cyber-cyan opacity-0 transition-opacity duration-300 flex items-center justify-center pointer-events-none z-10">
+          <div class="text-center px-6 py-4 rounded-xl glass-panel glow-cyan">
+            <p class="text-lg font-black text-cyber-cyan tracking-wider">DROP LACING TO INSTALL</p>
+            <p class="text-xs text-slate-300 mt-1">Snaps directly to connection centroids</p>
+          </div>
+        </div>
+
+        <canvas id="canvas-main" class="w-full h-full block absolute inset-0"></canvas>
+      </div>
+
+      <!-- BOTTOM CONTROL STRIP -->
+      <footer class="h-14 border-t border-slate-800/80 bg-slate-950/80 px-6 flex items-center justify-between z-10 shrink-0">
+        <div class="flex items-center space-x-4 text-xs font-mono">
+          <span class="text-slate-400">Buckling Amplitude Modulate:</span>
+          <div class="flex space-x-1">
+            <button onclick="setBuckleMult(1)" class="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded active:scale-95 transition-all">1x</button>
+            <button onclick="setBuckleMult(2)" class="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded active:scale-95 transition-all">2x</button>
+            <button onclick="setBuckleMult(4)" class="px-2 py-1 bg-slate-800 border border-slate-700 text-slate-300 hover:text-white rounded active:scale-95 transition-all text-cyber-magenta font-semibold">Exaggerated (4x)</button>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <button id="btn-revert" onclick="revertLacing()" class="px-4 py-1.5 rounded-lg border border-slate-700 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold transition-all flex items-center gap-1.5 opacity-40 cursor-not-allowed">
+            🗑️ Detach Lacing
+          </button>
+          <button onclick="testColumnStability()" class="px-5 py-1.5 rounded-lg bg-gradient-to-r from-cyber-cyan to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-bold text-xs shadow-lg shadow-cyan-900/40 active:scale-95 transition-all">
+            🚀 Test Buckling Resistance
+          </button>
+        </div>
+      </footer>
+    </section>
+
+    <!-- RIGHT SIDEBAR: PROFILE SECTION VIEW & DETAILED FORMULAS -->
+    <section class="w-80 shrink-0 border-l border-slate-800/80 bg-slate-900/40 flex flex-col min-h-0">
+      
+      <!-- Section / Profile View (Plan View) -->
+      <div class="p-4 border-b border-slate-800 bg-slate-950/40 flex flex-col h-[280px]">
+        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">📐 Section View (Plan X-X)</h2>
+        <div class="flex-1 relative bg-slate-950/50 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+          <canvas id="canvas-section" class="w-full h-full block absolute inset-0"></canvas>
+        </div>
+      </div>
+
+      <!-- Live Calculations & Mathematical Mechanics -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+        <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-2">🧮 Interactive Structural Math</h2>
+        
+        <!-- Live Stress Calculator Card -->
+        <div class="glass-panel p-3 rounded-xl border border-slate-800 font-mono text-[11px] space-y-2">
+          <div class="flex justify-between border-b border-slate-800/60 pb-1.5">
+            <span class="text-slate-400">Axial stress (σ_avg):</span>
+            <span id="calc-stress" class="font-bold text-slate-200">0.0 MPa</span>
+          </div>
+          
+          <div class="flex justify-between border-b border-slate-800/60 pb-1.5">
+            <span class="text-slate-400">Total Connection Shear:</span>
+            <span id="calc-trans-shear" class="font-bold text-cyber-magenta">0.0 kN</span>
+          </div>
+
+          <div class="flex justify-between">
+            <span class="text-slate-400">Required Bar Area:</span>
+            <span id="calc-req-area" class="font-bold text-cyber-cyan">0.0 mm²</span>
+          </div>
+        </div>
+
+        <!-- Formula Callouts -->
+        <div class="space-y-3">
+          <div class="p-3 bg-slate-950/30 rounded-xl border border-slate-800/60">
+            <h4 class="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-1">
+              <span class="text-cyber-cyan">📐</span> Geometry Calculations
+            </h4>
+            <p class="text-[11px] text-slate-400 leading-relaxed font-mono">
+              Pitch length:<br>
+              <span class="text-slate-300">p = 2 × (S + 2g) × cot(θ)</span><br>
+              Where g is gauge distance (50mm). Ensure pitch matches spacing for uniform shear flow.
+            </p>
+          </div>
+
+          <div class="p-3 bg-slate-950/30 rounded-xl border border-slate-800/60">
+            <h4 class="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-1">
+              <span class="text-cyber-magenta">🌪️</span> Dynamic Buckling Formula
+            </h4>
+            <p class="text-[11px] text-slate-400 leading-relaxed font-mono">
+              Euler Critical Load limit:<br>
+              <span class="text-slate-300">P_cr = π² · E · I_eff / (K·L)²</span><br>
+              Lacing bars increase effective stiffness <span class="text-cyber-cyan">I_eff</span>, shifting the buckle limit high above standard wind demands!
+            </p>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Quick Interactive Quiz/Challenge Slot -->
+      <div class="p-4 border-t border-slate-800 bg-slate-950/60">
+        <div class="text-xs font-bold text-slate-300 flex items-center gap-1.5 mb-2">
+          <span>🏆</span> Structural Engineering Task
+        </div>
+        <p id="challenge-desc" class="text-[11px] text-slate-300 leading-relaxed mb-3">
+          Configure the column to handle <strong class="text-cyber-magenta">1500 kN</strong> with an inclination angle of exactly <strong class="text-cyber-cyan">45°</strong> and verify stability.
+        </p>
+        <button onclick="verifyChallenge()" class="w-full py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-bold text-white transition-all">
+          Check Solution
+        </button>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- POPUP: FULL-SCREEN Backdropped Welcome Guide Modal -->
+  <div id="guide-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+      <button onclick="closeGuideModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-xl">✕</button>
+      
+      <div class="flex items-center space-x-3 mb-4">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyber-cyan to-cyber-magenta flex items-center justify-center text-xl font-bold text-slate-950">
+          🏗️
+        </div>
+        <div>
+          <h2 class="text-xl font-black text-slate-100 tracking-wide">WELCOME TO THE LACING LAB</h2>
+          <p class="text-[11px] text-cyber-cyan font-mono tracking-wider">A Steel Structure Design Playground</p>
+        </div>
+      </div>
+
+      <div class="space-y-4 text-slate-300 text-xs leading-relaxed">
+        <p>
+          This high-fidelity educational simulation models back-to-back channel steel columns subjected to high axial compression force. Your goal is to connect them with a lacing system compliant with <strong class="text-slate-100">Indian Standard (IS 800:2007)</strong>.
+        </p>
+        
+        <div class="p-4 bg-slate-950/50 rounded-xl border border-slate-800 space-y-2">
+          <p class="font-bold text-slate-200">How to Play & Learn:</p>
+          <ul class="list-disc pl-5 space-y-1.5 text-slate-300">
+            <li>Drag the <strong class="text-cyber-cyan">Single Lacing Flat</strong> from the left dock and drop it onto the main central workspace.</li>
+            <li>Use the sliders in the sidebars to alter <strong class="text-slate-100">Axial Load</strong>, <strong class="text-slate-100">Angle</strong>, and <strong class="text-slate-100">Spacing</strong> dynamically.</li>
+            <li>Watch the real-time physical indicators monitor compliance with critical structural regulations.</li>
+            <li>Sweep your mouse across the central column, clicking and holding to apply lateral shear load and simulate live buckling!</li>
+          </ul>
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button onclick="closeGuideModal(); enableFirstTimeAudio();" class="flex-1 py-3 rounded-xl bg-gradient-to-r from-cyber-cyan to-cyan-500 hover:from-cyan-400 hover:to-cyan-300 text-slate-950 font-extrabold transition-all text-center tracking-wide">
+            START EXPERIMENT
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SCRIPT BLOCK: Sandbox Logic, Canvas Physics & Interactive Loops -->
+  <script>
+    // State Machine
+    const state = {
+      lacingAttached: false,
+      axialLoad: 1200,      // kN
+      angle: 45,            // degrees
+      pitch: 180,           // mm
+      spacing: 140,         // mm (distance S between channels)
+      stiffness: 10,        // dynamic stiffness
+      deflection: 0,        // real-time buckling displacement
+      targetDeflection: 0,  // target buckling displacement for smoothing
+      isDraggingColumn: false,
+      lastMouseX: 0,
+      audioEnabled: true,
+      ttsEnabled: true,
+      buckleMultiplier: 2.0, // scale up drawing for educational readability
+      challengeAttempted: false,
+      connectionScale: 1.0, // Zoom factor on connection
+      zoomCenterY: 0.5,
+      animationTime: 0
+    };
+
+    // Canvas elements & contexts
+    let canvasMain, ctxMain;
+    let canvasSec, ctxSec;
+    let audioCtx = null;
+    let oscNode = null;
+    let gainNode = null;
+
+    // Run Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      canvasMain = document.getElementById('canvas-main');
+      ctxMain = canvasMain.getContext('2d');
+      canvasSec = document.getElementById('canvas-section');
+      ctxSec = canvasSec.getContext('2d');
+
+      setupResizeHandlers();
+      setupMouseInteractions();
+      updateParameters();
+      
+      // Start the dynamic high-DPI rendering loop
+      requestAnimationFrame(animationLoop);
+    });
+
+    // High-DPI Resolution Resizing
+    function setupResizeHandlers() {
+      function resize() {
+        // Main Canvas resize
+        const mRect = canvasMain.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvasMain.width = mRect.width * dpr;
+        canvasMain.height = mRect.height * dpr;
+        ctxMain.scale(dpr, dpr);
+
+        // Section Canvas resize
+        const sRect = canvasSec.parentElement.getBoundingClientRect();
+        canvasSec.width = sRect.width * dpr;
+        canvasSec.height = sRect.height * dpr;
+        ctxSec.scale(dpr, dpr);
+      }
+      
+      window.addEventListener('resize', resize);
+      resize(); // Run immediately
+    }
+
+    // Audio & Speech Setup
+    function enableFirstTimeAudio() {
+      if (!audioCtx) {
+        try {
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {
+          console.warn("Web Audio API not supported", e);
+        }
+      }
+      speakCoach("Welcome to the Lacing Lab! Try dragging a lacing bar onto the steel column to make it rigid and comply with Indian Standard 800.");
+    }
+
+    function toggleAudio() {
+      state.audioEnabled = !state.audioEnabled;
+      const btn = document.getElementById('btn-audio-toggle');
+      btn.innerHTML = state.audioEnabled ? '🔊' : '🔇';
+      btn.classList.toggle('bg-slate-800');
+      btn.classList.toggle('bg-cyan-950/50');
+    }
+
+    function toggleTTS() {
+      state.ttsEnabled = !state.ttsEnabled;
+      const btn = document.getElementById('btn-tts-toggle');
+      btn.innerHTML = state.ttsEnabled ? '🗣️' : '🔇';
+      btn.classList.toggle('bg-slate-800');
+      btn.classList.toggle('bg-cyan-950/50');
+    }
+
+    function playTone(freq, volume = 0.08) {
+      if (!state.audioEnabled || !audioCtx) return;
+      try {
+        if (audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.4);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.4);
+      } catch (err) {
+        console.error("Audio trigger failed", err);
+      }
+    }
+
+    function speakCoach(phrase) {
+      if (!state.ttsEnabled || !('speechSynthesis' in window)) return;
+      // Stop ongoing voice synthesis
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(phrase);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Modal Control
+    function openGuideModal() {
+      document.getElementById('guide-modal').classList.remove('hidden');
+    }
+    function closeGuideModal() {
+      document.getElementById('guide-modal').classList.add('hidden');
+    }
+
+    // Drag and Drop Handles
+    function handleDragOver(e) {
+      e.preventDefault();
+      const overlay = document.getElementById('drop-overlay');
+      overlay.classList.remove('opacity-0');
+      overlay.classList.add('opacity-100');
+    }
+
+    function handleDragLeave(e) {
+      e.preventDefault();
+      const overlay = document.getElementById('drop-overlay');
+      overlay.classList.add('opacity-0');
+      overlay.classList.remove('opacity-100');
+    }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      const overlay = document.getElementById('drop-overlay');
+      overlay.classList.add('opacity-0');
+      overlay.classList.remove('opacity-100');
+
+      // Update State: Attach lacing
+      if (!state.lacingAttached) {
+        state.lacingAttached = true;
+        playTone(523.25, 0.15); // C5 Chime
+        setTimeout(() => playTone(659.25, 0.15), 100); // E5 Chime
+        setTimeout(() => playTone(783.99, 0.20), 200); // G5 Success sound
+
+        // Set high temporary zoom into lacing connection zone
+        state.connectionScale = 1.6;
+        state.zoomCenterY = 0.4;
+        setTimeout(() => {
+          state.connectionScale = 1.0;
+        }, 1500);
+
+        updateVisualState();
+        speakCoach("Great job! Single lacing system attached. Let's inspect the lacing angle and check if it conforms to building rules!");
+        
+        // Enable revert button
+        const revBtn = document.getElementById('btn-revert');
+        revBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+      }
+    }
+
+    function revertLacing() {
+      if (state.lacingAttached) {
+        state.lacingAttached = false;
+        playTone(220, 0.15); // Sad tone
+        updateVisualState();
+        speakCoach("Lacing system detached. Notice how unstable the column becomes when compressed!");
+        
+        const revBtn = document.getElementById('btn-revert');
+        revBtn.classList.add('opacity-40', 'cursor-not-allowed');
+      }
+    }
+
+    // Set deformation multiplier
+    function setBuckleMult(mult) {
+      state.buckleMultiplier = mult;
+      playTone(440, 0.05);
+    }
+
+    // Sliders & Engineering Math Calculation Loop
+    function updateParameters() {
+      state.axialLoad = parseFloat(document.getElementById('slide-load').value);
+      state.angle = parseFloat(document.getElementById('slide-angle').value);
+      state.pitch = parseFloat(document.getElementById('slide-pitch').value);
+      state.spacing = parseFloat(document.getElementById('slide-spacing').value);
+
+      // DOM UI Elements updates
+      document.getElementById('val-load').innerText = `${state.axialLoad} kN`;
+      document.getElementById('val-angle').innerText = `${state.angle}°`;
+      document.getElementById('val-pitch').innerText = `${state.pitch} mm`;
+      document.getElementById('val-spacing').innerText = `${state.spacing} mm`;
+
+      document.getElementById('hud-force').innerText = `${state.axialLoad} kN`;
+
+      // Update sound modulation pitch depending on stress/tightness
+      if (state.audioEnabled) {
+        const modFreq = 180 + (state.axialLoad / 10) + (state.angle * 2);
+        // Play small dynamic pitch change indicator
+        playTone(modFreq, 0.015);
+      }
+
+      // Calculations according to IS 800 clauses
+      const angleValid = (state.angle >= 40 && state.angle <= 70);
+      const transverseShear = 0.025 * state.axialLoad; // Clause 7.6.1.1 (2.5%)
+      document.getElementById('calc-v').innerText = `${transverseShear.toFixed(1)} kN`;
+      document.getElementById('calc-trans-shear').innerText = `${transverseShear.toFixed(1)} kN`;
+
+      // Local Slenderness ratio calculation representation
+      // λ_local = Pitch spacing distance ratio. Let's model a relative simplified version:
+      // λ_local = p / (radius of gyration of typical channel flanges which is around 25mm to 35mm)
+      const r_min_flange = 25.0; // Assume constant minimal gyration
+      const localSlenderness = state.pitch / r_min_flange;
+      document.getElementById('calc-lambda').innerText = localSlenderness.toFixed(1);
+
+      const slendernessValid = (localSlenderness <= 50);
+
+      // Rule Status card coloring and logic UI update
+      const angleCard = document.getElementById('rule-angle-card');
+      const angleStatus = document.getElementById('rule-angle-status');
+      if (angleValid) {
+        angleCard.className = "p-3 rounded-lg border bg-emerald-950/20 border-emerald-500/40 glow-lime text-slate-100 transition-colors duration-300";
+        angleStatus.innerText = "✅";
+      } else {
+        angleCard.className = "p-3 rounded-lg border bg-red-950/20 border-red-500/40 glow-red text-slate-100 transition-colors duration-300";
+        angleStatus.innerText = "❌ Angle Out of Bounds";
+      }
+
+      const slendCard = document.getElementById('rule-slenderness-card');
+      const slendStatus = document.getElementById('rule-slenderness-status');
+      if (slendernessValid) {
+        slendCard.className = "p-3 rounded-lg border bg-emerald-950/20 border-emerald-500/40 text-slate-100 transition-colors duration-300";
+        slendStatus.innerText = "✅ Conforms";
+      } else {
+        slendCard.className = "p-3 rounded-lg border bg-red-950/20 border-red-500/40 glow-red text-slate-100 transition-colors duration-300";
+        slendStatus.innerText = "❌ Danger: Buckling Risk";
+      }
+
+      // Calculate approximate bar section area required to resist shear component
+      // F_s = Transverse Shear component along the diagonal lacing bar
+      const angleRad = (state.angle * Math.PI) / 180;
+      const barShearForce = transverseShear / (2 * Math.sin(angleRad)); // Assume single lacing system opposing sides
+      const fy = 250; // Steel grade yield strength
+      const gamma_m0 = 1.1; // Safety factor
+      const reqArea = (barShearForce * 1000 * gamma_m0) / (0.6 * fy); // Approximate required Area (mm^2)
+      document.getElementById('calc-req-area').innerText = `${reqArea.toFixed(0)} mm²`;
+
+      // Update Stiffness representation based on Lacing Status and geometry
+      let calculatedStiffness = 6.0; // Base weak stiffness without lacing
+      if (state.lacingAttached) {
+        if (angleValid && slendernessValid) {
+          calculatedStiffness = 85.0 - (state.angle - 50) * 0.4; // Strong optimized geometry
+        } else {
+          calculatedStiffness = 30.0; // Compromised structural system
+        }
+      }
+      state.stiffness = calculatedStiffness;
+      document.getElementById('hud-stiffness').innerText = `${calculatedStiffness.toFixed(0)} N/mm`;
+
+      updateVisualState();
+    }
+
+    function updateVisualState() {
+      // Manage status badges at the top
+      const badgeLacing = document.getElementById('badge-lacing');
+      const badgeCode = document.getElementById('badge-code');
+
+      if (state.lacingAttached) {
+        badgeLacing.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 glow-lime"></span> Lacing Installed';
+        badgeLacing.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/40 border border-emerald-500 text-emerald-200 transition-all duration-300";
+      } else {
+        badgeLacing.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span> Lacing Missing';
+        badgeLacing.className = "px-3 py-1 rounded-full text-xs font-semibold bg-red-950/40 border border-red-500/50 text-red-300 transition-all duration-300";
+      }
+
+      // Code Evaluator Overall Badge
+      const isAngleOk = (state.angle >= 40 && state.angle <= 70);
+      const isSlendernessOk = (state.pitch / 25.0 <= 50);
+
+      if (state.lacingAttached && isAngleOk && isSlendernessOk) {
+        badgeCode.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-500 glow-lime"></span> IS 800 Compliant';
+        badgeCode.className = "px-3 py-1 rounded-full text-xs font-semibold bg-emerald-950/40 border border-emerald-500 text-emerald-200 transition-all duration-300";
+        document.getElementById('hud-safety').innerText = "Safe & Certified";
+        document.getElementById('hud-safety').className = "text-emerald-400 font-bold";
+      } else if (state.lacingAttached) {
+        badgeCode.innerHTML = '<span class="w-2 h-2 rounded-full bg-amber-500"></span> Deficient Design';
+        badgeCode.className = "px-3 py-1 rounded-full text-xs font-semibold bg-amber-950/40 border border-amber-500 text-amber-300 transition-all duration-300";
+        document.getElementById('hud-safety').innerText = "Vulnerable";
+        document.getElementById('hud-safety').className = "text-amber-400 font-bold animate-pulse";
+      } else {
+        badgeCode.innerHTML = '<span class="w-2 h-2 rounded-full bg-red-500"></span> High Risk';
+        badgeCode.className = "px-3 py-1 rounded-full text-xs font-semibold bg-red-950/40 border border-red-500/50 text-red-300 transition-all duration-300";
+        document.getElementById('hud-safety').innerText = "Extreme Risk";
+        document.getElementById('hud-safety').className = "text-red-400 font-bold";
+      }
+
+      // Dynamic Interactive Explanatory Analogies (ELI5 Engine)
+      const eli5 = document.getElementById('eli5-text');
+      if (!state.lacingAttached) {
+        eli5.innerText = '"A column without lacing is like two parallel dry spaghetti sticks. Squeeze them, and they immediately pop apart and snap! Drag the lacing tool onto the column to tie them together."';
+      } else if (!isAngleOk) {
+        if (state.angle < 40) {
+          eli5.innerText = '"Your lacing bars are laid down too flat (under 40°). Squeezing the column now causes the bars to slide easily without helping fight the buckling force! Make the angle steeper."';
+        } else {
+          eli5.innerText = '"The lacing bars are too vertical (over 70°). They act like individual vertical pillars instead of diagonal triangles, offering very little sideways bracing resistance!"';
+        }
+      } else if (!isSlendernessOk) {
+        eli5.innerText = '"Your spacing between lacing bolts is too wide (local buckling exceeds 50)! Individual segments of the steel channel can bulge out on their own before transferring stress."';
+      } else {
+        eli5.innerText = '"Perfect! The 45-to-60 degree lacing system creates solid triangulated geometry, keeping both columns working together as one ultra-rigid composite unit! Play with the lateral shear."';
+      }
+    }
+
+    // Sweep mouse interaction logic to bend columns (Buckling Gesture)
+    function setupMouseInteractions() {
+      const container = document.getElementById('canvas-container');
+
+      container.addEventListener('pointerdown', (e) => {
+        state.isDraggingColumn = true;
+        const rect = canvasMain.getBoundingClientRect();
+        state.lastMouseX = e.clientX - rect.left;
+        playTone(300, 0.05);
+      });
+
+      window.addEventListener('pointermove', (e) => {
+        if (!state.isDraggingColumn) return;
+        const rect = canvasMain.getBoundingClientRect();
+        const currentX = e.clientX - rect.left;
+        
+        // Calculate lateral deflection force proportional to mouse displacement
+        const centerCoord = rect.width / 2;
+        const forceIntensity = (currentX - centerCoord) * 0.8;
+        
+        // Buckling depends heavily on column stiffness (reduced by lacing or rules compliance)
+        const displacement = forceIntensity / (state.stiffness * 0.08);
+        state.targetDeflection = Math.max(-50, Math.min(50, displacement));
+      });
+
+      window.addEventListener('pointerup', () => {
+        state.isDraggingColumn = false;
+        state.targetDeflection = 0; // Spring back to center
+        playTone(150, 0.02);
+      });
+    }
+
+    // Dynamic Physics Validation Test Run Button
+    function testColumnStability() {
+      playTone(800, 0.1);
+      speakCoach("Initiating axial compression safety test. Scaling load profile...");
+      
+      let count = 0;
+      const interval = setInterval(() => {
+        count++;
+        // Pulse structural excitation to demonstrate stiffness properties
+        const amplitude = state.lacingAttached ? 8.0 : 35.0;
+        state.targetDeflection = Math.sin(count * 1.5) * amplitude * (state.axialLoad / 1200);
+        
+        if (count > 15) {
+          clearInterval(interval);
+          state.targetDeflection = 0;
+          if (state.lacingAttached && state.angle >= 40 && state.angle <= 70) {
+            speakCoach("Test Completed successfully. The dynamic bracing configuration successfully distributes bending moments with absolute stability.");
+          } else {
+            speakCoach("Test failed. High lateral buckling occurred! Optimize lacing angle and tighten pitch to prevent collapse.");
+          }
+        }
+      }, 100);
+    }
+
+    function verifyChallenge() {
+      state.challengeAttempted = true;
+      const isAngleCorrect = (state.angle === 45);
+      const isLoadMet = (state.axialLoad >= 1500);
+      const isLacingConnected = state.lacingAttached;
+
+      if (isLacingConnected && isAngleCorrect && isLoadMet) {
+        speakCoach("Incredible work! You successfully solved the structural engineering challenge task. Your design is both IS 800 compliant and safe under high compression load!");
+        alert("🎉 Challenge Complete! Your built-up channel column design is certified compliant under IS 800:2007 guidelines!");
+      } else {
+        speakCoach("Configuration is not quite correct yet. Ensure the single lacing tool is dropped onto the column, axial load slider is set at least to 1500 kN, and lacing angle is exactly 45 degrees.");
+        alert("⚠️ Design not compliant yet. Set Axial Load to 1500 kN or more, and configure the Lacing Angle to exactly 45°.");
+      }
+    }
+
+    // HIGH-DPI CANVAS RENDERING LOOPS (using requestAnimationFrame)
+    function animationLoop() {
+      state.animationTime += 0.05;
+
+      // Smooth current deflection toward target
+      state.deflection += (state.targetDeflection - state.deflection) * 0.15;
+      
+      // Keep UI Stats Box Updated
+      document.getElementById('hud-deflection').innerText = `${Math.abs(state.deflection).toFixed(1)} mm`;
+
+      drawMainColumn();
+      drawSectionView();
+
+      requestAnimationFrame(animationLoop);
+    }
+
+    // Main 2D Column Visualizing Canvas Draw
+    function drawMainColumn() {
+      const w = canvasMain.width / (window.devicePixelRatio || 1);
+      const h = canvasMain.height / (window.devicePixelRatio || 1);
+      ctxMain.clearRect(0, 0, w, h);
+
+      ctxMain.save();
+      // Apply Camera Scale zoom (temporary effect during assembly success)
+      ctxMain.translate(w / 2, h * state.zoomCenterY);
+      ctxMain.scale(state.connectionScale, state.connectionScale);
+      ctxMain.translate(-w / 2, -h * state.zoomCenterY);
+
+      // Render Grid lines behind columns
+      ctxMain.strokeStyle = 'rgba(6, 182, 212, 0.06)';
+      ctxMain.lineWidth = 1;
+      for (let x = 0; x < w; x += 30) {
+        ctxMain.beginPath();
+        ctxMain.moveTo(x, 0);
+        ctxMain.lineTo(x, h);
+        ctxMain.stroke();
+      }
+      for (let y = 0; y < h; y += 30) {
+        ctxMain.beginPath();
+        ctxMain.moveTo(0, y);
+        ctxMain.lineTo(w, y);
+        ctxMain.stroke();
+      }
+
+      // Column visual boundaries & coordinates
+      const colHeight = h * 0.8;
+      const startY = h * 0.1;
+      const endY = startY + colHeight;
+      const centerX = w / 2;
+
+      // Base Spacing S is controlled by slider. Map spacing pixels
+      const spacingPx = state.spacing * 0.55;
+
+      // Draw the two vertical Steel Channels (Back-to-Back profile layout)
+      const channelWidth = 32;
+
+      // Helper function to calculate buckling coordinate displacement offset
+      // Dynamic shape modeling: Buckling wave matches standard sinusoidal displacement
+      function getDeformationAt(yPos) {
+        const relativeY = (yPos - startY) / colHeight;
+        if (relativeY < 0 || relativeY > 1) return 0;
+        // Euler fundamental buckling mode shape: sin(pi * y)
+        const bendOffset = Math.sin(Math.PI * relativeY) * state.deflection * state.buckleMultiplier;
+        return bendOffset;
+      }
+
+      // 1. Draw Left Channel
+      ctxMain.lineWidth = 4;
+      ctxMain.strokeStyle = 'rgba(100, 116, 139, 0.9)'; // Steel body stroke
+      ctxMain.fillStyle = 'rgba(30, 41, 59, 0.8)';     // Semi-translucent core fill
+
+      ctxMain.beginPath();
+      // Start top-left corner
+      let dTopLeft = getDeformationAt(startY);
+      ctxMain.moveTo(centerX - spacingPx - channelWidth + dTopLeft, startY);
+      
+      // Loop down to trace dynamic deformed spine curve
+      for (let y = startY; y <= endY; y += 10) {
+        let def = getDeformationAt(y);
+        ctxMain.lineTo(centerX - spacingPx - channelWidth + def, y);
+      }
+      // Trace bottom channel flange width
+      let dBotLeft = getDeformationAt(endY);
+      ctxMain.lineTo(centerX - spacingPx + dBotLeft, endY);
+      
+      // Trace back up for channel inside thickness boundary
+      for (let y = endY; y >= startY; y -= 10) {
+        let def = getDeformationAt(y);
+        ctxMain.lineTo(centerX - spacingPx + def, y);
+      }
+      ctxMain.closePath();
+      ctxMain.fill();
+      ctxMain.stroke();
+
+      // Draw channel web spine lines (inside profile highlight detailing)
+      ctxMain.beginPath();
+      ctxMain.lineWidth = 1.5;
+      ctxMain.strokeStyle = '#38bdf8'; // Glowing internal core
+      for (let y = startY; y <= endY; y += 10) {
+        let def = getDeformationAt(y);
+        if (y === startY) ctxMain.moveTo(centerX - spacingPx - channelWidth + 6 + def, y);
+        else ctxMain.lineTo(centerX - spacingPx - channelWidth + 6 + def, y);
+      }
+      ctxMain.stroke();
+
+
+      // 2. Draw Right Channel (Symmetrical orientation)
+      ctxMain.beginPath();
+      ctxMain.moveTo(centerX + spacingPx + channelWidth + dTopLeft, startY);
+      for (let y = startY; y <= endY; y += 10) {
+        let def = getDeformationAt(y);
+        ctxMain.lineTo(centerX + spacingPx + channelWidth + def, y);
+      }
+      ctxMain.lineTo(centerX + spacingPx + dBotLeft, endY);
+      for (let y = endY; y >= startY; y -= 10) {
+        let def = getDeformationAt(y);
+        ctxMain.lineTo(centerX + spacingPx + def, y);
+      }
+      ctxMain.closePath();
+      ctxMain.fill();
+      ctxMain.stroke();
+
+      // Right Channel internal glow detailing
+      ctxMain.beginPath();
+      for (let y = startY; y <= endY; y += 10) {
+        let def = getDeformationAt(y);
+        if (y === startY) ctxMain.moveTo(centerX + spacingPx + channelWidth - 6 + def, y);
+        else ctxMain.lineTo(centerX + spacingPx + channelWidth - 6 + def, y);
+      }
+      ctxMain.stroke();
+
+
+      // 3. Draw Lacing Flats if Attached
+      if (state.lacingAttached) {
+        const pitchPx = state.pitch * 0.7; // Pitch factor to scale coordinates nicely
+        const isAngleOk = (state.angle >= 40 && state.angle <= 70);
+        const isSlendernessOk = (state.pitch / 25.0 <= 50);
+        
+        ctxMain.lineWidth = 6;
+        // Glowing cyan-lime system depends on successful ruleset alignment
+        ctxMain.strokeStyle = (isAngleOk && isSlendernessOk) ? 'rgba(132, 204, 22, 0.85)' : 'rgba(239, 68, 68, 0.85)';
+        
+        // Starting joint anchors
+        let currentLacingY = startY + 20;
+        let toggleSide = true; // Toggle back-and-forth zigzag patterns
+        
+        while (currentLacingY + pitchPx <= endY) {
+          const nextLacingY = currentLacingY + pitchPx;
+
+          const startXDefOffset = getDeformationAt(currentLacingY);
+          const endXDefOffset = getDeformationAt(nextLacingY);
+
+          const leftConnectionNodeX = (centerX - spacingPx - channelWidth / 2) + startXDefOffset;
+          const rightConnectionNodeX = (centerX + spacingPx + channelWidth / 2) + startXDefOffset;
+
+          const leftConnectionNextNodeX = (centerX - spacingPx - channelWidth / 2) + endXDefOffset;
+          const rightConnectionNextNodeX = (centerX + spacingPx + channelWidth / 2) + endXDefOffset;
+
+          // Draw the diagonal dynamic bar element
+          ctxMain.beginPath();
+          if (toggleSide) {
+            ctxMain.moveTo(leftConnectionNodeX, currentLacingY);
+            ctxMain.lineTo(rightConnectionNextNodeX, nextLacingY);
+          } else {
+            ctxMain.moveTo(rightConnectionNodeX, currentLacingY);
+            ctxMain.lineTo(leftConnectionNextNodeX, nextLacingY);
+          }
+          ctxMain.stroke();
+
+          // Draw Bolt circles on both sides representing physical connections
+          ctxMain.fillStyle = '#f8fafc';
+          ctxMain.beginPath();
+          ctxMain.arc(leftConnectionNodeX, currentLacingY, 4, 0, Math.PI * 2);
+          ctxMain.fill();
+          ctxMain.beginPath();
+          ctxMain.arc(rightConnectionNodeX, currentLacingY, 4, 0, Math.PI * 2);
+          ctxMain.fill();
+
+          currentLacingY = nextLacingY;
+          toggleSide = !toggleSide;
+        }
+      }
+
+      // 4. Force Vectors & Glowing Arrows Representation
+      const loadFactor = state.axialLoad / 3000;
+      
+      // Compressive Force Top Vectors
+      ctxMain.strokeStyle = '#d946ef'; // Magenta Force Accent
+      ctxMain.lineWidth = 4 + loadFactor * 6;
+      ctxMain.fillStyle = '#d946ef';
+
+      // Left Channel Axial Arrow
+      const forceYStart = startY - 45 - (loadFactor * 20);
+      const forceYEnd = startY - 5;
+      const arrowL_X = centerX - spacingPx - channelWidth/2 + getDeformationAt(startY);
+
+      ctxMain.beginPath();
+      ctxMain.moveTo(arrowL_X, forceYStart);
+      ctxMain.lineTo(arrowL_X, forceYEnd);
+      ctxMain.stroke();
+      
+      ctxMain.beginPath();
+      ctxMain.moveTo(arrowL_X - 6, forceYEnd - 8);
+      ctxMain.lineTo(arrowL_X, forceYEnd);
+      ctxMain.lineTo(arrowL_X + 6, forceYEnd - 8);
+      ctxMain.fill();
+
+      // Right Channel Axial Arrow
+      const arrowR_X = centerX + spacingPx + channelWidth/2 + getDeformationAt(startY);
+      ctxMain.beginPath();
+      ctxMain.moveTo(arrowR_X, forceYStart);
+      ctxMain.lineTo(arrowR_X, forceYEnd);
+      ctxMain.stroke();
+      
+      ctxMain.beginPath();
+      ctxMain.moveTo(arrowR_X - 6, forceYEnd - 8);
+      ctxMain.lineTo(arrowR_X, forceYEnd);
+      ctxMain.lineTo(arrowR_X + 6, forceYEnd - 8);
+      ctxMain.fill();
+
+      // Transverse Shear Vector (Lateral Force) on column center
+      if (Math.abs(state.deflection) > 0.5) {
+        ctxMain.strokeStyle = '#06b6d4'; // Cyan
+        ctxMain.fillStyle = '#06b6d4';
+        ctxMain.lineWidth = 3;
+
+        const lateralSign = Math.sign(state.deflection);
+        const shearXStart = centerX - lateralSign * 70;
+        const shearXEnd = centerX + getDeformationAt(h/2);
+        
+        ctxMain.beginPath();
+        ctxMain.moveTo(shearXStart, h/2);
+        ctxMain.lineTo(shearXEnd, h/2);
+        ctxMain.stroke();
+
+        ctxMain.beginPath();
+        ctxMain.moveTo(shearXEnd - lateralSign * 8, h/2 - 6);
+        ctxMain.lineTo(shearXEnd, h/2);
+        ctxMain.lineTo(shearXEnd - lateralSign * 8, h/2 + 6);
+        ctxMain.fill();
+
+        // Label Transverse Shear
+        ctxMain.fillStyle = '#e2e8f0';
+        ctxMain.font = '10px monospace';
+        ctxMain.fillText("Transverse V", centerX - 35, h/2 - 12);
+      }
+
+      // Structural Boundary Foundations Bases
+      ctxMain.lineWidth = 6;
+      ctxMain.strokeStyle = '#334155';
+      ctxMain.beginPath();
+      ctxMain.moveTo(centerX - spacingPx - channelWidth - 30, endY + 3);
+      ctxMain.lineTo(centerX + spacingPx + channelWidth + 30, endY + 3);
+      ctxMain.stroke();
+
+      // Foundation hatching
+      ctxMain.lineWidth = 2;
+      for (let h_x = centerX - spacingPx - channelWidth - 30; h_x < centerX + spacingPx + channelWidth + 30; h_x += 10) {
+        ctxMain.beginPath();
+        ctxMain.moveTo(h_x, endY + 3);
+        ctxMain.lineTo(h_x - 6, endY + 12);
+        ctxMain.stroke();
+      }
+
+      ctxMain.restore();
+    }
+
+    // Secondary Cross Section / Plan Visual Canvas Draw
+    function drawSectionView() {
+      const w = canvasSec.width / (window.devicePixelRatio || 1);
+      const h = canvasSec.height / (window.devicePixelRatio || 1);
+      ctxSec.clearRect(0, 0, w, h);
+
+      const centerX = w / 2;
+      const centerY = h / 2;
+
+      // Base Spacing S is controlled by slider. Map spacing pixels
+      const spacingPx = state.spacing * 0.4;
+      const channelDepth = 15;
+      const flangeLength = 35;
+      const thickness = 6;
+
+      ctxSec.strokeStyle = '#64748b';
+      ctxSec.fillStyle = '#1e293b';
+      ctxSec.lineWidth = 3;
+
+      // 1. Draw Left Back-to-Back Channel Profile
+      ctxSec.beginPath();
+      // Channel web spine
+      ctxSec.moveTo(centerX - spacingPx, centerY - flangeLength);
+      ctxSec.lineTo(centerX - spacingPx - channelDepth, centerY - flangeLength);
+      ctxSec.lineTo(centerX - spacingPx - channelDepth, centerY + flangeLength);
+      ctxSec.lineTo(centerX - spacingPx, centerY + flangeLength);
+      // Flanges inside thickness
+      ctxSec.lineTo(centerX - spacingPx, centerY + flangeLength - thickness);
+      ctxSec.lineTo(centerX - spacingPx - channelDepth + thickness, centerY + flangeLength - thickness);
+      ctxSec.lineTo(centerX - spacingPx - channelDepth + thickness, centerY - flangeLength + thickness);
+      ctxSec.lineTo(centerX - spacingPx, centerY - flangeLength + thickness);
+      ctxSec.closePath();
+      ctxSec.fill();
+      ctxSec.stroke();
+
+      // 2. Draw Right Back-to-Back Channel Profile
+      ctxSec.beginPath();
+      ctxSec.moveTo(centerX + spacingPx, centerY - flangeLength);
+      ctxSec.lineTo(centerX + spacingPx + channelDepth, centerY - flangeLength);
+      ctxSec.lineTo(centerX + spacingPx + channelDepth, centerY + flangeLength);
+      ctxSec.lineTo(centerX + spacingPx, centerY + flangeLength);
+      // Flanges inside thickness
+      ctxSec.lineTo(centerX + spacingPx, centerY + flangeLength - thickness);
+      ctxSec.lineTo(centerX + spacingPx + channelDepth - thickness, centerY + flangeLength - thickness);
+      ctxSec.lineTo(centerX + spacingPx + channelDepth - thickness, centerY - flangeLength + thickness);
+      ctxSec.lineTo(centerX + spacingPx, centerY - flangeLength + thickness);
+      ctxSec.closePath();
+      ctxSec.fill();
+      ctxSec.stroke();
+
+      // 3. Draw Lacing Connections (Bolted Flat Plate Line across channels)
+      if (state.lacingAttached) {
+        ctxSec.strokeStyle = '#84cc16'; // Lime green
+        ctxSec.lineWidth = 4;
+        ctxSec.beginPath();
+        // Spans center across both webs/flanges
+        ctxSec.moveTo(centerX - spacingPx - channelDepth/2, centerY);
+        ctxSec.lineTo(centerX + spacingPx + channelDepth/2, centerY);
+        ctxSec.stroke();
+
+        // Bolt anchor circle indicators
+        ctxSec.fillStyle = '#ffffff';
+        ctxSec.beginPath();
+        ctxSec.arc(centerX - spacingPx - channelDepth/2, centerY, 4, 0, Math.PI * 2);
+        ctxSec.fill();
+        ctxSec.beginPath();
+        ctxSec.arc(centerX + spacingPx + channelDepth/2, centerY, 4, 0, Math.PI * 2);
+        ctxSec.fill();
+      }
+
+      // Dimension/Spacing labels
+      ctxSec.fillStyle = '#94a3b8';
+      ctxSec.font = '10px monospace';
+      ctxSec.textAlign = 'center';
+      ctxSec.fillText(`Spacing S = ${state.spacing} mm`, centerX, centerY - flangeLength - 15);
+      
+      // Draw spacing dimension markers
+      ctxSec.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctxSec.lineWidth = 1;
+      ctxSec.beginPath();
+      ctxSec.moveTo(centerX - spacingPx, centerY - flangeLength - 10);
+      ctxSec.lineTo(centerX + spacingPx, centerY - flangeLength - 10);
+      ctxSec.stroke();
+    }
+  </script>
+</body>
+</html>

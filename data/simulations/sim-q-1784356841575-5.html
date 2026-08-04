@@ -1,0 +1,1538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infiltration Indices & Soil Hydraulics Simulation Dashboard</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <!-- MathJax for rendering equations -->
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        :root {
+            --bg-deep: #0a0b10;
+            --bg-panel: rgba(18, 20, 29, 0.75);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 240, 255, 0.15);
+            --neon-cyan: #00f0ff;
+            --neon-magenta: #ff007f;
+            --neon-green: #39ff14;
+            --neon-yellow: #fffb00;
+            --text-primary: #f0f1f5;
+            --text-secondary: #9499b3;
+            --shadow-glow: 0 0 15px rgba(0, 240, 255, 0.25);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-deep);
+            color: var(--text-primary);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Premium Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1015;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #252836;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-cyan);
+        }
+
+        /* Glassmorphic Panel Layout */
+        header {
+            background: rgba(10, 11, 16, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--border-glass);
+            padding: 1.25rem 2rem;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title-container h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, #fff 30%, var(--neon-cyan) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-title-container p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 240, 255, 0.08);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-active {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        .btn-magenta {
+            background: rgba(255, 0, 127, 0.05);
+            border-color: rgba(255, 0, 127, 0.2);
+        }
+        .btn-magenta:hover {
+            background: rgba(255, 0, 127, 0.12);
+            border-color: var(--neon-magenta);
+            color: var(--neon-magenta);
+            box-shadow: 0 0 10px rgba(255, 0, 127, 0.2);
+        }
+
+        /* Main Dashboard Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 1.1fr 1.3fr;
+            gap: 1.5rem;
+            padding: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-glass);
+            border-radius: 12px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: var(--border-glow);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .panel-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 16px;
+            background: var(--neon-cyan);
+            border-radius: 2px;
+        }
+
+        .panel-subtitle {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        /* Canvas Displays */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16 / 10;
+            background: rgba(6, 7, 10, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Controls Section */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 1rem;
+        }
+
+        .control-group {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            border-radius: 8px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-value {
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--neon-cyan);
+            font-weight: bold;
+        }
+
+        /* Slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            margin: 10px 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--neon-cyan);
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Playback timeline panel */
+        .timeline-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+        }
+
+        .timeline-steps {
+            display: flex;
+            flex-grow: 1;
+            justify-content: space-between;
+            position: relative;
+        }
+
+        .timeline-step {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-glass);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--text-secondary);
+        }
+
+        .timeline-step.active {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+        }
+
+        /* Live Matrix Grid Table */
+        .table-container {
+            overflow-x: auto;
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+        }
+
+        .matrix-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+            text-align: center;
+        }
+
+        .matrix-table th, .matrix-table td {
+            padding: 0.6rem 0.4rem;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .matrix-table th {
+            background: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .matrix-table input {
+            width: 48px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-glass);
+            color: var(--neon-yellow);
+            text-align: center;
+            padding: 2px;
+            border-radius: 4px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .matrix-table input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 5px rgba(0, 240, 255, 0.3);
+        }
+
+        /* Numerical Readouts */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 1rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0.00) 100%);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 0.85rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .stat-card.accent {
+            border-color: rgba(0, 240, 255, 0.25);
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        .stat-card.magenta {
+            border-color: rgba(255, 0, 127, 0.25);
+            background: linear-gradient(135deg, rgba(255, 0, 127, 0.03) 0%, rgba(0, 0, 0, 0) 100%);
+        }
+
+        .stat-title {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-secondary);
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .stat-value.cyan { color: var(--neon-cyan); }
+        .stat-value.magenta { color: var(--neon-magenta); }
+        .stat-value.green { color: var(--neon-green); }
+        .stat-value.yellow { color: var(--neon-yellow); }
+
+        /* Formulas & Equations Tab Area */
+        .math-panel {
+            background: rgba(6, 7, 10, 0.4);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 1rem;
+            overflow-y: auto;
+            max-height: 220px;
+            font-size: 0.85rem;
+        }
+
+        /* Drag-and-drop info indicator overlay on chart */
+        .chart-overlay-tip {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            border-radius: 4px;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            color: var(--neon-cyan);
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.8; }
+            50% { opacity: 0.4; }
+            100% { opacity: 0.8; }
+        }
+
+        .banner-warning {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 251, 0, 0.05);
+            border: 1px solid rgba(255, 251, 0, 0.2);
+            color: var(--neon-yellow);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title-container">
+            <h1>INFILTRATION INDICES & HYDROGRAPHS</h1>
+            <p>Interactive Civil Engineering Soil Hydraulics Simulator</p>
+        </div>
+        <div class="header-controls">
+            <button class="btn btn-magenta" id="btn-narrate">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                Narrate Concept
+            </button>
+            <button class="btn" id="btn-audio">
+                <svg id="audio-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Sound: Off
+            </button>
+            <button class="btn" id="btn-example">Load Example 01</button>
+            <button class="btn" id="btn-reset">Reset</button>
+        </div>
+    </header>
+
+    <div class="dashboard-grid">
+        <!-- LEFT COLUMN: Physical Visualization & Equations -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Physical Animation</h2>
+                    <p class="panel-subtitle">Rain-Soil Interaction & Infiltration Process</p>
+                </div>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="physics-canvas"></canvas>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card accent">
+                    <span class="stat-title">Current Rain Int.</span>
+                    <span class="stat-value cyan" id="stat-current-i">25.0 mm/hr</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Soil Capacity (f)</span>
+                    <span class="stat-value green" id="stat-current-f">18.5 mm/hr</span>
+                </div>
+                <div class="stat-card magenta">
+                    <span class="stat-title">Runoff Rate (r)</span>
+                    <span class="stat-value magenta" id="stat-current-r">6.5 mm/hr</span>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 0.5rem;">
+                <div>
+                    <h2 class="panel-title">Governing Equations</h2>
+                    <p class="panel-subtitle">Real-time Parameter Solution</p>
+                </div>
+            </div>
+
+            <div class="math-panel">
+                <div id="math-horton">
+                    $$f(t) = f_c + (f_0 - f_c)e^{-kt}$$
+                </div>
+                <div id="math-phi" style="margin-top: 10px;">
+                    $$\phi\text{-index solver: } \sum_{i=1}^n \max(0, P_i - \phi) \Delta t = R$$
+                </div>
+                <div id="math-w" style="margin-top: 10px;">
+                    $$W\text{-index} = \frac{P - R - I_a}{t}$$
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Charting & Numerical Controls -->
+        <div class="panel">
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Storm Hyetograph Analysis</h2>
+                    <p class="panel-subtitle">Intensity vs. Infiltration & Drag-to-Set Phi Line</p>
+                </div>
+            </div>
+
+            <div class="canvas-container">
+                <div class="chart-overlay-tip">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>
+                    DRAG & ADJUST DASHED BLUE LINE
+                </div>
+                <canvas id="chart-canvas"></canvas>
+            </div>
+
+            <div class="timeline-container">
+                <button class="btn" id="btn-play" style="padding: 0.3rem 0.75rem;">
+                    <svg id="play-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                </button>
+                <div class="timeline-steps" id="timeline-steps">
+                    <!-- Hours 1 to 8 will be injected here dynamically -->
+                </div>
+            </div>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-title">Total Storm Rain (P)</span>
+                    <span class="stat-value yellow" id="stat-total-p">185.0 mm</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Calculated Runoff (R)</span>
+                    <span class="stat-value magenta" id="stat-total-r">65.0 mm</span>
+                </div>
+                <div class="stat-card accent">
+                    <span class="stat-title">Calculated φ-Index</span>
+                    <span class="stat-value cyan" id="stat-calc-phi">18.5 mm/hr</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-title">Calculated W-Index</span>
+                    <span class="stat-value green" id="stat-calc-w">14.2 mm/hr</span>
+                </div>
+            </div>
+
+            <div class="panel-header">
+                <div>
+                    <h2 class="panel-title">Hydraulic & Storm Variables</h2>
+                    <p class="panel-subtitle">Fine-tune Horton's Curve & Rain Matrix</p>
+                </div>
+            </div>
+
+            <!-- Parameters sliders -->
+            <div class="controls-grid">
+                <div class="control-group">
+                    <span class="control-label">
+                        Initial Cap. (f₀) <span class="control-value" id="val-f0">45 mm/hr</span>
+                    </span>
+                    <input type="range" id="input-f0" min="10" max="80" value="45" step="1">
+                </div>
+                <div class="control-group">
+                    <span class="control-label">
+                        Final Saturated Cap. (f_c) <span class="control-value" id="val-fc">10 mm/hr</span>
+                    </span>
+                    <input type="range" id="input-fc" min="1" max="25" value="10" step="1">
+                </div>
+                <div class="control-group">
+                    <span class="control-label">
+                        Infiltration Decay (k) <span class="control-value" id="val-k">0.60 hr⁻¹</span>
+                    </span>
+                    <input type="range" id="input-k" min="0.1" max="2.0" value="0.6" step="0.05">
+                </div>
+                <div class="control-group">
+                    <span class="control-label">
+                        Depression Loss (I_a) <span class="control-value" id="val-ia">5 mm</span>
+                    </span>
+                    <input type="range" id="input-ia" min="0" max="20" value="5" step="0.5">
+                </div>
+            </div>
+
+            <!-- Precipitation editable matrix -->
+            <div class="table-container">
+                <table class="matrix-table">
+                    <thead>
+                        <tr id="matrix-header-row">
+                            <!-- JS injected headers -->
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="matrix-value-row">
+                            <!-- JS injected editable inputs -->
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Feedback area when manual Drag matches calculated φ index -->
+            <div class="banner-warning" id="drag-match-alert" style="display: none;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span><strong>Phenomenal!</strong> Your manual phi-index line perfectly matches the calculated soil infiltration limit!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Web Logic, Audio and Rendering Scripts -->
+    <script>
+        // Core Simulation Variables & State
+        const CONFIG = {
+            duration: 8, // 8-hour storm
+            defaultPrecip: [10, 25, 50, 40, 30, 15, 10, 5],
+            f0: 45,
+            fc: 10,
+            k: 0.6,
+            ia: 5
+        };
+
+        let state = {
+            precip: [...CONFIG.defaultPrecip],
+            f0: CONFIG.f0,
+            fc: CONFIG.fc,
+            k: CONFIG.k,
+            ia: CONFIG.ia,
+            currentHour: 0,
+            isPlaying: false,
+            phiManual: 20.0,
+            isDraggingPhi: false,
+            isAudioOn: false
+        };
+
+        // Math equations element templates for reactive live injection
+        const math_horton_el = document.getElementById('math-horton');
+        const math_phi_el = document.getElementById('math-phi');
+        const math_w_el = document.getElementById('math-w');
+
+        // Web Audio API Setup
+        let audioCtx = null;
+        let rainOsc = null;
+        let rainGainNode = null;
+        let mainDestination = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create custom sound synth chain
+                let noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 2, audioCtx.sampleRate);
+                let output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < noiseBuffer.length; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+                
+                let whiteNoise = audioCtx.createBufferSource();
+                whiteNoise.buffer = noiseBuffer;
+                whiteNoise.loop = true;
+
+                // Highpass/Bandpass to simulate splashing rain
+                let filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1200, audioCtx.currentTime);
+                filter.Q.setValueAtTime(1.5, audioCtx.currentTime);
+
+                rainGainNode = audioCtx.createGain();
+                rainGainNode.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+                whiteNoise.connect(filter);
+                filter.connect(rainGainNode);
+                rainGainNode.connect(audioCtx.destination);
+                
+                whiteNoise.start();
+                updateRainAudioVolume();
+            } catch (e) {
+                console.warn("Audio Context init blocked or failed: ", e);
+            }
+        }
+
+        function triggerUIPop() {
+            if (!audioCtx || !state.isAudioOn) return;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.08);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.08);
+        }
+
+        function triggerRunoffPing() {
+            if (!audioCtx || !state.isAudioOn) return;
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.frequency.setValueAtTime(320, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(640, audioCtx.currentTime + 0.15);
+            gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function updateRainAudioVolume() {
+            if (!rainGainNode) return;
+            if (!state.isAudioOn) {
+                rainGainNode.gain.setTargetAtTime(0.0, audioCtx.currentTime, 0.1);
+                return;
+            }
+            let currentI = state.precip[state.currentHour];
+            let normalizedVolume = Math.min(0.2, (currentI / 60) * 0.15);
+            rainGainNode.gain.setTargetAtTime(normalizedVolume, audioCtx.currentTime, 0.25);
+        }
+
+        // Voice Synthesis Explainer
+        function speakNarration(text) {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            // Select standard clear male/female voice if available
+            let voices = window.speechSynthesis.getVoices();
+            if (voices.length > 0) {
+                let preferred = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
+                if (preferred) utterance.voice = preferred;
+            }
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Analytical Integrator for Horton curve over specific hour blocks
+        // V = integral(f_c + (f_0 - fc)e^-kt dt) = fc*t - (f0 - fc)/k * e^-kt + C
+        function getHortonInfiltrationVolume(t1, t2) {
+            let fc = state.fc;
+            let f0 = state.f0;
+            let k = state.k;
+            
+            let integral = (t) => {
+                return fc * t - ((f0 - fc) / k) * Math.exp(-k * t);
+            };
+            return integral(t2) - integral(t1);
+        }
+
+        // Calculate actual system responses dynamically
+        function calculateHydraulics() {
+            let hourlyInfiltration = [];
+            let hourlyRunoff = [];
+            let cumulativeRunoff = 0;
+            let activeExcessDuration = 0;
+
+            for (let i = 0; i < CONFIG.duration; i++) {
+                let t_start = i;
+                let t_end = i + 1;
+                let rainIntensity = state.precip[i];
+
+                // Potential total infiltration according to soil state
+                let potentialCapacityVol = getHortonInfiltrationVolume(t_start, t_end);
+                
+                // Actual infiltration is restricted by available rain intensity
+                let actualInf = Math.min(rainIntensity, potentialCapacityVol);
+                let theoreticalRunoff = Math.max(0, rainIntensity - potentialCapacityVol);
+
+                // Check initial abstraction (depression storage)
+                let actualRunoff = 0;
+                if (theoreticalRunoff > 0) {
+                    let totalPrecedingRain = state.precip.slice(0, i).reduce((a,b)=>a+b, 0) + theoreticalRunoff;
+                    if (totalPrecedingRain > state.ia) {
+                        actualRunoff = theoreticalRunoff;
+                        activeExcessDuration++;
+                    }
+                }
+
+                hourlyInfiltration.push(actualInf);
+                hourlyRunoff.push(actualRunoff);
+                cumulativeRunoff += actualRunoff;
+            }
+
+            let totalP = state.precip.reduce((a,b)=>a+b, 0);
+
+            // φ-index Solver
+            // Find φ such that sum(max(0, P_i - φ)) = Total Runoff
+            let calcPhi = 0;
+            if (cumulativeRunoff > 0) {
+                let low = 0;
+                let high = Math.max(...state.precip);
+                for (let iter = 0; iter < 150; iter++) {
+                    calcPhi = (low + high) / 2;
+                    let testRunoff = 0;
+                    for (let p of state.precip) {
+                        if (p > calcPhi) {
+                            testRunoff += (p - calcPhi);
+                        }
+                    }
+                    if (Math.abs(testRunoff - cumulativeRunoff) < 0.001) break;
+                    if (testRunoff > cumulativeRunoff) {
+                        low = calcPhi;
+                    } else {
+                        high = calcPhi;
+                    }
+                }
+            } else {
+                calcPhi = Math.max(...state.precip);
+            }
+
+            // W-index Calculation
+            // W = (Total Precipitation - Total Runoff - Initial Losses) / Time of rainfall excess
+            let calcW = 0;
+            if (activeExcessDuration > 0) {
+                calcW = Math.max(0, (totalP - cumulativeRunoff - state.ia) / activeExcessDuration);
+            } else {
+                calcW = Math.max(0, (totalP - cumulativeRunoff - state.ia) / CONFIG.duration);
+            }
+
+            return {
+                hourlyInfiltration,
+                hourlyRunoff,
+                cumulativeRunoff,
+                calcPhi,
+                calcW,
+                totalP,
+                activeExcessDuration
+            };
+        }
+
+        // Synchronize display UI components
+        function updateUI() {
+            let res = calculateHydraulics();
+
+            // Display sliders readouts
+            document.getElementById('val-f0').innerText = state.f0 + " mm/hr";
+            document.getElementById('val-fc').innerText = state.fc + " mm/hr";
+            document.getElementById('val-k').innerText = state.k.toFixed(2) + " hr⁻¹";
+            document.getElementById('val-ia').innerText = state.ia + " mm";
+
+            // Dashboard indicators
+            let curI = state.precip[state.currentHour];
+            let t_mid = state.currentHour + 0.5;
+            let curF_cap = state.fc + (state.f0 - state.fc) * Math.exp(-state.k * t_mid);
+            let curR = Math.max(0, curI - curF_cap);
+
+            document.getElementById('stat-current-i').innerText = curI.toFixed(1) + " mm/hr";
+            document.getElementById('stat-current-f').innerText = curF_cap.toFixed(1) + " mm/hr";
+            document.getElementById('stat-current-r').innerText = curR.toFixed(1) + " mm/hr";
+
+            document.getElementById('stat-total-p').innerText = res.totalP.toFixed(1) + " mm";
+            document.getElementById('stat-total-r').innerText = res.cumulativeRunoff.toFixed(1) + " mm";
+            document.getElementById('stat-calc-phi').innerText = res.calcPhi.toFixed(1) + " mm/hr";
+            document.getElementById('stat-calc-w').innerText = res.calcW.toFixed(1) + " mm/hr";
+
+            // Update sliders elements
+            document.getElementById('input-f0').value = state.f0;
+            document.getElementById('input-fc').value = state.fc;
+            document.getElementById('input-k').value = state.k;
+            document.getElementById('input-ia').value = state.ia;
+
+            // Trigger runoff beep logic when transitioning hour blocks
+            if (curR > 0 && state.isPlaying) {
+                triggerRunoffPing();
+            }
+
+            // Sync Table input cells
+            for (let i = 0; i < CONFIG.duration; i++) {
+                let cell = document.getElementById(`p-val-${i}`);
+                if (cell && document.activeElement !== cell) {
+                    cell.value = state.precip[i];
+                }
+            }
+
+            // Render Dynamic Equations (Insert active values directly)
+            if (window.MathJax) {
+                math_horton_el.innerHTML = `$$f(t) = ${state.fc} + (${state.f0} - ${state.fc})e^{-${state.k.toFixed(2)} t}$$`;
+                math_phi_el.innerHTML = `$$\\phi\\text{-index Solver: } \\sum_{P_i > \\phi} (P_i - \\phi) \\Delta t = ${res.cumulativeRunoff.toFixed(1)} \\Rightarrow \\phi = ${res.calcPhi.toFixed(1)} \\text{ mm/hr}$$`;
+                math_w_el.innerHTML = `$$W\\text{-index} = \\frac{${res.totalP.toFixed(1)} - ${res.cumulativeRunoff.toFixed(1)} - ${state.ia}}{${CONFIG.duration}} = ${res.calcW.toFixed(1)} \\text{ mm/hr}$$`;
+                MathJax.typesetPromise([math_horton_el, math_phi_el, math_w_el]).catch((err) => console.log(err.message));
+            }
+
+            // Alert banner control
+            const alertBanner = document.getElementById('drag-match-alert');
+            if (Math.abs(state.phiManual - res.calcPhi) < 0.8) {
+                alertBanner.style.display = 'flex';
+            } else {
+                alertBanner.style.display = 'none';
+            }
+
+            updateRainAudioVolume();
+        }
+
+        // Canvas 1: Hydraulic Soil Particles Animation Loop
+        const physCanvas = document.getElementById('physics-canvas');
+        const physCtx = physCanvas.getContext('2d');
+        let animationFrameId;
+
+        // Visual rain particle array
+        let particles = [];
+        let soilMoistureWaves = [];
+
+        function initCanvasDimensions() {
+            const rect = physCanvas.parentElement.getBoundingClientRect();
+            physCanvas.width = rect.width * window.devicePixelRatio;
+            physCanvas.height = rect.height * window.devicePixelRatio;
+            physCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', () => {
+            initCanvasDimensions();
+            initChartCanvasDimensions();
+        });
+
+        // Initialize particles
+        function animatePhysics() {
+            const width = physCanvas.width / window.devicePixelRatio;
+            const height = physCanvas.height / window.devicePixelRatio;
+
+            physCtx.clearRect(0, 0, width, height);
+
+            // Ground line geometry
+            const groundY = 120;
+            const collectionTankWidth = 60;
+            const landWidth = width - collectionTankWidth;
+
+            // Compute current hydraulics parameters
+            let curI = state.precip[state.currentHour];
+            let t_mid = state.currentHour + 0.5;
+            let curF_cap = state.fc + (state.f0 - state.fc) * Math.exp(-state.k * t_mid);
+            let runoffRate = Math.max(0, curI - curF_cap);
+            let infiltrationRate = Math.min(curI, curF_cap);
+
+            // Render sky background
+            let skyGrad = physCtx.createLinearGradient(0, 0, 0, groundY);
+            skyGrad.addColorStop(0, '#050608');
+            skyGrad.addColorStop(1, '#0e111a');
+            physCtx.fillStyle = skyGrad;
+            physCtx.fillRect(0, 0, landWidth, groundY);
+
+            // Render Soil layers (humus, clayey loam, rock layers)
+            // Humus Layer
+            let soilGrad1 = physCtx.createLinearGradient(0, groundY, 0, groundY + 40);
+            soilGrad1.addColorStop(0, '#2e1c12');
+            soilGrad1.addColorStop(1, '#1f130b');
+            physCtx.fillStyle = soilGrad1;
+            physCtx.fillRect(0, groundY, landWidth, 40);
+
+            // Sandy subsoil layer
+            let soilGrad2 = physCtx.createLinearGradient(0, groundY + 40, 0, groundY + 120);
+            soilGrad2.addColorStop(0, '#1f130b');
+            soilGrad2.addColorStop(1, '#110b06');
+            physCtx.fillStyle = soilGrad2;
+            physCtx.fillRect(0, groundY + 40, landWidth, 80);
+
+            // Bedrock zone
+            let soilGrad3 = physCtx.createLinearGradient(0, groundY + 120, 0, height);
+            soilGrad3.addColorStop(0, '#110b06');
+            soilGrad3.addColorStop(1, '#080503');
+            physCtx.fillStyle = soilGrad3;
+            physCtx.fillRect(0, groundY + 120, landWidth, height - (groundY + 120));
+
+            // Grid overlay in soil for engineering styling
+            physCtx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            physCtx.lineWidth = 1;
+            for (let x = 0; x < landWidth; x += 30) {
+                physCtx.beginPath();
+                physCtx.moveTo(x, groundY);
+                physCtx.lineTo(x, height);
+                physCtx.stroke();
+            }
+            for (let y = groundY; y < height; y += 30) {
+                physCtx.beginPath();
+                physCtx.moveTo(0, y);
+                physCtx.lineTo(landWidth, y);
+                physCtx.stroke();
+            }
+
+            // Spawn incoming dynamic rain drops
+            let spawnProbability = curI / 80;
+            if (Math.random() < spawnProbability) {
+                particles.push({
+                    x: Math.random() * landWidth,
+                    y: 0,
+                    vy: 6 + Math.random() * 4,
+                    length: 8 + Math.random() * 10,
+                    width: 1 + Math.random() * 1
+                });
+            }
+
+            // Process & Render falling rain particles
+            physCtx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+            physCtx.lineCap = 'round';
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.y += p.vy;
+
+                // Hit ground surface logic
+                if (p.y >= groundY) {
+                    particles.splice(i, 1);
+                    
+                    // Spawn internal soil percolation vectors
+                    if (Math.random() < (infiltrationRate / 50)) {
+                        soilMoistureWaves.push({
+                            x: p.x,
+                            y: groundY,
+                            vy: 0.5 + Math.random() * 1.0,
+                            alpha: 1.0
+                        });
+                    }
+                } else {
+                    physCtx.lineWidth = p.width;
+                    physCtx.beginPath();
+                    physCtx.moveTo(p.x, p.y);
+                    physCtx.lineTo(p.x, p.y + p.length);
+                    physCtx.stroke();
+                }
+            }
+
+            // Move and render moisture penetrating vectors (micro-glowing channels)
+            for (let i = soilMoistureWaves.length - 1; i >= 0; i--) {
+                let s = soilMoistureWaves[i];
+                s.y += s.vy;
+                s.alpha -= 0.005; // Fade as it flows deep
+
+                if (s.y >= height || s.alpha <= 0) {
+                    soilMoistureWaves.splice(i, 1);
+                } else {
+                    physCtx.fillStyle = `rgba(0, 240, 255, ${s.alpha * 0.7})`;
+                    physCtx.beginPath();
+                    physCtx.arc(s.x, s.y, 2, 0, Math.PI * 2);
+                    physCtx.fill();
+                }
+            }
+
+            // Surface Runoff dynamic wave rendering if runoff is happening
+            if (runoffRate > 0) {
+                let time = Date.now() * 0.004;
+                physCtx.fillStyle = 'rgba(0, 240, 255, 0.3)';
+                physCtx.beginPath();
+                physCtx.moveTo(0, groundY);
+                for (let x = 0; x <= landWidth; x += 10) {
+                    let yOffset = Math.sin(x * 0.05 + time) * 3;
+                    physCtx.lineTo(x, groundY - 4 + yOffset);
+                }
+                physCtx.lineTo(landWidth, groundY);
+                physCtx.closePath();
+                physCtx.fill();
+
+                // Runoff outflow dripping particles into collector beaker
+                if (Math.random() < 0.4) {
+                    particles.push({
+                        x: landWidth + 10,
+                        y: groundY,
+                        vy: 5,
+                        length: 5,
+                        width: 2,
+                        isDrip: true
+                    });
+                }
+            }
+
+            // Beaker / Collection Tank Visual Container (on the right)
+            physCtx.fillStyle = '#12131c';
+            physCtx.fillRect(landWidth, 0, collectionTankWidth, height);
+            physCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            physCtx.lineWidth = 2;
+            physCtx.beginPath();
+            physCtx.moveTo(landWidth, 0);
+            physCtx.lineTo(landWidth, height);
+            physCtx.stroke();
+
+            // Runoff cumulative level calculation
+            let res = calculateHydraulics();
+            let maxExpectedR = 100; // max scale mm
+            let fillHeight = (res.cumulativeRunoff / maxExpectedR) * (height - 40);
+            fillHeight = Math.min(fillHeight, height - 40);
+
+            // Water mass inside beaker
+            if (fillHeight > 0) {
+                let beakerGrad = physCtx.createLinearGradient(landWidth, height - fillHeight, width, height);
+                beakerGrad.addColorStop(0, 'rgba(0, 240, 255, 0.6)');
+                beakerGrad.addColorStop(1, 'rgba(255, 0, 127, 0.4)');
+                physCtx.fillStyle = beakerGrad;
+                physCtx.fillRect(landWidth + 5, height - fillHeight, collectionTankWidth - 10, fillHeight);
+            }
+
+            // Render volumetric ticks on the collection beaker
+            physCtx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+            physCtx.font = '7px "JetBrains Mono"';
+            for (let h = 0; h <= maxExpectedR; h += 20) {
+                let tickY = height - (h / maxExpectedR) * (height - 40);
+                physCtx.fillRect(landWidth + 5, tickY, 8, 1);
+                physCtx.fillText(h + " mm", landWidth + 16, tickY + 3);
+            }
+
+            // Beaker label header
+            physCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            physCtx.font = '8px "Inter"';
+            physCtx.fillText("RUNOFF TANK", landWidth + 4, 20);
+
+            animationFrameId = requestAnimationFrame(animatePhysics);
+        }
+
+        // Canvas 2: Interactive Rainfall Chart Engine
+        const chartCanvas = document.getElementById('chart-canvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        function initChartCanvasDimensions() {
+            const rect = chartCanvas.parentElement.getBoundingClientRect();
+            chartCanvas.width = rect.width * window.devicePixelRatio;
+            chartCanvas.height = rect.height * window.devicePixelRatio;
+            chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawChart();
+        }
+
+        // Draw Interactive Rainfall bars & Horton & Phi Overlay
+        function drawChart() {
+            const width = chartCanvas.width / window.devicePixelRatio;
+            const height = chartCanvas.height / window.devicePixelRatio;
+
+            chartCtx.clearRect(0, 0, width, height);
+
+            const padding = { top: 40, right: 30, bottom: 40, left: 50 };
+            const chartWidth = width - padding.left - padding.right;
+            const chartHeight = height - padding.top - padding.bottom;
+
+            // Maximum Precipitation boundary for scaling
+            let maxP = Math.max(...state.precip, state.f0, 60);
+
+            // Helper conversion tools
+            function getX(hourIndex) {
+                return padding.left + (hourIndex / CONFIG.duration) * chartWidth;
+            }
+            function getY(val) {
+                return padding.top + chartHeight - (val / maxP) * chartHeight;
+            }
+            function getValueFromY(y) {
+                let relativeY = padding.top + chartHeight - y;
+                return (relativeY / chartHeight) * maxP;
+            }
+
+            // Render Grid Axes lines
+            chartCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            chartCtx.lineWidth = 1;
+            for (let i = 0; i <= 6; i++) {
+                let val = (maxP / 6) * i;
+                let y = getY(val);
+                chartCtx.beginPath();
+                chartCtx.moveTo(padding.left, y);
+                chartCtx.lineTo(width - padding.right, y);
+                chartCtx.stroke();
+
+                // Axis label values text
+                chartCtx.fillStyle = 'var(--text-secondary)';
+                chartCtx.font = '10px "JetBrains Mono"';
+                chartCtx.textAlign = 'right';
+                chartCtx.fillText(Math.round(val).toString(), padding.left - 10, y + 4);
+            }
+
+            // Draw Storm Hour Labels
+            for (let i = 0; i <= CONFIG.duration; i++) {
+                let x = getX(i);
+                chartCtx.beginPath();
+                chartCtx.moveTo(x, padding.top);
+                chartCtx.lineTo(x, padding.top + chartHeight);
+                chartCtx.stroke();
+
+                chartCtx.fillStyle = 'var(--text-secondary)';
+                chartCtx.font = '10px "JetBrains Mono"';
+                chartCtx.textAlign = 'center';
+                chartCtx.fillText(`H${i}`, x, padding.top + chartHeight + 16);
+            }
+
+            // Draw Rainfall bars
+            let barSpacing = 4;
+            let hourWidth = chartWidth / CONFIG.duration;
+
+            let hydraulics = calculateHydraulics();
+
+            for (let i = 0; i < CONFIG.duration; i++) {
+                let xStart = getX(i) + barSpacing / 2;
+                let xEnd = getX(i + 1) - barSpacing / 2;
+                let yVal = getY(state.precip[i]);
+                let yGround = getY(0);
+
+                // Check active state highlight
+                let isActive = (state.currentHour === i);
+                let barColor = isActive ? 'rgba(255, 251, 0, 0.25)' : 'rgba(255, 255, 255, 0.05)';
+                let barStrokeColor = isActive ? 'var(--neon-yellow)' : 'rgba(255, 255, 255, 0.15)';
+
+                // Draw precipitation base bar
+                chartCtx.fillStyle = barColor;
+                chartCtx.strokeStyle = barStrokeColor;
+                chartCtx.lineWidth = isActive ? 2 : 1;
+                chartCtx.beginPath();
+                chartCtx.rect(xStart, yVal, xEnd - xStart, yGround - yVal);
+                chartCtx.fill();
+                chartCtx.stroke();
+
+                // Render excess portion (runoff) overlay on top of bar
+                let actualInfVol = hydraulics.hourlyInfiltration[i];
+                let yInf = getY(actualInfVol);
+
+                if (state.precip[i] > actualInfVol) {
+                    chartCtx.fillStyle = 'rgba(255, 0, 127, 0.2)';
+                    chartCtx.strokeStyle = 'var(--neon-magenta)';
+                    chartCtx.lineWidth = 1;
+                    chartCtx.beginPath();
+                    chartCtx.rect(xStart, yVal, xEnd - xStart, yInf - yVal);
+                    chartCtx.fill();
+                    chartCtx.stroke();
+                }
+            }
+
+            // Draw Physical Infiltration Capacity curve (Horton's model)
+            chartCtx.strokeStyle = 'var(--neon-green)';
+            chartCtx.lineWidth = 2.5;
+            chartCtx.shadowBlur = 4;
+            chartCtx.shadowColor = 'rgba(57, 255, 20, 0.3)';
+            chartCtx.beginPath();
+            for (let t = 0; t <= CONFIG.duration; t += 0.05) {
+                let f_t = state.fc + (state.f0 - state.fc) * Math.exp(-state.k * t);
+                let x = padding.left + (t / CONFIG.duration) * chartWidth;
+                let y = getY(f_t);
+                if (t === 0) chartCtx.moveTo(x, y);
+                else chartCtx.lineTo(x, y);
+            }
+            chartCtx.stroke();
+            chartCtx.shadowBlur = 0; // reset
+
+            // Draw calculated φ-index Line
+            let yPhiCalc = getY(hydraulics.calcPhi);
+            chartCtx.strokeStyle = 'rgba(57, 255, 20, 0.4)';
+            chartCtx.lineWidth = 1.5;
+            chartCtx.setLineDash([4, 4]);
+            chartCtx.beginPath();
+            chartCtx.moveTo(padding.left, yPhiCalc);
+            chartCtx.lineTo(width - padding.right, yPhiCalc);
+            chartCtx.stroke();
+
+            // Draw USER-ADJUSTABLE manual φ-index Line
+            let yPhiManual = getY(state.phiManual);
+            chartCtx.strokeStyle = 'var(--neon-cyan)';
+            chartCtx.lineWidth = 2.5;
+            chartCtx.setLineDash([0, 0]); // solid line
+            chartCtx.shadowBlur = 8;
+            chartCtx.shadowColor = 'rgba(0, 240, 255, 0.4)';
+            chartCtx.beginPath();
+            chartCtx.moveTo(padding.left, yPhiManual);
+            chartCtx.lineTo(width - padding.right, yPhiManual);
+            chartCtx.stroke();
+            chartCtx.shadowBlur = 0; // reset
+
+            // Handle Manual Line label tag
+            chartCtx.fillStyle = 'var(--bg-deep)';
+            chartCtx.fillRect(width - padding.right - 95, yPhiManual - 10, 90, 20);
+            chartCtx.strokeStyle = 'var(--neon-cyan)';
+            chartCtx.lineWidth = 1;
+            chartCtx.strokeRect(width - padding.right - 95, yPhiManual - 10, 90, 20);
+
+            chartCtx.fillStyle = 'var(--neon-cyan)';
+            chartCtx.font = '9px "JetBrains Mono"';
+            chartCtx.textAlign = 'center';
+            chartCtx.fillText(`φ = ${state.phiManual.toFixed(1)} mm/hr`, width - padding.right - 50, yPhiManual + 4);
+
+            // Chart Title Labels
+            chartCtx.fillStyle = 'var(--text-primary)';
+            chartCtx.font = 'bold 11px "Inter"';
+            chartCtx.textAlign = 'left';
+            chartCtx.fillText("Intensity (mm/hr) vs Time", padding.left, 24);
+        }
+
+        // Drag-and-drop mechanics for Manual Phi index Adjuster
+        chartCanvas.addEventListener('mousedown', (e) => {
+            const rect = chartCanvas.getBoundingClientRect();
+            const yMouse = (e.clientY - rect.top) * (chartCanvas.height / rect.devicePixelRatio || 1) / (rect.height);
+            
+            // Check closeness to manual phi line
+            let maxP = Math.max(...state.precip, state.f0, 60);
+            let yPhiManual = 40 + (chartCanvas.height/window.devicePixelRatio - 80) * (1 - state.phiManual / maxP);
+            
+            if (Math.abs(yMouse - yPhiManual) < 15) {
+                state.isDraggingPhi = true;
+                initAudio();
+                triggerUIPop();
+            }
+        });
+
+        chartCanvas.addEventListener('mousemove', (e) => {
+            const rect = chartCanvas.getBoundingClientRect();
+            const width = chartCanvas.width / window.devicePixelRatio;
+            const height = chartCanvas.height / window.devicePixelRatio;
+            const padding = { top: 40, right: 30, bottom: 40, left: 50 };
+            const chartHeight = height - padding.top - padding.bottom;
+
+            const xMouse = (e.clientX - rect.left) * (width / rect.width);
+            const yMouse = (e.clientY - rect.top) * (height / rect.height);
+
+            // Show resize cursor when hovering near draggable line
+            let maxP = Math.max(...state.precip, state.f0, 60);
+            let yPhiManual = padding.top + chartHeight - (state.phiManual / maxP) * chartHeight;
+            
+            if (Math.abs(yMouse - yPhiManual) < 12 && xMouse > padding.left && xMouse < width - padding.right) {
+                chartCanvas.style.cursor = 'ns-resize';
+            } else {
+                chartCanvas.style.cursor = 'default';
+            }
+
+            if (state.isDraggingPhi) {
+                // Calculate and update manual phi state value
+                let relativeY = padding.top + chartHeight - yMouse;
+                let rawVal = (relativeY / chartHeight) * maxP;
+                state.phiManual = Math.max(0, Math.min(rawVal, maxP));
+                drawChart();
+                updateUI();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            state.isDraggingPhi = false;
+        });
+
+        // Initialize Dynamic Table & Controls UI
+        function initMatrixUI() {
+            const headerRow = document.getElementById('matrix-header-row');
+            const valueRow = document.getElementById('matrix-value-row');
+
+            headerRow.innerHTML = '';
+            valueRow.innerHTML = '';
+
+            for (let i = 0; i < CONFIG.duration; i++) {
+                // Create Header Matrix labels
+                let th = document.createElement('th');
+                th.innerText = `Hour ${i+1}`;
+                headerRow.appendChild(th);
+
+                // Create Input columns
+                let td = document.createElement('td');
+                let input = document.createElement('input');
+                input.type = 'number';
+                input.id = `p-val-${i}`;
+                input.min = 0;
+                input.max = 100;
+                input.value = state.precip[i];
+                
+                input.addEventListener('input', (e) => {
+                    let v = parseFloat(e.target.value) || 0;
+                    state.precip[i] = v;
+                    initAudio();
+                    updateUI();
+                    drawChart();
+                });
+                
+                td.appendChild(input);
+                valueRow.appendChild(td);
+            }
+
+            // Initalize custom step indicators in timeline bar
+            const timelineSteps = document.getElementById('timeline-steps');
+            timelineSteps.innerHTML = '';
+            for (let i = 0; i < CONFIG.duration; i++) {
+                let div = document.createElement('div');
+                div.className = `timeline-step ${i === state.currentHour ? 'active' : ''}`;
+                div.id = `t-step-${i}`;
+                div.innerText = i + 1;
+                div.addEventListener('click', () => {
+                    state.currentHour = i;
+                    document.querySelectorAll('.timeline-step').forEach(s => s.classList.remove('active'));
+                    div.classList.add('active');
+                    initAudio();
+                    triggerUIPop();
+                    updateUI();
+                    drawChart();
+                });
+                timelineSteps.appendChild(div);
+            }
+        }
+
+        // Connect Sliders Listeners
+        document.getElementById('input-f0').addEventListener('input', (e) => {
+            state.f0 = parseFloat(e.target.value);
+            initAudio();
+            updateUI();
+            drawChart();
+        });
+        document.getElementById('input-fc').addEventListener('input', (e) => {
+            state.fc = parseFloat(e.target.value);
+            initAudio();
+            updateUI();
+            drawChart();
+        });
+        document.getElementById('input-k').addEventListener('input', (e) => {
+            state.k = parseFloat(e.target.value);
+            initAudio();
+            updateUI();
+            drawChart();
+        });
+        document.getElementById('input-ia').addEventListener('input', (e) => {
+            state.ia = parseFloat(e.target.value);
+            initAudio();
+            updateUI();
+            drawChart();
+        });
+
+        // Setup Reset & Presets action listeners
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            state = {
+                precip: [...CONFIG.defaultPrecip],
+                f0: CONFIG.f0,
+                fc: CONFIG.fc,
+                k: CONFIG.k,
+                ia: CONFIG.ia,
+                currentHour: 0,
+                isPlaying: false,
+                phiManual: 20.0,
+                isDraggingPhi: false,
+                isAudioOn: state.isAudioOn
+            };
+            initMatrixUI();
+            updateUI();
+            drawChart();
+            triggerUIPop();
+        });
+
+        document.getElementById('btn-example').addEventListener('click', () => {
+            state.precip = [10, 25, 50, 40, 30, 15, 10, 5];
+            state.f0 = 45;
+            state.fc = 10;
+            state.k = 0.6;
+            state.ia = 5;
+            state.currentHour = 0;
+            state.phiManual = 18.5; // Solved phi value for this example setup
+            initMatrixUI();
+            updateUI();
+            drawChart();
+            triggerUIPop();
+        });
+
+        // Play/Pause simulation playback control loop
+        let playbackInterval = null;
+        const playBtn = document.getElementById('btn-play');
+        const playIcon = document.getElementById('play-icon');
+
+        playBtn.addEventListener('click', () => {
+            initAudio();
+            triggerUIPop();
+            if (state.isPlaying) {
+                state.isPlaying = false;
+                clearInterval(playbackInterval);
+                playIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"/>`;
+            } else {
+                state.isPlaying = true;
+                playIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>`;
+                playbackInterval = setInterval(() => {
+                    state.currentHour = (state.currentHour + 1) % CONFIG.duration;
+                    
+                    // Highlight matching active timeline node UI step
+                    document.querySelectorAll('.timeline-step').forEach(s => s.classList.remove('active'));
+                    let activeStep = document.getElementById(`t-step-${state.currentHour}`);
+                    if (activeStep) activeStep.classList.add('active');
+
+                    updateUI();
+                    drawChart();
+                }, 1800);
+            }
+        });
+
+        // Play Sound toggler control listener
+        const audioBtn = document.getElementById('btn-audio');
+        audioBtn.addEventListener('click', () => {
+            initAudio();
+            state.isAudioOn = !state.isAudioOn;
+            audioBtn.innerHTML = state.isAudioOn ? `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--neon-green)" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Sound: On
+            ` : `
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v6H5v-6h4zm12 3a9 9 0 0 1-9 9"/></svg>
+                Sound: Off
+            `;
+            if (state.isAudioOn) {
+                triggerUIPop();
+            }
+            updateRainAudioVolume();
+        });
+
+        // Speech Generation Concept Explanation Script
+        document.getElementById('btn-narrate').addEventListener('click', () => {
+            let res = calculateHydraulics();
+            let text = `Let's explore the infiltration properties of this soil module. 
+            Currently, Horton's physical curve starts with an initial infiltration rate of ${state.f0} millimeters per hour, 
+            decaying steadily to a saturated constant flow of ${state.fc} millimeters per hour. 
+            Throughout this ${CONFIG.duration} hour storm, the total precipitation is ${res.totalP.toFixed(1)} millimeters, 
+            producing a total surface runoff volume of ${res.cumulativeRunoff.toFixed(1)} millimeters. 
+            This balance yields a phi index of ${res.calcPhi.toFixed(1)} millimeters per hour, which represents 
+            the average constant loss rate separating soil saturation and atmospheric ponding.`;
+            speakNarration(text);
+        });
+
+        // Initial setup sequence
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvasDimensions();
+            initChartCanvasDimensions();
+            initMatrixUI();
+            updateUI();
+            animatePhysics();
+        });
+    </script>
+</body>
+</html>

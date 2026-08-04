@@ -1,0 +1,1373 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Limit State Design Visualizer - Structural Engineering</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0d14',
+                            card: '#121824',
+                            border: '#1e293b',
+                            cyan: '#00f3ff',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            purple: '#a855f7'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['Fira Code', 'Courier New', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Custom CSS for glowing effects and canvas styling -->
+    <style>
+        body {
+            background-color: #0a0d14;
+            color: #f3f4f6;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.25);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+        }
+        .glow-amber {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.25);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+        }
+        .border-glow {
+            border-color: rgba(0, 243, 255, 0.3);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0d1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f293d;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #00f3ff;
+        }
+
+        /* Interactive Canvas styling */
+        canvas {
+            touch-action: none;
+        }
+
+        .slider-thumb::-webkit-slider-thumb {
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #00f3ff;
+            cursor: pointer;
+            box-shadow: 0 0 10px #00f3ff;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col bg-cyber-bg text-gray-100 antialiased">
+
+    <!-- Header Navbar -->
+    <header class="w-full bg-cyber-card/90 border-b border-cyber-border sticky top-0 z-50 backdrop-blur-md px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/30 text-cyber-cyan">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wide text-white flex items-center gap-2">
+                        LIMIT STATE DESIGN VISUALIZER
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40">IS 456:2000</span>
+                    </h1>
+                    <p class="text-xs text-gray-400">Stress & Strain Block Diagrams | Neutral Axis ($x_u$) & Moment Capacity ($M_u$)</p>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex items-center space-x-3 flex-wrap">
+                <!-- ELI5 Mode Toggle -->
+                <button id="eli5ToggleBtn" onclick="toggleEli5Mode()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-amber-500/40 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 transition flex items-center space-x-1.5">
+                    <span id="eli5Icon">👶</span>
+                    <span id="eli5Text">ELI5 Mode: OFF</span>
+                </button>
+
+                <!-- Voice Narration Button -->
+                <button id="speechBtn" onclick="toggleVoiceNarration()" class="px-3 py-1.5 rounded-lg text-xs font-medium border border-cyber-purple/40 bg-cyber-purple/10 text-purple-300 hover:bg-cyber-purple/20 transition flex items-center space-x-1.5">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                    </svg>
+                    <span id="speechText">Voice Explainer</span>
+                </button>
+
+                <!-- Preset Selector Dropdown -->
+                <select id="presetSelect" onchange="applyPreset(this.value)" class="bg-cyber-bg border border-cyber-border text-xs rounded-lg px-2.5 py-1.5 text-gray-200 focus:outline-none focus:border-cyber-cyan">
+                    <option value="balanced">Preset: Balanced Section (Fe 415)</option>
+                    <option value="under">Preset: Under-Reinforced (Safe Ductile)</option>
+                    <option value="over">Preset: Over-Reinforced (Warning Brittle)</option>
+                    <option value="fe500">Preset: High Strength Fe 500</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="max-w-7xl w-full mx-auto p-4 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- LEFT COLUMN: Parameter Controls Panel (4 cols on lg) -->
+        <section class="lg:col-span-4 flex flex-col space-y-4">
+
+            <!-- Control Card -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col space-y-4 shadow-lg">
+                <div class="flex justify-between items-center border-b border-cyber-border/60 pb-2">
+                    <h2 class="text-sm font-semibold text-cyber-cyan flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path>
+                        </svg>
+                        BEAM DESIGN PARAMETERS
+                    </h2>
+                    <span class="text-[10px] text-gray-400 uppercase tracking-wider">IS 456 Limits</span>
+                </div>
+
+                <!-- ELI5 Simple Banner (Visible when ELI5 is ON) -->
+                <div id="eli5Banner" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-lg p-2.5 text-xs text-amber-200">
+                    <p class="font-semibold flex items-center gap-1">
+                        <span>💡 Kid Friendly Analogy:</span>
+                    </p>
+                    <p class="mt-1 text-[11px] text-amber-300/90 leading-relaxed" id="eli5BannerText">
+                        Imagine the top half of the beam is a <strong>strong concrete sponge</strong> getting squeezed, and the bottom steel bars are <strong>super strong rubber bands</strong> getting stretched!
+                    </p>
+                </div>
+
+                <!-- Concrete Grade f_ck -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <label for="fck" class="text-gray-300 font-medium">Concrete Grade ($f_{ck}$):</label>
+                        <span id="fckVal" class="text-cyber-cyan font-mono font-bold">M25 (25 N/mm²)</span>
+                    </div>
+                    <input type="range" id="fck" min="20" max="50" step="5" value="25" oninput="updateParameters()" class="w-full accent-cyber-cyan h-1.5 bg-gray-700 rounded-lg slider-thumb">
+                    <div class="flex justify-between text-[10px] text-gray-500">
+                        <span>M20</span>
+                        <span>M30</span>
+                        <span>M40</span>
+                        <span>M50</span>
+                    </div>
+                </div>
+
+                <!-- Steel Grade f_y -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <label for="fy" class="text-gray-300 font-medium">Steel Yield Grade ($f_y$):</label>
+                        <span id="fyVal" class="text-cyber-emerald font-mono font-bold">Fe 415 N/mm²</span>
+                    </div>
+                    <select id="fy" onchange="updateParameters()" class="w-full bg-cyber-bg border border-cyber-border text-xs rounded-lg p-2 text-gray-200 focus:outline-none focus:border-cyber-emerald">
+                        <option value="250">Fe 250 (Mild Steel)</option>
+                        <option value="415" selected>Fe 415 (HYSD / TMT)</option>
+                        <option value="500">Fe 500 (High Yield TMT)</option>
+                        <option value="550">Fe 550 (Extra High Yield)</option>
+                    </select>
+                </div>
+
+                <!-- Beam Width b -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <label for="widthB" class="text-gray-300 font-medium">Beam Width ($b$):</label>
+                        <span id="widthBVal" class="text-cyber-cyan font-mono font-bold">250 mm</span>
+                    </div>
+                    <input type="range" id="widthB" min="150" max="500" step="10" value="250" oninput="updateParameters()" class="w-full accent-cyber-cyan h-1.5 bg-gray-700 rounded-lg slider-thumb">
+                </div>
+
+                <!-- Effective Depth d -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <label for="depthD" class="text-gray-300 font-medium">Effective Depth ($d$):</label>
+                        <span id="depthDVal" class="text-cyber-cyan font-mono font-bold">450 mm</span>
+                    </div>
+                    <input type="range" id="depthD" min="250" max="800" step="10" value="450" oninput="updateParameters()" class="w-full accent-cyber-cyan h-1.5 bg-gray-700 rounded-lg slider-thumb">
+                </div>
+
+                <!-- Tension Steel Area Ast -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <label for="ast" class="text-gray-300 font-medium">Tension Steel Area ($A_{st}$):</label>
+                        <span id="astVal" class="text-cyber-emerald font-mono font-bold">942 mm²</span>
+                    </div>
+                    <input type="range" id="ast" min="200" max="3000" step="20" value="942" oninput="updateParameters()" class="w-full accent-cyber-emerald h-1.5 bg-gray-700 rounded-lg slider-thumb">
+                    <div class="text-[11px] text-gray-400 bg-cyber-bg/50 p-2 rounded border border-cyber-border/40 mt-1 flex justify-between items-center">
+                        <span id="rebarCountText">Eqv: 3 bars of 20mm Ø</span>
+                        <button onclick="calcCustomRebar()" class="text-[10px] text-cyber-cyan underline hover:text-white">Quick Set</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Section Status Card -->
+            <div id="statusCard" class="bg-cyber-card border border-cyber-border rounded-xl p-4 flex flex-col space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs text-gray-400">Beam Classification</span>
+                    <span id="sectionBadge" class="text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                        Balanced Section
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-cyber-bg p-2.5 rounded-lg border border-cyber-border/40">
+                        <span class="text-gray-400 text-[10px] block">Actual Neutral Axis ($x_u$)</span>
+                        <span id="xuValue" class="text-sm font-mono font-bold text-cyber-cyan">151.8 mm</span>
+                    </div>
+                    <div class="bg-cyber-bg p-2.5 rounded-lg border border-cyber-border/40">
+                        <span class="text-gray-400 text-[10px] block">Max Neutral Axis ($x_{u,lim}$)</span>
+                        <span id="xulimValue" class="text-sm font-mono font-bold text-gray-200">216.0 mm</span>
+                    </div>
+                </div>
+
+                <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border/40 space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-gray-300 font-medium">Moment of Resistance ($M_u$):</span>
+                        <span id="muValue" class="text-base font-mono font-bold text-cyber-amber">128.45 kN·m</span>
+                    </div>
+                    <div class="w-full bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                        <div id="muBar" class="bg-cyber-amber h-full transition-all duration-300" style="width: 70%"></div>
+                    </div>
+                    <p id="statusDesc" class="text-[11px] text-gray-400 mt-1">
+                        Steel and concrete reach design strain limits simultaneously. Optimal ductility and load capacity!
+                    </p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- CENTER & RIGHT COLUMN: Canvas Visualizer + Math Derivation Panel (8 cols on lg) -->
+        <section class="lg:col-span-8 flex flex-col space-y-4">
+
+            <!-- Interactive Canvas Visualizer Header & Options -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col space-y-3">
+                <div class="flex flex-wrap justify-between items-center gap-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyber-cyan animate-pulse"></span>
+                        <h2 class="text-sm font-semibold text-white tracking-wide">
+                            2D INTERACTIVE DESIGN BLOCK DIAGRAM
+                        </h2>
+                    </div>
+
+                    <div class="flex items-center space-x-2 text-xs">
+                        <label class="flex items-center space-x-1 cursor-pointer text-gray-300">
+                            <input type="checkbox" id="showDimensions" checked onchange="drawDiagram()" class="rounded bg-cyber-bg border-cyber-border text-cyber-cyan">
+                            <span>Dimensions</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-gray-300 ml-2">
+                            <input type="checkbox" id="showForces" checked onchange="drawDiagram()" class="rounded bg-cyber-bg border-cyber-border text-cyber-cyan">
+                            <span>Forces ($C, T$)</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer text-gray-300 ml-2">
+                            <input type="checkbox" id="showHeatmap" checked onchange="drawDiagram()" class="rounded bg-cyber-bg border-cyber-border text-cyber-cyan">
+                            <span>Stress Heatmap</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Main Canvas Container -->
+                <div class="relative w-full bg-cyber-bg rounded-lg border border-cyber-border/80 overflow-hidden flex justify-center items-center p-2 min-h-[380px]">
+                    <canvas id="mainCanvas" width="850" height="420" class="w-full h-auto max-w-full cursor-crosshair"></canvas>
+
+                    <!-- Hover Interactive Tooltip Overlay -->
+                    <div id="canvasTooltip" class="absolute hidden pointer-events-none bg-gray-900/90 text-white border border-cyber-cyan/50 rounded-lg px-3 py-2 text-xs shadow-xl backdrop-blur-sm z-20">
+                        <div id="tooltipTitle" class="font-bold text-cyber-cyan">Compression Block</div>
+                        <div id="tooltipBody" class="text-gray-300 text-[11px]">Total compressive force C = 0.36 f_ck b x_u</div>
+                    </div>
+                </div>
+
+                <!-- Legend & Quick Guide -->
+                <div class="grid grid-cols-3 gap-2 text-center text-[11px] text-gray-400 border-t border-cyber-border/40 pt-2">
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 rounded bg-blue-500/50 border border-blue-400"></span>
+                        <span>Beam Cross-Section</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 rounded bg-emerald-500/50 border border-emerald-400"></span>
+                        <span>Linear Strain Diagram</span>
+                    </div>
+                    <div class="flex items-center justify-center space-x-1.5">
+                        <span class="w-3 h-3 rounded bg-amber-500/50 border border-amber-400"></span>
+                        <span>Stress Block ($0.45 f_{ck}$)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabbed Mathematical Derivation & ELI5 Explainer Panel -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col space-y-4">
+                
+                <!-- Tab Navigation Buttons -->
+                <div class="flex border-b border-cyber-border text-xs font-semibold space-x-2">
+                    <button id="tabDerivationBtn" onclick="switchTab('derivation')" class="pb-2 border-b-2 border-cyber-cyan text-cyber-cyan transition px-3">
+                        📐 Step-by-Step Mathematical Derivation
+                    </button>
+                    <button id="tabEli5Btn" onclick="switchTab('eli5')" class="pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition px-3">
+                        👶 "Explain Like I'm 5" Story
+                    </button>
+                    <button id="tabLoadTestBtn" onclick="switchTab('loadTest')" class="pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition px-3">
+                        ⚡ Virtual Beam Bending Test
+                    </button>
+                </div>
+
+                <!-- TAB 1: Step-by-Step Mathematical Derivation -->
+                <div id="tabDerivation" class="space-y-4 text-xs text-gray-300">
+                    
+                    <!-- Formula 1: Neutral Axis Derivation -->
+                    <div class="bg-cyber-bg/70 p-3.5 rounded-lg border border-cyber-border/60 space-y-2">
+                        <h3 class="font-bold text-cyber-cyan text-sm flex items-center gap-2">
+                            <span>1. Depth of Neutral Axis ($x_u$) Derivation</span>
+                        </h3>
+                        <p class="leading-relaxed text-gray-300">
+                            By equating total compressive force in concrete ($C$) to total tensile force in steel ($T$):
+                        </p>
+                        <div class="bg-cyber-card p-3 rounded font-mono text-xs text-cyber-emerald border border-cyber-emerald/30 overflow-x-auto space-y-1">
+                            <p>Total Compressive Force ($C$) = $0.36 \cdot f_{ck} \cdot b \cdot x_u$</p>
+                            <p>Total Tensile Force ($T$) = $0.87 \cdot f_y \cdot A_{st}$</p>
+                            <p class="text-white font-bold mt-1">At Equilibrium ($C = T$):</p>
+                            <p class="text-cyber-cyan font-bold text-sm">0.36 · f<sub>ck</sub> · b · x<sub>u</sub> = 0.87 · f<sub>y</sub> · A<sub>st</sub></p>
+                            <p class="text-amber-300 font-bold text-sm mt-1">⇒ x<sub>u</sub> = (0.87 · f<sub>y</sub> · A<sub>st</sub>) / (0.36 · f<sub>ck</sub> · b)</p>
+                        </div>
+                        <div class="p-2 bg-cyber-bg rounded border border-cyber-border/40 text-[11px] font-mono text-gray-200">
+                            <span class="text-gray-400">Live Substitution: </span>
+                            x<sub>u</sub> = (0.87 × <span id="subFy">415</span> × <span id="subAst">942</span>) / (0.36 × <span id="subFck">25</span> × <span id="subB">250</span>) = <span id="subXuRes" class="text-cyber-cyan font-bold">151.8 mm</span>
+                        </div>
+                    </div>
+
+                    <!-- Formula 2: Moment of Resistance Derivation -->
+                    <div class="bg-cyber-bg/70 p-3.5 rounded-lg border border-cyber-border/60 space-y-2">
+                        <h3 class="font-bold text-cyber-amber text-sm flex items-center gap-2">
+                            <span>2. Ultimate Moment of Resistance ($M_u$) & Lever Arm ($z$)</span>
+                        </h3>
+                        <p class="leading-relaxed text-gray-300">
+                            The lever arm ($z$) is the distance between the line of action of compressive force $C$ (acting at $0.42 x_u$ from top) and tensile force $T$:
+                        </p>
+                        <div class="bg-cyber-card p-3 rounded font-mono text-xs text-cyber-amber border border-cyber-amber/30 overflow-x-auto space-y-1">
+                            <p>Lever Arm ($z$) = $d - 0.42 \cdot x_u$</p>
+                            <p class="text-white font-bold mt-1">Moment of Resistance ($M_u = C \cdot z$ or $T \cdot z$):</p>
+                            <p class="text-cyber-amber font-bold text-sm">M<sub>u</sub> = 0.36 · f<sub>ck</sub> · b · x<sub>u</sub> · (d - 0.42 · x<sub>u</sub>)</p>
+                            <p class="text-cyber-emerald font-bold text-sm">OR  M<sub>u</sub> = 0.87 · f<sub>y</sub> · A<sub>st</sub> · (d - 0.42 · x<sub>u</sub>)</p>
+                        </div>
+                        <div class="p-2 bg-cyber-bg rounded border border-cyber-border/40 text-[11px] font-mono text-gray-200">
+                            <span class="text-gray-400">Live Calculation: </span>
+                            z = <span id="subD">450</span> - 0.42 × <span id="subXu">151.8</span> = <span id="subZRes" class="text-gray-200 font-bold">386.2 mm</span><br>
+                            M<sub>u</sub> = <span id="subMuFormula">...</span> = <span id="subMuRes" class="text-cyber-amber font-bold text-sm">128.45 kN·m</span>
+                        </div>
+                    </div>
+
+                    <!-- Formula 3: Limiting Depth xu_max -->
+                    <div class="bg-cyber-bg/70 p-3.5 rounded-lg border border-cyber-border/60 space-y-2">
+                        <h3 class="font-bold text-purple-400 text-sm flex items-center gap-2">
+                            <span>3. Limiting Depth ($x_{u,lim}$) & Ductility Check</span>
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-[11px]">
+                            <div class="p-2 rounded bg-cyber-card border border-cyber-border">
+                                <span class="text-gray-400 block font-semibold">Fe 250 Grade</span>
+                                <span class="text-cyber-cyan font-mono font-bold">$x_{u,lim} = 0.53 \cdot d$</span>
+                            </div>
+                            <div class="p-2 rounded bg-cyber-card border border-cyber-border">
+                                <span class="text-gray-400 block font-semibold">Fe 415 Grade</span>
+                                <span class="text-cyber-emerald font-mono font-bold">$x_{u,lim} = 0.48 \cdot d$</span>
+                            </div>
+                            <div class="p-2 rounded bg-cyber-card border border-cyber-border">
+                                <span class="text-gray-400 block font-semibold">Fe 500 Grade</span>
+                                <span class="text-cyber-amber font-mono font-bold">$x_{u,lim} = 0.46 \cdot d$</span>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- TAB 2: ELI5 Storybook Mode -->
+                <div id="tabEli5" class="hidden space-y-4 text-xs text-gray-300">
+                    <div class="bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-cyan-500/10 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                        <h3 class="text-sm font-bold text-amber-300 flex items-center gap-2">
+                            <span>🧸 The Story of Mr. Concrete & Captain Steel</span>
+                        </h3>
+                        <p class="leading-relaxed text-gray-200">
+                            Imagine a bridge or ceiling beam is like a playground seesaw made of concrete and steel bars. When heavy trucks drive over it, the beam wants to bend downwards into a smile shape 🙂!
+                        </p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                            <div class="p-3 bg-cyber-card/80 rounded-lg border border-cyan-500/30">
+                                <span class="text-2xl block mb-1">🧱</span>
+                                <h4 class="font-bold text-cyan-300 text-xs">1. Top Squish Zone</h4>
+                                <p class="text-[11px] text-gray-300 mt-1">
+                                    The top part gets squeezed hard! Concrete is a <strong>giant stone monster</strong> that LOVES being squished ($C = 0.36 f_{ck} b x_u$).
+                                </p>
+                            </div>
+
+                            <div class="p-3 bg-cyber-card/80 rounded-lg border border-emerald-500/30">
+                                <span class="text-2xl block mb-1">⛓️</span>
+                                <h4 class="font-bold text-emerald-300 text-xs">2. Bottom Stretch Zone</h4>
+                                <p class="text-[11px] text-gray-300 mt-1">
+                                    The bottom part gets pulled apart! Concrete cracks easily when pulled, so we put <strong>Captain Steel bars</strong> at the bottom to pull back ($T = 0.87 f_y A_{st}$).
+                                </p>
+                            </div>
+
+                            <div class="p-3 bg-cyber-card/80 rounded-lg border border-amber-500/30">
+                                <span class="text-2xl block mb-1">🎯</span>
+                                <h4 class="font-bold text-amber-300 text-xs">3. The Neutral Line ($x_u$)</h4>
+                                <p class="text-[11px] text-gray-300 mt-1">
+                                    In the exact middle line, there is NO squishing and NO pulling. That line is called the <strong>Neutral Axis ($x_u$)</strong>!
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="bg-cyber-bg p-3 rounded-lg border border-cyber-border text-[11px] space-y-1">
+                            <span class="font-bold text-purple-300 block">⚠️ Why Over-reinforcing is SCARY:</span>
+                            <p class="text-gray-300">
+                                If you put TOO MANY steel bars at the bottom, the steel will never stretch, but the concrete top will suddenly crush and shatter like glass with NO warning! That's why engineers design <strong>Under-Reinforced beams</strong> so the steel gives us warning bends first!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 3: Virtual Beam Bending & Load Test -->
+                <div id="tabLoadTest" class="hidden space-y-4 text-xs text-gray-300">
+                    <div class="bg-cyber-bg/80 p-4 rounded-xl border border-cyber-border space-y-3">
+                        <div class="flex justify-between items-center flex-wrap gap-2">
+                            <div>
+                                <h3 class="text-sm font-bold text-cyber-cyan flex items-center gap-2">
+                                    <span>⚡ Virtual Hydraulic Beam Bending Test</span>
+                                </h3>
+                                <p class="text-[11px] text-gray-400">Simulate progressive point loading to observe flexural bending, stress distributions, and failure modes.</p>
+                            </div>
+
+                            <div class="flex items-center space-x-2">
+                                <button id="startLoadBtn" onclick="toggleLoadTestAnimation()" class="px-3 py-1.5 rounded-lg bg-cyber-cyan text-gray-950 font-bold hover:bg-cyan-300 transition flex items-center space-x-1">
+                                    <span id="loadBtnIcon">▶</span>
+                                    <span id="loadBtnText">Apply Test Load</span>
+                                </button>
+                                <button onclick="resetLoadTest()" class="px-2.5 py-1.5 rounded-lg bg-gray-800 text-gray-300 hover:bg-gray-700 transition">
+                                    Reset
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Bending Test Canvas -->
+                        <div class="relative w-full bg-cyber-card rounded-lg border border-cyber-border p-2 flex justify-center items-center">
+                            <canvas id="loadCanvas" width="750" height="200" class="w-full h-auto max-w-full rounded"></canvas>
+                        </div>
+
+                        <!-- Load Test Status Indicator -->
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-cyber-card p-2 rounded border border-cyber-border">
+                                <span class="text-gray-400 text-[10px] block">Applied Moment ($M_{app}$)</span>
+                                <span id="appliedMomVal" class="text-cyber-cyan font-mono font-bold">0.0 kN·m</span>
+                            </div>
+                            <div class="bg-cyber-card p-2 rounded border border-cyber-border">
+                                <span class="text-gray-400 text-[10px] block">Capacity ($M_u$)</span>
+                                <span id="capacityMomVal" class="text-cyber-amber font-mono font-bold">128.45 kN·m</span>
+                            </div>
+                            <div class="bg-cyber-card p-2 rounded border border-cyber-border">
+                                <span class="text-gray-400 text-[10px] block">Beam Condition</span>
+                                <span id="beamCondVal" class="text-emerald-400 font-bold">Unloaded</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Quick Custom Rebar Modal -->
+    <div id="rebarModal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-cyber-card border border-cyber-cyan/50 rounded-xl p-5 max-w-md w-full space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                <h3 class="font-bold text-cyber-cyan text-sm">Calculate Rebar Area ($A_{st}$)</h3>
+                <button onclick="closeCustomRebar()" class="text-gray-400 hover:text-white">&times;</button>
+            </div>
+            
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-gray-300 mb-1">Number of Steel Bars:</label>
+                    <input type="number" id="numBars" min="1" max="10" value="3" class="w-full bg-cyber-bg border border-cyber-border rounded p-2 text-white font-mono">
+                </div>
+                <div>
+                    <label class="block text-gray-300 mb-1">Bar Diameter (mm):</label>
+                    <select id="barDia" class="w-full bg-cyber-bg border border-cyber-border rounded p-2 text-white font-mono">
+                        <option value="12">12 mm</option>
+                        <option value="16">16 mm</option>
+                        <option value="20" selected>20 mm</option>
+                        <option value="25">25 mm</option>
+                        <option value="28">28 mm</option>
+                        <option value="32">32 mm</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2 border-t border-cyber-border">
+                <button onclick="closeCustomRebar()" class="px-3 py-1.5 rounded bg-gray-800 text-gray-300 text-xs">Cancel</button>
+                <button onclick="applyCustomRebar()" class="px-3 py-1.5 rounded bg-cyber-cyan text-gray-950 font-bold text-xs">Apply Rebar Area</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global Application State
+        const state = {
+            fck: 25,         // N/mm2
+            fy: 415,         // N/mm2
+            b: 250,          // mm
+            d: 450,          // mm
+            ast: 942,        // mm2
+            xu: 0,           // calculated actual neutral axis depth
+            xulim: 0,        // calculated limiting neutral axis depth
+            mu: 0,           // calculated moment capacity (kNm)
+            leverArm: 0,     // mm
+            status: 'balanced', // 'under', 'balanced', 'over'
+            isEli5: false,
+            isSpeaking: false,
+            activeTab: 'derivation',
+            // Interactive hover state on main canvas
+            hoveredZone: null, // 'beam', 'strain', 'stress', 'xu', 'leverArm', 'steel'
+            // Load test state
+            loadTestProgress: 0, // 0 to 1.5
+            isLoadTesting: false,
+            loadAnimationFrame: null
+        };
+
+        // DOM elements cache
+        let canvas, ctx, loadCanvas, loadCtx;
+
+        // Initialize App on DOM Loaded
+        window.addEventListener('DOMContentLoaded', () => {
+            canvas = document.getElementById('mainCanvas');
+            ctx = canvas.getContext('2d');
+
+            loadCanvas = document.getElementById('loadCanvas');
+            loadCtx = loadCanvas.getContext('2d');
+
+            // Setup Event Listeners
+            setupCanvasInteraction();
+            
+            // Initial calculations and draw
+            updateParameters();
+            drawLoadTestCanvas();
+
+            // Window resize handler
+            window.addEventListener('resize', () => {
+                drawDiagram();
+                drawLoadTestCanvas();
+            });
+        });
+
+        // Calculate Limit State Design Equations according to IS 456:2000
+        function calculateEngineeringValues() {
+            const fck = parseFloat(state.fck);
+            const fy = parseFloat(state.fy);
+            const b = parseFloat(state.b);
+            const d = parseFloat(state.d);
+            const ast = parseFloat(state.ast);
+
+            // 1. Limiting depth ratio xu_lim / d based on fy
+            let maxRatio = 0.48; // default Fe 415
+            if (fy <= 260) maxRatio = 0.53;        // Fe 250
+            else if (fy <= 430) maxRatio = 0.48;   // Fe 415
+            else if (fy <= 520) maxRatio = 0.46;   // Fe 500
+            else maxRatio = 0.44;                  // Fe 550
+
+            state.xulim = maxRatio * d;
+
+            // 2. Actual Depth of Neutral Axis xu = (0.87 * fy * Ast) / (0.36 * fck * b)
+            state.xu = (0.87 * fy * ast) / (0.36 * fck * b);
+
+            // 3. Section classification
+            // Margin allowance of 2% for balanced section definition
+            const ratio = state.xu / state.xulim;
+            if (Math.abs(ratio - 1.0) < 0.03) {
+                state.status = 'balanced';
+            } else if (state.xu < state.xulim) {
+                state.status = 'under';
+            } else {
+                state.status = 'over';
+            }
+
+            // 4. Effective Neutral Axis for Moment calculation (Cap at xulim for over-reinforced)
+            const xuEffective = Math.min(state.xu, state.xulim);
+
+            // 5. Lever arm z = d - 0.42 * xu
+            state.leverArm = d - 0.42 * xuEffective;
+
+            // 6. Moment of Resistance Mu in N·mm -> convert to kN·m (divide by 1e6)
+            // Mu = 0.36 * fck * b * xu * (d - 0.42 * xu)
+            const muNmm = 0.36 * fck * b * xuEffective * (d - 0.42 * xuEffective);
+            state.mu = muNmm / 1e6;
+        }
+
+        function updateParameters() {
+            // Read inputs
+            state.fck = parseFloat(document.getElementById('fck').value);
+            state.fy = parseFloat(document.getElementById('fy').value);
+            state.b = parseFloat(document.getElementById('widthB').value);
+            state.d = parseFloat(document.getElementById('depthD').value);
+            state.ast = parseFloat(document.getElementById('ast').value);
+
+            // Run Math
+            calculateEngineeringValues();
+
+            // Update UI Labels
+            document.getElementById('fckVal').innerText = `M${state.fck} (${state.fck} N/mm²)`;
+            document.getElementById('fyVal').innerText = `Fe ${state.fy} N/mm²`;
+            document.getElementById('widthBVal').innerText = `${state.b} mm`;
+            document.getElementById('depthDVal').innerText = `${state.d} mm`;
+            document.getElementById('astVal').innerText = `${Math.round(state.ast)} mm²`;
+
+            // Update Equivalent Rebar text
+            updateRebarEquivalentText(state.ast);
+
+            // Update Status Badge
+            const badge = document.getElementById('sectionBadge');
+            const desc = document.getElementById('statusDesc');
+
+            if (state.status === 'under') {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 border border-emerald-500/40";
+                badge.innerText = "Under-Reinforced (Ductile / Safe)";
+                desc.innerText = "Steel yields before concrete reaches max strain. Gives ample warning deflection before failure! Highly desirable.";
+            } else if (state.status === 'balanced') {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-cyan-500/20 text-cyan-400 border border-cyan-500/40";
+                badge.innerText = "Balanced Section";
+                desc.innerText = "Concrete and steel reach maximum design strain limits simultaneously. Optimal efficiency!";
+            } else {
+                badge.className = "text-xs px-2.5 py-1 rounded-full font-bold uppercase tracking-wider bg-rose-500/20 text-rose-400 border border-rose-500/40 animate-pulse";
+                badge.innerText = "Over-Reinforced (Brittle / Caution)";
+                desc.innerText = "Concrete crushes suddenly before steel yields! IS 456 caps capacity at M_u,lim. Redesign required for safety.";
+            }
+
+            document.getElementById('xuValue').innerText = `${state.xu.toFixed(1)} mm`;
+            document.getElementById('xulimValue').innerText = `${state.xulim.toFixed(1)} mm`;
+            document.getElementById('muValue').innerText = `${state.mu.toFixed(2)} kN·m`;
+
+            // Update Mu progress bar relative to max 300 kNm
+            const barPercent = Math.min(100, (state.mu / 350) * 100);
+            document.getElementById('muBar').style.width = `${barPercent}%`;
+
+            // Update Derivation text elements
+            document.getElementById('subFy').innerText = state.fy;
+            document.getElementById('subAst').innerText = Math.round(state.ast);
+            document.getElementById('subFck').innerText = state.fck;
+            document.getElementById('subB').innerText = state.b;
+            document.getElementById('subXuRes').innerText = `${state.xu.toFixed(1)} mm`;
+
+            document.getElementById('subD').innerText = state.d;
+            document.getElementById('subXu').innerText = state.xu.toFixed(1);
+            document.getElementById('subZRes').innerText = `${state.leverArm.toFixed(1)} mm`;
+            
+            document.getElementById('subMuFormula').innerText = `0.36 × ${state.fck} × ${state.b} × ${state.xu.toFixed(1)} × (${state.d} - 0.42×${state.xu.toFixed(1)})`;
+            document.getElementById('subMuRes').innerText = `${state.mu.toFixed(2)} kN·m`;
+
+            // Redraw Visuals
+            drawDiagram();
+            drawLoadTestCanvas();
+        }
+
+        function updateRebarEquivalentText(ast) {
+            // Rough estimation of bar combinations
+            const barSizes = [16, 20, 25, 28, 32];
+            let bestText = "";
+            for (let dia of barSizes) {
+                const area1 = (Math.PI / 4) * dia * dia;
+                const count = Math.round(ast / area1);
+                if (count >= 2 && count <= 8) {
+                    bestText = `Eqv: ${count} bars of ${dia}mm Ø (${Math.round(count * area1)} mm²)`;
+                    break;
+                }
+            }
+            if (!bestText) bestText = `Total Steel Area = ${Math.round(ast)} mm²`;
+            document.getElementById('rebarCountText').innerText = bestText;
+        }
+
+        function drawDiagram() {
+            if (!ctx) return;
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear background
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = '#0a0d14';
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw Cyber Grid Background
+            drawGrid(ctx, width, height);
+
+            // Diagram Parameters Layout: 3 Columns
+            // Column 1: Beam Cross Section (X: 100 to 260)
+            // Column 2: Strain Profile (X: 360 to 520)
+            // Column 3: Stress Block Diagram (X: 620 to 780)
+
+            const topY = 60;
+            const beamH = 280; // visual height for depth d
+            const col1X = 110;
+            const col2X = 380;
+            const col3X = 630;
+
+            const scaleD = beamH / state.d; // pixels per mm
+            const visualXu = state.xu * scaleD;
+            const visualXulim = state.xulim * scaleD;
+
+            const showDim = document.getElementById('showDimensions').checked;
+            const showForces = document.getElementById('showForces').checked;
+            const showHeatmap = document.getElementById('showHeatmap').checked;
+
+            // ==========================================
+            // 1. BEAM CROSS SECTION (COL 1)
+            // ==========================================
+            const beamW = Math.max(80, Math.min(160, state.b * 0.4));
+            const beamLeft = col1X - beamW / 2;
+            const beamRight = col1X + beamW / 2;
+            const rebarY = topY + beamH; // rebar at depth d
+
+            // Concrete Rect Shadow / Fill
+            ctx.fillStyle = 'rgba(30, 41, 59, 0.7)';
+            ctx.fillRect(beamLeft, topY, beamW, beamH + 30); // total depth includes cover
+
+            // Heatmap overlay in compression zone if enabled
+            if (showHeatmap) {
+                const grad = ctx.createLinearGradient(0, topY, 0, topY + visualXu);
+                grad.addColorStop(0, 'rgba(244, 63, 94, 0.4)'); // max stress top
+                grad.addColorStop(0.42, 'rgba(245, 158, 11, 0.3)');
+                grad.addColorStop(1, 'rgba(0, 243, 255, 0.05)'); // zero at NA
+                ctx.fillStyle = grad;
+                ctx.fillRect(beamLeft, topY, beamW, Math.min(visualXu, beamH + 30));
+            }
+
+            // Beam Outline
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(beamLeft, topY, beamW, beamH + 30);
+
+            // Stirrups outline inside
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+            ctx.setLineDash([4, 4]);
+            ctx.strokeRect(beamLeft + 8, topY + 8, beamW - 16, beamH + 14);
+            ctx.setLineDash([]);
+
+            // Rebar circles (Tension steel)
+            const numBars = 3;
+            const barSpacing = (beamW - 30) / (numBars - 1);
+            ctx.fillStyle = '#10b981';
+            ctx.shadowColor = '#10b981';
+            ctx.shadowBlur = 8;
+            for (let i = 0; i < numBars; i++) {
+                const rx = beamLeft + 15 + i * barSpacing;
+                ctx.beginPath();
+                ctx.arc(rx, rebarY, 9, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+
+            // Label for Beam Section
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('BEAM SECTION', col1X, topY - 20);
+            ctx.fillText(`b = ${state.b}mm`, col1X, topY + beamH + 50);
+
+            // ==========================================
+            // 2. NEUTRAL AXIS DOTTED LINES ACROSS COLUMNS
+            // ==========================================
+            const naY = topY + visualXu;
+
+            // Actual NA line
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([6, 4]);
+            ctx.beginPath();
+            ctx.moveTo(beamLeft - 15, naY);
+            ctx.lineTo(col3X + 130, naY);
+            ctx.stroke();
+
+            // Limiting NA line (xulim)
+            const naLimY = topY + visualXulim;
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)';
+            ctx.beginPath();
+            ctx.moveTo(beamLeft - 10, naLimY);
+            ctx.lineTo(col3X + 120, naLimY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Labels for NA lines
+            ctx.fillStyle = '#00f3ff';
+            ctx.font = 'bold 10px font-mono';
+            ctx.textAlign = 'left';
+            ctx.fillText(`N.A. (x_u = ${state.xu.toFixed(1)}mm)`, col3X + 35, naY - 4);
+
+            ctx.fillStyle = '#a855f7';
+            ctx.fillText(`N.A.lim (${state.xulim.toFixed(1)}mm)`, col3X + 35, naLimY + 12);
+
+            // ==========================================
+            // 3. STRAIN PROFILE DIAGRAM (COL 2)
+            // ==========================================
+            const strainOriginX = col2X;
+            const topStrainW = 65; // strain 0.0035 pixel width
+            const steelStrainW = Math.min(90, ((0.87 * state.fy / 200000) + 0.002) * 12000);
+
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('STRAIN PROFILE', col2X, topY - 20);
+
+            // Center vertical axis line
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(strainOriginX, topY);
+            ctx.lineTo(strainOriginX, rebarY);
+            ctx.stroke();
+
+            // Strain Triangle Path
+            ctx.beginPath();
+            ctx.moveTo(strainOriginX - topStrainW, topY); // Top concrete strain 0.0035
+            ctx.lineTo(strainOriginX, naY);               // Neutral axis (zero strain)
+            ctx.lineTo(strainOriginX + steelStrainW, rebarY); // Steel tensile strain
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Filled strain shape
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+            ctx.beginPath();
+            ctx.moveTo(strainOriginX, topY);
+            ctx.lineTo(strainOriginX - topStrainW, topY);
+            ctx.lineTo(strainOriginX, naY);
+            ctx.lineTo(strainOriginX + steelStrainW, rebarY);
+            ctx.lineTo(strainOriginX, rebarY);
+            ctx.closePath();
+            ctx.fill();
+
+            // Strain values text annotations
+            ctx.fillStyle = '#10b981';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillText('ε_cu = 0.0035', strainOriginX - topStrainW - 5, topY + 4);
+
+            ctx.textAlign = 'left';
+            const eps_st = (0.0035 * (state.d - state.xu) / state.xu).toFixed(4);
+            ctx.fillText(`ε_st = ${eps_st}`, strainOriginX + steelStrainW + 5, rebarY + 4);
+
+            // ==========================================
+            // 4. DESIGN STRESS BLOCK DIAGRAM (COL 3)
+            // ==========================================
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('STRESS BLOCK', col3X + 20, topY - 20);
+
+            const stressOriginX = col3X;
+            const maxStressW = 75; // represents 0.446 fck stress depth
+
+            // Parabolic + Rectangular Stress Block calculation
+            // Rectangular part depth = (3/7) * xu
+            // Parabolic part depth = (4/7) * xu
+            const rectDepthVis = (3 / 7) * visualXu;
+
+            ctx.beginPath();
+            // Top left corner
+            ctx.moveTo(stressOriginX, topY);
+            // Top right (Max concrete stress 0.446 fck)
+            ctx.lineTo(stressOriginX + maxStressW, topY);
+            // Rectangular boundary down to 3/7 xu
+            ctx.lineTo(stressOriginX + maxStressW, topY + rectDepthVis);
+
+            // Parabolic curve down to Neutral Axis
+            const curveSteps = 15;
+            for (let i = 0; i <= curveSteps; i++) {
+                const t = i / curveSteps; // 0 to 1
+                const curY = topY + rectDepthVis + t * (visualXu - rectDepthVis);
+                // Parabola equation: stress = maxStress * (1 - t^2)
+                const curW = maxStressW * (1 - t * t);
+                ctx.lineTo(stressOriginX + curW, curY);
+            }
+
+            ctx.lineTo(stressOriginX, naY);
+            ctx.closePath();
+
+            // Gradient fill for stress block
+            const stressGrad = ctx.createLinearGradient(stressOriginX, topY, stressOriginX + maxStressW, topY);
+            stressGrad.addColorStop(0, 'rgba(245, 158, 11, 0.2)');
+            stressGrad.addColorStop(1, 'rgba(245, 158, 11, 0.6)');
+            ctx.fillStyle = stressGrad;
+            ctx.fill();
+
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Concrete Stress Max Value Text
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 10px monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText(`0.446 f_ck (${(0.446 * state.fck).toFixed(1)} MPa)`, stressOriginX + maxStressW + 6, topY + 12);
+
+            // ==========================================
+            // 5. COMPRESSIVE & TENSILE FORCE VECTORS (C & T)
+            // ==========================================
+            if (showForces) {
+                // Compressive force C acts at 0.42 * xu from top
+                const forceCY = topY + 0.42 * visualXu;
+
+                // Draw C Arrow
+                drawArrow(ctx, stressOriginX + maxStressW + 40, forceCY, stressOriginX + 15, forceCY, '#ef4444', 'C = 0.36 f_ck b x_u');
+
+                // Draw T Arrow at steel level
+                drawArrow(ctx, stressOriginX - 30, rebarY, stressOriginX + 50, rebarY, '#10b981', 'T = 0.87 f_y A_st');
+
+                // Lever Arm Dimension line z
+                if (showDim) {
+                    const dimX = stressOriginX + maxStressW + 20;
+                    ctx.strokeStyle = '#e2e8f0';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([2, 2]);
+
+                    // Top force marker
+                    ctx.beginPath();
+                    ctx.moveTo(stressOriginX + 15, forceCY);
+                    ctx.lineTo(dimX + 15, forceCY);
+                    ctx.moveTo(stressOriginX + 20, rebarY);
+                    ctx.lineTo(dimX + 15, rebarY);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+
+                    // Double headed lever arm arrow z
+                    drawDoubleArrow(ctx, dimX + 10, forceCY, dimX + 10, rebarY, '#38bdf8', `z = ${state.leverArm.toFixed(1)}mm`);
+                }
+            }
+
+            // ==========================================
+            // 6. DIMENSION LINES (b, d, xu, 0.42xu)
+            // ==========================================
+            if (showDim) {
+                // Dimension d (Effective depth)
+                drawDoubleArrow(ctx, beamLeft - 25, topY, beamLeft - 25, rebarY, '#94a3b8', `d = ${state.d}mm`);
+
+                // Dimension xu
+                drawDoubleArrow(ctx, col2X - 15, topY, col2X - 15, naY, '#00f3ff', `x_u = ${state.xu.toFixed(1)}`);
+
+                // Stress Block Depth Annotations (0.42 xu centroid)
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(`0.42 x_u (${(0.42 * state.xu).toFixed(1)}mm)`, stressOriginX - 8, topY + 0.42 * visualXu - 4);
+            }
+        }
+
+        function drawGrid(context, w, h) {
+            context.strokeStyle = 'rgba(30, 41, 59, 0.3)';
+            context.lineWidth = 1;
+            const step = 30;
+            context.beginPath();
+            for (let x = 0; x < w; x += step) {
+                context.moveTo(x, 0);
+                context.lineTo(x, h);
+            }
+            for (let y = 0; y < h; y += step) {
+                context.moveTo(0, y);
+                context.lineTo(w, y);
+            }
+            context.stroke();
+        }
+
+        function drawArrow(context, fromX, fromY, toX, toY, color, label) {
+            const headlen = 8;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            context.strokeStyle = color;
+            context.fillStyle = color;
+            context.lineWidth = 2;
+
+            context.beginPath();
+            context.moveTo(fromX, fromY);
+            context.lineTo(toX, toY);
+            context.stroke();
+
+            // Arrow head
+            context.beginPath();
+            context.moveTo(toX, toY);
+            context.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            context.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            context.closePath();
+            context.fill();
+
+            if (label) {
+                context.font = 'bold 10px monospace';
+                context.textAlign = 'left';
+                context.fillText(label, fromX + 5, fromY - 6);
+            }
+        }
+
+        function drawDoubleArrow(context, x1, y1, x2, y2, color, label) {
+            context.strokeStyle = color;
+            context.fillStyle = color;
+            context.lineWidth = 1.2;
+
+            context.beginPath();
+            context.moveTo(x1, y1);
+            context.lineTo(x2, y2);
+            context.stroke();
+
+            const headlen = 5;
+            // Top arrow
+            context.beginPath();
+            context.moveTo(x1, y1);
+            context.lineTo(x1 - headlen, y1 + headlen);
+            context.lineTo(x1 + headlen, y1 + headlen);
+            context.closePath();
+            context.fill();
+
+            // Bottom arrow
+            context.beginPath();
+            context.moveTo(x2, y2);
+            context.lineTo(x2 - headlen, y2 - headlen);
+            context.lineTo(x2 + headlen, y2 - headlen);
+            context.closePath();
+            context.fill();
+
+            if (label) {
+                context.font = '10px monospace';
+                context.textAlign = 'center';
+                context.save();
+                context.translate((x1 + x2) / 2 - 12, (y1 + y2) / 2);
+                context.rotate(-Math.PI / 2);
+                context.fillText(label, 0, 0);
+                context.restore();
+            }
+        }
+
+        function setupCanvasInteraction() {
+            const tooltip = document.getElementById('canvasTooltip');
+            const tooltipTitle = document.getElementById('tooltipTitle');
+            const tooltipBody = document.getElementById('tooltipBody');
+
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) * (canvas.width / rect.width);
+                const mouseY = (e.clientY - rect.top) * (canvas.height / rect.height);
+
+                // Check hover zones
+                let zone = null;
+                const topY = 60;
+                const beamH = 280;
+                const scaleD = beamH / state.d;
+                const visualXu = state.xu * scaleD;
+
+                // Compression Zone (Col 1 & 3 top)
+                if (mouseY >= topY && mouseY <= topY + visualXu && mouseX >= 50 && mouseX <= 750) {
+                    zone = 'compression';
+                } else if (mouseY >= topY + visualXu - 10 && mouseY <= topY + visualXu + 10) {
+                    zone = 'na';
+                } else if (mouseY >= topY + beamH - 15 && mouseY <= topY + beamH + 15) {
+                    zone = 'steel';
+                }
+
+                if (zone) {
+                    tooltip.classList.remove('hidden');
+                    tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+                    tooltip.style.top = `${e.clientY - rect.top - 10}px`;
+
+                    if (zone === 'compression') {
+                        tooltipTitle.innerText = "Concrete Compression Block";
+                        tooltipBody.innerHTML = `Depth: <b>${state.xu.toFixed(1)} mm</b><br>Total Force C = 0.36 f_ck b x_u = <b>${((0.36 * state.fck * state.b * state.xu) / 1000).toFixed(1)} kN</b><br>Centroid: 0.42 x_u from top`;
+                    } else if (zone === 'na') {
+                        tooltipTitle.innerText = "Neutral Axis (N.A.)";
+                        tooltipBody.innerHTML = `Neutral Depth x_u = <b>${state.xu.toFixed(1)} mm</b><br>Strain & Stress are ZERO at this axis plane!`;
+                    } else if (zone === 'steel') {
+                        tooltipTitle.innerText = "Tension Steel Rebar (A_st)";
+                        tooltipBody.innerHTML = `Area: <b>${Math.round(state.ast)} mm²</b><br>Tensile Force T = 0.87 f_y A_st = <b>${((0.87 * state.fy * state.ast) / 1000).toFixed(1)} kN</b>`;
+                    }
+                } else {
+                    tooltip.classList.add('hidden');
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                tooltip.classList.add('hidden');
+            });
+        }
+
+        function drawLoadTestCanvas() {
+            if (!loadCtx) return;
+            const w = loadCanvas.width;
+            const h = loadCanvas.height;
+
+            loadCtx.clearRect(0, 0, w, h);
+            loadCtx.fillStyle = '#0f172a';
+            loadCtx.fillRect(0, 0, w, h);
+
+            // Draw Beam Supports
+            const beamX1 = 80;
+            const beamX2 = w - 80;
+            const beamY = 100;
+            const beamThick = 35;
+
+            const progress = state.loadTestProgress; // 0 (unloaded) to 1.5 (overload/failure)
+            const maxDeflection = 25 * progress;
+
+            // Pinned Left Support
+            loadCtx.fillStyle = '#64748b';
+            loadCtx.beginPath();
+            loadCtx.moveTo(beamX1, beamY + beamThick);
+            loadCtx.lineTo(beamX1 - 15, beamY + beamThick + 25);
+            loadCtx.lineTo(beamX1 + 15, beamY + beamThick + 25);
+            loadCtx.closePath();
+            loadCtx.fill();
+
+            // Roller Right Support
+            loadCtx.beginPath();
+            loadCtx.arc(beamX2, beamY + beamThick + 12, 10, 0, Math.PI * 2);
+            loadCtx.fill();
+
+            // Draw Curved Deflected Beam
+            loadCtx.beginPath();
+            loadCtx.moveTo(beamX1, beamY);
+            // Quadratic curve to simulate bending under 2-point load
+            const midX = (beamX1 + beamX2) / 2;
+            const midY = beamY + maxDeflection;
+
+            loadCtx.quadraticCurveTo(midX, midY, beamX2, beamY);
+            loadCtx.lineTo(beamX2, beamY + beamThick);
+            loadCtx.quadraticCurveTo(midX, midY + beamThick, beamX1, beamY + beamThick);
+            loadCtx.closePath();
+
+            // Fill beam with stress gradient based on progress
+            const beamGrad = loadCtx.createLinearGradient(0, beamY, 0, beamY + beamThick + maxDeflection);
+            if (progress < 0.8) {
+                beamGrad.addColorStop(0, '#38bdf8'); // Safe elastic
+                beamGrad.addColorStop(1, '#1e293b');
+            } else if (progress <= 1.0) {
+                beamGrad.addColorStop(0, '#f59e0b'); // High strain / yielding
+                beamGrad.addColorStop(1, '#10b981');
+            } else {
+                beamGrad.addColorStop(0, '#ef4444'); // Concrete crushing / Failure
+                beamGrad.addColorStop(1, '#f59e0b');
+            }
+            loadCtx.fillStyle = beamGrad;
+            loadCtx.fill();
+
+            loadCtx.strokeStyle = '#ffffff';
+            loadCtx.lineWidth = 1.5;
+            loadCtx.stroke();
+
+            // Draw Crack Lines if flexural failure / tension cracking occurs (progress > 0.6)
+            if (progress > 0.5) {
+                loadCtx.strokeStyle = '#ef4444';
+                loadCtx.lineWidth = 2;
+                const crackCount = Math.floor(progress * 6);
+                for (let i = 1; i <= crackCount; i++) {
+                    const cx = midX - 60 + i * 20;
+                    const cy = beamY + beamThick + (maxDeflection * 0.8);
+                    loadCtx.beginPath();
+                    loadCtx.moveTo(cx, cy);
+                    loadCtx.lineTo(cx + (i % 2 === 0 ? 3 : -3), cy - 12 - Math.random() * 5);
+                    loadCtx.stroke();
+                }
+            }
+
+            // Draw Hydraulic Load Point Arrows
+            if (progress > 0) {
+                const loadY = beamY - 35 + maxDeflection * 0.5;
+                drawArrow(loadCtx, midX - 40, loadY, midX - 40, beamY + maxDeflection * 0.5, '#ef4444', '');
+                drawArrow(loadCtx, midX + 40, loadY, midX + 40, beamY + maxDeflection * 0.5, '#ef4444', 'Point Load P');
+            }
+
+            // Update UI indicators for Load Test
+            const appliedMu = (state.mu * progress).toFixed(2);
+            document.getElementById('appliedMomVal').innerText = `${appliedMu} kN·m`;
+            document.getElementById('capacityMomVal').innerText = `${state.mu.toFixed(2)} kN·m`;
+
+            const condEl = document.getElementById('beamCondVal');
+            if (progress === 0) {
+                condEl.innerText = "Unloaded";
+                condEl.className = "text-emerald-400 font-bold";
+            } else if (progress < 0.7) {
+                condEl.innerText = "Elastic Bending (Safe)";
+                condEl.className = "text-emerald-400 font-bold";
+            } else if (progress <= 1.0) {
+                condEl.innerText = "Yielding Steel / High Flexure";
+                condEl.className = "text-cyber-amber font-bold";
+            } else {
+                condEl.innerText = state.status === 'under' ? "Ductile Failure (Steel Yield Warning)" : "Brittle Sudden Concrete Crushing!";
+                condEl.className = "text-rose-500 font-bold animate-pulse";
+            }
+        }
+
+        function toggleLoadTestAnimation() {
+            if (state.isLoadTesting) {
+                state.isLoadTesting = false;
+                document.getElementById('loadBtnText').innerText = "Resume Test Load";
+                document.getElementById('loadBtnIcon').innerText = "▶";
+            } else {
+                state.isLoadTesting = true;
+                document.getElementById('loadBtnText').innerText = "Pause Load";
+                document.getElementById('loadBtnIcon').innerText = "⏸";
+                animateLoadTest();
+            }
+        }
+
+        function animateLoadTest() {
+            if (!state.isLoadTesting) return;
+
+            state.loadTestProgress += 0.008;
+            if (state.loadTestProgress > 1.25) {
+                state.loadTestProgress = 0; // loop
+            }
+
+            drawLoadTestCanvas();
+            requestAnimationFrame(animateLoadTest);
+        }
+
+        function resetLoadTest() {
+            state.isLoadTesting = false;
+            state.loadTestProgress = 0;
+            document.getElementById('loadBtnText').innerText = "Apply Test Load";
+            document.getElementById('loadBtnIcon').innerText = "▶";
+            drawLoadTestCanvas();
+        }
+
+        function applyPreset(presetKey) {
+            if (presetKey === 'balanced') {
+                document.getElementById('fck').value = 25;
+                document.getElementById('fy').value = 415;
+                document.getElementById('widthB').value = 250;
+                document.getElementById('depthD').value = 450;
+                document.getElementById('ast').value = 942; // ~balanced
+            } else if (presetKey === 'under') {
+                document.getElementById('fck').value = 25;
+                document.getElementById('fy').value = 415;
+                document.getElementById('widthB').value = 250;
+                document.getElementById('depthD').value = 450;
+                document.getElementById('ast').value = 600; // under-reinforced
+            } else if (presetKey === 'over') {
+                document.getElementById('fck').value = 20;
+                document.getElementById('fy').value = 415;
+                document.getElementById('widthB').value = 200;
+                document.getElementById('depthD').value = 400;
+                document.getElementById('ast').value = 1800; // heavy steel = over-reinforced
+            } else if (presetKey === 'fe500') {
+                document.getElementById('fck').value = 30;
+                document.getElementById('fy').value = 500;
+                document.getElementById('widthB').value = 300;
+                document.getElementById('depthD').value = 500;
+                document.getElementById('ast').value = 1100;
+            }
+            updateParameters();
+        }
+
+        function switchTab(tabName) {
+            state.activeTab = tabName;
+
+            const tabs = ['derivation', 'eli5', 'loadTest'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}Btn`);
+                const content = document.getElementById(`tab${t.charAt(0).toUpperCase() + t.slice(1)}`);
+
+                if (t === tabName) {
+                    btn.className = "pb-2 border-b-2 border-cyber-cyan text-cyber-cyan transition px-3";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "pb-2 border-b-2 border-transparent text-gray-400 hover:text-gray-200 transition px-3";
+                    content.classList.add('hidden');
+                }
+            });
+
+            if (tabName === 'loadTest') {
+                drawLoadTestCanvas();
+            }
+        }
+
+        function toggleEli5Mode() {
+            state.isEli5 = !state.isEli5;
+            const btnText = document.getElementById('eli5Text');
+            const banner = document.getElementById('eli5Banner');
+
+            if (state.isEli5) {
+                btnText.innerText = "ELI5 Mode: ON";
+                banner.classList.remove('hidden');
+                switchTab('eli5');
+            } else {
+                btnText.innerText = "ELI5 Mode: OFF";
+                banner.classList.add('hidden');
+                switchTab('derivation');
+            }
+        }
+
+        function toggleVoiceNarration() {
+            if ('speechSynthesis' in window) {
+                if (window.speechSynthesis.speaking) {
+                    window.speechSynthesis.cancel();
+                    document.getElementById('speechText').innerText = "Voice Explainer";
+                    return;
+                }
+
+                let textToSay = "";
+                if (state.isEli5) {
+                    textToSay = `Hello young explorer! Imagine our concrete beam is like a playground seesaw. The top part gets squished like a sponge, while the bottom steel bars stretch like strong rubber bands! The depth of the neutral axis, x u, is ${state.xu.toFixed(1)} millimeters. The beam can safely hold ${state.mu.toFixed(1)} kilonewton meters of bending weight!`;
+                } else {
+                    textToSay = `Limit state design theory according to I.S. 456. Concrete grade M${state.fck}, steel grade Fe ${state.fy}. The depth of neutral axis x u is calculated by equating total compressive force C, zero point 3 6 f c k b x u, to total tensile force T, zero point 8 7 f y A s t. Here x u equals ${state.xu.toFixed(1)} millimeters. The ultimate moment of resistance M u is ${state.mu.toFixed(2)} kilonewton meters. Section status is ${state.status}.`;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(textToSay);
+                utterance.rate = 0.95;
+                utterance.pitch = 1.0;
+
+                utterance.onend = () => {
+                    document.getElementById('speechText').innerText = "Voice Explainer";
+                };
+
+                document.getElementById('speechText').innerText = "Stop Narration";
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Speech Synthesis is not supported in your browser.");
+            }
+        }
+
+        // Custom Rebar modal handlers
+        function calcCustomRebar() {
+            document.getElementById('rebarModal').classList.remove('hidden');
+        }
+        function closeCustomRebar() {
+            document.getElementById('rebarModal').classList.add('hidden');
+        }
+        function applyCustomRebar() {
+            const num = parseInt(document.getElementById('numBars').value) || 3;
+            const dia = parseInt(document.getElementById('barDia').value) || 20;
+            const area = num * (Math.PI / 4) * dia * dia;
+            document.getElementById('ast').value = Math.round(area);
+            closeCustomRebar();
+            updateParameters();
+        }
+    </script>
+</body>
+</html>

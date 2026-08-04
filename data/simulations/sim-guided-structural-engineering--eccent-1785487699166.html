@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eccentrically Loaded Angle Strut Simulator</title>
+    <style>
+        :root {
+            --bg-main: #0a0f1d;
+            --bg-card: #121829;
+            --border: #222d4a;
+            --border-glow: #314475;
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-cyan: #00f2fe;
+            --accent-purple: #bd5eff;
+            --accent-green: #00f5d4;
+            --accent-red: #ff3860;
+            --accent-orange: #ff9f43;
+            --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            font-family: var(--font-family);
+            line-height: 1.5;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        /* Premium Dashboard Layout */
+        .dashboard-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 450px;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Header Styles */
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            margin-bottom: 10px;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* Sidebar & Configuration Controls */
+        .control-panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            height: fit-content;
+        }
+
+        .panel-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-main);
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-title span {
+            font-size: 0.8rem;
+            color: var(--accent-cyan);
+            background: rgba(0, 242, 254, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 500;
+        }
+
+        label span.val {
+            color: var(--accent-cyan);
+            font-weight: bold;
+            font-family: monospace;
+        }
+
+        /* Custom Dropdown/Select */
+        select {
+            background: var(--bg-main);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 10px;
+            border-radius: 8px;
+            outline: none;
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+        }
+
+        /* Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: var(--border);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-cyan);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Toggle Switches */
+        .toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255,255,255,0.02);
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: var(--border);
+            transition: .3s;
+            border-radius: 22px;
+        }
+
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-round {
+            background-color: var(--accent-purple);
+        }
+
+        input:checked + .slider-round:before {
+            transform: translateX(22px);
+            background-color: var(--accent-cyan);
+        }
+
+        /* Main Workspace */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .canvas-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+        }
+
+        .canvas-card-title {
+            align-self: flex-start;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .canvas-card-title span {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-cyan);
+            display: inline-block;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            max-width: 580px;
+            aspect-ratio: 1.1;
+            background: #080c16;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* Interactive Details overlays */
+        .live-legend {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(10, 15, 29, 0.85);
+            backdrop-filter: blur(4px);
+            border: 1px solid var(--border);
+            padding: 10px 15px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 0.75rem;
+            pointer-events: none;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Double-Engine Output: Design / Structural Calculation Card */
+        .math-engine-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .metric-tile {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .metric-tile:hover {
+            border-color: var(--border-glow);
+            transform: translateY(-2px);
+        }
+
+        .metric-tile::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 3px;
+            background: var(--accent-purple);
+        }
+
+        .metric-tile.cyan::before { background: var(--accent-cyan); }
+        .metric-tile.green::before { background: var(--accent-green); }
+        .metric-tile.red::before { background: var(--accent-red); }
+
+        .metric-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-val {
+            font-size: 1.6rem;
+            font-weight: 700;
+            font-family: monospace;
+            color: var(--text-main);
+        }
+
+        .metric-unit {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-left: 3px;
+        }
+
+        /* Code/Calculations Output Area */
+        .calculations-terminal {
+            background: #070a14;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.85rem;
+            color: #b9c3df;
+            overflow-x: auto;
+            border-left: 4px solid var(--accent-cyan);
+            position: relative;
+        }
+
+        .calculations-terminal::after {
+            content: "IS 800:2007 MATH ENGINE";
+            position: absolute;
+            top: 5px; right: 10px;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+        }
+
+        .step-line {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .step-label {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        .step-math {
+            color: #fff;
+            margin-left: 15px;
+            padding: 3px 0;
+        }
+
+        .step-comment {
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            margin-left: 15px;
+            font-style: italic;
+        }
+
+        /* Capacity Gauge */
+        .capacity-bar-container {
+            width: 100%;
+            height: 12px;
+            background: var(--border);
+            border-radius: 6px;
+            overflow: hidden;
+            margin-top: 10px;
+            position: relative;
+        }
+
+        .capacity-bar-fill {
+            height: 100%;
+            width: 45%;
+            background: linear-gradient(90deg, var(--accent-green), var(--accent-orange), var(--accent-red));
+            transition: width 0.3s ease;
+        }
+
+        /* Dual Canvas/Visuals View Option */
+        .visuals-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            width: 100%;
+        }
+
+        @media (max-width: 768px) {
+            .visuals-split {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Informative Alert box */
+        .alert-info {
+            background: rgba(0, 242, 254, 0.03);
+            border: 1px dashed rgba(0, 242, 254, 0.3);
+            border-radius: 8px;
+            padding: 12px 15px;
+            font-size: 0.8rem;
+            color: #a5b4fc;
+            line-height: 1.4;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+
+        .alert-info svg {
+            flex-shrink: 0;
+            width: 18px;
+            height: 18px;
+            stroke: var(--accent-cyan);
+            margin-top: 2px;
+        }
+
+        /* Drag Hint */
+        .drag-hint {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(255, 56, 96, 0.1);
+            color: var(--accent-red);
+            border: 1px solid rgba(255, 56, 96, 0.2);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            animation: pulse 2s infinite;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .tooltip {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="dashboard-container">
+    
+    <!-- Top Header -->
+    <header>
+        <div>
+            <h1><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg> Eccentrically Loaded Angle Strut Simulator</h1>
+            <p>Step-by-step design verification & asymmetric stress analysis (IS 800:2007)</p>
+        </div>
+        <div style="text-align: right">
+            <span style="color: var(--accent-cyan); font-weight: bold; font-family: monospace;">v1.2.0-Live</span>
+        </div>
+    </header>
+
+    <!-- Workspace Left Side -->
+    <div class="workspace">
+        <div class="visuals-split">
+            <!-- Cross Section Canvas Card -->
+            <div class="canvas-card">
+                <div class="canvas-card-title">
+                    <span></span> 1. Asymmetric Cross-Section Analysis
+                </div>
+                <div class="drag-hint">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m15 18-6-6 6-6"/></svg> Drag Bolt (P) to Adjust Loading Gauge
+                </div>
+                <div class="canvas-container">
+                    <canvas id="crossSectionCanvas" width="450" height="400"></canvas>
+                    <div class="live-legend">
+                        <div class="legend-item"><span class="legend-dot" style="background-color: var(--accent-cyan)"></span> Centroid (G)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background-color: var(--accent-red)"></span> Loading Bolt Line (P)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background-color: var(--accent-purple)"></span> Min Principal Axis (v-v)</div>
+                        <div class="legend-item"><span class="legend-dot" style="background-color: var(--accent-green)"></span> Max Principal Axis (u-u)</div>
+                    </div>
+                </div>
+                <div class="tooltip">Asymmetry causes bending about principal axes rather than geometric axes.</div>
+            </div>
+
+            <!-- Column Deflection & Stress Gradient Card -->
+            <div class="canvas-card">
+                <div class="canvas-card-title">
+                    <span style="background-color: var(--accent-purple)"></span> 2. Combined Deformation & Bending Stress
+                </div>
+                <div class="canvas-container">
+                    <canvas id="deflectionCanvas" width="450" height="400"></canvas>
+                </div>
+                <div class="tooltip">Simulated out-of-plane lateral buckling due to eccentric load moment.</div>
+            </div>
+        </div>
+
+        <!-- Math Engine Card -->
+        <div class="math-engine-card">
+            <div class="panel-title" style="margin-bottom: 20px;">
+                CALCULATION STEPS & IS 800:2007 EQUATIONS
+            </div>
+            
+            <div class="results-grid">
+                <div class="metric-tile cyan">
+                    <div class="metric-label">Eccentricity (ex, ey)</div>
+                    <div class="metric-val" id="metric-ecc">-17.1<span class="metric-unit">mm</span></div>
+                </div>
+                <div class="metric-tile">
+                    <div class="metric-label">Combined Slenderness (&lambda;e)</div>
+                    <div class="metric-val" id="metric-slend">1.42</div>
+                </div>
+                <div class="metric-tile green" id="strength-tile">
+                    <div class="metric-label">Design Strength (Pd)</div>
+                    <div class="metric-val" id="metric-strength">104.2<span class="metric-unit">kN</span></div>
+                </div>
+                <div class="metric-tile red" id="stress-tile">
+                    <div class="metric-label">Max Fiber Stress (&sigma;max)</div>
+                    <div class="metric-val" id="metric-stress">185.1<span class="metric-unit">MPa</span></div>
+                </div>
+            </div>
+
+            <!-- Capacity Progress Bar -->
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.85rem; color: var(--text-muted);">
+                    <span>Capacity Utilization Ratio (Applied P / Design Strength Pd)</span>
+                    <span id="capacity-percentage" style="font-weight: bold; color: var(--accent-orange);">48.2%</span>
+                </div>
+                <div class="capacity-bar-container">
+                    <div class="capacity-bar-fill" id="capacity-fill"></div>
+                </div>
+            </div>
+
+            <!-- Interactive Terminal Output -->
+            <div class="calculations-terminal" id="mathTerminal">
+                <!-- Javascript will render calculations steps dynamically -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Control Panel Sidebar -->
+    <div class="control-panel">
+        <div class="panel-title">
+            MEMBER CONFIGURATION <span>IS 800 Code-Set</span>
+        </div>
+
+        <!-- Dropdown Selector for Angle Section -->
+        <div class="control-group">
+            <label for="angleSelect">Angle Section (ISA - Equal Angle)
+                <span id="section-dims-lbl" style="color: var(--accent-cyan); font-family: monospace;">75 x 75 x 10 mm</span>
+            </label>
+            <select id="angleSelect">
+                <option value="ISA_75_75_10" selected>ISA 75 x 75 x 10</option>
+                <option value="ISA_80_80_10">ISA 80 x 80 x 10</option>
+                <option value="ISA_90_90_10">ISA 90 x 90 x 10</option>
+                <option value="ISA_100_100_10">ISA 100 x 100 x 10</option>
+            </select>
+        </div>
+
+        <!-- Column Effective Length -->
+        <div class="control-group">
+            <label for="lengthSlider">Strut Effective Length (L)
+                <span class="val" id="lengthVal">2.50 m</span>
+            </label>
+            <input type="range" id="lengthSlider" min="1.0" max="5.0" step="0.1" value="2.5">
+        </div>
+
+        <!-- Applied Compression Load -->
+        <div class="control-group">
+            <label for="loadSlider">Applied Compressive Load (P)
+                <span class="val" id="loadVal">50 kN</span>
+            </label>
+            <input type="range" id="loadSlider" min="5" max="150" step="5" value="50">
+        </div>
+
+        <!-- Connection Type (Screwed/Welded) -->
+        <div class="control-group">
+            <label for="connectionSelect">End Connection details</label>
+            <select id="connectionSelect">
+                <option value="single">Single Bolt Connection (Pinned - k1=1.25, k2=0.50, k3=1.25)</option>
+                <option value="double" selected>Double/Multiple Bolts (Rigid - k1=0.35, k2=0.70, k3=0.60)</option>
+            </select>
+        </div>
+
+        <!-- Interactive toggles -->
+        <div class="panel-title" style="font-size: 0.95rem; margin-top: 10px;">
+            VISUALIZATION SETTINGS
+        </div>
+
+        <div class="toggle-container">
+            <span style="font-size: 0.85rem; color: var(--text-muted)">Display Principal Axes (u-u, v-v)</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="togglePrincipalAxes" checked>
+                <span class="slider-round"></span>
+            </label>
+        </div>
+
+        <div class="toggle-container">
+            <span style="font-size: 0.85rem; color: var(--text-muted)">Show Geometric Grid (x-y)</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="toggleGeometricAxes" checked>
+                <span class="slider-round"></span>
+            </label>
+        </div>
+
+        <div class="toggle-container">
+            <span style="font-size: 0.85rem; color: var(--text-muted)">Visualize Stress Profiles</span>
+            <label class="toggle-switch">
+                <input type="checkbox" id="toggleStressProfile" checked>
+                <span class="slider-round"></span>
+            </label>
+        </div>
+
+        <div class="alert-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            <div>
+                <strong>Eccentric Load Effect:</strong> Bolting only through one leg shifts the force application vector from the angle's centroid. This asymmetry results in eccentric moments which cause severe torsion & bending.
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Standard properties database for equal angle section (Indian Standard Angles - ISA)
+    const SECTIONS = {
+        'ISA_75_75_10': { b: 75, h: 75, t: 10, A: 1402, rxx: 22.5, rvv: 14.5, cx: 22.1, cy: 22.1 },
+        'ISA_80_80_10': { b: 80, h: 80, t: 10, A: 1502, rxx: 24.1, rvv: 15.5, cx: 23.4, cy: 23.4 },
+        'ISA_90_90_10': { b: 90, h: 90, t: 10, A: 1702, rxx: 27.2, rvv: 17.5, cx: 25.9, cy: 25.9 },
+        'ISA_100_100_10': { b: 100, h: 100, t: 10, A: 1902, rxx: 30.5, rvv: 19.4, cx: 28.4, cy: 28.4 }
+    };
+
+    // System States
+    let currentSectionKey = 'ISA_75_75_10';
+    let length = 2.5; // meters
+    let P = 50; // kN
+    let gaugeDistance = 40; // mm (Distance from heel to bolt line along connected leg)
+    let connectionType = 'double'; // 'single' or 'double'
+    let showPrincipal = true;
+    let showGeometric = true;
+    let showStressProfile = true;
+
+    // Interaction vars
+    let isDraggingBolt = false;
+
+    // DOM Elements
+    const crossSectionCanvas = document.getElementById('crossSectionCanvas');
+    const deflectionCanvas = document.getElementById('deflectionCanvas');
+    const ctxCS = crossSectionCanvas.getContext('2d');
+    const ctxDef = deflectionCanvas.getContext('2d');
+
+    const angleSelect = document.getElementById('angleSelect');
+    const lengthSlider = document.getElementById('lengthSlider');
+    const loadSlider = document.getElementById('loadSlider');
+    const connectionSelect = document.getElementById('connectionSelect');
+    
+    const lengthVal = document.getElementById('lengthVal');
+    const loadVal = document.getElementById('loadVal');
+    const sectionDimsLbl = document.getElementById('section-dims-lbl');
+
+    const togglePrincipalAxes = document.getElementById('togglePrincipalAxes');
+    const toggleGeometricAxes = document.getElementById('toggleGeometricAxes');
+    const toggleStressProfile = document.getElementById('toggleStressProfile');
+
+    const mathTerminal = document.getElementById('mathTerminal');
+
+    // Setup Event Listeners
+    angleSelect.addEventListener('change', (e) => {
+        currentSectionKey = e.target.value;
+        const section = SECTIONS[currentSectionKey];
+        sectionDimsLbl.innerText = `${section.b} x ${section.h} x ${section.t} mm`;
+        // Set standard gauge based on leg width (approx 0.55 * b)
+        gaugeDistance = Math.round(section.b * 0.55);
+        update();
+    });
+
+    lengthSlider.addEventListener('input', (e) => {
+        length = parseFloat(e.target.value);
+        lengthVal.innerText = `${length.toFixed(2)} m`;
+        update();
+    });
+
+    loadSlider.addEventListener('input', (e) => {
+        P = parseInt(e.target.value);
+        loadVal.innerText = `${P} kN`;
+        update();
+    });
+
+    connectionSelect.addEventListener('change', (e) => {
+        connectionType = e.target.value;
+        update();
+    });
+
+    togglePrincipalAxes.addEventListener('change', (e) => {
+        showPrincipal = e.target.checked;
+        drawCS();
+    });
+
+    toggleGeometricAxes.addEventListener('change', (e) => {
+        showGeometric = e.target.checked;
+        drawCS();
+    });
+
+    toggleStressProfile.addEventListener('change', (e) => {
+        showStressProfile = e.target.checked;
+        drawCS();
+        drawDeflection();
+    });
+
+    // Cross Section mouse drag event for interactive bolt distance 'g'
+    crossSectionCanvas.addEventListener('mousedown', (e) => {
+        const mousePos = getMousePos(crossSectionCanvas, e);
+        const section = SECTIONS[currentSectionKey];
+        const scale = 2.4; 
+        const originX = 140; 
+        const originY = 285; 
+
+        // Current bolt coordinates in pixels
+        const boltPxX = originX + (section.t / 2) * scale;
+        const boltPxY = originY - gaugeDistance * scale;
+
+        // Check if mouse clicked near the bolt
+        const dist = Math.hypot(mousePos.x - boltPxX, mousePos.y - boltPxY);
+        if (dist < 15) {
+            isDraggingBolt = true;
+        }
+    });
+
+    crossSectionCanvas.addEventListener('mousemove', (e) => {
+        const mousePos = getMousePos(crossSectionCanvas, e);
+        const section = SECTIONS[currentSectionKey];
+        const scale = 2.4; 
+        const originX = 140; 
+        const originY = 285; 
+
+        // Update cursor visual if close to bolt
+        const boltPxX = originX + (section.t / 2) * scale;
+        const boltPxY = originY - gaugeDistance * scale;
+        const dist = Math.hypot(mousePos.x - boltPxX, mousePos.y - boltPxY);
+        
+        if (dist < 15 || isDraggingBolt) {
+            crossSectionCanvas.style.cursor = 'ns-resize';
+        } else {
+            crossSectionCanvas.style.cursor = 'crosshair';
+        }
+
+        if (isDraggingBolt) {
+            // Calculate new gauge distance based on dynamic vertical position
+            let calculatedGauge = (originY - mousePos.y) / scale;
+            // Bound safety constraints
+            if (calculatedGauge < 15) calculatedGauge = 15;
+            if (calculatedGauge > section.h - 15) calculatedGauge = section.h - 15;
+            gaugeDistance = Math.round(calculatedGauge);
+            update();
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDraggingBolt = false;
+    });
+
+    function getMousePos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+            x: evt.clientX - rect.left,
+            y: evt.clientY - rect.top
+        };
+    }
+
+    // Core Calculation and Engine Updates
+    function update() {
+        const data = calculateStrutData();
+        renderMathOutput(data);
+        drawCS(data);
+        drawDeflection(data);
+    }
+
+    function calculateStrutData() {
+        const section = SECTIONS[currentSectionKey];
+        const A = section.A;
+        const b = section.b;
+        const h = section.h;
+        const t = section.t;
+        const cx = section.cx;
+        const cy = section.cy;
+        const rvv = section.rvv;
+        const rxx = section.rxx;
+
+        // Geometric moments of inertia
+        const Ixx = A * Math.pow(rxx, 2);
+        const Iyy = Ixx; // For equal angles Ixx = Iyy
+        const Ivv = A * Math.pow(rvv, 2);
+        // Product of inertia Ixy about centroid. Since Ivv is minimum principal:
+        // Ivv = Ixx - |Ixy| => Ixy = -(Ixx - Ivv) for positive-positive angle quadrants
+        const Ixy = -(Ixx - Ivv);
+        const Iuu = 2 * Ixx - Ivv;
+
+        // Position of load P (middle of connected leg width)
+        const xP = t / 2;
+        const yP = gaugeDistance;
+
+        // Eccentricity relative to Centroid
+        const ex = xP - cx;
+        const ey = yP - cy;
+
+        // Moments relative to geometric axes
+        // P force is positive compression (Newtons)
+        const P_N = P * 1000;
+        const Mx = P_N * ey; // N-mm
+        const My = -P_N * ex; // N-mm
+
+        // Determine critical stresses at vertices
+        // We'll calculate stress at: Heel (0,0), Vertical Tip (0, h), Horizontal Tip (b, 0)
+        // General asymmetric bending formula: 
+        // stress = P/A + (Mx*Iyy - My*Ixy)/(Ixx*Iyy - Ixy^2)*y_rel + (My*Ixx - Mx*Ixy)/(Ixx*Iyy - Ixy^2)*x_rel
+        const den = Ixx * Iyy - Math.pow(Ixy, 2);
+        
+        const calcStress = (x, y) => {
+            const x_rel = x - cx;
+            const y_rel = y - cy;
+            const termAxial = P_N / A;
+            const termY = ((Mx * Iyy - My * Ixy) / den) * y_rel;
+            const termX = ((My * Ixx - Mx * Ixy) / den) * x_rel;
+            return termAxial + termY + termX; // MPa
+        };
+
+        const stressHeel = calcStress(0, 0);
+        const stressVertTip = calcStress(0, h);
+        const stressHorizTip = calcStress(b, 0);
+        const maxStress = Math.max(stressHeel, stressVertTip, stressHorizTip);
+
+        // IS 800 Code Slenderness Ratio Logic
+        const E = 200000; // MPa
+        const fy = 250; // Yield strength
+        const lambda_crit = Math.PI * Math.sqrt(E / fy); // 88.85
+        
+        const lambda_vv = (length * 1000) / rvv;
+        const lambda_vv_nd = lambda_vv / lambda_crit; // Non-dimensional
+
+        // Outstanding leg slenderness
+        const lambda_phi = (b / t) / lambda_crit;
+
+        // Factors k1, k2, k3 based on connection
+        let k1, k2, k3;
+        if (connectionType === 'single') {
+            k1 = 1.25; k2 = 0.50; k3 = 1.25;
+        } else {
+            k1 = 0.35; k2 = 0.70; k3 = 0.60;
+        }
+
+        // Equivalent Slenderness ratio: Eq 7.5.1.2 IS 800:2007
+        const lambda_e_nd = Math.sqrt(k1 + k2 * Math.pow(lambda_vv_nd, 2) + k3 * Math.pow(lambda_phi, 2));
+        const lambda_e = lambda_e_nd * lambda_crit;
+
+        // Buckling calculations (Perry-Robertson formulation as per IS 800:2007 Clause 7.1.2)
+        const alpha = 0.49; // Buckling curve 'c' for angle sections
+        const phi = 0.5 * (1 + alpha * (lambda_e_nd - 0.2) + Math.pow(lambda_e_nd, 2));
+        const partialSafetyFactor = 1.1; // gamma_m0
+        const fcd = Math.min(fy, (fy / partialSafetyFactor) / (phi + Math.sqrt(Math.pow(phi, 2) - Math.pow(lambda_e_nd, 2))));
+        const Pd = (A * fcd) / 1000; // Design Strength in kN
+
+        // Capacity utilization
+        const utilization = (P / Pd) * 100;
+
+        return {
+            section, A, b, h, t, cx, cy, rvv, ex, ey, Mx, My,
+            stressHeel, stressVertTip, stressHorizTip, maxStress,
+            lambda_vv, lambda_vv_nd, lambda_phi, lambda_e, lambda_e_nd,
+            fcd, Pd, utilization
+        };
+    }
+
+    function renderMathOutput(d) {
+        // Render Metric tiles
+        document.getElementById('metric-ecc').innerHTML = `${Math.abs(d.ex).toFixed(1)}<span class="metric-unit">, ${d.ey.toFixed(1)} mm</span>`;
+        document.getElementById('metric-slend').innerText = d.lambda_e.toFixed(1);
+        document.getElementById('metric-strength').innerHTML = `${d.Pd.toFixed(1)}<span class="metric-unit">kN</span>`;
+        document.getElementById('metric-stress').innerHTML = `${d.maxStress.toFixed(1)}<span class="metric-unit">MPa</span>`;
+
+        // Update capacity fill
+        const fill = document.getElementById('capacity-fill');
+        const percentageText = document.getElementById('capacity-percentage');
+        fill.style.width = `${Math.min(d.utilization, 100)}%`;
+        percentageText.innerText = `${d.utilization.toFixed(1)}%`;
+
+        const stressTile = document.getElementById('stress-tile');
+        const strengthTile = document.getElementById('strength-tile');
+
+        if (d.maxStress > 250) {
+            stressTile.style.borderColor = 'var(--accent-red)';
+            stressTile.querySelector('.metric-val').style.color = 'var(--accent-red)';
+        } else {
+            stressTile.style.borderColor = 'var(--border)';
+            stressTile.querySelector('.metric-val').style.color = 'var(--text-main)';
+        }
+
+        if (d.utilization > 100) {
+            strengthTile.style.borderColor = 'var(--accent-red)';
+            percentageText.style.color = 'var(--accent-red)';
+            fill.style.background = 'var(--accent-red)';
+        } else {
+            strengthTile.style.borderColor = 'var(--border)';
+            percentageText.style.color = 'var(--accent-orange)';
+            fill.style.background = 'linear-gradient(90deg, var(--accent-green), var(--accent-orange), var(--accent-red))';
+        }
+
+        // Terminal code output
+        mathTerminal.innerHTML = `
+<div class="step-line">
+    <span class="step-label">Step 1: Cross-Sectional Geometry (ISA ${d.section.b}x${d.section.h}x${d.section.t})</span>
+    <span class="step-math">Area (A) = ${d.A} mm² | cx = cy = ${d.cx} mm | rvv = ${d.rvv} mm</span>
+    <span class="step-comment">// High asymmetry relative to loading plane.</span>
+</div>
+<div class="step-line">
+    <span class="step-label">Step 2: Applied Load Eccentricity Vector</span>
+    <span class="step-math">Bolt Loading point (xP, yP) = (${(d.section.t/2).toFixed(1)}, ${gaugeDistance}.0) mm</span>
+    <span class="step-math">ex = xP - cx = ${d.ex.toFixed(1)} mm | ey = yP - cy = ${d.ey.toFixed(1)} mm</span>
+    <span class="step-math">Mx = P × ey = ${(d.Mx/1000000).toFixed(2)} kNm | My = -P × ex = ${(-d.My/1000000).toFixed(2)} kNm</span>
+</div>
+<div class="step-line">
+    <span class="step-label">Step 3: Slenderness & Code Equivalent Slenderness (IS 800:2007)</span>
+    <span class="step-math">&lambda;_vv = L / rvv = ${(length * 1000).toFixed(0)} / ${d.rvv} = ${d.lambda_vv.toFixed(1)}</span>
+    <span class="step-math">&lambda;_phi (outstanding leg) = (b/t) / 88.85 = ${(d.b/d.t).toFixed(1)} / 88.85 = ${d.lambda_phi.toFixed(3)}</span>
+    <span class="step-math">&lambda;_e = &radic;(k1 + k2×&lambda;_vv_nd² + k3×&lambda;_phi²) = <strong>${d.lambda_e.toFixed(2)}</strong></span>
+    <span class="step-comment">// Evaluated utilizing connection parameters (k1, k2, k3) = (${connectionType === 'single' ? '1.25, 0.50, 1.25' : '0.35, 0.70, 0.60'}).</span>
+</div>
+<div class="step-line">
+    <span class="step-label">Step 4: Ultimate Column Capacity & Combined Stress</span>
+    <span class="step-math">Design Compressive Stress (fcd) = ${d.fcd.toFixed(1)} MPa</span>
+    <span class="step-math">Design Strength (Pd) = A × fcd = ${d.Pd.toFixed(1)} kN</span>
+    <span class="step-math">Peak Elastic Stress = <strong>${d.maxStress.toFixed(1)} MPa</strong> (at outer Heel)</span>
+    <span class="step-comment">// Stress calculated using full 2D asymmetric product-of-inertia matrix.</span>
+</div>`;
+    }
+
+    // Draw Cross-Section
+    function drawCS(d) {
+        if (!d) d = calculateStrutData();
+        ctxCS.clearRect(0, 0, crossSectionCanvas.width, crossSectionCanvas.height);
+
+        const width = crossSectionCanvas.width;
+        const height = crossSectionCanvas.height;
+
+        // Draw dark blueprint background grid
+        if (showGeometric) {
+            ctxCS.strokeStyle = 'rgba(34, 45, 74, 0.4)';
+            ctxCS.lineWidth = 1;
+            const gridSize = 20;
+            for (let i = 0; i < width; i += gridSize) {
+                ctxCS.beginPath(); ctxCS.moveTo(i, 0); ctxCS.lineTo(i, height); ctxCS.stroke();
+            }
+            for (let j = 0; j < height; j += gridSize) {
+                ctxCS.beginPath(); ctxCS.moveTo(0, j); ctxCS.lineTo(width, j); ctxCS.stroke();
+            }
+        }
+
+        // Configuration
+        const scale = 2.4; // px / mm
+        const originX = 140; // Heel position X
+        const originY = 285; // Heel position Y
+
+        const b_px = d.b * scale;
+        const h_px = d.h * scale;
+        const t_px = d.t * scale;
+
+        // Draw Gusset Plate (Represented as a backing glow panel)
+        ctxCS.fillStyle = 'rgba(49, 68, 117, 0.15)';
+        ctxCS.strokeStyle = 'rgba(49, 68, 117, 0.5)';
+        ctxCS.lineWidth = 2;
+        ctxCS.fillRect(originX - 16, originY - h_px - 20, 16, h_px + 50);
+        ctxCS.strokeRect(originX - 16, originY - h_px - 20, 16, h_px + 50);
+
+        ctxCS.fillStyle = 'rgba(49, 68, 117, 0.4)';
+        ctxCS.font = '10px monospace';
+        ctxCS.fillText('GUSSET PLATE', originX - 15, originY - h_px - 28);
+
+        // Draw Angle Section Poly
+        ctxCS.beginPath();
+        ctxCS.moveTo(originX, originY); // Heel
+        ctxCS.lineTo(originX + b_px, originY); // Horizontal toe outer
+        ctxCS.lineTo(originX + b_px, originY - t_px); // Horizontal thickness vertical up
+        ctxCS.lineTo(originX + t_px, originY - t_px); // Inner corner bend joint
+        ctxCS.lineTo(originX + t_px, originY - h_px); // Vertical thickness vertical up
+        ctxCS.lineTo(originX, originY - h_px); // Vertical toe outer top
+        ctxCS.closePath();
+
+        // Solid neon fill with glowing stroke
+        ctxCS.fillStyle = 'rgba(18, 24, 41, 0.8)';
+        ctxCS.fill();
+        ctxCS.strokeStyle = '#314475';
+        ctxCS.lineWidth = 3;
+        ctxCS.stroke();
+
+        // Draw Geometric Axes centered on Centroid (cx, cy)
+        const cx_px = originX + d.cx * scale;
+        const cy_px = originY - d.cy * scale;
+
+        if (showGeometric) {
+            ctxCS.setLineDash([5, 5]);
+            ctxCS.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+            ctxCS.lineWidth = 1;
+
+            // X-X Axis
+            ctxCS.beginPath();
+            ctxCS.moveTo(50, cy_px);
+            ctxCS.lineTo(width - 50, cy_px);
+            ctxCS.stroke();
+            ctxCS.fillStyle = 'var(--accent-cyan)';
+            ctxCS.fillText('x', width - 45, cy_px + 3);
+
+            // Y-Y Axis
+            ctxCS.beginPath();
+            ctxCS.moveTo(cx_px, 30);
+            ctxCS.lineTo(cx_px, height - 30);
+            ctxCS.stroke();
+            ctxCS.fillText('y', cx_px - 4, 25);
+            ctxCS.setLineDash([]);
+        }
+
+        // Draw Principal Axes (u-u, v-v rotated by 45 degrees for equal angles)
+        if (showPrincipal) {
+            ctxCS.save();
+            ctxCS.translate(cx_px, cy_px);
+            ctxCS.rotate(-45 * Math.PI / 180); // Rotate 45deg counter-clockwise
+
+            ctxCS.setLineDash([4, 4]);
+            
+            // Axis u-u (Maximum inertia diagonal)
+            ctxCS.strokeStyle = 'rgba(0, 245, 212, 0.6)';
+            ctxCS.lineWidth = 1.5;
+            ctxCS.beginPath();
+            ctxCS.moveTo(-160, 0);
+            ctxCS.lineTo(160, 0);
+            ctxCS.stroke();
+            ctxCS.fillStyle = 'var(--accent-green)';
+            ctxCS.fillText('u', 145, -5);
+
+            // Axis v-v (Minimum inertia diagonal)
+            ctxCS.strokeStyle = 'rgba(189, 94, 255, 0.6)';
+            ctxCS.beginPath();
+            ctxCS.moveTo(0, -160);
+            ctxCS.lineTo(0, 160);
+            ctxCS.stroke();
+            ctxCS.fillStyle = 'var(--accent-purple)';
+            ctxCS.fillText('v', 8, -145);
+
+            ctxCS.restore();
+            ctxCS.setLineDash([]);
+        }
+
+        // Centroid Point Indicator
+        ctxCS.beginPath();
+        ctxCS.arc(cx_px, cy_px, 6, 0, 2 * Math.PI);
+        ctxCS.fillStyle = 'var(--accent-cyan)';
+        ctxCS.shadowColor = 'var(--accent-cyan)';
+        ctxCS.shadowBlur = 10;
+        ctxCS.fill();
+        ctxCS.shadowBlur = 0; // Reset blur
+        ctxCS.strokeStyle = '#fff';
+        ctxCS.lineWidth = 1.5;
+        ctxCS.stroke();
+        ctxCS.fillText('G (Centroid)', cx_px + 10, cy_px - 8);
+
+        // Drawing Bolt loading line & P point
+        const boltPxX = originX + (d.section.t / 2) * scale;
+        const boltPxY = originY - gaugeDistance * scale;
+
+        // Draw loading path vector
+        ctxCS.strokeStyle = 'rgba(255, 56, 96, 0.3)';
+        ctxCS.lineWidth = 2;
+        ctxCS.setLineDash([3, 3]);
+        ctxCS.beginPath();
+        ctxCS.moveTo(boltPxX, originY + 10);
+        ctxCS.lineTo(boltPxX, originY - h_px - 10);
+        ctxCS.stroke();
+        ctxCS.setLineDash([]);
+
+        // Highlight Eccentricity Vector (G to P)
+        ctxCS.strokeStyle = 'var(--accent-orange)';
+        ctxCS.lineWidth = 1.5;
+        ctxCS.beginPath();
+        ctxCS.moveTo(cx_px, cy_px);
+        ctxCS.lineTo(boltPxX, boltPxY);
+        ctxCS.stroke();
+
+        // P point circle
+        ctxCS.beginPath();
+        ctxCS.arc(boltPxX, boltPxY, 8, 0, 2 * Math.PI);
+        ctxCS.fillStyle = 'var(--accent-red)';
+        ctxCS.shadowColor = 'var(--accent-red)';
+        ctxCS.shadowBlur = 15;
+        ctxCS.fill();
+        ctxCS.shadowBlur = 0;
+        ctxCS.strokeStyle = '#fff';
+        ctxCS.lineWidth = 2;
+        ctxCS.stroke();
+
+        // Arrow head for P (representing compression vector into the page)
+        ctxCS.fillStyle = '#fff';
+        ctxCS.font = 'bold 9px monospace';
+        ctxCS.fillText('P', boltPxX - 3, boltPxY + 3);
+
+        ctxCS.fillStyle = 'var(--accent-red)';
+        ctxCS.fillText(`Gauge g = ${gaugeDistance} mm`, boltPxX + 12, boltPxY + 14);
+
+        // Display Stress Labels
+        if (showStressProfile) {
+            drawStressMarker(ctxCS, originX, originY, d.stressHeel, "Heel");
+            drawStressMarker(ctxCS, originX + b_px, originY - t_px/2, d.stressHorizTip, "Tip 1");
+            drawStressMarker(ctxCS, originX + t_px/2, originY - h_px, d.stressVertTip, "Tip 2");
+        }
+    }
+
+    function drawStressMarker(ctx, x, y, value, label) {
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        const color = value > 250 ? 'var(--accent-red)' : 'var(--accent-green)';
+        ctx.fillStyle = color;
+        ctx.fill();
+
+        ctx.font = '9px monospace';
+        ctx.fillStyle = 'var(--text-muted)';
+        ctx.fillText(`${label}: `, x + 8, y - 4);
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(`${value.toFixed(1)} MPa`, x + 8, y + 6);
+    }
+
+    // Draw Column Deflection
+    function drawDeflection(d) {
+        if (!d) d = calculateStrutData();
+        ctxDef.clearRect(0, 0, deflectionCanvas.width, deflectionCanvas.height);
+
+        const w = deflectionCanvas.width;
+        const h = deflectionCanvas.height;
+
+        // Draw card title inside canvas
+        ctxDef.fillStyle = 'var(--text-muted)';
+        ctxDef.font = '10px system-ui';
+        ctxDef.fillText('OUT-OF-PLANE COLUMN DEFLECTION MODEL', 20, 30);
+
+        // Column line rendering (Center coordinates)
+        const colX = w / 2;
+        const colTopY = 60;
+        const colBottomY = h - 60;
+        const colH = colBottomY - colTopY;
+
+        // Draw original straight column reference
+        ctxDef.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+        ctxDef.lineWidth = 15;
+        ctxDef.lineCap = 'round';
+        ctxDef.beginPath();
+        ctxDef.moveTo(colX, colTopY);
+        ctxDef.lineTo(colX, colBottomY);
+        ctxDef.stroke();
+
+        // Calculate maximum visual buckle deflection based on load and eccentricity
+        // Deflection curve ~ eccentricity * (sec(u) - 1)
+        const P_crit_ideal = (Math.pow(Math.PI, 2) * 200000 * (d.A * Math.pow(d.rvv, 2))) / Math.pow(length * 1000, 2); // N
+        const loadRatio = Math.min((P * 1000) / P_crit_ideal, 0.95);
+        const maxDeflectionScale = 45 * (d.ey / 30) * (loadRatio / (1 - loadRatio + 0.1));
+        const limitedDef = Math.max(-80, Math.min(80, maxDeflectionScale));
+
+        // Draw Buckled shape line
+        ctxDef.beginPath();
+        ctxDef.moveTo(colX, colTopY);
+        
+        // Render parabola/sine wave for first buckling mode
+        const points = 30;
+        for (let i = 0; i <= points; i++) {
+            const t = i / points;
+            const y = colTopY + t * colH;
+            const sineOffset = Math.sin(t * Math.PI) * limitedDef;
+            ctxDef.lineTo(colX + sineOffset, y);
+        }
+        
+        const gradient = ctxDef.createLinearGradient(colX - 40, colTopY, colX + 40, colBottomY);
+        gradient.addColorStop(0, 'var(--accent-purple)');
+        gradient.addColorStop(0.5, 'var(--accent-red)');
+        gradient.addColorStop(1, 'var(--accent-orange)');
+
+        ctxDef.strokeStyle = gradient;
+        ctxDef.lineWidth = 8;
+        ctxDef.shadowColor = 'var(--accent-red)';
+        ctxDef.shadowBlur = 10;
+        ctxDef.stroke();
+        ctxDef.shadowBlur = 0; // reset
+
+        // Draw pinned support representation at ends
+        drawSupport(ctxDef, colX, colTopY, true);
+        drawSupport(ctxDef, colX, colBottomY, false);
+
+        // Force vector at top showing eccentricity
+        const eccentricityVisualShift = limitedDef * 0.4;
+        ctxDef.strokeStyle = 'var(--accent-red)';
+        ctxDef.lineWidth = 3;
+        
+        // Draw P vector arrow
+        const arrowX = colX + eccentricityVisualShift;
+        ctxDef.beginPath();
+        ctxDef.moveTo(arrowX, colTopY - 45);
+        ctxDef.lineTo(arrowX, colTopY - 10);
+        ctxDef.stroke();
+        
+        // Arrowhead
+        ctxDef.beginPath();
+        ctxDef.moveTo(arrowX - 6, colTopY - 18);
+        ctxDef.lineTo(arrowX, colTopY - 10);
+        ctxDef.lineTo(arrowX + 6, colTopY - 18);
+        ctxDef.stroke();
+
+        ctxDef.fillStyle = 'var(--accent-red)';
+        ctxDef.font = 'bold 11px monospace';
+        ctxDef.fillText(`Load P = ${P} kN`, arrowX + 10, colTopY - 30);
+        ctxDef.fillText(`(Eccentric Force)`, arrowX + 10, colTopY - 18);
+
+        // Dimension of deflection label
+        if (Math.abs(limitedDef) > 2) {
+            const midY = colTopY + colH/2;
+            ctxDef.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctxDef.lineWidth = 1;
+            ctxDef.setLineDash([2, 2]);
+            ctxDef.beginPath();
+            ctxDef.moveTo(colX, midY);
+            ctxDef.lineTo(colX + limitedDef, midY);
+            ctxDef.stroke();
+            ctxDef.setLineDash([]);
+
+            ctxDef.fillStyle = '#fff';
+            ctxDef.font = '10px monospace';
+            ctxDef.fillText(`Bending Biaxial Deflection`, colX + (limitedDef > 0 ? 8 : limitedDef - 140), midY - 6);
+        }
+    }
+
+    function drawSupport(ctx, x, y, isTop) {
+        ctx.fillStyle = '#1e293b';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+        
+        ctx.beginPath();
+        if (isTop) {
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 12, y - 12);
+            ctx.lineTo(x + 12, y - 12);
+        } else {
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 12, y + 12);
+            ctx.lineTo(x + 12, y + 12);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Pin hinge dot
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, 2 * Math.PI);
+        ctx.fillStyle = '#fff';
+        ctx.fill();
+    }
+
+    // Initialize execution
+    update();
+</script>
+
+</body>
+</html>

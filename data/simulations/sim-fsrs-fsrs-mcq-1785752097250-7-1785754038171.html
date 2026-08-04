@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contrast of Size - Interactive Playful Sandbox</title>
+  <style>
+    :root {
+      --bg-dark: #0a0b10;
+      --panel-bg: #141622;
+      --neon-cyan: #00f0ff;
+      --neon-pink: #ff007f;
+      --neon-lime: #39ff14;
+      --text-light: #f0f3f8;
+      --text-dim: #8a90a6;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-dark);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--text-light);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .sandbox-container {
+      width: 900px;
+      background: var(--panel-bg);
+      border-radius: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(0, 240, 255, 0.1);
+      border: 2px solid #22263f;
+      padding: 24px;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .sandbox-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px dashed #22263f;
+      padding-bottom: 16px;
+    }
+
+    .sandbox-title h1 {
+      margin: 0;
+      font-size: 24px;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+    }
+
+    .btn-narrate {
+      background: linear-gradient(135deg, var(--neon-pink), #b30059);
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      font-weight: bold;
+      border-radius: 50px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 380px;
+      background: #08090d;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid #1a1d30;
+    }
+
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .control-panel {
+      background: #191c2c;
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .giant-slider {
+      width: 100%;
+      height: 12px;
+      background: #0b0c10;
+      border-radius: 10px;
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .giant-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--neon-lime);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-lime);
+    }
+
+    .mcq-section { background: #0d0f1a; padding: 20px; border-radius: 16px; border: 1px solid #1e2238; }
+    .options-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 15px; }
+    .option-btn { background: #191c2c; border: 2px solid #252a42; color: var(--text-light); padding: 12px; border-radius: 12px; cursor: pointer; text-align: left; }
+    .option-btn:hover { border-color: var(--neon-cyan); background: #1d2238; }
+  </style>
+</head>
+<body>
+
+<div class="sandbox-container">
+  <header class="sandbox-header">
+    <div class="sandbox-title"><h1>📐 Block Sandbox</h1></div>
+    <button class="btn-narrate" onclick="narrateStory()">🔊 Storytime</button>
+  </header>
+
+  <div class="canvas-container" id="canvasWrapper">
+    <canvas id="simCanvas"></canvas>
+  </div>
+
+  <div class="control-panel">
+    <input type="range" class="giant-slider" id="sizeSlider" min="0.15" max="3.2" step="0.01" value="1.0" oninput="updateScale(this.value)">
+  </div>
+
+  <section class="mcq-section">
+    <div id="questionText">How is "Contrast of Size" achieved between components?</div>
+    <div class="options-grid" id="optionsContainer"></div>
+  </section>
+</div>
+
+<script>
+  let scaleFactor = 1.0, targetScale = 1.0, jellyWobbleX = 0, jellyWobbleY = 0, wobbleVelocityX = 0, wobbleVelocityY = 0;
+  const canvas = document.getElementById('simCanvas'), ctx = canvas.getContext('2d');
+  let audioCtx, oscillator, gainNode;
+
+  function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    oscillator = audioCtx.createOscillator();
+    gainNode = audioCtx.createGain();
+    oscillator.type = 'triangle';
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    oscillator.start();
+  }
+
+  function updateScale(val) {
+    initAudio();
+    targetScale = parseFloat(val);
+    const freq = 150 + ((1 / targetScale) * 350);
+    oscillator.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+    gainNode.gain.setTargetAtTime(0.12, audioCtx.currentTime, 0.01);
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    wobbleVelocityX += (-0.08 * jellyWobbleX);
+    wobbleVelocityY += (-0.08 * jellyWobbleY);
+    jellyWobbleX += (wobbleVelocityX *= 0.82);
+    jellyWobbleY += (wobbleVelocityY *= 0.82);
+    scaleFactor += (targetScale - scaleFactor) * 0.15;
+
+    const bW = 75, bH = 120;
+    
+    // Constant
+    ctx.strokeStyle = '#ff007f';
+    ctx.lineWidth = 4;
+    ctx.strokeRect(canvas.width * 0.3 - bW/2, canvas.height * 0.5 - bH/2, bW, bH);
+    
+    // Mutant
+    const mW = bW * scaleFactor + jellyWobbleX, mH = bH * scaleFactor + jellyWobbleY;
+    ctx.strokeStyle = '#00f0ff';
+    ctx.strokeRect(canvas.width * 0.7 - mW/2, canvas.height * 0.5 - mH/2, mW, mH);
+
+    requestAnimationFrame(draw);
+  }
+
+  function narrateStory() {
+    const text = "Observe the two blocks. By scaling the second block while maintaining its geometric ratio, we create a visual hierarchy. This is Contrast of Size.";
+    const u = new SpeechSynthesisUtterance(text);
+    window.speechSynthesis.speak(u);
+  }
+
+  function renderOptions(opts) {
+    const container = document.getElementById('optionsContainer');
+    container.innerHTML = '';
+    opts.forEach((o, i) => {
+      const btn = document.createElement('button');
+      btn.className = 'option-btn';
+      btn.innerHTML = `${String.fromCharCode(65+i)}) ${o.text}`;
+      btn.onclick = () => window.parent.postMessage({ type: 'mcq-selected', optionIndex: o.originalIndex }, '*');
+      container.appendChild(btn);
+    });
+  }
+
+  window.addEventListener('message', (e) => {
+    if (e.data.type === 'init-mcq-options') renderOptions(e.data.options);
+  });
+
+  window.onresize = () => { canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; };
+  window.onresize();
+  draw();
+</script>
+</body>
+</html>

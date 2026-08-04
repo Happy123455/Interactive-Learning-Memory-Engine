@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flexible Pavement Construction Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-cyan: #00f0ff;
+            --neon-purple: #9d4edd;
+            --neon-orange: #ff7b00;
+            --neon-green: #39ff14;
+            --cyber-dark: #0a0a0c;
+            --cyber-gray: #16161a;
+            --glass-bg: rgba(22, 22, 26, 0.7);
+            --glass-border: rgba(0, 240, 255, 0.15);
+        }
+
+        body {
+            background-color: var(--cyber-dark);
+            color: #e2e8f0;
+            font-family: 'Rajdhani', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .orbitron {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Glassmorphism Cards */
+        .glass-panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 240, 255, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 240, 255, 0.1);
+        }
+
+        /* Neon Glow Utility */
+        .glow-cyan { text-shadow: 0 0 10px var(--neon-cyan); }
+        .glow-orange { text-shadow: 0 0 10px var(--neon-orange); }
+        .glow-green { text-shadow: 0 0 10px var(--neon-green); }
+        
+        .border-glow-cyan { box-shadow: 0 0 15px rgba(0, 240, 255, 0.2), inset 0 0 15px rgba(0, 240, 255, 0.1); }
+        .border-glow-purple { box-shadow: 0 0 15px rgba(157, 78, 221, 0.2), inset 0 0 15px rgba(157, 78, 221, 0.1); }
+        .border-glow-orange { box-shadow: 0 0 15px rgba(255, 123, 0, 0.2), inset 0 0 15px rgba(255, 123, 0, 0.1); }
+        .border-glow-green { box-shadow: 0 0 20px rgba(57, 255, 20, 0.4), inset 0 0 20px rgba(57, 255, 20, 0.2); }
+
+        /* Custom Scrollbar for inner content cards */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 3px;
+        }
+
+        /* Drag and Drop animations */
+        .drag-chip {
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .drag-chip:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+        .drop-zone-active {
+            border-color: var(--neon-cyan) !important;
+            background: rgba(0, 240, 255, 0.05);
+        }
+
+        /* Hot overlay animation */
+        @keyframes heatPulse {
+            0% { opacity: 0.8; filter: hue-rotate(0deg); }
+            50% { opacity: 1; filter: hue-rotate(15deg); }
+            100% { opacity: 0.8; filter: hue-rotate(0deg); }
+        }
+        .heat-active {
+            animation: heatPulse 2s infinite ease-in-out;
+        }
+
+        /* LED indicators */
+        .led {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            transition: all 0.3s;
+        }
+        .led-active {
+            box-shadow: 0 0 12px currentColor;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden p-3 gap-3">
+
+    <!-- TOP HEADER / INFOBAR -->
+    <header class="h-16 flex items-center justify-between px-6 glass-panel rounded-xl border-glow-cyan">
+        <div class="flex items-center gap-4">
+            <div class="w-3 h-3 bg-cyan-400 rounded-full animate-ping"></div>
+            <div>
+                <h1 class="text-2xl font-black tracking-wider text-slate-100 uppercase orbitron flex items-center gap-2">
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-500">PAVE-SIM</span>
+                    <span class="text-xs bg-cyan-950 text-cyan-400 border border-cyan-500 px-2 py-0.5 rounded tracking-normal normal-case font-mono">v2.4 - FLEXIBLE BI-ROAD</span>
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-8">
+            <div class="hidden md:flex gap-6 text-sm font-semibold tracking-wider uppercase">
+                <div class="flex items-center gap-2">
+                    <span class="text-slate-500">SYSTEM STATE:</span>
+                    <span id="phase-badge" class="text-cyan-400 font-mono glow-cyan">INITIATING</span>
+                </div>
+                <div class="flex items-center gap-2 border-l border-slate-800 pl-6">
+                    <span class="text-slate-500">TEMP STATUS:</span>
+                    <span id="temp-badge" class="text-orange-400 font-mono glow-orange">STANDBY</span>
+                </div>
+            </div>
+
+            <!-- Global Action Controls -->
+            <div class="flex items-center gap-3">
+                <button id="btn-audio-toggle" onclick="toggleAudio()" class="p-2 rounded border border-slate-700 hover:border-cyan-400 text-slate-400 hover:text-cyan-400 transition" title="Toggle Synthesized Audio Feedback">
+                    <svg id="audio-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                </button>
+                <button id="btn-voice-toggle" onclick="toggleVoice()" class="p-2 rounded border border-slate-700 hover:border-cyan-400 text-slate-400 hover:text-cyan-400 transition" title="Toggle AI Voiceover Assistant">
+                    <svg id="voice-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </button>
+                <button onclick="resetSimulation()" class="px-4 py-1.5 rounded bg-red-950 border border-red-700 hover:bg-red-900 text-red-200 transition text-sm font-semibold tracking-wide flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 12H16" /></svg>
+                    RESTART
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- CORE WORKSPACE GRID -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+
+        <!-- LEFT PANEL: VISUAL INTERACTIVE SIMULATOR (7 COLS) -->
+        <section class="lg:col-span-8 flex flex-col gap-3 min-h-0">
+            <!-- Paving / Compaction Main Interactive Canvas -->
+            <div class="flex-1 glass-panel rounded-xl overflow-hidden relative flex flex-col min-h-0">
+                <div class="absolute top-4 left-4 z-10 flex gap-2">
+                    <span class="px-3 py-1 bg-black/60 backdrop-blur text-cyan-400 border border-cyan-500/30 rounded text-xs font-mono font-bold tracking-widest uppercase">
+                        REALTIME PAVING SECTOR - CROSS SECTION
+                    </span>
+                </div>
+
+                <div class="absolute top-4 right-4 z-10 flex items-center gap-3 bg-black/60 backdrop-blur px-3 py-1.5 rounded border border-slate-800">
+                    <div class="flex items-center gap-2">
+                        <div class="led bg-orange-500 led-active" id="led-temp"></div>
+                        <span class="text-xs text-slate-300 font-mono">HEAT: <span id="gauge-temp-text">--</span>°C</span>
+                    </div>
+                    <div class="flex items-center gap-2 border-l border-slate-700 pl-3">
+                        <div class="led bg-cyan-400" id="led-compaction"></div>
+                        <span class="text-xs text-slate-300 font-mono">DENSITY: <span id="gauge-density-text">--</span>%</span>
+                    </div>
+                </div>
+
+                <!-- Simulation Canvas Wrapper -->
+                <div class="flex-1 w-full bg-slate-950 relative min-h-0">
+                    <canvas id="sim-canvas" class="w-full h-full block"></canvas>
+                </div>
+
+                <!-- Manual Drive & Control Overlay (Only visible in compaction mode) -->
+                <div id="drive-overlay" class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/80 backdrop-blur border border-purple-500/40 p-3 rounded-xl flex items-center gap-4 hidden z-20">
+                    <span class="text-xs tracking-wider text-purple-400 font-bold orbitron">MANUAL ROLLER DRIVE:</span>
+                    <div class="flex gap-2">
+                        <button onmousedown="startDrive('left')" onmouseup="stopDrive()" onmouseleave="stopDrive()" class="px-3 py-1.5 bg-purple-900/60 border border-purple-500 hover:bg-purple-800 rounded font-bold text-xs transition select-none flex items-center gap-1">
+                            ◀ DRIVE LEFT
+                        </button>
+                        <button onmousedown="startDrive('right')" onmouseup="stopDrive()" onmouseleave="stopDrive()" class="px-3 py-1.5 bg-purple-900/60 border border-purple-500 hover:bg-purple-800 rounded font-bold text-xs transition select-none flex items-center gap-1">
+                            DRIVE RIGHT ▶
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Physics Analytics Graph Overlay (Bottom-left) -->
+            <div class="h-48 glass-panel rounded-xl p-4 flex flex-col min-h-0 relative">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 bg-cyan-400 rounded-full"></span>
+                        <span class="text-xs font-semibold tracking-wider text-slate-300 orbitron">LIVE METRIC: DENSITY vs ROLLER PASSES</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 font-mono uppercase">Reference: IRC:90 target line</span>
+                </div>
+                <div class="flex-1 w-full relative">
+                    <canvas id="chart-canvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: DECKS & CHALLENGES (4 COLS) -->
+        <section class="lg:col-span-4 flex flex-col gap-3 min-h-0">
+            <!-- 1. ACTIVE CONTROL DECK & MISSIONS -->
+            <div class="flex-[1.2] glass-panel rounded-xl p-4 flex flex-col min-h-0">
+                <h3 class="text-sm font-bold tracking-widest text-cyan-400 orbitron border-b border-cyan-950 pb-2 mb-3 flex items-center gap-2">
+                    <span>COMMAND MODULE</span>
+                    <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-800 px-1.5 py-0.2 rounded" id="sim-step-indicator">STEP 1 / 4</span>
+                </h3>
+
+                <!-- Step Instruction Card -->
+                <div class="flex-1 flex flex-col min-h-0 custom-scroll overflow-y-auto pr-1">
+                    <div id="instruction-deck">
+                        <!-- Step 1 contents injected here -->
+                    </div>
+
+                    <!-- Paving / Compaction Drag & Drop Target Elements directly inside control panel for clean UX -->
+                    <div id="drag-drop-hub" class="mt-4 p-4 border border-slate-800 rounded-lg bg-black/40 flex flex-col items-center justify-center gap-3">
+                        <!-- Draggables dynamic source -->
+                        <div id="drag-source-container" class="flex flex-wrap justify-center gap-3"></div>
+                        
+                        <!-- Drop target area -->
+                        <div id="drop-target-zone" class="w-full py-6 border-2 border-dashed border-slate-700 rounded-lg flex flex-col items-center justify-center text-center transition">
+                            <span class="text-xs text-slate-500 uppercase tracking-widest" id="drop-target-instruction">Drag operational block here</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. PARAMETER IDENTIFICATION & FORMULA CHALLENGE -->
+            <div class="flex-1 glass-panel rounded-xl p-4 flex flex-col min-h-0">
+                <h3 class="text-sm font-bold tracking-widest text-purple-400 orbitron border-b border-purple-950 pb-2 mb-3 flex items-center justify-between">
+                    <span>DYNAMIC SITE MATH & PARAMETERS</span>
+                    <button onclick="toggleFieldManual()" class="text-xs text-cyan-400 underline hover:text-cyan-300">IRC Manual</button>
+                </h3>
+
+                <p class="text-xs text-slate-400 mb-3">Match calculated paving metrics to unlock heavy roller systems:</p>
+
+                <div class="flex-1 flex flex-col justify-between gap-4 min-h-0">
+                    <!-- Drop targets in grid -->
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="p-2 border border-slate-800 rounded bg-slate-900/50 flex flex-col gap-1">
+                            <span class="text-slate-500 font-semibold uppercase">Layer Thickness ($h$)</span>
+                            <div class="h-10 border border-dashed border-slate-700 rounded flex items-center justify-center text-cyan-400 font-mono text-sm math-drop" data-param="h">Drop value h</div>
+                        </div>
+                        <div class="p-2 border border-slate-800 rounded bg-slate-900/50 flex flex-col gap-1">
+                            <span class="text-slate-500 font-semibold uppercase">Mix Temperature ($T$)</span>
+                            <div class="h-10 border border-dashed border-slate-700 rounded flex items-center justify-center text-orange-400 font-mono text-sm math-drop" data-param="T">Drop value T</div>
+                        </div>
+                        <div class="p-2 border border-slate-800 rounded bg-slate-900/50 flex flex-col gap-1">
+                            <span class="text-slate-500 font-semibold uppercase">Compaction Speed ($v$)</span>
+                            <div class="h-10 border border-dashed border-slate-700 rounded flex items-center justify-center text-purple-400 font-mono text-sm math-drop" data-param="v">Drop value v</div>
+                        </div>
+                        <div class="p-2 border border-slate-800 rounded bg-slate-900/50 flex flex-col gap-1">
+                            <span class="text-slate-500 font-semibold uppercase">Target Density ($\rho$)</span>
+                            <div class="h-10 border border-dashed border-slate-700 rounded flex items-center justify-center text-green-400 font-mono text-sm math-drop" data-param="rho">Drop value ρ</div>
+                        </div>
+                    </div>
+
+                    <!-- Draggable value cards -->
+                    <div class="flex flex-wrap gap-2 justify-center py-2 bg-slate-900/30 border-t border-slate-800" id="math-chips-container">
+                        <!-- Dynamically filled with draggable cards -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FIELD MANUAL MODAL POPUP -->
+    <div id="manual-modal" class="hidden absolute inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-6">
+        <div class="w-full max-w-2xl glass-panel rounded-2xl border-glow-cyan p-6 flex flex-col max-h-[85vh]">
+            <div class="flex items-center justify-between border-b border-cyan-950 pb-3 mb-4">
+                <h2 class="text-xl font-bold tracking-wider text-cyan-400 orbitron">INDIAN ROADS CONGRESS (IRC:90-2019) CODES</h2>
+                <button onclick="toggleFieldManual()" class="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto pr-2 custom-scroll text-sm text-slate-300 space-y-4">
+                <div>
+                    <h3 class="text-md font-bold text-slate-200 mb-1 border-l-2 border-cyan-400 pl-2">IRC:90 - SECTION 500: BITUMINOUS BASE AND BINDER COURSES</h3>
+                    <p class="text-slate-400 leading-relaxed text-xs">Governs the layout parameters of dynamic flexible asphalt roads. Paved bituminous concrete must achieve specified density parameters with zero mechanical void structures.</p>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="p-3 border border-slate-800 rounded bg-slate-900/40">
+                        <span class="text-cyan-400 font-bold block mb-1">Layer Thickness ($h$)</span>
+                        <p class="text-slate-400 text-xs">Bituminous concrete base layer: Recommended standard minimum profile is exactly <strong class="text-slate-200">40 mm</strong> thickness.</p>
+                    </div>
+                    <div class="p-3 border border-slate-800 rounded bg-slate-900/40">
+                        <span class="text-orange-400 font-bold block mb-1">Standard Laydown Temp ($T$)</span>
+                        <p class="text-slate-400 text-xs">Compaction temperatures should stay between 120°C - 160°C. Target mixing and delivery temperature: <strong class="text-slate-200">150 °C</strong>.</p>
+                    </div>
+                    <div class="p-3 border border-slate-800 rounded bg-slate-900/40">
+                        <span class="text-purple-400 font-bold block mb-1">Roller Operating Speed ($v$)</span>
+                        <p class="text-slate-400 text-xs">Standard pneumatic/tandem steel rollers must move smoothly under <strong class="text-slate-200">4 km/h</strong> to prevent dynamic displacement.</p>
+                    </div>
+                    <div class="p-3 border border-slate-800 rounded bg-slate-900/40">
+                        <span class="text-green-400 font-bold block mb-1">Required Density ($\rho$)</span>
+                        <p class="text-slate-400 text-xs">Field lab structural requirements specify minimum compaction densities: <strong class="text-slate-200">98 %</strong> of theoretical maximum.</p>
+                    </div>
+                </div>
+                <div class="p-3 border border-yellow-950 bg-yellow-950/20 text-yellow-300 rounded text-xs flex items-center gap-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <span><strong>CRITICAL ENGINEERING RULE:</strong> Do not compact when asphalt cooling drops mix temperature below 120°C. Attempting compaction on cold mixes will fracture aggregate, leading to high voids and premature structural pothole creation!</span>
+                </div>
+            </div>
+            <div class="mt-4 border-t border-cyan-950 pt-3 flex justify-end">
+                <button onclick="toggleFieldManual()" class="px-5 py-2 bg-cyan-900/50 border border-cyan-500 text-cyan-200 rounded font-semibold text-xs hover:bg-cyan-800 transition">CLOSE SPECIFICATION MANUAL</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN ENGINE CODE -->
+    <script>
+        // --- 1. STATE & GLOBAL CONFIGS ---
+        const simState = {
+            phase: 'INIT', // 'INIT', 'PAVING', 'MONITORING', 'COMPACTION', 'CERTIFIED'
+            temperature: 160, // degrees C (starts hot after mixing)
+            density: 80, // loose mix density % (starts around 80%)
+            passes: 0,
+            isPaved: false,
+            rollerX: 100, // starting position percentage x
+            rollerDirection: 'idle', // 'left', 'right', 'idle'
+            lastUpdateTime: 0,
+            audioEnabled: false,
+            voiceEnabled: true,
+            formulasMatched: {
+                h: false,
+                T: false,
+                v: false,
+                rho: false
+            },
+            isMathUnlocked: false,
+            // Track roller travel for passes counter
+            travelLeftPassed: false,
+            travelRightPassed: false,
+        };
+
+        // UI HTML Selectors
+        const simStepIndicator = document.getElementById('sim-step-indicator');
+        const phaseBadge = document.getElementById('phase-badge');
+        const tempBadge = document.getElementById('temp-badge');
+        const instructionDeck = document.getElementById('instruction-deck');
+        const dragDropHub = document.getElementById('drag-drop-hub');
+        const dropTargetZone = document.getElementById('drop-target-zone');
+        const dropTargetInstruction = document.getElementById('drop-target-instruction');
+        const dragSourceContainer = document.getElementById('drag-source-container');
+        const driveOverlay = document.getElementById('drive-overlay');
+        const manualModal = document.getElementById('manual-modal');
+
+        const gaugeTempText = document.getElementById('gauge-temp-text');
+        const gaugeDensityText = document.getElementById('gauge-density-text');
+        const ledTemp = document.getElementById('led-temp');
+        const ledCompaction = document.getElementById('led-compaction');
+
+        // --- 2. AUDIO SYNTHESIS & VOICE ENGINE ---
+        let audioCtx = null;
+        let humOsc = null;
+        let humGain = null;
+
+        function initAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function toggleAudio() {
+            simState.audioEnabled = !simState.audioEnabled;
+            const btn = document.getElementById('btn-audio-toggle');
+            if (simState.audioEnabled) {
+                initAudioContext();
+                btn.classList.add('border-cyan-400', 'text-cyan-400');
+                btn.classList.remove('text-slate-400');
+                playSynthBeep(440, 0.1);
+            } else {
+                btn.classList.remove('border-cyan-400', 'text-cyan-400');
+                btn.classList.add('text-slate-400');
+                stopCompactorHum();
+            }
+        }
+
+        function toggleVoice() {
+            simState.voiceEnabled = !simState.voiceEnabled;
+            const btn = document.getElementById('btn-voice-toggle');
+            if (simState.voiceEnabled) {
+                btn.classList.add('border-cyan-400', 'text-cyan-400');
+                btn.classList.remove('text-slate-400');
+                narrateSpeech("AI Voice system activated.");
+            } else {
+                btn.classList.remove('border-cyan-400', 'text-cyan-400');
+                btn.classList.add('text-slate-400');
+                if (window.speechSynthesis) {
+                    window.speechSynthesis.cancel();
+                }
+            }
+        }
+
+        function playSynthBeep(freq = 440, duration = 0.1, type = 'sine') {
+            if (!simState.audioEnabled || !audioCtx) return;
+            try {
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch(e) {}
+        }
+
+        function startCompactorHum() {
+            if (!simState.audioEnabled || !audioCtx) return;
+            if (humOsc) return;
+            try {
+                humOsc = audioCtx.createOscillator();
+                let lfo = audioCtx.createOscillator();
+                let lfoGain = audioCtx.createGain();
+                humGain = audioCtx.createGain();
+
+                humOsc.type = 'triangle';
+                humOsc.frequency.setValueAtTime(55, audioCtx.currentTime); // Heavy structural low hum
+
+                lfo.frequency.setValueAtTime(6, audioCtx.currentTime); // LFO vibration
+                lfoGain.gain.setValueAtTime(15, audioCtx.currentTime);
+
+                lfo.connect(lfoGain);
+                lfoGain.connect(humOsc.frequency);
+                humOsc.connect(humGain);
+                humGain.connect(audioCtx.destination);
+
+                humGain.gain.setValueAtTime(0, audioCtx.currentTime);
+                humGain.gain.linearRampToValueAtTime(0.12, audioCtx.currentTime + 0.1);
+
+                humOsc.start();
+                lfo.start();
+            } catch(e) {}
+        }
+
+        function stopCompactorHum() {
+            if (humGain && humOsc) {
+                try {
+                    humGain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1);
+                    setTimeout(() => {
+                        if (humOsc) {
+                            humOsc.stop();
+                            humOsc = null;
+                        }
+                    }, 150);
+                } catch(e) {}
+            }
+        }
+
+        function narrateSpeech(text) {
+            if (!simState.voiceEnabled) return;
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // kill active speech first
+                let utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.0;
+                utterance.pitch = 1.1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+
+        // --- 3. HIGH-DPI CANVAS MANAGEMENT & DRAWINGS ---
+        const simCanvas = document.getElementById('sim-canvas');
+        const simCtx = simCanvas.getContext('2d');
+        const chartCanvas = document.getElementById('chart-canvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            // Main visual simulation canvas resize handling
+            const rect = simCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            simCanvas.width = rect.width * dpr;
+            simCanvas.height = rect.height * dpr;
+            simCtx.resetTransform();
+            simCtx.scale(dpr, dpr);
+
+            // Chart canvas resize handling
+            const chartRect = chartCanvas.getBoundingClientRect();
+            chartCanvas.width = chartRect.width * dpr;
+            chartCanvas.height = chartRect.height * dpr;
+            chartCtx.resetTransform();
+            chartCtx.scale(dpr, dpr);
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // Machinery and Pavement visual dimensions
+        let roadLayers = [
+            { name: "Subgrade (Soil)", height: 75, color: "#3a3028", labelY: 0 },
+            { name: "Sub-base (GSB)", height: 50, color: "#5a504a", labelY: 0 },
+            { name: "Base Course (WMM)", height: 45, color: "#7a7570", labelY: 0 },
+            { name: "Bituminous Mix (BC)", height: 25, color: "#1e1e24", labelY: 0 }
+        ];
+
+        // Draw helper: Rounded rectangle
+        function drawRoundedRect(ctx, x, y, width, height, radius, fillStyle, strokeStyle, strokeWidth) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            if (fillStyle) {
+                ctx.fillStyle = fillStyle;
+                ctx.fill();
+            }
+            if (strokeStyle) {
+                ctx.strokeStyle = strokeStyle;
+                ctx.lineWidth = strokeWidth || 1;
+                ctx.stroke();
+            }
+        }
+
+        // Render cross-section layers and labels
+        function renderRoadway(width, height) {
+            let startY = height - 40; // baseline
+
+            // Draw layer stacks from bottom up
+            let currentY = startY;
+            roadLayers.forEach((layer, index) => {
+                currentY -= layer.height;
+                layer.labelY = currentY + layer.height / 2;
+
+                // Special handling for dynamic bituminous top layer color
+                let finalColor = layer.color;
+                if (index === 3) { // Bituminous mix
+                    if (!simState.isPaved) {
+                        // Drawing base line before paving
+                        simCtx.fillStyle = "rgba(22, 22, 26, 0.4)";
+                        simCtx.fillRect(0, currentY, width, layer.height);
+                        
+                        // Dashed visual outline where paving layer will sit
+                        simCtx.strokeStyle = "rgba(0, 240, 255, 0.2)";
+                        simCtx.lineWidth = 1;
+                        simCtx.setLineDash([5, 5]);
+                        simCtx.strokeRect(1, currentY, width - 2, layer.height);
+                        simCtx.setLineDash([]);
+                        return;
+                    }
+
+                    // Dynamically calculate hot asphalt visual styling based on heat
+                    if (simState.temperature > 120) {
+                        // Dynamic glow blend of warning orange and asphalt grey
+                        let heatRatio = (simState.temperature - 120) / 40; // scale 0 to 1
+                        let redVal = Math.floor(30 + heatRatio * 180);
+                        let greenVal = Math.floor(30 + heatRatio * 50);
+                        let blueVal = Math.floor(36 + heatRatio * 20);
+                        finalColor = `rgb(${redVal}, ${greenVal}, ${blueVal})`;
+                    } else {
+                        // Cold/normal cured asphalt is dark solid grey/black
+                        finalColor = "#111115";
+                    }
+                }
+
+                // Render Solid Layer
+                simCtx.fillStyle = finalColor;
+                simCtx.fillRect(0, currentY, width, layer.height);
+
+                // Top layer compaction ripple visual
+                if (index === 3 && simState.phase === 'COMPACTION' && simState.rollerDirection !== 'idle') {
+                    // Draw ripple waves around roller footprint
+                    let rollerPx = (simState.rollerX / 100) * width;
+                    simCtx.fillStyle = "rgba(157, 78, 221, 0.25)";
+                    simCtx.beginPath();
+                    simCtx.arc(rollerPx, currentY + 12, 45, 0, Math.PI * 2);
+                    simCtx.fill();
+                }
+
+                // Label container text (Prevent visual line overlaps per CRITICAL RULE #3)
+                simCtx.save();
+                const labelText = `${layer.name} ${index === 3 && simState.isPaved ? `(Compacted: ${Math.floor(simState.density)}%)` : ''}`;
+                simCtx.font = "bold 10px Orbitron";
+                let textMetrics = simCtx.measureText(labelText);
+                let bgW = textMetrics.width + 16;
+                let bgH = 16;
+                
+                // Solid black translucent capsule background for legibility
+                drawRoundedRect(simCtx, 15, layer.labelY - bgH/2, bgW, bgH, 4, "rgba(5, 5, 8, 0.85)", "rgba(255,255,255,0.05)", 1);
+                
+                simCtx.fillStyle = (index === 3) ? "var(--neon-cyan)" : "#cbd5e1";
+                simCtx.fillText(labelText, 23, layer.labelY + 4);
+                simCtx.restore();
+            });
+        }
+
+        // Render Vector Truck or Steel Roller Machine
+        function renderActiveMachinery(width, height) {
+            let topLayerY = height - 40 - 75 - 50 - 45 - 25; // standard top bituminous layer top Y coord
+
+            if (simState.phase === 'PAVING') {
+                // RENDER TRUCK / PAVER AT WORK
+                let machineX = width * 0.45;
+                let machineY = topLayerY - 65;
+
+                // Draw solid background container to assure high visibility
+                simCtx.save();
+                simCtx.shadowColor = "rgba(0, 240, 255, 0.2)";
+                simCtx.shadowBlur = 15;
+
+                // Cab / Cabin
+                drawRoundedRect(simCtx, machineX + 55, machineY + 10, 35, 45, 6, "rgba(30, 41, 59, 0.9)", "var(--neon-cyan)", 1.5);
+                // Glass windshield
+                simCtx.fillStyle = "#00f0ff";
+                simCtx.fillRect(machineX + 75, machineY + 15, 12, 18);
+                // Heavy Truck Base Chassis
+                drawRoundedRect(simCtx, machineX, machineY + 40, 95, 20, 4, "#1e1b4b", "#4f46e5", 2);
+
+                // Pouring Bituminous stream to road surface
+                let gradient = simCtx.createLinearGradient(machineX + 25, machineY + 50, machineX + 25, topLayerY);
+                gradient.addColorStop(0, "var(--neon-orange)");
+                gradient.addColorStop(1, "#2e1065");
+                simCtx.fillStyle = gradient;
+                simCtx.fillRect(machineX + 20, machineY + 50, 15, topLayerY - (machineY + 50));
+
+                // Steam / Vapor rising
+                simCtx.fillStyle = "rgba(255, 123, 0, 0.15)";
+                simCtx.beginPath();
+                simCtx.arc(machineX + 28, machineY + 70, 25, 0, Math.PI*2);
+                simCtx.fill();
+
+                // Custom Label
+                simCtx.font = "bold 11px Orbitron";
+                simCtx.fillStyle = "#ff7b00";
+                simCtx.fillText("ASPHALT PAVEMENT TRUCK", machineX - 10, machineY - 10);
+                simCtx.restore();
+
+            } else if (simState.phase === 'COMPACTION' || simState.phase === 'CERTIFIED') {
+                // RENDER TANDEM ROLLER MACHINERY
+                let rollerXCoord = (simState.rollerX / 100) * width;
+                let rollerY = topLayerY - 55;
+
+                simCtx.save();
+                // Outer glowing aura matching speed status
+                simCtx.shadowColor = simState.rollerDirection !== 'idle' ? "rgba(157, 78, 221, 0.5)" : "rgba(0,0,0,0)";
+                simCtx.shadowBlur = 20;
+
+                // Main heavy superstructure housing
+                drawRoundedRect(simCtx, rollerXCoord - 45, rollerY + 5, 90, 35, 6, "rgba(20, 10, 35, 0.95)", "var(--neon-purple)", 2);
+                // Drivers cabin canopy
+                drawRoundedRect(simCtx, rollerXCoord - 30, rollerY - 20, 60, 25, 4, "rgba(30, 41, 59, 0.8)", "#8b5cf6", 1.5);
+                // Cabin Glass windshield
+                simCtx.fillStyle = "#a78bfa";
+                simCtx.fillRect(rollerXCoord - 20, rollerY - 15, 40, 15);
+
+                // Heavy Steel Drum (Left side wheels representation)
+                simCtx.beginPath();
+                simCtx.arc(rollerXCoord - 35, rollerY + 45, 16, 0, Math.PI * 2);
+                simCtx.fillStyle = "#334155";
+                simCtx.strokeStyle = "var(--neon-purple)";
+                simCtx.lineWidth = 3;
+                simCtx.fill();
+                simCtx.stroke();
+                // Rim detail
+                simCtx.beginPath();
+                simCtx.arc(rollerXCoord - 35, rollerY + 45, 7, 0, Math.PI * 2);
+                simCtx.fillStyle = "#1e293b";
+                simCtx.fill();
+
+                // Heavy Steel Drum (Right side wheels representation)
+                simCtx.beginPath();
+                simCtx.arc(rollerXCoord + 35, rollerY + 45, 16, 0, Math.PI * 2);
+                simCtx.fillStyle = "#334155";
+                simCtx.strokeStyle = "var(--neon-purple)";
+                simCtx.lineWidth = 3;
+                simCtx.fill();
+                simCtx.stroke();
+                // Rim detail
+                simCtx.beginPath();
+                simCtx.arc(rollerXCoord + 35, rollerY + 45, 7, 0, Math.PI * 2);
+                simCtx.fillStyle = "#1e293b";
+                simCtx.fill();
+
+                // Direction Indicator arrows
+                if (simState.rollerDirection === 'left') {
+                    simCtx.fillStyle = "var(--neon-cyan)";
+                    simCtx.font = "bold 14px Orbitron";
+                    simCtx.fillText("◀◀", rollerXCoord - 85, rollerY + 25);
+                } else if (simState.rollerDirection === 'right') {
+                    simCtx.fillStyle = "var(--neon-cyan)";
+                    simCtx.font = "bold 14px Orbitron";
+                    simCtx.fillText("▶▶", rollerXCoord + 55, rollerY + 25);
+                }
+
+                // Machine labels with background box for strict legibility
+                simCtx.font = "9px Orbitron";
+                let text = `TANDEM COMPACTOR (v: 4 km/h)`;
+                let w = simCtx.measureText(text).width + 12;
+                drawRoundedRect(simCtx, rollerXCoord - w/2, rollerY - 38, w, 14, 3, "rgba(10, 10, 12, 0.9)", "rgba(139, 92, 246, 0.4)", 1);
+                simCtx.fillStyle = "var(--neon-purple)";
+                simCtx.fillText(text, rollerXCoord - w/2 + 6, rollerY - 28);
+
+                simCtx.restore();
+            }
+        }
+
+        // --- 4. REAL-TIME GRAPH (CHART) COMPONENT ---
+        // Plots dynamic compaction density achievement curve as rolling passes increase
+        function drawDensityGraph() {
+            const width = chartCanvas.getBoundingClientRect().width;
+            const height = chartCanvas.getBoundingClientRect().height;
+            
+            chartCtx.clearRect(0, 0, width, height);
+
+            // Draw dark technical gridlines
+            chartCtx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+            chartCtx.lineWidth = 1;
+            const stepX = width / 12;
+            const stepY = height / 5;
+
+            for (let i = 1; i < 12; i++) {
+                chartCtx.beginPath();
+                chartCtx.moveTo(i * stepX, 0);
+                chartCtx.lineTo(i * stepX, height);
+                chartCtx.stroke();
+            }
+            for (let j = 1; j < 5; j++) {
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, j * stepY);
+                chartCtx.lineTo(width, j * stepY);
+                chartCtx.stroke();
+            }
+
+            // Draw Target Reference Line: IRC 98% density limit
+            let targetY = height - ((98 - 75) / (100 - 75)) * (height - 30) - 15;
+            chartCtx.strokeStyle = "rgba(57, 255, 20, 0.4)";
+            chartCtx.lineWidth = 1.5;
+            chartCtx.setLineDash([6, 4]);
+            chartCtx.beginPath();
+            chartCtx.moveTo(0, targetY);
+            chartCtx.lineTo(width, targetY);
+            chartCtx.stroke();
+            chartCtx.setLineDash([]);
+
+            // Label target threshold with high-contrast background
+            chartCtx.fillStyle = "rgba(10, 20, 10, 0.85)";
+            chartCtx.fillRect(10, targetY - 16, 150, 14);
+            chartCtx.fillStyle = "var(--neon-green)";
+            chartCtx.font = "bold 9px Orbitron";
+            chartCtx.fillText("IRC REQUIRED TARGET MIN: 98%", 14, targetY - 6);
+
+            // Plot dynamic compaction curve function: Density as a function of passes
+            chartCtx.strokeStyle = "var(--neon-cyan)";
+            chartCtx.lineWidth = 3;
+            chartCtx.beginPath();
+
+            // Store coordinates list to draw points
+            let plotPoints = [];
+            const maxPassesToShow = 10;
+
+            for (let pass = 0; pass <= maxPassesToShow; pass++) {
+                // Theoretical curve modeling logarithmic density gains:
+                // density = starting + gain_rate * ln(passes + 1)
+                let calculatedDensity = 80 + 7.5 * Math.log(pass + 1);
+                if (calculatedDensity > 100) calculatedDensity = 100;
+
+                // Scale to graph dimensions (y range: 75% to 100%)
+                let pxX = (pass / maxPassesToShow) * (width - 50) + 35;
+                let pxY = height - ((calculatedDensity - 75) / (100 - 75)) * (height - 30) - 15;
+
+                plotPoints.push({ x: pxX, y: pxY, d: calculatedDensity, p: pass });
+
+                if (pass === 0) {
+                    chartCtx.moveTo(pxX, pxY);
+                } else if (pass <= simState.passes) {
+                    chartCtx.lineTo(pxX, pxY);
+                }
+            }
+            chartCtx.stroke();
+
+            // Draw point nodes up to the active step
+            plotPoints.forEach((pt) => {
+                if (pt.p <= simState.passes) {
+                    // Node dot
+                    chartCtx.beginPath();
+                    chartCtx.arc(pt.x, pt.y, pt.p === simState.passes ? 5 : 3.5, 0, Math.PI * 2);
+                    chartCtx.fillStyle = pt.p === simState.passes ? "var(--neon-orange)" : "var(--neon-cyan)";
+                    chartCtx.fill();
+
+                    // Text value tag
+                    if (pt.p === simState.passes) {
+                        chartCtx.fillStyle = "rgba(10, 10, 12, 0.9)";
+                        chartCtx.fillRect(pt.x + 8, pt.y - 12, 50, 15);
+                        chartCtx.fillStyle = "#fff";
+                        chartCtx.font = "bold 8px monospace";
+                        chartCtx.fillText(`${pt.d.toFixed(1)}%`, pt.x + 12, pt.y - 2);
+                    }
+                }
+            });
+
+            // Draw Axes labels
+            chartCtx.fillStyle = "#64748b";
+            chartCtx.font = "9px Orbitron";
+            chartCtx.fillText("0 PASSES (LOOSE MIX)", 30, height - 3);
+            chartCtx.fillText("10 PASSES (REF)", width - 100, height - 3);
+        }
+
+
+        // --- 5. MAIN SIMULATION ENGINE LOOP ---
+        function updateSimulationPhysics(timestamp) {
+            if (!simState.lastUpdateTime) simState.lastUpdateTime = timestamp;
+            const dt = (timestamp - simState.lastUpdateTime) / 1000; // seconds
+            simState.lastUpdateTime = timestamp;
+
+            // Apply Continuous Temperature Cooling Loop
+            if (simState.isPaved && simState.phase !== 'CERTIFIED') {
+                // Cool down rate is ~0.65 degrees per second on site
+                simState.temperature -= 0.65 * dt;
+                if (simState.temperature < 30) simState.temperature = 30; // Ambient temperature limit
+            }
+
+            // Handle Automated / Manual Roller drive physics
+            if (simState.phase === 'COMPACTION' && simState.rollerDirection !== 'idle') {
+                const speedMult = 25; // scaling pixels
+                if (simState.rollerDirection === 'left') {
+                    simState.rollerX -= speedMult * dt;
+                    if (simState.rollerX < 12) {
+                        simState.rollerX = 12;
+                        simState.rollerDirection = 'idle';
+                        stopCompactorHum();
+                        detectPassEdge('left');
+                    }
+                } else if (simState.rollerDirection === 'right') {
+                    simState.rollerX += speedMult * dt;
+                    if (simState.rollerX > 88) {
+                        simState.rollerX = 88;
+                        simState.rollerDirection = 'idle';
+                        stopCompactorHum();
+                        detectPassEdge('right');
+                    }
+                }
+            }
+
+            // Update DOM Headings and state classes dynamically
+            gaugeTempText.innerText = Math.round(simState.temperature);
+            gaugeDensityText.innerText = Math.round(simState.density);
+
+            // Dynamic alert styles for temperature limits
+            if (simState.temperature > 155) {
+                tempBadge.innerText = "CRITICAL HOT";
+                tempBadge.className = "text-red-500 font-mono glow-orange";
+                ledTemp.className = "led bg-red-500 led-active animate-ping";
+            } else if (simState.temperature >= 120) {
+                tempBadge.innerText = "IDEAL RANGE";
+                tempBadge.className = "text-green-400 font-mono glow-green";
+                ledTemp.className = "led bg-green-500 led-active";
+            } else {
+                tempBadge.innerText = "TOO COLD (VOIDS)";
+                tempBadge.className = "text-slate-500 font-mono";
+                ledTemp.className = "led bg-slate-700";
+            }
+
+            // Clear and draw canvas frames
+            const rect = simCanvas.getBoundingClientRect();
+            simCtx.clearRect(0, 0, rect.width, rect.height);
+            renderRoadway(rect.width, rect.height);
+            renderActiveMachinery(rect.width, rect.height);
+
+            // Redraw dynamic graph metrics
+            drawDensityGraph();
+
+            requestAnimationFrame(updateSimulationPhysics);
+        }
+
+
+        // --- 6. SIMULATION LOGIC WORKFLOW STEPS ---
+
+        function advanceToPhase(nextPhase) {
+            simState.phase = nextPhase;
+            phaseBadge.innerText = nextPhase;
+
+            switch (nextPhase) {
+                case 'INIT':
+                    simStepIndicator.innerText = "STEP 1 / 4";
+                    simState.isPaved = false;
+                    simState.temperature = 160;
+                    simState.density = 80;
+                    simState.passes = 0;
+                    simState.rollerX = 100;
+                    simState.isMathUnlocked = false;
+                    simState.formulasMatched = { h: false, T: false, v: false, rho: false };
+
+                    // Reset HTML Math blocks
+                    document.querySelectorAll('.math-drop').forEach(slot => {
+                        slot.innerHTML = "Drop value";
+                        slot.className = "h-10 border border-dashed border-slate-700 rounded flex items-center justify-center text-slate-500 font-mono text-sm math-drop";
+                    });
+
+                    instructionDeck.innerHTML = `
+                        <div class="space-y-3">
+                            <span class="text-xs uppercase text-purple-400 font-semibold tracking-wider">Operational Objective</span>
+                            <h4 class="text-lg font-bold text-white orbitron">Phase 1: Laydown Mixture</h4>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                The Asphalt Batching Plant has dispatched pre-heated Bituminous Concrete. Drag the <strong class="text-orange-400">Asphalt Truck</strong> from below into the construction sector to lay down the base pavement course.
+                            </p>
+                        </div>
+                    `;
+
+                    // Generate Drag Source Item
+                    dragSourceContainer.innerHTML = `
+                        <div id="drag-truck" class="drag-chip bg-slate-900 border border-orange-500/40 hover:border-orange-500 p-2.5 rounded flex items-center gap-2" draggable="true" ondragstart="onDragStart(event)">
+                            <span class="text-orange-400 font-mono text-xs">🚚 ASPHALT TRUCK (160°C)</span>
+                        </div>
+                    `;
+                    dropTargetInstruction.innerText = "DRAG ASPHALT TRUCK HERE TO PAVE ROADWAY";
+                    dropTargetZone.className = "w-full py-6 border-2 border-dashed border-orange-500/30 rounded-lg flex flex-col items-center justify-center text-center transition";
+                    driveOverlay.classList.add('hidden');
+                    break;
+
+                case 'PAVING':
+                    simStepIndicator.innerText = "STEP 2 / 4";
+                    instructionDeck.innerHTML = `
+                        <div class="space-y-3">
+                            <span class="text-xs uppercase text-cyan-400 font-semibold tracking-wider">Operational Objective</span>
+                            <h4 class="text-lg font-bold text-white orbitron font-bold">Phase 2: Temperature Check & Calibration</h4>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Good laydown. The pavement layer has been laid at <strong class="text-cyan-400">40 mm</strong>. However, safety regulations mandate that before deploying heavy vibrating rollers, site math matches IRC standard parameters.
+                            </p>
+                            <p class="text-xs text-yellow-400 font-semibold leading-relaxed">
+                                Match all 4 target values in the dynamic formula grid below using theoretical IRC:90 values.
+                            </p>
+                        </div>
+                    `;
+                    dragSourceContainer.innerHTML = ``;
+                    dropTargetInstruction.innerText = "UNLOCKED: FORMULAS ACTIVE BELOW";
+                    dropTargetZone.className = "w-full py-3 border border-slate-800 bg-slate-950/40 rounded-lg flex flex-col items-center justify-center text-center transition";
+
+                    // Animate pave fill action
+                    simState.isPaved = true;
+                    playSynthBeep(330, 0.2);
+                    narrateSpeech("Pavement laydown completed. Please calibrate the target parameters to unlock compaction rolling machinery.");
+                    break;
+
+                case 'MONITORING':
+                    simStepIndicator.innerText = "STEP 3 / 4";
+                    instructionDeck.innerHTML = `
+                        <div class="space-y-3">
+                            <span class="text-xs uppercase text-purple-400 font-semibold tracking-wider">Operational Objective</span>
+                            <h4 class="text-lg font-bold text-white orbitron">Phase 3: Roll Compaction</h4>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Parameters verified! Roller compaction system unlocked. Drag the <strong class="text-purple-400">Compactor Roller</strong> card from below to activate compaction sequence.
+                            </p>
+                            <p class="text-xs text-orange-400 leading-relaxed">
+                                <strong>CAUTION:</strong> The mix is cooling! You must achieve a minimum density of <strong class="text-green-400">98%</strong> before the asphalt cools below <strong class="text-red-400">120°C</strong>.
+                            </p>
+                        </div>
+                    `;
+                    dragSourceContainer.innerHTML = `
+                        <div id="drag-roller" class="drag-chip bg-slate-900 border border-purple-500/40 hover:border-purple-500 p-2.5 rounded flex items-center gap-2" draggable="true" ondragstart="onDragStart(event)">
+                            <span class="text-purple-400 font-mono text-xs">🚜 COMPACTOR ROLLER (Tandem)</span>
+                        </div>
+                    `;
+                    dropTargetInstruction.innerText = "DRAG COMPACTOR ROLLER HERE TO DEPLOY";
+                    dropTargetZone.className = "w-full py-6 border-2 border-dashed border-purple-500/30 rounded-lg flex flex-col items-center justify-center text-center transition";
+                    break;
+
+                case 'COMPACTION':
+                    simStepIndicator.innerText = "STEP 3 / 4";
+                    instructionDeck.innerHTML = `
+                        <div class="space-y-3">
+                            <span class="text-xs uppercase text-purple-400 font-semibold tracking-wider">Operational Objective</span>
+                            <h4 class="text-lg font-bold text-white orbitron">Phase 3: Real-Time Compaction Progress</h4>
+                            <p class="text-xs text-slate-300 leading-relaxed">
+                                Heavy Tandem Roller deployed on site. Drive the heavy roller back and forth along the road to pack loose aggregate.
+                            </p>
+                            <div class="bg-black/60 p-2.5 rounded border border-slate-800 text-xs font-mono space-y-1">
+                                <div class="flex justify-between"><span>PASSES:</span> <span class="text-cyan-400" id="deck-passes">0 / 7</span></div>
+                                <div class="flex justify-between"><span>COMPACTED DENSITY:</span> <span class="text-green-400" id="deck-density">80%</span></div>
+                            </div>
+                            <p class="text-[10px] text-slate-400">
+                                Tip: Drag the roller machine directly with mouse/touch or use the manual "DRIVE" controller dashboard at the bottom of the canvas screen.
+                            </p>
+                        </div>
+                    `;
+                    dragSourceContainer.innerHTML = ``;
+                    dropTargetInstruction.innerText = "ROLLER OPERATIONAL";
+                    dropTargetZone.className = "w-full py-3 border border-slate-800 bg-slate-950/40 rounded-lg flex flex-col items-center justify-center text-center transition";
+                    driveOverlay.classList.remove('hidden');
+                    ledCompaction.className = "led bg-cyan-400 led-active animate-pulse";
+                    narrateSpeech("Compactor active. Maintain constant speed. Compact above 120 degrees to achieve required density.");
+                    break;
+
+                case 'CERTIFIED':
+                    simStepIndicator.innerText = "STEP 4 / 4";
+                    instructionDeck.innerHTML = `
+                        <div class="space-y-4 text-center">
+                            <div class="mx-auto w-12 h-12 bg-green-950 border border-green-500 rounded-full flex items-center justify-center text-green-400 text-xl font-bold border-glow-green">✓</div>
+                            <div>
+                                <h4 class="text-lg font-bold text-green-400 orbitron">CONSTRUCTION CERTIFIED!</h4>
+                                <p class="text-xs text-slate-300 leading-relaxed mt-1">
+                                    Compaction density criteria achieved at <strong class="text-white">${Math.floor(simState.density)}%</strong>. Voids reduced safely beneath specified IRC:90 margins. Pavement is ready for transit traffic.
+                                </p>
+                            </div>
+                            <div class="p-2 bg-slate-900 border border-slate-800 rounded text-[11px] text-slate-400 text-left">
+                                <strong>Project Metrics:</strong><br/>
+                                • Compactor Passes: ${simState.passes}<br/>
+                                • Final Temp: ${Math.round(simState.temperature)}°C (Success)<br/>
+                                • Lab status: Structurally Sound
+                            </div>
+                            <button onclick="resetSimulation()" class="w-full py-2 bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 rounded text-slate-950 font-black tracking-widest text-xs uppercase transition">
+                                SIMULATE NEXT LANE
+                            </button>
+                        </div>
+                    `;
+                    driveOverlay.classList.add('hidden');
+                    ledCompaction.className = "led bg-green-500 led-active";
+                    playSynthBeep(587.33, 0.4); // Success high chime
+                    setTimeout(() => playSynthBeep(880, 0.5), 150);
+                    narrateSpeech("Quality assurance standards achieved. Pavement construction fully certified.");
+                    break;
+            }
+        }
+
+        // --- 7. ROLLER DRIVING CONTROL & PASS COUNT LOGIC ---
+        function startDrive(dir) {
+            if (simState.phase !== 'COMPACTION') return;
+            simState.rollerDirection = dir;
+            startCompactorHum();
+        }
+
+        function stopDrive() {
+            if (simState.phase !== 'COMPACTION') return;
+            simState.rollerDirection = 'idle';
+            stopCompactorHum();
+        }
+
+        // Helper detects when roller reaches far sides of paving run to increment pass cycles
+        function detectPassEdge(side) {
+            playSynthBeep(220, 0.15, 'triangle'); // sound bump alert
+
+            if (side === 'left') {
+                simState.travelLeftPassed = true;
+            } else if (side === 'right') {
+                simState.travelRightPassed = true;
+            }
+
+            // Completing one full return lap back-and-forth = 1 official roller pass
+            if (simState.travelLeftPassed && simState.travelRightPassed) {
+                simState.passes += 1;
+                simState.travelLeftPassed = false;
+                simState.travelRightPassed = false;
+
+                // Adjust compacted density by physical logarithmic math limit
+                if (simState.temperature >= 120) {
+                    // Hot asphalt compacts easily
+                    simState.density = 80 + 7.5 * Math.log(simState.passes + 1);
+                } else {
+                    // Cold asphalt under 120C yields minimal compaction & high structural failure
+                    simState.density += 0.8; // aggregate fractures/locks without proper density bonding
+                    playSynthBeep(150, 0.3, 'sawtooth'); // warning noise
+                    narrateSpeech("Warning: Asphalt temperature low. Compaction is ineffective.");
+                }
+
+                if (simState.density > 100) simState.density = 100;
+
+                // Update Control card display values
+                const dp = document.getElementById('deck-passes');
+                const dd = document.getElementById('deck-density');
+                if (dp) dp.innerText = `${simState.passes} / 7`;
+                if (dd) dd.innerText = `${Math.floor(simState.density)}%`;
+
+                // Verification trigger condition check
+                if (simState.density >= 98) {
+                    advanceToPhase('CERTIFIED');
+                }
+            }
+        }
+
+        // Mouse Drag interactive Compactor tool
+        let isDraggingRollerOnCanvas = false;
+        simCanvas.addEventListener('mousedown', (e) => {
+            if (simState.phase !== 'COMPACTION') return;
+            const rect = simCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const rollerPx = (simState.rollerX / 100) * rect.width;
+            
+            // If clicking near the roller position
+            if (Math.abs(mouseX - rollerPx) < 60) {
+                isDraggingRollerOnCanvas = true;
+                startCompactorHum();
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingRollerOnCanvas) return;
+            const rect = simCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            let targetPct = (mouseX / rect.width) * 100;
+            
+            // Limit range bounds
+            if (targetPct < 12) {
+                targetPct = 12;
+                detectPassEdge('left');
+            }
+            if (targetPct > 88) {
+                targetPct = 88;
+                detectPassEdge('right');
+            }
+
+            // Calculate directional state
+            if (targetPct < simState.rollerX) {
+                simState.rollerDirection = 'left';
+            } else if (targetPct > simState.rollerX) {
+                simState.rollerDirection = 'right';
+            } else {
+                simState.rollerDirection = 'idle';
+            }
+
+            simState.rollerX = targetPct;
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (isDraggingRollerOnCanvas) {
+                isDraggingRollerOnCanvas = false;
+                simState.rollerDirection = 'idle';
+                stopCompactorHum();
+            }
+        });
+
+
+        // --- 8. HTML DRAG & DROP EVENT PROCESSING ---
+        function onDragStart(event) {
+            initAudioContext();
+            event.dataTransfer.setData("text/plain", event.target.id);
+        }
+
+        // Zone configuration to receive drops
+        dropTargetZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropTargetZone.classList.add('drop-zone-active');
+        });
+
+        dropTargetZone.addEventListener('dragleave', () => {
+            dropTargetZone.classList.remove('drop-zone-active');
+        });
+
+        dropTargetZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropTargetZone.classList.remove('drop-zone-active');
+            const elementId = e.dataTransfer.getData("text");
+
+            if (simState.phase === 'INIT' && elementId === 'drag-truck') {
+                advanceToPhase('PAVING');
+            } else if (simState.phase === 'MONITORING' && elementId === 'drag-roller') {
+                advanceToPhase('COMPACTION');
+            } else {
+                // Invalid state drops trigger light system beep alert
+                playSynthBeep(180, 0.2, 'triangle');
+            }
+        });
+
+
+        // --- 9. MATHEMATICAL PARAMETERS MATCHING MODULE ---
+        const parameterValues = [
+            { id: "v1", param: "h", text: "40 mm", isCorrect: true },
+            { id: "v2", param: "T", text: "150 °C", isCorrect: true },
+            { id: "v3", param: "v", text: "4 km/h", isCorrect: true },
+            { id: "v4", param: "rho", text: "98 %", isCorrect: true },
+            { id: "v5", param: "h", text: "120 mm", isCorrect: false },
+            { id: "v6", param: "v", text: "15 km/h", isCorrect: false }
+        ];
+
+        function initMathChallenge() {
+            const chipsContainer = document.getElementById('math-chips-container');
+            chipsContainer.innerHTML = '';
+
+            // Shuffle chip list cards to gamify layout
+            const shuffled = [...parameterValues].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(chip => {
+                const el = document.createElement('div');
+                el.id = chip.id;
+                el.className = "drag-chip bg-slate-900 border border-slate-700 px-3 py-1 text-slate-300 font-mono text-xs rounded hover:border-cyan-400";
+                el.draggable = true;
+                el.innerText = chip.text;
+                el.dataset.param = chip.param;
+                el.dataset.text = chip.text;
+                
+                el.addEventListener('dragstart', (e) => {
+                    initAudioContext();
+                    e.dataTransfer.setData("text/plain", JSON.stringify({
+                        id: chip.id,
+                        param: chip.param,
+                        text: chip.text
+                    }));
+                });
+
+                chipsContainer.appendChild(el);
+            });
+
+            // Set drop zone event handlers
+            document.querySelectorAll('.math-drop').forEach(slot => {
+                slot.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    slot.classList.add('border-cyan-400');
+                });
+
+                slot.addEventListener('dragleave', () => {
+                    slot.classList.remove('border-cyan-400');
+                });
+
+                slot.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    slot.classList.remove('border-cyan-400');
+                    try {
+                        const data = JSON.parse(e.dataTransfer.getData("text/plain"));
+                        const expectedParam = slot.dataset.param;
+
+                        if (data.param === expectedParam) {
+                            // Find matching correctness criteria
+                            const sourceItem = parameterValues.find(p => p.text === data.text);
+                            if (sourceItem && sourceItem.isCorrect) {
+                                slot.innerText = data.text;
+                                slot.className = "h-10 border border-emerald-500 bg-emerald-950/20 rounded flex items-center justify-center text-emerald-400 font-mono text-sm math-drop";
+                                simState.formulasMatched[expectedParam] = true;
+                                playSynthBeep(660, 0.1);
+
+                                // Remove dragged item from source array visually
+                                document.getElementById(data.id)?.remove();
+
+                                verifyMathChallengeUnlocked();
+                            } else {
+                                throw "incorrect";
+                            }
+                        } else {
+                            throw "incorrect";
+                        }
+                    } catch(err) {
+                        playSynthBeep(180, 0.2, 'sawtooth');
+                    }
+                });
+            });
+        }
+
+        function verifyMathChallengeUnlocked() {
+            const allMatched = Object.values(simState.formulasMatched).every(v => v === true);
+            if (allMatched && simState.phase === 'PAVING') {
+                advanceToPhase('MONITORING');
+            }
+        }
+
+
+        // --- 10. SYSTEM NAVIGATION WINDOWS ---
+        function toggleFieldManual() {
+            playSynthBeep(300, 0.05);
+            manualModal.classList.toggle('hidden');
+        }
+
+        function resetSimulation() {
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            advanceToPhase('INIT');
+            initMathChallenge();
+        }
+
+        // --- 11. ENGINE STARTUP INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', () => {
+            resizeCanvases();
+            advanceToPhase('INIT');
+            initMathChallenge();
+            requestAnimationFrame(updateSimulationPhysics);
+        });
+    </script>
+</body>
+</html>

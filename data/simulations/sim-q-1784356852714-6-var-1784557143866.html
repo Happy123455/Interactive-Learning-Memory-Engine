@@ -1,0 +1,1303 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSD: Stopping Sight Distance Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .neon-glow-cyan {
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.25);
+        }
+        .neon-glow-amber {
+            box-shadow: 0 0 15px rgba(251, 191, 36, 0.25);
+        }
+        /* Custom scrollbar for control sidebar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.5);
+        }
+    </style>
+</head>
+<body class="text-slate-100 overflow-x-hidden min-h-screen flex flex-col">
+
+    <!-- Navigation Header -->
+    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-6 py-4 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-cyan-500/10 border border-cyan-400/30 p-2.5 rounded-xl text-cyan-400">
+                <i class="fa-solid fa-car-burst text-xl animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                    Stopping Sight Distance <span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full font-mono font-medium border border-cyan-500/30">SSD v2.5</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">Transportation Engineering Interactive Physical Simulation</p>
+            </div>
+        </div>
+        
+        <!-- Quick Control Actions -->
+        <div class="flex items-center gap-4">
+            <!-- Audio Toggle -->
+            <button id="toggleAudio" class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition duration-200">
+                <i id="audioIcon" class="fa-solid fa-volume-high text-cyan-400"></i>
+                <span class="text-xs font-semibold">Audio Synthesizer</span>
+            </button>
+            <!-- TTS Toggle -->
+            <button id="toggleTTS" class="flex items-center gap-2 bg-slate-900 border border-slate-800 px-3.5 py-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 transition duration-200">
+                <i id="ttsIcon" class="fa-solid fa-microphone text-amber-400"></i>
+                <span class="text-xs font-semibold">TTS Narrator</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex-grow grid grid-cols-1 xl:grid-cols-12 gap-6 p-4 lg:p-6">
+        
+        <!-- LEFT COLUMN: Canvas Visualizer & Deceleration Plotter -->
+        <div class="xl:col-span-7 flex flex-col gap-6">
+            
+            <!-- Road Profile Canvas -->
+            <div class="glass-panel rounded-2xl overflow-hidden shadow-2xl flex flex-col flex-grow">
+                <div class="bg-slate-900/60 px-4 py-3 border-b border-slate-800 flex justify-between items-center">
+                    <span class="text-sm font-bold tracking-wide text-slate-200 flex items-center gap-2">
+                        <i class="fa-solid fa-road text-cyan-400"></i> 2D Side-Profile Physics Engine
+                    </span>
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span id="engineStatus" class="text-xs font-semibold text-emerald-400 font-mono">READY</span>
+                    </div>
+                </div>
+                
+                <div class="relative bg-slate-950 flex-grow min-h-[300px] lg:min-h-[400px]">
+                    <canvas id="roadCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    
+                    <!-- Top Overlay HUD metrics -->
+                    <div class="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+                        <div class="glass-panel px-3 py-1.5 rounded-lg text-xs font-mono text-cyan-400 flex items-center gap-2 shadow-lg">
+                            <span class="text-slate-400">Instant Speed:</span>
+                            <span id="hudSpeed" class="font-bold">0.0 km/h</span>
+                        </div>
+                        <div class="glass-panel px-3 py-1.5 rounded-lg text-xs font-mono text-amber-400 flex items-center gap-2 shadow-lg">
+                            <span class="text-slate-400">Phase:</span>
+                            <span id="hudPhase" class="font-bold uppercase">IDLE</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graphing Engine -->
+            <div class="glass-panel rounded-2xl p-4 shadow-xl grid grid-cols-1 md:grid-cols-3 gap-6">
+                <!-- Mini Deceleration Graph -->
+                <div class="md:col-span-2 flex flex-col gap-2">
+                    <div class="flex justify-between items-center px-1">
+                        <span class="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-chart-line text-cyan-400"></i> Deceleration Trace (d²x/dt²) vs Time
+                        </span>
+                        <span class="text-[10px] text-slate-400 font-mono">Live Plotter</span>
+                    </div>
+                    <div class="relative bg-slate-950 rounded-xl h-36 border border-slate-800">
+                        <canvas id="graphCanvas" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- Instant Calculation Breakdown Stats -->
+                <div class="flex flex-col justify-between gap-3 bg-slate-900/40 p-3.5 rounded-xl border border-slate-800/80">
+                    <h4 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Telemetry Card</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Reaction Distance (Lag):</span>
+                            <span id="statLag" class="font-mono font-bold text-cyan-300">0.00 m</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-400">Braking Distance:</span>
+                            <span id="statBrake" class="font-mono font-bold text-emerald-300">0.00 m</span>
+                        </div>
+                        <div class="border-t border-slate-800 pt-2 flex justify-between items-center text-xs">
+                            <span class="text-slate-200 font-semibold">Total SSD Required:</span>
+                            <span id="statTotal" class="font-mono font-extrabold text-amber-400 text-sm">0.00 m</span>
+                        </div>
+                    </div>
+                    <div class="text-[10px] text-slate-500 leading-normal flex items-start gap-1">
+                        <i class="fa-solid fa-info-circle text-cyan-500 mt-0.5 flex-shrink-0"></i>
+                        <span>Lag is visual reaction space. Braking is decelerated mechanical distance.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Glassmorphic Control Panel -->
+        <div class="xl:col-span-5 flex flex-col gap-6">
+            
+            <!-- Dashboard Controls -->
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl flex flex-col gap-6">
+                <div class="border-b border-slate-800 pb-4 flex justify-between items-center">
+                    <div>
+                        <h2 class="text-lg font-extrabold tracking-wide text-white">Dynamic Variables</h2>
+                        <p class="text-xs text-slate-400">Adjust the inputs to modify braking variables in real-time</p>
+                    </div>
+                    <button id="resetControls" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition" title="Restore default calibration values">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> Reset
+                    </button>
+                </div>
+
+                <!-- Input Controls List -->
+                <div class="space-y-5">
+                    
+                    <!-- Speed Control -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label for="speedRange" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Design Speed (v)
+                            </label>
+                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 px-2.5 py-0.5 rounded text-xs font-mono font-bold" id="speedValue">80 km/h</span>
+                        </div>
+                        <input id="speedRange" type="range" min="20" max="120" step="5" value="80" 
+                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 px-1">
+                            <span>20 km/h</span>
+                            <span>70 km/h</span>
+                            <span>120 km/h</span>
+                        </div>
+                    </div>
+
+                    <!-- Reaction Time Control -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label for="reactionRange" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Perception-Reaction Time (t)
+                            </label>
+                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 px-2.5 py-0.5 rounded text-xs font-mono font-bold" id="reactionValue">2.5 s</span>
+                        </div>
+                        <input id="reactionRange" type="range" min="1.0" max="3.0" step="0.1" value="2.5" 
+                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 px-1">
+                            <span>1.0 s</span>
+                            <span>2.0 s</span>
+                            <span>3.0 s</span>
+                        </div>
+                    </div>
+
+                    <!-- Coefficient of Friction Control -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label for="frictionRange" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Friction Coefficient (f)
+                            </label>
+                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 px-2.5 py-0.5 rounded text-xs font-mono font-bold" id="frictionValue">0.35</span>
+                        </div>
+                        <input id="frictionRange" type="range" min="0.30" max="0.80" step="0.01" value="0.35" 
+                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 px-1">
+                            <span>0.30 (Wet Concrete)</span>
+                            <span>0.55</span>
+                            <span>0.80 (Dry Rough Road)</span>
+                        </div>
+                    </div>
+
+                    <!-- Braking Efficiency Control -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label for="efficiencyRange" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Braking Efficiency (η)
+                            </label>
+                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 px-2.5 py-0.5 rounded text-xs font-mono font-bold" id="efficiencyValue">80 %</span>
+                        </div>
+                        <input id="efficiencyRange" type="range" min="10" max="100" step="5" value="80" 
+                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 px-1">
+                            <span>10% (Bald Tires/Ice)</span>
+                            <span>50%</span>
+                            <span>100% (Nominal Peak)</span>
+                        </div>
+                    </div>
+
+                    <!-- Gradient (Slope) Control -->
+                    <div class="flex flex-col gap-2">
+                        <div class="flex justify-between items-center">
+                            <label for="gradientRange" class="text-sm font-semibold text-slate-300 flex items-center gap-2">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400"></span> Road Gradient (n)
+                            </label>
+                            <span class="bg-cyan-500/10 text-cyan-400 border border-cyan-400/20 px-2.5 py-0.5 rounded text-xs font-mono font-bold" id="gradientValue">0 %</span>
+                        </div>
+                        <input id="gradientRange" type="range" min="-5" max="5" step="1" value="0" 
+                            class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 px-1">
+                            <span>-5% (Descending Slope)</span>
+                            <span>0% (Flat Land)</span>
+                            <span>+5% (Ascending Hill)</span>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- Simulation Trigger Hub -->
+                <div class="grid grid-cols-2 gap-4 pt-2">
+                    <button id="btnSimulate" class="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-bold py-3 px-4 rounded-xl shadow-lg transition duration-200 transform active:scale-95 flex items-center justify-center gap-2.5">
+                        <i class="fa-solid fa-play text-sm"></i> Run Simulation
+                    </button>
+                    <button id="btnExplain" class="bg-slate-800 hover:bg-slate-700 text-white font-semibold py-3 px-4 rounded-xl border border-slate-700 transition duration-200 flex items-center justify-center gap-2.5">
+                        <i class="fa-solid fa-graduation-cap text-amber-400"></i> Explain Steps
+                    </button>
+                </div>
+            </div>
+
+            <!-- Real-time Formula Mapping -->
+            <div class="glass-panel rounded-2xl p-6 shadow-2xl flex flex-col gap-4">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider">Dynamic Equation Highlight Board</span>
+                    <span class="text-[10px] font-mono text-cyan-400">Interactive LaTeX Elements</span>
+                </div>
+                
+                <!-- Graphic Math Display -->
+                <div class="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col gap-4 items-center justify-center text-center overflow-x-auto">
+                    <div class="text-xs text-slate-400 mb-2">Equation changes structure based on adjustments:</div>
+                    
+                    <!-- Dynamic Component Equation -->
+                    <div class="flex flex-wrap items-center justify-center text-base lg:text-lg font-mono tracking-tight gap-1 text-slate-300">
+                        <div class="flex flex-col items-center">
+                            <span class="text-xs text-amber-400 font-semibold mb-1">SSD</span>
+                            <span id="formulaSSD" class="text-amber-400 font-bold border border-amber-500/20 bg-amber-500/5 px-2 py-1 rounded transition-all duration-300 text-lg">0.00</span>
+                        </div>
+                        <span class="font-sans px-1">=</span>
+                        
+                        <!-- Lag term -->
+                        <div id="formulaLagBlock" class="flex flex-col items-center px-2.5 py-1.5 rounded border border-slate-800 transition-all duration-300">
+                            <span class="text-[10px] text-slate-400 mb-1">Reaction Term (d_lag)</span>
+                            <div class="flex items-center">
+                                <span>0.278 ×</span>
+                                <span id="f_speed" class="text-cyan-400 mx-1 font-bold">80</span>
+                                <span>×</span>
+                                <span id="f_reaction" class="text-cyan-400 mx-1 font-bold">2.5</span>
+                            </div>
+                        </div>
+
+                        <span class="font-sans px-1">+</span>
+
+                        <!-- Braking term -->
+                        <div id="formulaBrakeBlock" class="flex flex-col items-center px-2.5 py-1.5 rounded border border-slate-800 transition-all duration-300">
+                            <span class="text-[10px] text-slate-400 mb-1">Deceleration Term (d_brake)</span>
+                            <div class="flex flex-col items-center">
+                                <div class="pb-1 border-b border-slate-600 px-2 flex items-center">
+                                    <span id="f_speedSq" class="text-cyan-400 font-bold">80²</span>
+                                </div>
+                                <div class="pt-1 flex items-center text-xs">
+                                    <span>254 × (</span>
+                                    <span id="f_friction" class="text-cyan-400 mx-0.5 font-bold">0.35</span>
+                                    <span>×</span>
+                                    <span id="f_eff" class="text-cyan-400 mx-0.5 font-bold">0.80</span>
+                                    <span>+</span>
+                                    <span id="f_grad" class="text-cyan-400 mx-0.5 font-bold">0.00</span>
+                                    <span>)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-400 space-y-1.5">
+                    <p class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> <strong>Lag Distance:</strong> Measures vehicle travel distance during perception-reaction time.</p>
+                    <p class="flex items-center gap-2"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> <strong>Braking Distance:</strong> Reflects dissipation of kinetic energy based on tire friction, brakes, and hills.</p>
+                </div>
+            </div>
+
+            <!-- Speech Explanation Card -->
+            <div id="speechCard" class="glass-panel rounded-2xl p-4 shadow-lg hidden flex-col gap-2 border-l-4 border-l-amber-500 animate-fadeIn">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-bold text-amber-400 flex items-center gap-1">
+                        <i class="fa-solid fa-volume-high animate-bounce"></i> Interactive Physical Narrative Coach
+                    </span>
+                    <button id="closeNarrative" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+                <p id="speechMessage" class="text-xs text-slate-300 leading-relaxed italic"></p>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const state = {
+            speed: 80,         // km/h
+            reaction: 2.5,     // seconds
+            friction: 0.35,    // dimension less
+            efficiency: 80,    // percentage
+            gradient: 0,       // percentage
+            calculated: {
+                lagDist: 0,
+                brakeDist: 0,
+                ssd: 0,
+                deceleration: 0
+            },
+            // Audio context configuration
+            audioMuted: false,
+            // TTS configuration
+            ttsEnabled: true,
+            // Animation state machine
+            animState: 'idle', // 'idle' | 'lag' | 'braking' | 'stopped'
+            animProgress: 0,
+            animStartTime: null,
+            animLastFrameTime: null,
+            carPos: { x: 50, y: 0 },
+            hazardPos: { x: 500, y: 0 },
+            telemetry: {
+                currentSpeed: 0,
+                currentDecleration: 0,
+                elapsedTime: 0,
+                xTrace: [],
+                yTrace: []
+            }
+        };
+
+        class SynthEngine {
+            constructor() {
+                this.audioCtx = null;
+            }
+
+            init() {
+                if (!this.audioCtx) {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.audioCtx.state === 'suspended') {
+                    this.audioCtx.resume();
+                }
+            }
+
+            // Short high-frequency click when a range slider is moved
+            playClick() {
+                if (state.audioMuted) return;
+                this.init();
+                
+                const osc = this.audioCtx.createOscillator();
+                const filter = this.audioCtx.createBiquadFilter();
+                const gainNode = this.audioCtx.createGain();
+
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(180, this.audioCtx.currentTime);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(450, this.audioCtx.currentTime);
+
+                gainNode.gain.setValueAtTime(0.04, this.audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.04);
+
+                osc.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(this.audioCtx.destination);
+
+                osc.start();
+                osc.stop(this.audioCtx.currentTime + 0.04);
+            }
+
+            // Soft sweep on dynamic value modification calculations
+            playSweep() {
+                if (state.audioMuted) return;
+                this.init();
+
+                const osc = this.audioCtx.createOscillator();
+                const gainNode = this.audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(480, this.audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, this.audioCtx.currentTime + 0.25);
+
+                gainNode.gain.setValueAtTime(0.08, this.audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.25);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.audioCtx.destination);
+
+                osc.start();
+                osc.stop(this.audioCtx.currentTime + 0.25);
+            }
+
+            // Play continuous engine frequency hum based on velocity
+            playEngineHum(frequency, volume) {
+                if (state.audioMuted) return;
+                this.init();
+                // Handled cleanly via simulation update cycles
+            }
+
+            // Heavy base impact chime on simulation stop
+            playImpact() {
+                if (state.audioMuted) return;
+                this.init();
+
+                const osc = this.audioCtx.createOscillator();
+                const noiseNode = this.audioCtx.createOscillator();
+                const gainNode = this.audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(140, this.audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(45, this.audioCtx.currentTime + 0.55);
+
+                gainNode.gain.setValueAtTime(0.35, this.audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.55);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.audioCtx.destination);
+
+                osc.start();
+                osc.stop(this.audioCtx.currentTime + 0.55);
+            }
+        }
+
+        const synth = new SynthEngine();
+
+        function calculateSSD() {
+            // Speed Conversion: km/h to m/s
+            const v = state.speed;
+            const t = state.reaction;
+            const f = state.friction;
+            const eta = state.efficiency / 100;
+            const n = state.gradient; // percentage
+
+            // Lag/Reaction Distance = 0.278 * v_kmh * t
+            state.calculated.lagDist = 0.278 * v * t;
+
+            // Braking Distance = v^2 / [254 * (f * eta + 0.01 * n)]
+            // We use standard highway formulation incorporating braking efficiency modifier
+            const bottomTerm = 254 * ((f * eta) + (0.01 * n));
+            
+            // Protect against zero or negative denominators (unrealistic physics boundaries)
+            if (bottomTerm <= 2) {
+                state.calculated.brakeDist = 999.9;
+            } else {
+                state.calculated.brakeDist = (v * v) / bottomTerm;
+            }
+
+            // Total Stopping Sight Distance (SSD)
+            state.calculated.ssd = state.calculated.lagDist + state.calculated.brakeDist;
+
+            // Approximate physical deceleration a = g * (f * eta + 0.01 * n)
+            // g = 9.81 m/s^2
+            state.calculated.deceleration = 9.81 * ((f * eta) + (0.01 * n));
+
+            updateHUD();
+        }
+
+        function updateHUD() {
+            // Update Dashboard Metrics text content
+            document.getElementById('statLag').innerText = state.calculated.lagDist.toFixed(2) + ' m';
+            document.getElementById('statBrake').innerText = state.calculated.brakeDist.toFixed(2) + ' m';
+            document.getElementById('statTotal').innerText = state.calculated.ssd.toFixed(2) + ' m';
+
+            // Update Dynamic Highlighting Equation elements
+            document.getElementById('formulaSSD').innerText = state.calculated.ssd.toFixed(2) + 'm';
+            document.getElementById('f_speed').innerText = state.speed;
+            document.getElementById('f_reaction').innerText = state.reaction.toFixed(1);
+            document.getElementById('f_speedSq').innerText = state.speed + '²';
+            document.getElementById('f_friction').innerText = state.friction.toFixed(2);
+            document.getElementById('f_eff').innerText = (state.efficiency / 100).toFixed(2);
+            
+            const gradVal = state.gradient;
+            const sign = gradVal >= 0 ? '+' : '';
+            document.getElementById('f_grad').innerText = `${sign}${(gradVal * 0.01).toFixed(2)}`;
+
+            // Visual highlight flashing when updating inputs
+            const outputs = document.getElementById('formulaSSD');
+            outputs.classList.remove('neon-glow-amber');
+            void outputs.offsetWidth; // Force CSS reflow
+            outputs.classList.add('neon-glow-amber');
+        }
+
+        const sliders = [
+            { id: 'speedRange', valId: 'speedValue', field: 'speed', unit: ' km/h', callback: (v) => parseInt(v) },
+            { id: 'reactionRange', valId: 'reactionValue', field: 'reaction', unit: ' s', callback: (v) => parseFloat(v) },
+            { id: 'frictionRange', valId: 'frictionValue', field: 'friction', unit: '', callback: (v) => parseFloat(v) },
+            { id: 'efficiencyRange', valId: 'efficiencyValue', field: 'efficiency', unit: ' %', callback: (v) => parseInt(v) },
+            { id: 'gradientRange', valId: 'gradientValue', field: 'gradient', unit: ' %', callback: (v) => parseInt(v) }
+        ];
+
+        // Register event hooks to inputs
+        sliders.forEach(slider => {
+            const el = document.getElementById(slider.id);
+            const valEl = document.getElementById(slider.valId);
+            
+            el.addEventListener('input', (e) => {
+                const targetValue = e.target.value;
+                state[slider.field] = slider.callback(targetValue);
+                valEl.innerText = targetValue + slider.unit;
+                
+                // Play programmatic synthesized low-pass click
+                synth.playClick();
+                
+                // Triggers formula updates
+                calculateSSD();
+                resetSimulationState();
+            });
+        });
+
+        // Toggle Audio Synth
+        document.getElementById('toggleAudio').addEventListener('click', () => {
+            state.audioMuted = !state.audioMuted;
+            const icon = document.getElementById('audioIcon');
+            if (state.audioMuted) {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+            } else {
+                icon.className = "fa-solid fa-volume-high text-cyan-400";
+                synth.init();
+            }
+        });
+
+        // Toggle TTS Support
+        document.getElementById('toggleTTS').addEventListener('click', () => {
+            state.ttsEnabled = !state.ttsEnabled;
+            const icon = document.getElementById('ttsIcon');
+            if (state.ttsEnabled) {
+                icon.className = "fa-solid fa-microphone text-amber-400";
+            } else {
+                icon.className = "fa-solid fa-microphone-slash text-slate-500";
+            }
+        });
+
+        // Restore default values
+        document.getElementById('resetControls').addEventListener('click', () => {
+            document.getElementById('speedRange').value = 80;
+            document.getElementById('speedValue').innerText = '80 km/h';
+            state.speed = 80;
+
+            document.getElementById('reactionRange').value = 2.5;
+            document.getElementById('reactionValue').innerText = '2.5 s';
+            state.reaction = 2.5;
+
+            document.getElementById('frictionRange').value = 0.35;
+            document.getElementById('frictionValue').innerText = '0.35';
+            state.friction = 0.35;
+
+            document.getElementById('efficiencyRange').value = 80;
+            document.getElementById('efficiencyValue').innerText = '80 %';
+            state.efficiency = 80;
+
+            document.getElementById('gradientRange').value = 0;
+            document.getElementById('gradientValue').innerText = '0 %';
+            state.gradient = 0;
+
+            synth.playSweep();
+            calculateSSD();
+            resetSimulationState();
+        });
+
+        const canvas = document.getElementById('roadCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const graphCanvas = document.getElementById('graphCanvas');
+        const gCtx = graphCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            // High DPI Screen Resolution Adjustment
+            const dpr = window.devicePixelRatio || 1;
+            
+            // Main Road canvas resize
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Deceleration mini plot canvas resize
+            const gRect = graphCanvas.getBoundingClientRect();
+            graphCanvas.width = gRect.width * dpr;
+            graphCanvas.height = gRect.height * dpr;
+            gCtx.scale(dpr, dpr);
+
+            // Re-render layout context
+            drawScene();
+            drawGraph();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+
+        function drawScene() {
+            const w = canvas.width / (window.devicePixelRatio || 1);
+            const h = canvas.height / (window.devicePixelRatio || 1);
+
+            // Clear Scene Buffer
+            ctx.fillStyle = '#0b0f19';
+            ctx.fillRect(0, 0, w, h);
+
+            // Render Grid Matrix
+            ctx.strokeStyle = 'rgba(34, 211, 238, 0.03)';
+            ctx.lineWidth = 1;
+            const gridSpacing = 40;
+            for (let x = 0; x < w; x += gridSpacing) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = 0; y < h; y += gridSpacing) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            // Physics Scaling Equations
+            // Map stopping sight distance perfectly on responsive coordinate system
+            const xStart = 80;
+            const xEnd = w - 100;
+            const usableWidth = xEnd - xStart;
+            
+            // 1 meter matches scaleRatio pixels
+            const maxSsdRepresented = Math.max(state.calculated.ssd * 1.25, 100);
+            const scaleRatio = usableWidth / maxSsdRepresented;
+
+            // Calculate exact height coordinates factoring road gradient (n%)
+            const n = state.gradient; // ranges from -5 to +5
+            const radAngle = Math.atan(n / 100); // Visual slope matching calculations
+
+            // Center of road baseline height
+            const roadYCenter = h * 0.7;
+
+            // Ground Line Drawer Function
+            function getRoadHeight(x) {
+                // Adjusts height visually matching ascending/descending percentage
+                const deltaX = x - xStart;
+                return roadYCenter - (deltaX * Math.sin(radAngle));
+            }
+
+            // Drawing visual asphalt base
+            ctx.beginPath();
+            ctx.moveTo(0, roadYCenter + (xStart * Math.sin(radAngle)));
+            for (let x = 0; x <= w; x += 10) {
+                ctx.lineTo(x, getRoadHeight(x));
+            }
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+            
+            // Modern asphalt dark linear gradient fill
+            const roadGrad = ctx.createLinearGradient(0, roadYCenter, 0, h);
+            roadGrad.addColorStop(0, '#1e293b');
+            roadGrad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = roadGrad;
+            ctx.fill();
+
+            // Safety road border neon dash
+            ctx.beginPath();
+            ctx.moveTo(0, roadYCenter + (xStart * Math.sin(radAngle)));
+            for (let x = 0; x <= w; x += 15) {
+                ctx.lineTo(x, getRoadHeight(x));
+            }
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 6;
+            ctx.stroke();
+
+            // Yellow middle separation lines
+            ctx.beginPath();
+            ctx.setLineDash([12, 12]);
+            ctx.moveTo(0, roadYCenter + (xStart * Math.sin(radAngle)) + 15);
+            for (let x = 0; x <= w; x += 10) {
+                ctx.lineTo(x, getRoadHeight(x) + 15);
+            }
+            ctx.strokeStyle = 'rgba(234, 179, 8, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dash patterns
+
+            // Render SSD Target Zone highlight band
+            const endXVal = xStart + (state.calculated.ssd * scaleRatio);
+            
+            ctx.save();
+            ctx.beginPath();
+            ctx.moveTo(xStart, getRoadHeight(xStart));
+            for (let x = xStart; x <= endXVal; x += 10) {
+                ctx.lineTo(x, getRoadHeight(x));
+            }
+            ctx.lineTo(endXVal, h);
+            ctx.lineTo(xStart, h);
+            ctx.closePath();
+            const zoneGrad = ctx.createLinearGradient(0, roadYCenter - 50, 0, h);
+            zoneGrad.addColorStop(0, 'rgba(34, 211, 238, 0.05)');
+            zoneGrad.addColorStop(1, 'rgba(34, 211, 238, 0)');
+            ctx.fillStyle = zoneGrad;
+            ctx.fill();
+            ctx.restore();
+
+            // Sight beam marker indicator overlay text
+            ctx.strokeStyle = 'rgba(34, 211, 238, 0.3)';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(xStart, roadYCenter - 90);
+            ctx.lineTo(xStart, getRoadHeight(xStart));
+            ctx.moveTo(endXVal, roadYCenter - 90);
+            ctx.lineTo(endXVal, getRoadHeight(endXVal));
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Label line dimension helper
+            ctx.beginPath();
+            ctx.moveTo(xStart, roadYCenter - 80);
+            ctx.lineTo(endXVal, roadYCenter - 80);
+            ctx.strokeStyle = '#22d3ee';
+            ctx.stroke();
+
+            // Arrowheads for dimensions
+            ctx.fillStyle = '#22d3ee';
+            ctx.beginPath();
+            ctx.moveTo(xStart, roadYCenter - 80);
+            ctx.lineTo(xStart + 8, roadYCenter - 83);
+            ctx.lineTo(xStart + 8, roadYCenter - 77);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.moveTo(endXVal, roadYCenter - 80);
+            ctx.lineTo(endXVal - 8, roadYCenter - 83);
+            ctx.lineTo(endXVal - 8, roadYCenter - 77);
+            ctx.fill();
+
+            ctx.font = '11px "Fira Code", monospace';
+            ctx.fillStyle = '#22d3ee';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Theoretical SSD Range = ${state.calculated.ssd.toFixed(2)}m`, (xStart + endXVal) / 2, roadYCenter - 90);
+
+            // Draw Stationary Hazard Block (Obstacle)
+            const objX = xStart + (state.calculated.ssd * scaleRatio);
+            const objY = getRoadHeight(objX);
+            
+            ctx.save();
+            ctx.translate(objX, objY);
+            ctx.rotate(-radAngle);
+            
+            // Shadow
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+            ctx.fillRect(-15, -4, 30, 8);
+            
+            // Red glowing warning bar
+            ctx.fillStyle = '#ef4444';
+            ctx.fillRect(-10, -25, 20, 25);
+            ctx.strokeStyle = '#f87171';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(-10, -25, 20, 25);
+            
+            // Stripes
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(-7, -20); ctx.lineTo(7, -6);
+            ctx.moveTo(-7, -13); ctx.lineTo(0, -6);
+            ctx.moveTo(0, -20); ctx.lineTo(7, -13);
+            ctx.stroke();
+            ctx.restore();
+
+            // Render Animated/Static Vehicle
+            let carXOffset = 0;
+            if (state.animState === 'idle') {
+                carXOffset = 0;
+            } else {
+                carXOffset = state.telemetry.elapsedTime * (state.speed / 3.6); // basic visual velocity multiplier
+                // Bound check to stop precisely before collision
+                if (carXOffset > state.calculated.ssd) {
+                    carXOffset = state.calculated.ssd;
+                }
+            }
+
+            const currentCarX = xStart + (carXOffset * scaleRatio);
+            const currentCarY = getRoadHeight(currentCarX);
+
+            // Save visual coordinate state to trace physical vectors relative to current car angle
+            ctx.save();
+            ctx.translate(currentCarX, currentCarY);
+            ctx.rotate(-radAngle);
+
+            // Dynamic Vehicle Shadow
+            ctx.fillStyle = 'rgba(0,0,0,0.45)';
+            ctx.beginPath();
+            ctx.ellipse(0, -2, 34, 7, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Main Cyberpunk Car Body Blueprint
+            ctx.fillStyle = '#0ea5e9'; // Cool Cyan/blue cyber vehicle
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.5;
+            
+            // Wheel wells
+            ctx.beginPath();
+            ctx.roundRect(-30, -18, 60, 14, [4, 4, 1, 1]);
+            ctx.fill();
+            ctx.stroke();
+
+            // Windshield and Cabin
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.beginPath();
+            ctx.moveTo(-18, -18);
+            ctx.lineTo(-10, -32);
+            ctx.lineTo(15, -32);
+            ctx.lineTo(24, -18);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Laser Headlights emitting visible beam (representing drivers perception sight cone)
+            const lightGrad = ctx.createLinearGradient(30, -14, 140, -14);
+            lightGrad.addColorStop(0, 'rgba(34, 211, 238, 0.6)');
+            lightGrad.addColorStop(1, 'rgba(34, 211, 238, 0)');
+            ctx.fillStyle = lightGrad;
+            ctx.beginPath();
+            ctx.moveTo(28, -16);
+            ctx.lineTo(160, -36);
+            ctx.lineTo(160, 8);
+            ctx.closePath();
+            ctx.fill();
+
+            // Glowing Hubwheels
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = 3;
+            
+            // Left Wheel
+            ctx.beginPath();
+            ctx.arc(-18, -2, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Right Wheel
+            ctx.beginPath();
+            ctx.arc(18, -2, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner cyan accents
+            ctx.fillStyle = '#22d3ee';
+            ctx.beginPath();
+            ctx.arc(-18, -2, 3, 0, Math.PI * 2);
+            ctx.arc(18, -2, 3, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Render Dynamic Vector Overlays from Center of Mass (0, -16)
+            const comY = -16;
+            
+            // 1. Blue Velocity Vector: scales with instantaneous simulation speed
+            const currSpeedMS = (state.telemetry.currentSpeed / 3.6);
+            const velVecLength = currSpeedMS * 2.8; // scaling visual factor
+            
+            if (velVecLength > 2) {
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(0, comY);
+                ctx.lineTo(velVecLength, comY);
+                ctx.stroke();
+
+                // Arrow head
+                ctx.fillStyle = '#3b82f6';
+                ctx.beginPath();
+                ctx.moveTo(velVecLength, comY);
+                ctx.lineTo(velVecLength - 8, comY - 5);
+                ctx.lineTo(velVecLength - 8, comY + 5);
+                ctx.fill();
+
+                ctx.font = '10px "Fira Code", monospace';
+                ctx.fillStyle = '#93c5fd';
+                ctx.fillText(`v = ${state.telemetry.currentSpeed.toFixed(0)}km/h`, velVecLength / 2, comY - 10);
+            }
+
+            // 2. Red Friction Force Vector: pointing in backwards direction opposing velocity
+            // Active primarily during mechanical deceleration phase
+            const forceFrictionLength = (state.calculated.deceleration) * 8.5; // scaling coefficient
+            
+            if (forceFrictionLength > 2) {
+                // If in lag state friction forces are zero, render dotted line representing maximum available adhesion
+                if (state.animState === 'reaction' || state.animState === 'idle') {
+                    ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                    ctx.setLineDash([3, 3]);
+                } else {
+                    ctx.strokeStyle = '#ef4444';
+                }
+                ctx.lineWidth = 3.5;
+                ctx.beginPath();
+                ctx.moveTo(0, comY);
+                ctx.lineTo(-forceFrictionLength, comY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Friction Arrow Head
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.moveTo(-forceFrictionLength, comY);
+                ctx.lineTo(-forceFrictionLength + 8, comY - 5);
+                ctx.lineTo(-forceFrictionLength + 8, comY + 5);
+                ctx.fill();
+
+                ctx.font = '10px "Fira Code", monospace';
+                ctx.fillStyle = '#fca5a5';
+                ctx.fillText(`F_fric`, -forceFrictionLength, comY - 10);
+            }
+
+            ctx.restore();
+        }
+
+        function drawGraph() {
+            const w = graphCanvas.width / (window.devicePixelRatio || 1);
+            const h = graphCanvas.height / (window.devicePixelRatio || 1);
+
+            gCtx.fillStyle = '#05070f';
+            gCtx.fillRect(0, 0, w, h);
+
+            // Draw Background Gridlines
+            gCtx.strokeStyle = 'rgba(34, 211, 238, 0.05)';
+            gCtx.lineWidth = 1;
+            const gridX = w / 6;
+            const gridY = h / 4;
+            for (let i = 1; i < 6; i++) {
+                gCtx.beginPath();
+                gCtx.moveTo(i * gridX, 0);
+                gCtx.lineTo(i * gridX, h);
+                gCtx.stroke();
+            }
+            for (let i = 1; i < 4; i++) {
+                gCtx.beginPath();
+                gCtx.moveTo(0, i * gridY);
+                gCtx.lineTo(w, i * gridY);
+                gCtx.stroke();
+            }
+
+            // Draw Reference Axis Labels
+            gCtx.font = '9px "Fira Code", monospace';
+            gCtx.fillStyle = '#64748b';
+            gCtx.textAlign = 'left';
+            gCtx.fillText('Deceleration (m/s²)', 10, 15);
+            gCtx.textAlign = 'right';
+            gCtx.fillText('Time (s)', w - 10, h - 10);
+
+            // Draw Deceleration Path Line Chart
+            // The chart displays step progression:
+            // 0 -> perception-reaction duration (decel = 0)
+            // drops instantly to computed deceleration during active mechanical brake application
+            const reactionTime = state.reaction;
+            const initSpeedMS = state.speed / 3.6;
+            const brakeTime = initSpeedMS / state.calculated.deceleration;
+            const totalSimTime = reactionTime + brakeTime;
+
+            const graphLeft = 40;
+            const graphRight = w - 40;
+            const graphWidth = graphRight - graphLeft;
+            const graphBottom = h - 25;
+            const graphTop = 25;
+            const graphHeight = graphBottom - graphTop;
+
+            // X scale mapper: 0 to max duration
+            const maxDurationPlot = Math.max(totalSimTime * 1.2, 5.0);
+            function scaleX(tValue) {
+                return graphLeft + (tValue / maxDurationPlot) * graphWidth;
+            }
+
+            // Y scale mapper: 0 to maximum possible deceleration (9.81 m/s^2)
+            const maxDecelVal = 10;
+            function scaleY(aValue) {
+                return graphBottom - (aValue / maxDecelVal) * graphHeight;
+            }
+
+            // Draw axis lines
+            gCtx.strokeStyle = '#334155';
+            gCtx.lineWidth = 1.5;
+            gCtx.beginPath();
+            gCtx.moveTo(graphLeft, graphTop - 5);
+            gCtx.lineTo(graphLeft, graphBottom);
+            gCtx.lineTo(graphRight + 5, graphBottom);
+            gCtx.stroke();
+
+            // Y axis tick markers
+            gCtx.textAlign = 'right';
+            gCtx.fillStyle = '#94a3b8';
+            [0, 5, 10].forEach(tick => {
+                const yPos = scaleY(tick);
+                gCtx.fillText(`${tick}`, graphLeft - 6, yPos + 3);
+                gCtx.beginPath();
+                gCtx.moveTo(graphLeft - 4, yPos);
+                gCtx.lineTo(graphLeft, yPos);
+                gCtx.stroke();
+            });
+
+            // X axis tick markers
+            gCtx.textAlign = 'center';
+            [0, reactionTime, totalSimTime].forEach(tick => {
+                const xPos = scaleX(tick);
+                gCtx.fillText(`${tick.toFixed(1)}s`, xPos, graphBottom + 14);
+                gCtx.beginPath();
+                gCtx.moveTo(xPos, graphBottom);
+                gCtx.lineTo(xPos, graphBottom + 4);
+                gCtx.stroke();
+            });
+
+            // Draw theoretical step trace
+            gCtx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+            gCtx.lineWidth = 1;
+            gCtx.setLineDash([2, 2]);
+            gCtx.beginPath();
+            
+            // Reaction interval
+            gCtx.moveTo(scaleX(0), scaleY(0));
+            gCtx.lineTo(scaleX(reactionTime), scaleY(0));
+            // Transition step
+            gCtx.lineTo(scaleX(reactionTime), scaleY(state.calculated.deceleration));
+            // Braking interval
+            gCtx.lineTo(scaleX(totalSimTime), scaleY(state.calculated.deceleration));
+            gCtx.lineTo(scaleX(totalSimTime), scaleY(0));
+            gCtx.stroke();
+            gCtx.setLineDash([]);
+
+            // Draw current real-time tracking head
+            if (state.animState !== 'idle') {
+                const currentT = state.telemetry.elapsedTime;
+                
+                gCtx.strokeStyle = '#22d3ee';
+                gCtx.lineWidth = 2.5;
+                gCtx.shadowColor = 'rgba(34, 211, 238, 0.5)';
+                gCtx.shadowBlur = 4;
+                gCtx.beginPath();
+                
+                const startX = scaleX(0);
+                const startY = scaleY(0);
+                
+                if (currentT <= reactionTime) {
+                    gCtx.moveTo(startX, startY);
+                    gCtx.lineTo(scaleX(currentT), scaleY(0));
+                } else {
+                    gCtx.moveTo(startX, startY);
+                    gCtx.lineTo(scaleX(reactionTime), scaleY(0));
+                    gCtx.lineTo(scaleX(reactionTime), scaleY(state.calculated.deceleration));
+                    
+                    const activeBrakeT = Math.min(currentT, totalSimTime);
+                    gCtx.lineTo(scaleX(activeBrakeT), scaleY(state.calculated.deceleration));
+                }
+                gCtx.stroke();
+                
+                // Clear shadow configuration
+                gCtx.shadowBlur = 0;
+
+                // Draw pulsing visual head point
+                const currentActiveX = scaleX(currentT);
+                const currentActiveY = scaleY(currentT <= reactionTime ? 0 : state.calculated.deceleration);
+                gCtx.fillStyle = '#22d3ee';
+                gCtx.beginPath();
+                gCtx.arc(currentActiveX, currentActiveY, 5, 0, Math.PI * 2);
+                gCtx.fill();
+            }
+        }
+
+        const narrativeExplanation = [
+            {
+                title: "Lag Distance Phase (Reaction)",
+                voiceText: "In the first stage, known as the perception-reaction or lag phase, the driver notices the stationary obstacle ahead. During your set reaction time of {reaction} seconds, the vehicle continues moving at a constant speed of {speed} kilometers per hour. No braking has occurred yet, and the car travels a reaction distance of {lag} meters."
+            },
+            {
+                title: "Mechanical Deceleration Phase",
+                voiceText: "In the second stage, mechanical braking is engaged. The car is now decelerating at {decel} meters per second squared. This braking power depends on road surface friction, which is configured at {friction}, and your braking system efficiency of {eff} percent. Additionally, the road gradient of {grad} percent impacts performance: ascending hills help slow down faster, while descending slopes prolong the slide, yielding a mechanical braking distance of {brake} meters."
+            },
+            {
+                title: "Complete Stopped State",
+                voiceText: "Summing both components, the final Stopping Sight Distance required to prevent impact is {total} meters. The vehicle halts safely just before reaching the obstacle."
+            }
+        ];
+
+        let currentSpeakIndex = 0;
+
+        function triggerSpeechNarration() {
+            if (!state.ttsEnabled) return;
+            window.speechSynthesis.cancel(); // Terminate ongoing voice tracks
+            
+            const step = narrativeExplanation[currentSpeakIndex];
+            
+            // Format replacement placeholders
+            let formattedText = step.voiceText
+                .replace('{reaction}', state.reaction.toFixed(1))
+                .replace('{speed}', state.speed.toFixed(0))
+                .replace('{lag}', state.calculated.lagDist.toFixed(1))
+                .replace('{decel}', state.calculated.deceleration.toFixed(1))
+                .replace('{friction}', state.friction.toFixed(2))
+                .replace('{eff}', state.efficiency)
+                .replace('{grad}', state.gradient)
+                .replace('{brake}', state.calculated.brakeDist.toFixed(1))
+                .replace('{total}', state.calculated.ssd.toFixed(1));
+
+            // Setup audio panel visualization overlay
+            const alertCard = document.getElementById('speechCard');
+            const alertMsg = document.getElementById('speechMessage');
+            alertCard.classList.remove('hidden');
+            alertCard.classList.add('flex');
+            alertMsg.innerHTML = `<strong>${step.title}</strong>: ${formattedText}`;
+
+            const utterance = new SpeechSynthesisUtterance(formattedText);
+            
+            // Highlights variables in UI block dynamically based on current phase
+            highlightFormulaSections(currentSpeakIndex);
+
+            utterance.onend = () => {
+                currentSpeakIndex++;
+                if (currentSpeakIndex < narrativeExplanation.length) {
+                    // Trigger subsequent audio sequence step automatically
+                    setTimeout(triggerSpeechNarration, 800);
+                } else {
+                    currentSpeakIndex = 0;
+                    removeFormulaHighlights();
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function highlightFormulaSections(stepIdx) {
+            const lagBlock = document.getElementById('formulaLagBlock');
+            const brakeBlock = document.getElementById('formulaBrakeBlock');
+
+            removeFormulaHighlights();
+
+            if (stepIdx === 0) {
+                lagBlock.classList.add('border-cyan-400', 'bg-cyan-500/10', 'scale-105');
+            } else if (stepIdx === 1) {
+                brakeBlock.classList.add('border-cyan-400', 'bg-cyan-500/10', 'scale-105');
+            }
+        }
+
+        function removeFormulaHighlights() {
+            const lagBlock = document.getElementById('formulaLagBlock');
+            const brakeBlock = document.getElementById('formulaBrakeBlock');
+
+            lagBlock.classList.remove('border-cyan-400', 'bg-cyan-500/10', 'scale-105');
+            brakeBlock.classList.remove('border-cyan-400', 'bg-cyan-500/10', 'scale-105');
+        }
+
+        document.getElementById('closeNarrative').addEventListener('click', () => {
+            document.getElementById('speechCard').classList.add('hidden');
+            window.speechSynthesis.cancel();
+            removeFormulaHighlights();
+        });
+
+        document.getElementById('btnExplain').addEventListener('click', () => {
+            currentSpeakIndex = 0;
+            triggerSpeechNarration();
+        });
+
+        function resetSimulationState() {
+            state.animState = 'idle';
+            state.telemetry.elapsedTime = 0;
+            state.telemetry.currentSpeed = state.speed;
+            state.telemetry.currentDecleration = 0;
+            
+            document.getElementById('engineStatus').innerText = 'READY';
+            document.getElementById('engineStatus').className = "text-xs font-semibold text-emerald-400 font-mono";
+            
+            document.getElementById('hudSpeed').innerText = `${state.speed.toFixed(1)} km/h`;
+            document.getElementById('hudPhase').innerText = 'IDLE';
+            document.getElementById('hudPhase').className = 'font-bold uppercase text-slate-400';
+
+            drawScene();
+            drawGraph();
+        }
+
+        function startSimulation() {
+            // Cancel active speak narrations to run fresh visual physics track
+            window.speechSynthesis.cancel();
+            document.getElementById('speechCard').classList.add('hidden');
+            removeFormulaHighlights();
+
+            synth.playSweep();
+
+            state.animState = 'reaction';
+            state.animStartTime = performance.now();
+            state.animLastFrameTime = state.animStartTime;
+            state.telemetry.elapsedTime = 0;
+
+            document.getElementById('engineStatus').innerText = 'RUNNING';
+            document.getElementById('engineStatus').className = "text-xs font-semibold text-cyan-400 font-mono animate-pulse";
+
+            requestAnimationFrame(simulationLoop);
+        }
+
+        function simulationLoop(timestamp) {
+            if (state.animState === 'idle') return;
+
+            const elapsedSec = (timestamp - state.animStartTime) / 1000;
+            state.telemetry.elapsedTime = elapsedSec;
+
+            const reactionTime = state.reaction;
+            const initSpeedMS = state.speed / 3.6;
+            const decelerationRate = state.calculated.deceleration;
+
+            // Total mechanical braking duration
+            const brakeDuration = initSpeedMS / decelerationRate;
+            const totalDuration = reactionTime + brakeDuration;
+
+            if (elapsedSec < reactionTime) {
+                // Stage 1: perception lag constant speed travel
+                state.animState = 'reaction';
+                state.telemetry.currentSpeed = state.speed;
+                state.telemetry.currentDecleration = 0;
+                
+                document.getElementById('hudPhase').innerText = 'REACTION PHASE';
+                document.getElementById('hudPhase').className = 'font-bold uppercase text-cyan-400';
+            } else if (elapsedSec < totalDuration) {
+                // Stage 2: Mechanical braking application deceleration
+                state.animState = 'braking';
+                
+                const brakeTimeElapsed = elapsedSec - reactionTime;
+                const currentSpeedMS = initSpeedMS - (decelerationRate * brakeTimeElapsed);
+                
+                state.telemetry.currentSpeed = Math.max(currentSpeedMS * 3.6, 0);
+                state.telemetry.currentDecleration = decelerationRate;
+
+                document.getElementById('hudPhase').innerText = 'BRAKING ENGAGED';
+                document.getElementById('hudPhase').className = 'font-bold uppercase text-red-400';
+            } else {
+                // Stage 3: Fully stopped
+                state.animState = 'stopped';
+                state.telemetry.currentSpeed = 0;
+                state.telemetry.currentDecleration = 0;
+                state.telemetry.elapsedTime = totalDuration;
+
+                document.getElementById('hudPhase').innerText = 'VEHICLE HALTED';
+                document.getElementById('hudPhase').className = 'font-bold uppercase text-emerald-400';
+                
+                // Triggers structural stop sound chime
+                synth.playImpact();
+                
+                document.getElementById('engineStatus').innerText = 'STOPPED';
+                document.getElementById('engineStatus').className = "text-xs font-semibold text-emerald-400 font-mono";
+            }
+
+            // Update real-time numerical telemetry
+            document.getElementById('hudSpeed').innerText = `${state.telemetry.currentSpeed.toFixed(1)} km/h`;
+
+            // Draw visuals
+            drawScene();
+            drawGraph();
+
+            if (state.animState !== 'stopped') {
+                requestAnimationFrame(simulationLoop);
+            }
+        }
+
+        document.getElementById('btnSimulate').addEventListener('click', () => {
+            startSimulation();
+        });
+
+        // Initialize Workspace Engine on load
+        window.onload = function() {
+            calculateSSD();
+            resizeCanvases();
+        }
+    </script>
+</body>
+</html>

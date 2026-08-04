@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolted Tension Connection - Simulator & Limit States</title>
+    <style>
+        :root {
+            --bg-primary: #0a0e17;
+            --bg-secondary: #131a26;
+            --border-color: #243249;
+            --accent-cyan: #00e5ff;
+            --accent-purple: #9d4edd;
+            --accent-green: #39ff14;
+            --accent-red: #ff3838;
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border-color);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        header h1 span {
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            border: 1px solid var(--accent-cyan);
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .main-container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            flex-grow: 1;
+            height: calc(100vh - 65px);
+            overflow: hidden;
+        }
+
+        /* Sidebar Controls */
+        .sidebar {
+            background-color: var(--bg-secondary);
+            border-right: 1px solid var(--border-color);
+            padding: 1.5rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .section-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--accent-cyan);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-group {
+            background: rgba(10, 14, 23, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+        }
+
+        .control-row {
+            margin-bottom: 1rem;
+        }
+
+        .control-row:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 0.5rem;
+        }
+
+        label span.val {
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            font-weight: bold;
+        }
+
+        select, input[type="range"] {
+            width: 100%;
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.5rem;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 6px;
+            background: var(--border-color);
+            border-radius: 3px;
+            outline: none;
+            padding: 0;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-cyan);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Mode Selectors */
+        .mode-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .mode-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.6rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .mode-btn.active {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            background: rgba(0, 229, 255, 0.05);
+            box-shadow: inset 0 0 8px rgba(0, 229, 255, 0.1);
+        }
+
+        /* Failure Mode Radio Buttons */
+        .failure-selector {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 0.5rem;
+        }
+
+        .fail-btn {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 0.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .fail-btn.active {
+            border-color: var(--accent-purple);
+            color: var(--accent-purple);
+            background: rgba(157, 78, 221, 0.05);
+        }
+
+        /* Visualization Area */
+        .workspace {
+            display: grid;
+            grid-template-rows: 1fr 220px;
+            overflow: hidden;
+            background: #070a10;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Live Engineering Readouts */
+        .dashboard-panel {
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border-color);
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            padding: 1.2rem;
+            gap: 1.2rem;
+            overflow-x: auto;
+        }
+
+        .metric-card {
+            background: var(--bg-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .metric-card.active-card {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.05);
+        }
+
+        .metric-card.limit-state-card {
+            border-color: var(--accent-purple);
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .metric-value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin: 0.5rem 0;
+            font-family: var(--font-mono);
+        }
+
+        .metric-formula {
+            font-size: 0.7rem;
+            color: var(--accent-cyan);
+            font-family: var(--font-mono);
+            background: rgba(0, 229, 255, 0.04);
+            padding: 4px;
+            border-radius: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .metric-formula.purple {
+            color: var(--accent-purple);
+            background: rgba(157, 78, 221, 0.04);
+        }
+
+        /* Overlay Info badge on canvas */
+        .canvas-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(19, 26, 38, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border-color);
+            padding: 1rem;
+            border-radius: 8px;
+            width: 280px;
+            pointer-events: none;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+
+        .overlay-title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.25rem;
+        }
+
+        .overlay-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            margin: 0.25rem 0;
+        }
+
+        .overlay-row span:last-child {
+            font-family: var(--font-mono);
+            color: var(--accent-cyan);
+        }
+
+        .legend {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            display: flex;
+            gap: 15px;
+            background: rgba(19, 26, 38, 0.8);
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+        }
+
+        /* Tooltip style */
+        .info-tooltip {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Bolted Tension Joint Designer <span>ISA to Gusset Plate</span></h1>
+        <div style="font-size: 0.8rem; color: var(--text-muted); font-family: var(--font-mono)">
+            Limit State Design: <span style="color: var(--accent-cyan)">IS 800:2007</span>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Sidebar Controls -->
+        <div class="sidebar">
+            <div>
+                <div class="section-title">Joint Configuration</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Angle Thickness ($t_{isa}$)<span class="val" id="val-t-isa">8 mm</span></label>
+                        <input type="range" id="param-t-isa" min="6" max="16" step="2" value="8">
+                    </div>
+                    <div class="control-row">
+                        <label>Gusset Plate ($t_{gp}$)<span class="val" id="val-t-gp">10 mm</span></label>
+                        <input type="range" id="param-t-gp" min="8" max="20" step="2" value="10">
+                    </div>
+                    <div class="control-row">
+                        <label>Plate Ultimate Strength ($f_u$)<span class="val" id="val-fu">410 MPa</span></label>
+                        <select id="param-fu">
+                            <option value="410">Fe 410 ($f_u$ = 410 MPa)</option>
+                            <option value="540">Fe 540 ($f_u$ = 540 MPa)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">Bolt Specification</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Bolt Diameter ($d$)<span class="val" id="val-d">16 mm</span></label>
+                        <input type="range" id="param-d" min="12" max="30" step="4" value="16">
+                    </div>
+                    <div class="control-row">
+                        <label>Bolt Grade ($f_{ub}$)<span class="val" id="val-fub">4.6 Grade</span></label>
+                        <select id="param-fub">
+                            <option value="400">4.6 ($f_{ub}$ = 400 MPa)</option>
+                            <option value="460">4.8 ($f_{ub}$ = 460 MPa)</option>
+                            <option value="800">8.8 ($f_{ub}$ = 800 MPa)</option>
+                        </select>
+                    </div>
+                    <div class="control-row">
+                        <label>Pitch Distance ($p$)<span class="val" id="val-pitch">40 mm</span></label>
+                        <input type="range" id="param-pitch" min="30" max="100" step="5" value="40">
+                    </div>
+                    <div class="control-row">
+                        <label>Edge Distance ($e$)<span class="val" id="val-edge">30 mm</span></label>
+                        <input type="range" id="param-edge" min="25" max="80" step="5" value="30">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">Design Parameters</div>
+                <div class="control-group">
+                    <div class="control-row">
+                        <label>Factored Tension Load ($P$)<span class="val" id="val-load">120 kN</span></label>
+                        <input type="range" id="param-load" min="50" max="500" step="10" value="120">
+                    </div>
+                </div>
+            </div>
+
+            <div>
+                <div class="section-title">Visual Mode</div>
+                <div class="mode-selector">
+                    <button class="mode-btn active" onclick="setVisualView('joint')">Assembly View</button>
+                    <button class="mode-btn" onclick="setVisualView('bolt')">Single Bolt Zoom</button>
+                </div>
+                <div class="section-title">Simulation State</div>
+                <div class="failure-selector">
+                    <button class="fail-btn active" id="btn-state-normal" onclick="setSimulationState('normal')">Normal</button>
+                    <button class="fail-btn" id="btn-state-shear" onclick="setSimulationState('shear')">Shearing</button>
+                    <button class="fail-btn" id="btn-state-bearing" onclick="setSimulationState('bearing')">Bearing</button>
+                </div>
+                <div class="control-row" style="margin-top: 1rem;">
+                    <label>Simulated Tension Strain <span class="val" id="val-strain">0%</span></label>
+                    <input type="range" id="param-strain" min="0" max="100" step="1" value="0">
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Display and Output Dashboard -->
+        <div class="workspace">
+            <div class="canvas-container">
+                <canvas id="renderCanvas"></canvas>
+                
+                <div class="canvas-overlay" id="overlay-stats">
+                    <div class="overlay-title">Connection Parameters</div>
+                    <div class="overlay-row"><span>Hole Diameter ($d_0$):</span><span id="stat-d0">18 mm</span></div>
+                    <div class="overlay-row"><span>Shear Area ($A_{nb}$):</span><span id="stat-anb">156 mm²</span></div>
+                    <div class="overlay-row"><span>Factor $k_b$:</span><span id="stat-kb">0.453</span></div>
+                    <div class="overlay-row"><span>Thinner Element ($t$):</span><span id="stat-t">8 mm</span></div>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item"><div class="legend-color" style="background: #00e5ff;"></div>ISA Angle (Tension Member)</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #79808a;"></div>Gusset Plate</div>
+                    <div class="legend-item"><div class="legend-color" style="background: #ffd31d;"></div>Bolts</div>
+                </div>
+            </div>
+
+            <!-- Dynamic calculation outputs -->
+            <div class="dashboard-panel">
+                <div class="metric-card active-card">
+                    <span class="metric-label">1. Shear Strength of Bolt</span>
+                    <span class="metric-value" id="out-v-dsb" style="color: var(--accent-cyan);">35.2 kN</span>
+                    <span class="metric-formula" id="formula-shear">V_dsb = (f_ub * A_nb) / (√3 * 1.25)</span>
+                    <div class="info-tooltip">Shearing across the thread plane. Depend on bolt grade & diameter.</div>
+                </div>
+
+                <div class="metric-card active-card">
+                    <span class="metric-label">2. Bearing Strength of Plate</span>
+                    <span class="metric-value" id="out-v-dpb" style="color: var(--accent-purple);">42.1 kN</span>
+                    <span class="metric-formula purple" id="formula-bearing">V_dpb = 2.5 * k_b * d * t * f_u / 1.25</span>
+                    <div class="info-tooltip">Bearing capacity of plate. Depends on spacing $e$, $p$ and thickness $t$.</div>
+                </div>
+
+                <div class="metric-card limit-state-card">
+                    <span class="metric-label">Design Bolt Value ($V_{db}$)</span>
+                    <span class="metric-value" id="out-v-db" style="color: var(--accent-green);">35.2 kN</span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);" id="governing-criteria">Governed by: Shear Failure</div>
+                    <div class="info-tooltip">Minimum of Shear and Bearing Limit State strength.</div>
+                </div>
+
+                <div class="metric-card">
+                    <span class="metric-label">Required Bolt Count</span>
+                    <span class="metric-value" id="out-bolts-needed">4 Bolts</span>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);" id="ratio-display">Calculated: 3.41 Bolts</div>
+                    <div class="info-tooltip">Safety Check: $P / V_{db}$. Always rounded up.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const canvas = document.getElementById('renderCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // State variables
+        let params = {
+            t_isa: 8,
+            t_gp: 10,
+            fu: 410,
+            d: 16,
+            fub: 400,
+            pitch: 40,
+            edge: 30,
+            load: 120,
+            strain: 0
+        };
+
+        let viewMode = 'joint'; // 'joint' | 'bolt'
+        let simState = 'normal'; // 'normal' | 'shear' | 'bearing'
+
+        // Setup input controls listeners
+        const inputs = [
+            { id: 'param-t-isa', key: 't_isa', valId: 'val-t-isa', suffix: ' mm' },
+            { id: 'param-t-gp', key: 't_gp', valId: 'val-t-gp', suffix: ' mm' },
+            { id: 'param-fu', key: 'fu', valId: 'val-fu', suffix: ' MPa', isSelect: true },
+            { id: 'param-d', key: 'd', valId: 'val-d', suffix: ' mm' },
+            { id: 'param-fub', key: 'fub', valId: 'val-fub', suffix: ' Grade', isSelect: true },
+            { id: 'param-pitch', key: 'pitch', valId: 'val-pitch', suffix: ' mm' },
+            { id: 'param-edge', key: 'edge', valId: 'val-edge', suffix: ' mm' },
+            { id: 'param-load', key: 'load', valId: 'val-load', suffix: ' kN' },
+            { id: 'param-strain', key: 'strain', valId: 'val-strain', suffix: '%' }
+        ];
+
+        inputs.forEach(input => {
+            const el = document.getElementById(input.id);
+            if (!el) return;
+            
+            const updateHandler = () => {
+                let parsedVal = parseFloat(el.value);
+                if (input.key === 'fub' && input.isSelect) {
+                    // map grade output string
+                    const mapping = { '400': '4.6 Grade', '460': '4.8 Grade', '800': '8.8 Grade' };
+                    document.getElementById(input.valId).innerText = mapping[el.value];
+                } else if (input.key === 'fu' && input.isSelect) {
+                     const mapping = { '410': 'Fe 410', '540': 'Fe 540' };
+                     document.getElementById(input.valId).innerText = `${mapping[el.value]} (410 MPa)`;
+                } else {
+                    document.getElementById(input.valId).innerText = parsedVal + input.suffix;
+                }
+                params[input.key] = parsedVal;
+                calculatePhysics();
+                draw();
+            };
+
+            el.addEventListener('input', updateHandler);
+            if (input.isSelect) el.addEventListener('change', updateHandler);
+        });
+
+        function setVisualView(mode) {
+            viewMode = mode;
+            document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            draw();
+        }
+
+        function setSimulationState(state) {
+            simState = state;
+            document.querySelectorAll('.fail-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-state-${state}`).classList.add('active');
+            draw();
+        }
+
+        // Mechanical Math
+        let mathResults = {};
+
+        function calculatePhysics() {
+            // 1. Hole Diameter (IS 800:2007, Table 19)
+            let d0 = params.d;
+            if (params.d < 12) d0 += 1;
+            else if (params.d <= 24) d0 += 2;
+            else d0 += 3;
+
+            // Update limits dynamically based on d0
+            const minPitch = Math.ceil(2.5 * params.d);
+            const minEdge = Math.ceil(1.5 * d0);
+            
+            const pitchInput = document.getElementById('param-pitch');
+            const edgeInput = document.getElementById('param-edge');
+            
+            pitchInput.min = minPitch;
+            edgeInput.min = minEdge;
+            if(params.pitch < minPitch) {
+                params.pitch = minPitch;
+                pitchInput.value = minPitch;
+                document.getElementById('val-pitch').innerText = minPitch + ' mm';
+            }
+            if(params.edge < minEdge) {
+                params.edge = minEdge;
+                edgeInput.value = minEdge;
+                document.getElementById('val-edge').innerText = minEdge + ' mm';
+            }
+
+            // 2. Net Tensile Area of Bolt (at threads)
+            let A_nb = 0.78 * Math.PI * Math.pow(params.d, 2) / 4.0;
+
+            // 3. Shear Capacity of single bolt
+            // Assuming 1 shear plane inside the thread zone (n_n = 1, n_s = 0)
+            let V_dsb = (params.fub * (1 * A_nb + 0)) / (Math.sqrt(3) * 1.25) / 1000.0; // kN
+
+            // 4. Bearing Capacity on plate
+            // kb is least of: e/(3*d0), (p/(3*d0)) - 0.25, fub/fu, 1.0
+            let kb_1 = params.edge / (3.0 * d0);
+            let kb_2 = (params.pitch / (3.0 * d0)) - 0.25;
+            let kb_3 = params.fub / params.fu;
+            let kb_4 = 1.0;
+            let kb = Math.min(kb_1, kb_2, kb_3, kb_4);
+
+            let t_min = Math.min(params.t_isa, params.t_gp);
+            // V_dpb = 2.5 * kb * d * t * fu / gamma_mb (gamma_mb = 1.25)
+            let V_dpb = (2.5 * kb * params.d * t_min * params.fu / 1.25) / 1000.0; // kN
+
+            // 5. Bolt Value
+            let V_db = Math.min(V_dsb, V_dpb);
+
+            // 6. Number of Bolts required
+            let floatBolts = params.load / V_db;
+            let numBolts = Math.ceil(floatBolts);
+
+            // Save references
+            mathResults = {
+                d0, A_nb, kb, t_min, V_dsb, V_dpb, V_db, numBolts, floatBolts
+            };
+
+            // Update UI reads
+            document.getElementById('stat-d0').innerText = d0 + ' mm';
+            document.getElementById('stat-anb').innerText = A_nb.toFixed(1) + ' mm²';
+            document.getElementById('stat-kb').innerText = kb.toFixed(3);
+            document.getElementById('stat-t').innerText = t_min + ' mm';
+
+            document.getElementById('out-v-dsb').innerText = V_dsb.toFixed(1) + ' kN';
+            document.getElementById('out-v-dpb').innerText = V_dpb.toFixed(1) + ' kN';
+            document.getElementById('out-v-db').innerText = V_db.toFixed(1) + ' kN';
+            
+            if (V_dsb < V_dpb) {
+                document.getElementById('governing-criteria').innerText = 'Governed by: Bolt Shear';
+                document.getElementById('governing-criteria').style.color = 'var(--accent-cyan)';
+            } else {
+                document.getElementById('governing-criteria').innerText = 'Governed by: Plate Bearing';
+                document.getElementById('governing-criteria').style.color = 'var(--accent-purple)';
+            }
+
+            document.getElementById('out-bolts-needed').innerText = numBolts + (numBolts === 1 ? ' Bolt' : ' Bolts');
+            document.getElementById('ratio-display').innerText = `Factored / Bolt Value = ${floatBolts.toFixed(2)} bolts`;
+        }
+
+        // Responsive Canvas setup
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth * window.devicePixelRatio;
+            canvas.height = container.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // Core Drawing Loop
+        function draw() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            ctx.clearRect(0, 0, width, height);
+
+            // Grid background
+            ctx.strokeStyle = 'rgba(36, 50, 73, 0.2)';
+            ctx.lineWidth = 1;
+            const step = 20;
+            for (let x = 0; x < width; x += step) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += step) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            if (viewMode === 'joint') {
+                drawJointView(width, height);
+            } else {
+                drawBoltZoomView(width, height);
+            }
+        }
+
+        function drawJointView(w, h) {
+            // Layout configurations for Assembly
+            const centerY = h / 2;
+            const overlapX = w / 2 - 100;
+            const overlapWidth = 300;
+            
+            // Apply tension displacement based on strain parameter
+            const strainRatio = params.strain / 100.0;
+            let gpShift = 0;
+            let isaShift = 0;
+
+            if (simState === 'shear' || simState === 'normal') {
+                gpShift = -strainRatio * 15;
+                isaShift = strainRatio * 15;
+            } else if (simState === 'bearing') {
+                gpShift = -strainRatio * 5;
+                isaShift = strainRatio * 25;
+            }
+
+            // Draw Gusset Plate (Left side, background layer)
+            ctx.fillStyle = 'rgba(121, 128, 138, 0.85)';
+            ctx.strokeStyle = '#79808a';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, centerY - 60);
+            ctx.lineTo(overlapX + overlapWidth + gpShift, centerY - 60);
+            ctx.lineTo(overlapX + overlapWidth + gpShift, centerY + 60);
+            ctx.lineTo(0, centerY + 60);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Label Gusset
+            ctx.fillStyle = '#fff';
+            ctx.font = '11px sans-serif';
+            ctx.fillText(`GUSSET PLATE (t = ${params.t_gp}mm)`, 40, centerY - 75);
+
+            // Draw ISA Angle (Right side, foreground layer)
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+            ctx.strokeStyle = '#00e5ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(overlapX + isaShift, centerY - 50);
+            ctx.lineTo(w, centerY - 50);
+            ctx.lineTo(w, centerY + 50);
+            ctx.lineTo(overlapX + isaShift, centerY + 50);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw a simplified vertical projection leg of the Indian Standard Angle
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(overlapX + isaShift, centerY - 50);
+            ctx.lineTo(w, centerY - 50);
+            ctx.lineTo(w, centerY - 100); // Upstanding leg
+            ctx.lineTo(overlapX + isaShift, centerY - 50);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.fillStyle = '#00e5ff';
+            ctx.fillText(`ISA ANGLE (t = ${params.t_isa}mm)`, w - 160, centerY + 80);
+
+            // Spacing dimensions
+            let e = params.edge * 1.5; // pixel scaling
+            let p = params.pitch * 1.5;
+
+            // Draw Bolts
+            const numBolts = Math.min(6, Math.max(2, mathResults.numBolts)); 
+            const startX = overlapX + 80;
+
+            for (let i = 0; i < numBolts; i++) {
+                let boltBaseX = startX + i * p;
+                
+                // Add deformation displacement relative to state
+                let boltX = boltBaseX;
+                if (simState === 'shear') {
+                    // Shear split visual: top and bottom halves shift apart
+                    boltX += (gpShift + isaShift) / 2;
+                } else if (simState === 'bearing') {
+                    // Bolt bends or moves relative to slot elongation
+                    boltX += gpShift + (isaShift - gpShift) * 0.3;
+                } else {
+                    boltX += (gpShift + isaShift) / 2;
+                }
+
+                // Bolt dimensions
+                const bRadius = params.d * 0.7;
+                
+                // Draw Hole deformation underneath
+                if (simState === 'bearing' && strainRatio > 0.1) {
+                    ctx.fillStyle = 'rgba(255, 56, 56, 0.3)';
+                    ctx.beginPath();
+                    // Ovalized shape representing bearing elongation
+                    ctx.ellipse(boltBaseX + isaShift - 4, centerY, bRadius + 6 * strainRatio, bRadius, 0, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.strokeStyle = 'var(--accent-red)';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+
+                // Draw Bolt Hex Head
+                ctx.fillStyle = '#ffd31d';
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let step = 0; step < 6; step++) {
+                    let angle = (step * Math.PI) / 3;
+                    let hx = boltX + bRadius * Math.cos(angle);
+                    let hy = centerY + bRadius * Math.sin(angle);
+                    if (step === 0) ctx.moveTo(hx, hy);
+                    else ctx.lineTo(hx, hy);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Draw bolt core center pin
+                ctx.fillStyle = '#b59400';
+                ctx.beginPath();
+                ctx.arc(boltX, centerY, bRadius * 0.4, 0, 2 * Math.PI);
+                ctx.fill();
+
+                // If shearing, draw fracture planes
+                if (simState === 'shear' && strainRatio > 0.4) {
+                    ctx.strokeStyle = 'var(--accent-red)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(boltX - bRadius, centerY - 5);
+                    ctx.lineTo(boltX + bRadius, centerY + 5);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw Tension arrows
+            drawTensionArrows(w, centerY, gpShift, isaShift);
+
+            // Dimension line helpers
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '10px var(--font-mono)';
+            
+            // Edge distance indicator
+            let endBoltX = startX + (numBolts - 1) * p;
+            ctx.beginPath();
+            ctx.moveTo(overlapX + isaShift, centerY + 20);
+            ctx.lineTo(startX + isaShift, centerY + 20);
+            ctx.stroke();
+            ctx.fillText(`e = ${params.edge}mm`, overlapX + 15 + isaShift, centerY + 35);
+
+            // Pitch distance indicator
+            if (numBolts > 1) {
+                ctx.beginPath();
+                ctx.moveTo(startX + isaShift, centerY + 20);
+                ctx.lineTo(startX + p + isaShift, centerY + 20);
+                ctx.stroke();
+                ctx.fillText(`p = ${params.pitch}mm`, startX + (p/2) - 15 + isaShift, centerY + 35);
+            }
+        }
+
+        function drawBoltZoomView(w, h) {
+            const centerX = w / 2;
+            const centerY = h / 2 - 20;
+            const scale = 14; // pixels per mm zoom factor
+            
+            const d = params.d;
+            const t_isa = params.t_isa;
+            const t_gp = params.t_gp;
+
+            const strainRatio = params.strain / 100.0;
+            
+            let gpShift = 0;
+            let isaShift = 0;
+            if (simState === 'shear') {
+                gpShift = -strainRatio * 1.8 * scale;
+                isaShift = strainRatio * 1.8 * scale;
+            } else if (simState === 'bearing') {
+                gpShift = -strainRatio * 0.5 * scale;
+                isaShift = strainRatio * 2.5 * scale;
+            }
+
+            // Contact interface line (shear plane)
+            const interfaceX = centerX;
+
+            // Draw Gusset Plate (Left cross section)
+            ctx.fillStyle = 'rgba(121, 128, 138, 0.85)';
+            ctx.beginPath();
+            ctx.rect(interfaceX - t_gp * scale + gpShift, centerY - 100, t_gp * scale, 200);
+            ctx.fill();
+            ctx.strokeStyle = '#555e69';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Draw ISA Angle (Right cross section)
+            ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+            ctx.beginPath();
+            ctx.rect(interfaceX + isaShift, centerY - 100, t_isa * scale, 200);
+            ctx.fill();
+            ctx.strokeStyle = '#00e5ff';
+            ctx.stroke();
+
+            // Draw Bolt Shank
+            // Split drawing if in shear mode to visually demonstrate shear displacement
+            const boltRadius = (d / 2) * scale;
+            
+            ctx.fillStyle = '#ffd31d';
+            ctx.strokeStyle = '#cc9c00';
+            ctx.lineWidth = 2;
+
+            if (simState === 'shear' && strainRatio > 0.05) {
+                // Top half of bolt (associated with Plate / Tension movement)
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(interfaceX - t_gp * scale + gpShift - 20, centerY - 120, (t_gp + t_isa) * scale + 40, 120);
+                ctx.clip();
+
+                // Draw Bolt Top Section
+                ctx.fillStyle = '#ffd31d';
+                ctx.fillRect(centerX - boltRadius + isaShift, centerY - 110, boltRadius * 2, 110);
+                // Bolt Nut/Head top
+                ctx.fillStyle = '#e5b800';
+                ctx.fillRect(centerX - boltRadius * 1.5 + isaShift, centerY - 130, boltRadius * 3, 20);
+                ctx.restore();
+
+                // Bottom half of bolt
+                ctx.save();
+                ctx.beginPath();
+                ctx.rect(interfaceX - t_gp * scale + gpShift - 20, centerY, (t_gp + t_isa) * scale + 40, 120);
+                ctx.clip();
+
+                // Draw Bolt Bottom Section
+                ctx.fillStyle = '#ffd31d';
+                ctx.fillRect(centerX - boltRadius + gpShift, centerY, boltRadius * 2, 110);
+                // Bolt nut bottom
+                ctx.fillStyle = '#e5b800';
+                ctx.fillRect(centerX - boltRadius * 1.5 + gpShift, centerY + 110, boltRadius * 3, 20);
+                ctx.restore();
+
+                // Draw red glowing shear failure plane
+                ctx.strokeStyle = 'var(--accent-red)';
+                ctx.shadowColor = 'var(--accent-red)';
+                ctx.shadowBlur = 15;
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(centerX + gpShift, centerY);
+                ctx.lineTo(centerX + isaShift, centerY);
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset
+                
+                // Overlay text
+                ctx.fillStyle = 'var(--accent-red)';
+                ctx.font = 'bold 11px var(--font-mono)';
+                ctx.fillText('CRITICAL SHEAR PLANE', centerX + 40, centerY - 10);
+            } 
+            else if (simState === 'bearing') {
+                // Plastic deformation in plate
+                ctx.fillStyle = '#ffd31d';
+                // Draw regular bolt passing through
+                ctx.fillRect(centerX - boltRadius + gpShift * 0.5, centerY - 110, boltRadius * 2, 220);
+                // bolt nuts
+                ctx.fillStyle = '#e5b800';
+                ctx.fillRect(centerX - boltRadius * 1.5 + gpShift * 0.5, centerY - 130, boltRadius * 3, 20);
+                ctx.fillRect(centerX - boltRadius * 1.5 + gpShift * 0.5, centerY + 110, boltRadius * 3, 20);
+
+                // Highlight crushing regions (where bolt contacts plate)
+                // Right side of plate hole crushed
+                ctx.shadowColor = 'var(--accent-purple)';
+                ctx.shadowBlur = 10;
+                ctx.fillStyle = 'rgba(157, 78, 221, 0.8)';
+                
+                // Ovalized crushing representation
+                ctx.beginPath();
+                ctx.ellipse(centerX + boltRadius + isaShift, centerY + 30, 4 * strainRatio * scale, 30, 0, 0, 2*Math.PI);
+                ctx.fill();
+
+                ctx.beginPath();
+                ctx.ellipse(centerX - boltRadius + gpShift, centerY - 30, 4 * strainRatio * scale, 30, 0, 0, 2*Math.PI);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+
+                ctx.fillStyle = 'var(--accent-purple)';
+                ctx.font = 'bold 11px var(--font-mono)';
+                ctx.fillText('PLATE CRUSHING (BEARING ZONE)', centerX + boltRadius + isaShift + 10, centerY + 35);
+            }
+            else {
+                // NORMAL/RESTING Zoom state
+                // Draw entire bolt solid
+                ctx.fillRect(centerX - boltRadius, centerY - 110, boltRadius * 2, 220);
+                // Nuts
+                ctx.fillStyle = '#e5b800';
+                ctx.fillRect(centerX - boltRadius * 1.5, centerY - 130, boltRadius * 3, 20);
+                ctx.fillRect(centerX - boltRadius * 1.5, centerY + 110, boltRadius * 3, 20);
+
+                // Normal labels
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                ctx.lineWidth = 1;
+                
+                // Diameter annotation
+                ctx.beginPath();
+                ctx.moveTo(centerX - boltRadius, centerY - 50);
+                ctx.lineTo(centerX + boltRadius, centerY - 50);
+                ctx.stroke();
+                ctx.fillText(`d = ${params.d} mm`, centerX - 25, centerY - 55);
+            }
+        }
+
+        function drawTensionArrows(w, centerY, gpShift, isaShift) {
+            // Draw Tension arrows pushing left on Gusset, right on ISA
+            ctx.lineWidth = 4;
+            
+            // Left Force (Gusset Plate tension)
+            const leftX = 40 + gpShift;
+            ctx.strokeStyle = '#ff4d4d';
+            ctx.fillStyle = '#ff4d4d';
+            ctx.beginPath();
+            ctx.moveTo(leftX, centerY);
+            ctx.lineTo(leftX - 30, centerY);
+            ctx.stroke();
+            // Arrow Head
+            ctx.beginPath();
+            ctx.moveTo(leftX - 30, centerY);
+            ctx.lineTo(leftX - 22, centerY - 6);
+            ctx.lineTo(leftX - 22, centerY + 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillText(`${params.load} kN`, leftX - 35, centerY - 12);
+
+            // Right Force (Angle tension)
+            const rightX = w - 40 + isaShift;
+            ctx.strokeStyle = '#39ff14';
+            ctx.fillStyle = '#39ff14';
+            ctx.beginPath();
+            ctx.moveTo(rightX, centerY);
+            ctx.lineTo(rightX + 30, centerY);
+            ctx.stroke();
+            // Arrow Head
+            ctx.beginPath();
+            ctx.moveTo(rightX + 30, centerY);
+            ctx.lineTo(rightX + 22, centerY - 6);
+            ctx.lineTo(rightX + 22, centerY + 6);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillText(`${params.load} kN`, rightX - 10, centerY - 12);
+        }
+
+        // Init execution
+        calculatePhysics();
+        resizeCanvas();
+
+    </script>
+</body>
+</html>

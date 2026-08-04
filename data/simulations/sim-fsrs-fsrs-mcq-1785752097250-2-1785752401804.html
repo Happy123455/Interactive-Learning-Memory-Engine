@@ -1,0 +1,960 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Elastic Living Room Simulator</title>
+  <style>
+    :root {
+      --bg-space: #0F0F1A;
+      --panel-bg: #161626;
+      --border-dark: #1F1F38;
+      --border-bright: #2A2A4D;
+      --hot-pink: #FF2A85;
+      --mint: #00F5D4;
+      --gold: #FFD166;
+      --purple: #9B5DE5;
+      --text-main: #E5E5FA;
+      --text-muted: #8F8FA8;
+      --glow-pink: rgba(255, 42, 133, 0.4);
+      --glow-mint: rgba(0, 245, 212, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    .simulation-container {
+      width: 100%;
+      max-width: 1100px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-dark);
+      border-radius: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+      padding: 24px;
+      overflow: hidden;
+    }
+
+    @media (max-width: 900px) {
+      .simulation-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Left - Interactive Canvas Column */
+    .canvas-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-dark);
+      padding-bottom: 12px;
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(45deg, var(--hot-pink), var(--mint));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-title span {
+      background: var(--border-bright);
+      color: var(--text-muted);
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      text-fill-color: initial;
+      -webkit-text-fill-color: initial;
+    }
+
+    .btn-speech {
+      background: rgba(155, 93, 229, 0.15);
+      border: 1px solid var(--purple);
+      color: #D6BCFA;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-speech:hover {
+      background: var(--purple);
+      color: white;
+      box-shadow: 0 0 15px rgba(155, 93, 229, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      background: #0A0A12;
+      border: 1px solid var(--border-bright);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+    }
+
+    canvas {
+      display: block;
+      cursor: grab;
+    }
+
+    canvas:active {
+      cursor: grabbing;
+    }
+
+    /* Dashboard Metrics Overlay */
+    .metrics-overlay {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: rgba(10, 10, 18, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--border-bright);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: monospace;
+      font-size: 0.8rem;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      pointer-events: none;
+    }
+
+    .metric {
+      display: flex;
+      justify-content: space-between;
+      gap: 15px;
+    }
+
+    .metric-val {
+      font-weight: bold;
+    }
+
+    .metric-width { color: var(--mint); }
+    .metric-length { color: var(--hot-pink); }
+    .metric-ratio { color: var(--gold); }
+
+    /* Control Panel under Canvas */
+    .sandbox-snaps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .snap-btn {
+      background: var(--border-dark);
+      border: 1px solid var(--border-bright);
+      color: var(--text-muted);
+      padding: 10px;
+      border-radius: 10px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .snap-btn:hover {
+      border-color: var(--mint);
+      color: var(--mint);
+      background: rgba(0, 245, 212, 0.05);
+    }
+
+    /* Right - MCQ Card Column */
+    .mcq-column {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(25, 25, 45, 0.3);
+      border: 1px solid var(--border-dark);
+      border-radius: 16px;
+      padding: 24px;
+      gap: 20px;
+    }
+
+    .mcq-header {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--hot-pink);
+      font-weight: 700;
+    }
+
+    .mcq-question {
+      font-size: 1.1rem;
+      line-height: 1.5;
+      font-weight: 600;
+      color: white;
+    }
+
+    .options-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-btn {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-bright);
+      color: var(--text-main);
+      padding: 16px 20px;
+      border-radius: 12px;
+      text-align: left;
+      font-size: 0.95rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .option-btn:hover {
+      border-color: var(--hot-pink);
+      background: rgba(255, 42, 133, 0.05);
+      transform: translateX(4px);
+    }
+
+    .option-btn.selected {
+      border-color: var(--mint);
+      background: rgba(0, 245, 212, 0.08);
+      box-shadow: 0 0 15px var(--glow-mint);
+    }
+
+    .option-badge {
+      font-family: monospace;
+      font-weight: bold;
+      color: var(--mint);
+      border: 1px solid rgba(0, 245, 212, 0.3);
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+    }
+
+    .pedagogy-deck {
+      background: rgba(255, 209, 102, 0.05);
+      border-left: 3px solid var(--gold);
+      padding: 14px;
+      border-radius: 0 12px 12px 0;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .pedagogy-icon {
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .pedagogy-text h4 {
+      font-size: 0.85rem;
+      color: var(--gold);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pedagogy-text p {
+      font-size: 0.8rem;
+      line-height: 1.4;
+      color: var(--text-muted);
+    }
+
+    /* Sound indicator status */
+    .sound-pulse {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--mint);
+      display: inline-block;
+      box-shadow: 0 0 8px var(--mint);
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.9); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.9); opacity: 0.6; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="simulation-container">
+  
+  <!-- Left Side: Simulator Sandbox -->
+  <div class="canvas-column">
+    <div class="header-bar">
+      <div class="brand-title">
+        📐 Elastic Room <span>LAB 101</span>
+      </div>
+      <button class="btn-speech" onclick="playSippyVoiceover()" title="Listen to interactive instruction">
+        <span>🔊 Listen to Sippy</span>
+      </button>
+    </div>
+
+    <div class="canvas-wrapper">
+      <div class="metrics-overlay">
+        <div class="metric"><span class="text-muted">Width:</span><span class="metric-val metric-width">5.0m</span></div>
+        <div class="metric"><span class="text-muted">Length:</span><span class="metric-val metric-length" id="txt-length">7.5m</span></div>
+        <div class="metric"><span class="text-muted">Ratio (L:W):</span><span class="metric-val metric-ratio" id="txt-ratio">1.50</span></div>
+      </div>
+      <canvas id="roomCanvas" width="550" height="400"></canvas>
+    </div>
+
+    <div class="sandbox-snaps">
+      <button class="snap-btn" onclick="snapTo(5.0)">🛋️ Square (5.0m)</button>
+      <button class="snap-btn" onclick="snapTo(7.5)">⭐ Sweet Spot (7.5m)</button>
+      <button class="snap-btn" onclick="snapTo(11.0)">🚇 Tunnel Mode (11.0m)</button>
+    </div>
+  </div>
+
+  <!-- Right Side: MCQ Sandbox & Theory -->
+  <div class="mcq-column">
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="mcq-header">PROPORTION CHALLENGE</div>
+      <h2 class="mcq-question">
+        According to architectural design principles, if a living room's width is fixed at 5.0m, what is the maximum recommended length to maintain balanced proportions and prevent a claustrophobic "tunnel effect"?
+      </h2>
+    </div>
+
+    <div class="options-stack">
+      <button class="option-btn" onclick="selectOption(0)">
+        <span>A) 6.0 meters</span>
+        <span class="option-badge">Ratio 1:1.2</span>
+      </button>
+      <button class="option-btn" onclick="selectOption(1)">
+        <span>B) 7.5 meters</span>
+        <span class="option-badge">Ratio 1:1.5</span>
+      </button>
+      <button class="option-btn" onclick="selectOption(2)">
+        <span>C) 9.0 meters</span>
+        <span class="option-badge">Ratio 1:1.8</span>
+      </button>
+      <button class="option-btn" onclick="selectOption(3)">
+        <span>D) 10.5 meters</span>
+        <span class="option-badge">Ratio 1:2.1</span>
+      </button>
+    </div>
+
+    <div class="pedagogy-deck">
+      <div class="pedagogy-icon">💡</div>
+      <div class="pedagogy-text">
+        <h4>Sippy's Design Rule</h4>
+        <p>
+          Drag the glowing yellow wall handle left and right! When rooms stretch past the recommended 1:1.5 ratio, conversations get isolated, and it begins to feel like a subway car.
+        </p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // Canvas initialization
+  const canvas = document.getElementById('roomCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Physics & Dimension Variables
+  const minLength = 5.0;
+  const maxLength = 12.0;
+  const roomWidth = 5.0; // Fixed width
+
+  let targetLength = 7.5; // Starts in perfect position
+  let currentLength = 7.5;
+  let lengthVelocity = 0;
+  
+  // Spring parameters
+  const k = 0.16;
+  const damping = 0.45;
+
+  // Interaction States
+  let isDragging = false;
+  let dragOffset = 0;
+
+  // Audio Context & Nodes (Initialized on first interaction)
+  let audioCtx = null;
+  let osc = null;
+  let biquadFilter = null;
+  let gainNode = null;
+
+  function initAudio() {
+    if (audioCtx) return;
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      osc = audioCtx.createOscillator();
+      biquadFilter = audioCtx.createBiquadFilter();
+      gainNode = audioCtx.createGain();
+
+      osc.type = 'triangle';
+      biquadFilter.type = 'lowpass';
+      
+      osc.connect(biquadFilter);
+      biquadFilter.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      osc.start();
+    } catch (e) {
+      console.warn("Web Audio API not supported or blocked: ", e);
+    }
+  }
+
+  // Visual/Coordinate Projection Vectors
+  // 3D Isometric Center Origin
+  const originX = 140;
+  const originY = 240;
+
+  // Projection Axis Vectors
+  const uW = { x: -14, y: -7 };   // Going back-left
+  const uL = { x: 22, y: 11 };    // Going forward-right (moving wall along this)
+  const uH = { x: 0, y: -22 };    // Vertical height (H=3.5)
+  const roomHeightMetres = 3.5;
+
+  // Get current screen coordinates of corners based on dynamic length
+  function getCorners(L) {
+    const p0 = { x: originX, y: originY };
+    const pW = { x: originX + roomWidth * uW.x, y: originY + roomWidth * uW.y };
+    const pL = { x: originX + L * uL.x, y: originY + L * uL.y };
+    const pWL = { x: pW.x + L * uL.x, y: pW.y + L * uL.y };
+
+    const dy = roomHeightMetres * uH.y;
+    return {
+      // Bottom Corners
+      b0: p0, bW: pW, bWL: pWL, bL: pL,
+      // Top Corners
+      t0: { x: p0.x, y: p0.y + dy },
+      tW: { x: pW.x, y: pW.y + dy },
+      tWL: { x: pWL.x, y: pWL.y + dy },
+      tL: { x: pL.x, y: pL.y + dy }
+    };
+  }
+
+  // Calculate coordinates for dynamic slider handle (midpoint of front-right wall)
+  function getHandlePos() {
+    const corners = getCorners(currentLength);
+    return {
+      x: (corners.bL.x + corners.tL.x) / 2,
+      y: (corners.bL.y + corners.tL.y) / 2
+    };
+  }
+
+  // Animation Loop
+  let lastTime = 0;
+  function animate(timestamp) {
+    // Spring physics update
+    const force = -k * (currentLength - targetLength);
+    lengthVelocity += force;
+    lengthVelocity *= (1 - damping);
+    currentLength += lengthVelocity;
+
+    // Boundary hard clamping
+    if (currentLength < minLength) {
+      currentLength = minLength;
+      lengthVelocity = 0;
+    } else if (currentLength > maxLength) {
+      currentLength = maxLength;
+      lengthVelocity = 0;
+    }
+
+    // Update real-time audio parameters
+    updateAudioProps();
+
+    // Render Canvas Frame
+    renderCanvas(timestamp);
+
+    // Update Text Overlays
+    document.getElementById('txt-length').textContent = `${currentLength.toFixed(1)}m`;
+    const ratio = currentLength / roomWidth;
+    document.getElementById('txt-ratio').textContent = ratio.toFixed(2);
+
+    requestAnimationFrame(animate);
+  }
+
+  // Render Room and Environment
+  function renderCanvas(timestamp) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // Dynamic corners
+    const c = getCorners(currentLength);
+
+    // Draw Floor Grid (Every 1m division)
+    for (let i = 0; i <= Math.ceil(currentLength); i++) {
+      const frac = Math.min(i / currentLength, 1.0);
+      const startpt = { x: c.b0.x + frac * (c.bL.x - c.b0.x), y: c.b0.y + frac * (c.bL.y - c.b0.y) };
+      const endpt = { x: c.bW.x + frac * (c.bWL.x - c.bW.x), y: c.bW.y + frac * (c.bWL.y - c.bW.y) };
+      
+      ctx.beginPath();
+      ctx.moveTo(startpt.x, startpt.y);
+      ctx.lineTo(endpt.x, endpt.y);
+      ctx.strokeStyle = '#1F1F38';
+      ctx.lineWidth = i % 5 === 0 ? 2 : 1;
+      ctx.stroke();
+    }
+    
+    // Draw Floor Base Polygon
+    ctx.beginPath();
+    ctx.moveTo(c.b0.x, c.b0.y);
+    ctx.lineTo(c.bW.x, c.bW.y);
+    ctx.lineTo(c.bWL.x, c.bWL.y);
+    ctx.lineTo(c.bL.x, c.bL.y);
+    ctx.closePath();
+    ctx.fillStyle = '#0E0E1B';
+    ctx.fill();
+    ctx.strokeStyle = '#1F1F38';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Draw Dynamic Accent Cozy Rug
+    drawRug(c);
+
+    // Draw static Back-Left Wall
+    ctx.beginPath();
+    ctx.moveTo(c.bW.x, c.bW.y);
+    ctx.lineTo(c.bWL.x, c.bWL.y);
+    ctx.lineTo(c.tWL.x, c.tWL.y);
+    ctx.lineTo(c.tW.x, c.tW.y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(22, 22, 40, 0.4)';
+    ctx.fill();
+    ctx.strokeStyle = '#1F1F38';
+    ctx.stroke();
+
+    // Draw dynamic/elastic Back-Right Wall (The one that elongates!)
+    ctx.beginPath();
+    ctx.moveTo(c.bWL.x, c.bWL.y);
+    ctx.lineTo(c.bL.x, c.bL.y);
+    ctx.lineTo(c.tL.x, c.tL.y);
+    ctx.lineTo(c.tWL.x, c.tWL.y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255, 42, 133, 0.05)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255, 42, 133, 0.6)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Draw Wall outlines & Room Volume Box Structure
+    ctx.beginPath();
+    // Static front-left
+    ctx.moveTo(c.b0.x, c.b0.y);
+    ctx.lineTo(c.bW.x, c.bW.y);
+    ctx.lineTo(c.tW.x, c.tW.y);
+    ctx.lineTo(c.t0.x, c.t0.y);
+    ctx.closePath();
+    ctx.strokeStyle = '#1F1F38';
+    ctx.stroke();
+
+    // Draw ceiling frame lines
+    ctx.beginPath();
+    ctx.moveTo(c.t0.x, c.t0.y);
+    ctx.lineTo(c.tL.x, c.tL.y);
+    ctx.lineTo(c.tWL.x, c.tWL.y);
+    ctx.lineTo(c.tW.x, c.tW.y);
+    ctx.strokeStyle = '#1D1D35';
+    ctx.stroke();
+
+    // Interior furniture items demonstrating the "tunnel effect" distance stretch
+    drawTVAndSofa(c, timestamp);
+
+    // Draw "Echo Tunnel Warning" waves if room length gets excessively narrow
+    const ratio = currentLength / roomWidth;
+    if (ratio > 1.8) {
+      drawAcousticEchoWaves(c, timestamp, ratio);
+    }
+
+    // Draw Dynamic Avatar: Sippy the Ruler (Floating Cozy Companion)
+    drawSippy(timestamp, ratio);
+
+    // Draw Stretch Pull Handle
+    const h = getHandlePos();
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 14, 0, 2 * Math.PI);
+    ctx.fillStyle = varColor('--gold');
+    ctx.shadowBlur = isDragging ? 25 : 12;
+    ctx.shadowColor = varColor('--gold');
+    ctx.fill();
+    ctx.shadowBlur = 0; // Reset shadow
+
+    // Inner handle core dot
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, 6, 0, 2 * Math.PI);
+    ctx.fillStyle = '#0F0F1A';
+    ctx.fill();
+
+    // Label on Handle
+    if (!isDragging) {
+      ctx.font = 'bold 9px monospace';
+      ctx.fillStyle = varColor('--gold');
+      ctx.fillText("◀ PULL ▶", h.x - 22, h.y + 26);
+    }
+  }
+
+  // Render volumetric modern Sofa on one side, TV panel on the other
+  function drawTVAndSofa(c, timestamp) {
+    // 1. Static TV on left-back wall (pW -> p0)
+    // Draw TV mounting plate
+    const tvW = c.bW.x + 2.0 * uL.x;
+    const tvH = c.bW.y + 2.0 * uL.y - 30; // elevated
+
+    ctx.fillStyle = '#111122';
+    ctx.fillRect(c.bW.x + 40, c.bW.y - 100, 12, 50); // abstract TV box
+
+    // High fidelity glowing TV Screen
+    ctx.fillStyle = '#0A0A15';
+    ctx.strokeStyle = varColor('--mint');
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.rect(c.bW.x + 10, c.bW.y - 110, 8, 60);
+    ctx.fill();
+    ctx.stroke();
+
+    // TV glow screen pixels (dynamic scan lines)
+    ctx.fillStyle = 'rgba(0, 245, 212, 0.15)';
+    ctx.fillRect(c.bW.x + 11, c.bW.y - 108 + Math.sin(timestamp * 0.005) * 15, 6, 15);
+
+    // 2. Dynamic Sliding Sofa (keeps logical alignment towards the right elastic wall)
+    // Placed ~1.2m offset from rightmost wall
+    const sofaL = currentLength - 1.2;
+    const sofaBaseX = originX + sofaL * uL.x + 2.5 * uW.x;
+    const sofaBaseY = originY + sofaL * uL.y + 2.5 * uW.y;
+
+    // Draw sofa structure
+    ctx.fillStyle = '#221F3C';
+    ctx.strokeStyle = '#D6BCFA';
+    ctx.lineWidth = 1;
+
+    // Box structure representation
+    ctx.beginPath();
+    ctx.moveTo(sofaBaseX - 25, sofaBaseY - 5);
+    ctx.lineTo(sofaBaseX + 25, sofaBaseY + 15);
+    ctx.lineTo(sofaBaseX + 20, sofaBaseY - 15);
+    ctx.lineTo(sofaBaseX - 30, sofaBaseY - 30);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+
+    // Cozy pink cushions
+    ctx.fillStyle = '#FF2A85';
+    ctx.beginPath();
+    ctx.moveTo(sofaBaseX - 20, sofaBaseY - 10);
+    ctx.lineTo(sofaBaseX + 20, sofaBaseY + 8);
+    ctx.lineTo(sofaBaseX + 15, sofaBaseY - 8);
+    ctx.lineTo(sofaBaseX - 25, sofaBaseY - 22);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Acoustic Echo Waves drawing
+  function drawAcousticEchoWaves(c, timestamp, ratio) {
+    const startX = c.bW.x + 30;
+    const startY = c.bW.y - 70;
+    
+    const sofaL = currentLength - 1.2;
+    const targetX = originX + sofaL * uL.x + 2.5 * uW.x;
+    const targetY = originY + sofaL * uL.y + 2.5 * uW.y - 20;
+
+    const waveCount = 3;
+    const elapsed = (timestamp * 0.002) % 1.0;
+
+    ctx.strokeStyle = 'rgba(255, 42, 133, 0.4)';
+    ctx.lineWidth = 1.5;
+
+    for (let i = 0; i < waveCount; i++) {
+      const p = (elapsed + i / waveCount) % 1.0;
+      const currX = startX + (targetX - startX) * p;
+      const currY = startY + (targetY - startY) * p;
+
+      ctx.beginPath();
+      ctx.arc(currX, currY, 15 * p + 5, -Math.PI / 4, Math.PI / 3);
+      ctx.stroke();
+    }
+
+    // Tunnel mode warning label text floating overhead
+    ctx.font = '800 10px monospace';
+    ctx.fillStyle = varColor('--hot-pink');
+    ctx.fillText("⚠️ TUNNEL EFFECT ACTIVATED", (startX + targetX)/2 - 60, (startY + targetY)/2 - 30);
+  }
+
+  // Draw dynamically scaling Mint Rug on Floor Center
+  function drawRug(c) {
+    // Rug occupies 45% center length/width of actual room bounds
+    const lStartFrac = 0.28;
+    const lEndFrac = 0.72;
+    const wStartFrac = 0.25;
+    const wEndFrac = 0.75;
+
+    const pA = { 
+      x: c.b0.x + lStartFrac * (c.bL.x - c.b0.x) + wStartFrac * (c.bW.x - c.b0.x),
+      y: c.b0.y + lStartFrac * (c.bL.y - c.b0.y) + wStartFrac * (c.bW.y - c.b0.y)
+    };
+    const pB = {
+      x: c.b0.x + lStartFrac * (c.bL.x - c.b0.x) + wEndFrac * (c.bW.x - c.b0.x),
+      y: c.b0.y + lStartFrac * (c.bL.y - c.b0.y) + wEndFrac * (c.bW.y - c.b0.y)
+    };
+    const pC = {
+      x: c.b0.x + lEndFrac * (c.bL.x - c.b0.x) + wEndFrac * (c.bW.x - c.b0.x),
+      y: c.b0.y + lEndFrac * (c.bL.y - c.b0.y) + wEndFrac * (c.bW.y - c.b0.y)
+    };
+    const pD = {
+      x: c.b0.x + lEndFrac * (c.bL.x - c.b0.x) + wStartFrac * (c.bW.x - c.b0.x),
+      y: c.b0.y + lEndFrac * (c.bL.y - c.b0.y) + wStartFrac * (c.bW.y - c.b0.y)
+    };
+
+    ctx.beginPath();
+    ctx.moveTo(pA.x, pA.y);
+    ctx.lineTo(pB.x, pB.y);
+    ctx.lineTo(pC.x, pC.y);
+    ctx.lineTo(pD.x, pD.y);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0, 245, 212, 0.12)';
+    ctx.fill();
+    ctx.strokeStyle = varColor('--mint');
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+
+  // Draw Avatar Sippy in top-left
+  function drawSippy(timestamp, ratio) {
+    const sX = 65;
+    const sY = 65 + Math.sin(timestamp * 0.004) * 4;
+
+    // Draw Background Panel for Sippy Dashboard
+    ctx.fillStyle = 'rgba(22, 22, 38, 0.85)';
+    ctx.strokeStyle = varColor('--border-bright');
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect(15, 20, 255, 80, 12);
+    ctx.fill();
+    ctx.stroke();
+
+    // Body of Sippy (Cute Purple Tape Measure)
+    ctx.shadowBlur = 10;
+    ctx.shadowColor = varColor('--purple');
+    ctx.fillStyle = varColor('--purple');
+    ctx.beginPath();
+    ctx.roundRect(28, sY - 20, 42, 40, 8);
+    ctx.fill();
+    ctx.shadowBlur = 0; // reset
+
+    // Googly Eyes & Face State
+    ctx.fillStyle = 'white';
+    ctx.beginPath();
+    ctx.arc(40, sY - 4, 6, 0, 2 * Math.PI);
+    ctx.arc(58, sY - 4, 6, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Pupils
+    ctx.fillStyle = 'black';
+    ctx.beginPath();
+    // Pupils jitter with velocity
+    const offset = Math.max(-2, Math.min(2, lengthVelocity * 5));
+    ctx.arc(40 + offset, sY - 4, 2.5, 0, 2 * Math.PI);
+    ctx.arc(58 + offset, sY - 4, 2.5, 0, 2 * Math.PI);
+    ctx.fill();
+
+    // Mouth Expression depending on aspect ratio
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    
+    let bubbleText = "";
+    if (ratio <= 1.25) {
+      // Happy Smile 😄
+      ctx.arc(49, sY + 6, 4, 0, Math.PI);
+      bubbleText = "Cozy Square! Warm hugs! 🧸";
+    } else if (ratio > 1.25 && ratio <= 1.55) {
+      // Big grin 🤩
+      ctx.arc(49, sY + 4, 6, 0, Math.PI);
+      bubbleText = "Sweet Spot! Beautiful balance! ⭐";
+    } else if (ratio > 1.55 && ratio <= 1.8) {
+      // Straight face / raised brows 🤨
+      ctx.moveTo(44, sY + 6);
+      ctx.lineTo(54, sY + 6);
+      bubbleText = "Getting long... feels like a bus! 🚌";
+    } else if (ratio > 1.8 && ratio <= 2.1) {
+      // Swirly mouth 😰
+      ctx.arc(49, sY + 8, 3, 0, 2 * Math.PI);
+      bubbleText = "Tunnel alert! Getting echoy... 🔊";
+    } else {
+      // Complete melting/dizzy face 😵
+      ctx.arc(49, sY + 8, 5, Math.PI, 0);
+      bubbleText = "S.O.S! Spaghetti room extreme! 🤮";
+    }
+    ctx.stroke();
+
+    // Cute tape measure tongue sticking out
+    ctx.fillStyle = varColor('--gold');
+    ctx.fillRect(44, sY + 16, 10, 4);
+
+    // Text Bubble Message
+    ctx.fillStyle = varColor('--text-main');
+    ctx.font = 'bold 10px monospace';
+    ctx.fillText("SIPPY THE RULER says:", 82, 44);
+    
+    ctx.fillStyle = varColor('--text-muted');
+    ctx.font = '11px sans-serif';
+    ctx.fillText(bubbleText, 82, 64);
+  }
+
+  // Audio frequency pitch shifting loop
+  function updateAudioProps() {
+    if (!audioCtx) return;
+
+    const ratio = currentLength / roomWidth;
+    
+    // Smooth Tone Mapping: pitch inverse proportional to length (deeper as it elongates)
+    const baseFreq = 330; 
+    const targetFreq = baseFreq / (currentLength / 5.0);
+    
+    osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+
+    // Filter responds dynamically to mouse/stretching activity velocities
+    const sweep = Math.min(2200, 400 + Math.abs(lengthVelocity) * 2000);
+    biquadFilter.frequency.setTargetAtTime(sweep, audioCtx.currentTime, 0.05);
+
+    // Target volume is audible ONLY when the room structure is active and bouncing/moving
+    const volume = Math.min(0.20, Math.abs(lengthVelocity) * 0.85);
+    gainNode.gain.setTargetAtTime(volume, audioCtx.currentTime, 0.1);
+  }
+
+  // Grab Hex variables easily
+  function varColor(variableName) {
+    return getComputedStyle(document.documentElement).getPropertyValue(variableName).trim();
+  }
+
+  // Tap snaps directly to coordinates (Juicy transition)
+  function snapTo(length) {
+    initAudio();
+    targetLength = length;
+    lengthVelocity = (length - currentLength) * 0.2; // initial force push
+  }
+
+  // Mouse Interaction Physics & Drag Coordinates mapping
+  function onPointerDown(e) {
+    initAudio();
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const h = getHandlePos();
+    const dist = Math.hypot(x - h.x, y - h.y);
+
+    if (dist < 28) { // Click collision margin
+      isDragging = true;
+      document.body.style.cursor = 'grabbing';
+    }
+  }
+
+  function onPointerMove(e) {
+    if (!isDragging) return;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+
+    // Project pixel movement horizontally back into Length units
+    // Map X coordinate between ~140 (min length projection) to 424 (max length projection)
+    const relativeX = x - originX;
+    const computedL = relativeX / uL.x;
+
+    targetLength = Math.max(minLength, Math.min(maxLength, computedL));
+  }
+
+  function onPointerUp() {
+    isDragging = false;
+    document.body.style.cursor = 'grab';
+  }
+
+  // Event Binding
+  canvas.addEventListener('mousedown', onPointerDown);
+  window.addEventListener('mousemove', onPointerMove);
+  window.addEventListener('mouseup', onPointerUp);
+
+  canvas.addEventListener('touchstart', (e) => {
+    onPointerDown(e.touches[0]);
+  }, { passive: true });
+  window.addEventListener('touchmove', (e) => {
+    onPointerMove(e.touches[0]);
+  }, { passive: true });
+  window.addEventListener('touchend', onPointerUp);
+
+  // MCQ Selection Dispatch Block (Clean Coupling)
+  function selectOption(index) {
+    initAudio();
+    
+    // Highlight UI visually
+    const btns = document.querySelectorAll('.option-btn');
+    btns.forEach((btn, idx) => {
+      btn.classList.toggle('selected', idx === index);
+    });
+
+    // Provide dynamic bounce and sound trigger snap values according to options
+    const targetSnapValues = [6.0, 7.5, 9.0, 10.5];
+    snapTo(targetSnapValues[index]);
+
+    // Dispatched postMessage strictly adhering to architectural guidelines
+    window.parent.postMessage({
+      type: 'mcq-selected',
+      optionIndex: index
+    }, '*');
+  }
+
+  // Native TTS Narration
+  function playSippyVoiceover() {
+    const synth = window.speechSynthesis;
+    if (!synth) {
+      alert("Your browser does not support Speech Synthesis!");
+      return;
+    }
+    
+    initAudio();
+    synth.cancel(); // Clears any speaking loops
+    
+    const narrativeText = "Hey there, designer! Let's explore aspect ratios. Right now, our living room is five meters wide. If we make it too long, it turns into a boring, narrow train tunnel where your couch is too far from your TV! Try pulling the yellow glowing button to stretch the room, then choose the best option to find the maximum recommended length!";
+    const utterance = new SpeechSynthesisUtterance(narrativeText);
+    
+    utterance.pitch = 1.35; // friendly animated voice
+    utterance.rate = 1.0;
+    synth.speak(utterance);
+  }
+
+  // Initialization trigger
+  requestAnimationFrame(animate);
+</script>
+
+</body>
+</html>

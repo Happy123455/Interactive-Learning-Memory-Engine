@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Philip's Infiltration Model - Step 4 Analytical Solver</title>
+    <!-- Google Fonts for high-end look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #080c14;
+            --bg-card: rgba(16, 24, 48, 0.75);
+            --border-glow: rgba(0, 242, 254, 0.15);
+            --border-glow-active: rgba(0, 242, 254, 0.4);
+            --accent-cyan: #00f2fe;
+            --accent-gold: #ffb300;
+            --accent-gold-glow: rgba(255, 179, 0, 0.4);
+            --text-main: #f0f4f8;
+            --text-secondary: #8fa0ba;
+            --panel-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+            --font-main: 'Inter', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: var(--font-main);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 242, 254, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 179, 0, 0.05) 0px, transparent 50%);
+        }
+
+        /* Top Header */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 24px;
+            background: rgba(10, 15, 30, 0.85);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .header-title-area h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .header-title-area h1 span {
+            color: var(--accent-cyan);
+            font-size: 0.8rem;
+            background: rgba(0, 242, 254, 0.1);
+            padding: 2px 8px;
+            border-radius: 4px;
+            border: 1px solid var(--accent-cyan);
+        }
+
+        .header-title-area p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-audio {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-main);
+            padding: 8px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .btn-audio:hover {
+            background: rgba(0, 242, 254, 0.1);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+        }
+
+        /* Dashboard layout */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 310px 1fr 390px;
+            gap: 16px;
+            padding: 16px;
+            flex-grow: 1;
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-container {
+                grid-template-columns: 280px 1fr;
+                grid-template-rows: auto 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+            .exam-pane {
+                grid-column: span 2;
+            }
+        }
+
+        /* Glassmorphism Panels */
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid var(--border-glow);
+            border-radius: 12px;
+            box-shadow: var(--panel-shadow);
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: border-color 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: rgba(0, 242, 254, 0.25);
+        }
+
+        .panel-header {
+            padding: 14px 18px;
+            background: rgba(255, 255, 255, 0.02);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header .badge {
+            background: rgba(255, 179, 0, 0.1);
+            color: var(--accent-gold);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            border: 1px solid rgba(255, 179, 0, 0.2);
+        }
+
+        .panel-body {
+            padding: 18px;
+            flex-grow: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+
+        /* Controls Section */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-label span.unit {
+            color: var(--text-secondary);
+            font-weight: 400;
+            font-family: var(--font-mono);
+        }
+
+        .slider-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--accent-cyan);
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .slider-val {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            min-width: 48px;
+            text-align: right;
+        }
+
+        /* Variable Explanations */
+        .var-info {
+            background: rgba(255, 255, 255, 0.01);
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            font-size: 0.72rem;
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+
+        .var-info strong {
+            color: var(--text-main);
+        }
+
+        /* Central Visualizer Pane */
+        .visualizer-pane {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            min-height: 250px;
+            background: rgba(5, 8, 16, 0.5);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .legend-overlay {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            background: rgba(10, 15, 30, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 4px;
+            border-radius: 2px;
+        }
+
+        /* Exam Paper Formatting */
+        .exam-pane {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .exam-paper {
+            background: #111827;
+            border: 1px dashed rgba(255, 179, 0, 0.3);
+            border-radius: 8px;
+            padding: 16px;
+            flex-grow: 1;
+            overflow-y: auto;
+            font-family: var(--font-main);
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #d1d5db;
+        }
+
+        .exam-header {
+            border-bottom: 2px solid rgba(255, 179, 0, 0.2);
+            padding-bottom: 8px;
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        .exam-header h3 {
+            font-family: 'Playfair Display', Georgia, serif;
+            font-style: italic;
+            font-size: 1rem;
+            color: var(--accent-gold);
+        }
+
+        .exam-header p {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+        }
+
+        .exam-section {
+            margin-bottom: 14px;
+        }
+
+        .exam-section-title {
+            font-weight: 700;
+            color: var(--accent-cyan);
+            margin-bottom: 4px;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .formula-block {
+            background: rgba(255, 255, 255, 0.02);
+            border-left: 2px solid var(--accent-gold);
+            padding: 8px 12px;
+            margin: 6px 0;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: #f3f4f6;
+            overflow-x: auto;
+        }
+
+        .sub-steps {
+            list-style-type: none;
+            padding-left: 6px;
+        }
+
+        .sub-steps li {
+            margin-bottom: 4px;
+            position: relative;
+            padding-left: 12px;
+        }
+
+        .sub-steps li::before {
+            content: "•";
+            color: var(--accent-gold);
+            position: absolute;
+            left: 0;
+        }
+
+        .final-box {
+            border: 2px solid var(--accent-gold);
+            padding: 10px;
+            border-radius: 4px;
+            background: rgba(255, 179, 0, 0.05);
+            text-align: center;
+            font-family: var(--font-mono);
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-top: 10px;
+            font-size: 0.85rem;
+            box-shadow: 0 0 10px rgba(255, 179, 0, 0.1);
+        }
+
+        /* Copy Button & Action Area */
+        .action-area {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            padding-top: 6px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            border: none;
+            color: #050810;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 242, 254, 0.4);
+        }
+
+        /* Bottom Workflow tracker */
+        .workflow-bar {
+            height: 48px;
+            background: rgba(10, 15, 30, 0.9);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 24px;
+            font-size: 0.7rem;
+            z-index: 10;
+        }
+
+        .steps-container {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .step-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-secondary);
+        }
+
+        .step-pill.completed {
+            color: #43a047;
+            font-weight: 600;
+        }
+
+        .step-pill.active {
+            color: var(--accent-cyan);
+            font-weight: 700;
+            animation: pulse-glow 2s infinite alternate;
+        }
+
+        .step-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .step-arrow {
+            color: rgba(255, 255, 255, 0.2);
+            font-family: var(--font-mono);
+        }
+
+        .system-status {
+            color: var(--text-secondary);
+            font-family: var(--font-mono);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .pulse-light {
+            width: 6px;
+            height: 6px;
+            background-color: #43a047;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #43a047;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes pulse-glow {
+            from { text-shadow: 0 0 2px rgba(0, 242, 254, 0.2); }
+            to { text-shadow: 0 0 10px rgba(0, 242, 254, 0.6); }
+        }
+
+        @keyframes blink {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 1; }
+        }
+
+        /* Tooltip style */
+        .physics-note {
+            background: rgba(0, 242, 254, 0.03);
+            border: 1px solid rgba(0, 242, 254, 0.1);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: auto;
+        }
+
+        .physics-note h4 {
+            font-size: 0.72rem;
+            color: var(--accent-cyan);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+        }
+
+        .physics-note p {
+            font-size: 0.68rem;
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Section -->
+    <header>
+        <div class="header-title-area">
+            <h1>Philip's Infiltration Model <span>Step 4: Analytical Solver</span></h1>
+            <p>Engineering Hydrology Post-Graduate Interactive Laboratory</p>
+        </div>
+        <div class="header-controls">
+            <button class="btn-audio" onclick="narrateConcept()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>
+                Narrate Physics
+            </button>
+            <button class="btn-audio" id="muteBtn" onclick="toggleMute()">
+                <svg id="muteIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                Chime Feedback: ON
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Body -->
+    <div class="dashboard-container">
+        
+        <!-- Left Pane: Parameters Input -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Model Parameters</span>
+                <span class="badge">Dynamic Input</span>
+            </div>
+            <div class="panel-body">
+                
+                <!-- Sorptivity (S) slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Sorptivity (S)</span>
+                        <span class="unit">mm/h⁰·⁵</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="paramS" min="5" max="60" step="0.5" value="25" oninput="calculateModel()">
+                        <span class="slider-val" id="valS">25.0</span>
+                    </div>
+                </div>
+
+                <!-- Conductivity (A) slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Gravity Parameter (A)</span>
+                        <span class="unit">mm/h</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="paramA" min="1" max="25" step="0.1" value="8" oninput="calculateModel()">
+                        <span class="slider-val" id="valA">8.0</span>
+                    </div>
+                </div>
+
+                <!-- Target Time (t) slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Infiltration Time (t)</span>
+                        <span class="unit">hours</span>
+                    </div>
+                    <div class="slider-wrapper">
+                        <input type="range" id="paramT" min="0.1" max="10" step="0.1" value="2" oninput="calculateModel()">
+                        <span class="slider-val" id="valT">2.0</span>
+                    </div>
+                </div>
+
+                <!-- Informative Variable Details -->
+                <div class="var-info">
+                    <strong>Sorptivity (S):</strong> Governs capillary-driven (suction) infiltration. Most dominant during initial wetting stages when dry soil matrices draw water rapidly.
+                </div>
+                <div class="var-info">
+                    <strong>Transmissivity/Gravity (A):</strong> Represents gravity-driven infiltration capacity, closely related to the saturated hydraulic conductivity ($K_s$) of the soil profiles.
+                </div>
+
+                <div class="physics-note">
+                    <h4>Governing Law Summary</h4>
+                    <p>Philip's analytical model resolves Richard's equation for unsaturating flow. As time ($t$) trends to infinity, the rate $f(t)$ asymptotically converges to gravity parameter $A$.</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Pane: Real-time Plot Visualizer -->
+        <div class="panel visualizer-pane">
+            <div class="panel-header">
+                <span>Dual-Axis Physics Visualizer</span>
+                <span style="color: var(--accent-cyan); font-family: var(--font-mono); font-size: 0.7rem;">Real-time Canvas Rendering</span>
+            </div>
+            <div class="panel-body" style="padding: 10px; position: relative;">
+                <div class="canvas-container">
+                    <canvas id="plotCanvas"></canvas>
+                    <div class="legend-overlay">
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--accent-cyan);"></div>
+                            <span style="color: var(--text-main)">F(t) Cumulative Infiltration (mm)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div class="legend-color" style="background-color: var(--accent-gold);"></div>
+                            <span style="color: var(--text-main)">f(t) Infiltration Rate (mm/h)</span>
+                        </div>
+                        <div class="legend-item">
+                            <div style="border-left: 2px dashed rgba(255,255,255,0.4); height: 10px; margin-left: 5px; margin-right: 5px;"></div>
+                            <span style="color: var(--text-secondary)">Target Time Cursor (t)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Pane: Exam Solution Sheet -->
+        <div class="panel exam-pane">
+            <div class="panel-header">
+                <span>Exam solution generator</span>
+                <span class="badge" style="background: rgba(0, 242, 254, 0.1); color: var(--accent-cyan); border: 1px solid rgba(0, 242, 254, 0.2);">LaTeX Format</span>
+            </div>
+            <div class="panel-body">
+                <div class="exam-paper" id="examPaper">
+                    <div class="exam-header">
+                        <h3>Model Examination Answer Sheet</h3>
+                        <p>Subject: Advanced Engineering Hydrology • Step 4 Evaluation</p>
+                    </div>
+
+                    <div class="exam-section">
+                        <div class="exam-section-title">1. Given Environmental Parameters</div>
+                        <p>From laboratory core measurement (Step 3):</p>
+                        <ul class="sub-steps" style="margin-top: 4px;">
+                            <li>Sorptivity coefficient, <span class="math-v">S = <span id="exS">25</span> mm·h⁻⁰·⁵</span></li>
+                            <li>Gravity-transmission parameter, <span class="math-v">A = <span id="exA">8</span> mm·h⁻¹</span></li>
+                            <li>Specific test duration target, <span class="math-v">t = <span id="exT">2.00</span> hours</span></li>
+                        </ul>
+                    </div>
+
+                    <div class="exam-section">
+                        <div class="exam-section-title">2. Governing Analytical Formulation</div>
+                        <p>Using Philip's (1957) twin-term infiltration equations:</p>
+                        <div class="formula-block">
+                            F(t) = S · t⁰·⁵ + A · t<br>
+                            f(t) = 0.5 · S · t⁻⁰·⁵ + A
+                        </div>
+                    </div>
+
+                    <div class="exam-section">
+                        <div class="exam-section-title">3. Numerical Substitution & Solve</div>
+                        <ul class="sub-steps">
+                            <li>
+                                <strong>Cumulative Infiltration $F(t)$:</strong><br>
+                                <span class="math-v" style="font-family: var(--font-mono); font-size: 0.72rem;">
+                                    F(<span class="txtT">2.0</span>) = (<span class="txtS">25</span>)·(<span class="txtT">2.0</span>)⁰·⁵ + (<span class="txtA">8</span>)·(<span class="txtT">2.0</span>)<br>
+                                    F(<span class="txtT">2.0</span>) = <span id="exFCalc"></span> mm
+                                </span>
+                            </li>
+                            <li style="margin-top: 6px;">
+                                <strong>Instantaneous Rate $f(t)$:</strong><br>
+                                <span class="math-v" style="font-family: var(--font-mono); font-size: 0.72rem;">
+                                    f(<span class="txtT">2.0</span>) = 0.5·(<span class="txtS">25</span>)·(<span class="txtT">2.0</span>)⁻⁰·⁵ + (<span class="txtA">8</span>)<br>
+                                    f(<span class="txtT">2.0</span>) = <span id="exfRateCalc"></span> mm/h
+                                </span>
+                            </li>
+                        </ul>
+                    </div>
+
+                    <div class="final-box">
+                        Calculated Exam Outputs:<br>
+                        F(<span class="txtT">2.0</span>) = <span id="exFAns"></span> mm &nbsp;|&nbsp; f(<span class="txtT">2.0</span>) = <span id="exfAns"></span> mm/h
+                    </div>
+                </div>
+
+                <div class="action-area">
+                    <button class="btn-primary" onclick="copyResults()">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                        Copy Results to Exam clipboard
+                    </button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Bottom Workflow Status Bar -->
+    <footer class="workflow-bar">
+        <div class="steps-container">
+            <div class="step-pill completed">
+                <span class="step-dot"></span>
+                <span>Step 2: Core Permeability</span>
+            </div>
+            <div class="step-arrow">&rarr;</div>
+            <div class="step-pill completed">
+                <span class="step-dot"></span>
+                <span>Step 3: Param Estimation</span>
+            </div>
+            <div class="step-arrow">&rarr;</div>
+            <div class="step-pill active">
+                <span class="step-dot"></span>
+                <span>Step 4: Philip's Analytical Engine</span>
+            </div>
+            <div class="step-arrow">&rarr;</div>
+            <div class="step-pill">
+                <span class="step-dot"></span>
+                <span>Step 5: Runoff Assessment</span>
+            </div>
+        </div>
+        <div class="system-status">
+            <span class="pulse-light"></span>
+            <span>HYD-ENGINE VERIFIED</span>
+        </div>
+    </footer>
+
+    <!-- Interactive Script -->
+    <script>
+        // Web Audio Context setup
+        let audioCtx = null;
+        let playAudioFeedback = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function toggleMute() {
+            initAudio();
+            playAudioFeedback = !playAudioFeedback;
+            document.getElementById('muteBtn').innerHTML = playAudioFeedback ? 
+                `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg> Chime Feedback: ON` :
+                `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 11a7 7 0 0 1-12 0M12 19v4M8 23h8"/></svg> Chime Feedback: OFF`;
+        }
+
+        // Play gentle synthesis chime for calculation feedback
+        function triggerChime(frequency = 587.33, duration = 0.1) { // D5 note default
+            if (!playAudioFeedback) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            try {
+                const osc = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+                // Dual chime tone harmonic
+                osc.frequency.exponentialRampToValueAtTime(frequency * 1.5, audioCtx.currentTime + duration);
+
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+                osc.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn('Audio synthesis restricted by browser environment.', e);
+            }
+        }
+
+        // Text Speech Synthesizer
+        function narrateConcept() {
+            if ('speechSynthesis' in window) {
+                // Cancel any ongoing speaking
+                window.speechSynthesis.cancel();
+                
+                const explanation = "Philip’s analytical infiltration model accounts for soil capillary suction via the sorptivity parameter, and gravity action via hydraulic transmissivity. Observe how higher sorptivity dramatically spikes initial infiltration rates, while gravity-driven conductivity controls the asymptotic rate at higher time durations.";
+                const utterance = new SpeechSynthesisUtterance(explanation);
+                
+                // Fine-tune tone
+                utterance.rate = 1.0;
+                utterance.pitch = 1.05;
+                
+                window.speechSynthesis.speak(utterance);
+                triggerChime(659.25, 0.15); // E5 note
+            } else {
+                alert("Speech Synthesis not supported by this browser.");
+            }
+        }
+
+        // Mathematical formulation engine
+        function calculateModel() {
+            // Retrieve values
+            const S = parseFloat(document.getElementById('paramS').value);
+            const A = parseFloat(document.getElementById('paramA').value);
+            const t = parseFloat(document.getElementById('paramT').value);
+
+            // Live label updates
+            document.getElementById('valS').innerText = S.toFixed(1);
+            document.getElementById('valA').innerText = A.toFixed(1);
+            document.getElementById('valT').innerText = t.toFixed(1);
+
+            // Compute cumulative infiltration F(t) = S * t^0.5 + A * t
+            const F_val = (S * Math.pow(t, 0.5)) + (A * t);
+
+            // Compute rate f(t) = 0.5 * S * t^-0.5 + A
+            const f_val = (0.5 * S * Math.pow(t, -0.5)) + A;
+
+            // Update exam sheet variables
+            document.getElementById('exS').innerText = S.toFixed(1);
+            document.getElementById('exA').innerText = A.toFixed(1);
+            document.getElementById('exT').innerText = t.toFixed(2);
+
+            document.querySelectorAll('.txtS').forEach(el => el.innerText = S.toFixed(1));
+            document.querySelectorAll('.txtA').forEach(el => el.innerText = A.toFixed(1));
+            document.querySelectorAll('.txtT').forEach(el => el.innerText = t.toFixed(2));
+
+            // Populate calculation steps
+            const term1_F = S * Math.pow(t, 0.5);
+            const term2_F = A * t;
+            document.getElementById('exFCalc').innerText = `${term1_F.toFixed(2)} + ${term2_F.toFixed(2)} = ${F_val.toFixed(2)}`;
+
+            const term1_f = 0.5 * S * Math.pow(t, -0.5);
+            document.getElementById('exfRateCalc').innerText = `${term1_f.toFixed(2)} + ${A.toFixed(1)} = ${f_val.toFixed(2)}`;
+
+            // Final Outputs
+            document.getElementById('exFAns').innerText = F_val.toFixed(2);
+            document.getElementById('exfAns').innerText = f_val.toFixed(2);
+
+            // Render interactive plots
+            drawChart(S, A, t);
+
+            // Subtle sound chime on value adjustment
+            triggerChime(440, 0.05); // Standard soft feedback
+        }
+
+        // Copy outputs helper
+        function copyResults() {
+            const S = document.getElementById('paramS').value;
+            const A = document.getElementById('paramA').value;
+            const t = document.getElementById('paramT').value;
+            
+            const F_val = (S * Math.pow(t, 0.5)) + (A * t);
+            const f_val = (0.5 * S * Math.pow(t, -0.5)) + A;
+
+            const copyStr = `Philip's Infiltration Model Inputs: S=${S} mm/h^0.5, A=${A} mm/h, Target Time t=${t} h. Output Solves: Cumulative Infiltration F(t)=${F_val.toFixed(3)} mm, Rate f(t)=${f_val.toFixed(3)} mm/h.`;
+            
+            navigator.clipboard.writeText(copyStr).then(() => {
+                triggerChime(880, 0.2); // Play dual success chime
+                alert('Analytical steps and outputs copied safely to clipboard!');
+            });
+        }
+
+        // Custom High-Fidelity Dual-Axis Canvas Plotter
+        const canvas = document.getElementById('plotCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            // Recalculate and redraw on dynamic resize
+            const S = parseFloat(document.getElementById('paramS').value);
+            const A = parseFloat(document.getElementById('paramA').value);
+            const t = parseFloat(document.getElementById('paramT').value);
+            drawChart(S, A, t);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawChart(S, A, selectedT) {
+            if (!canvas.width || !canvas.height) return;
+
+            // Clear screen
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const padding = { top: 40, right: 60, bottom: 40, left: 60 };
+            const chartWidth = canvas.width - padding.left - padding.right;
+            const chartHeight = canvas.height - padding.top - padding.bottom;
+
+            // Generate analytical coordinates
+            const timeLimit = 10.0; // Standardize plot range up to 10 hours
+            const steps = 150;
+            const dataPoints = [];
+
+            let maxF = 0;
+            let maxf = 0;
+
+            // We start small (t=0.04) to avoid numerical division by zero on rate f(t) curves
+            for (let i = 0; i <= steps; i++) {
+                const currentT = 0.05 + (i / steps) * (timeLimit - 0.05);
+                const F_t = S * Math.sqrt(currentT) + A * currentT;
+                const f_t = 0.5 * S * Math.pow(currentT, -0.5) + A;
+
+                dataPoints.push({ t: currentT, F: F_t, f: f_t });
+
+                if (F_t > maxF) maxF = F_t;
+                if (f_t > maxf && currentT > 0.1) maxf = f_t; // limit peak outlier near 0
+            }
+
+            // Standardize axis bounds nicely
+            const maxF_Axis = Math.ceil(maxF / 10) * 10;
+            const maxf_Axis = Math.ceil(maxf / 5) * 5;
+
+            // Helper conversion functions
+            function getX(tVal) {
+                return padding.left + (tVal / timeLimit) * chartWidth;
+            }
+
+            function getYLeft(F_val) {
+                return padding.top + chartHeight - (F_val / maxF_Axis) * chartHeight;
+            }
+
+            function getYRight(f_val) {
+                // Safeguard ceiling rate representation
+                const safe_f = Math.min(f_val, maxf_Axis);
+                return padding.top + chartHeight - (safe_f / maxf_Axis) * chartHeight;
+            }
+
+            // Draw clean Grid System
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            
+            // X-Grid
+            for (let i = 0; i <= 10; i++) {
+                const x = getX(i);
+                ctx.beginPath();
+                ctx.moveTo(x, padding.top);
+                ctx.lineTo(x, padding.top + chartHeight);
+                ctx.stroke();
+
+                // Draw X Labels
+                ctx.fillStyle = 'var(--text-secondary)';
+                ctx.font = '9px "Fira Code", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(i + "h", x, padding.top + chartHeight + 16);
+            }
+
+            // Y-Grid Left
+            const yTicks = 5;
+            for (let i = 0; i <= yTicks; i++) {
+                const fVal = (maxF_Axis / yTicks) * i;
+                const y = getYLeft(fVal);
+                ctx.beginPath();
+                ctx.moveTo(padding.left, y);
+                ctx.lineTo(padding.left + chartWidth, y);
+                ctx.stroke();
+
+                // Draw Left labels
+                ctx.fillStyle = 'var(--accent-cyan)';
+                ctx.font = '9px "Fira Code", monospace';
+                ctx.textAlign = 'right';
+                ctx.fillText(fVal.toFixed(0), padding.left - 10, y + 3);
+            }
+
+            // Y-Grid Right (Values only, skips overlapping lines)
+            for (let i = 0; i <= yTicks; i++) {
+                const rateVal = (maxf_Axis / yTicks) * i;
+                const y = getYRight(rateVal);
+                
+                ctx.fillStyle = 'var(--accent-gold)';
+                ctx.font = '9px "Fira Code", monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(rateVal.toFixed(1), padding.left + chartWidth + 10, y + 3);
+            }
+
+            // Plot Curve 1: F(t) - Cumulative Infiltration (Neon Cyan)
+            ctx.beginPath();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#00f2fe';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(0, 242, 254, 0.4)';
+            
+            dataPoints.forEach((pt, idx) => {
+                const x = getX(pt.t);
+                const y = getYLeft(pt.F);
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset glow
+
+            // Plot Curve 2: f(t) - Infiltration Rate (Neon Gold)
+            ctx.beginPath();
+            ctx.lineWidth = 3.5;
+            ctx.strokeStyle = '#ffb300';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'rgba(255, 179, 0, 0.4)';
+
+            dataPoints.forEach((pt, idx) => {
+                const x = getX(pt.t);
+                const y = getYRight(pt.f);
+                if (idx === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset glow
+
+            // Dynamic User Cursor (Dashed Target Time Indicator)
+            const selX = getX(selectedT);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(selX, padding.top);
+            ctx.lineTo(selX, padding.top + chartHeight);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset dashed line style
+
+            // Intersection point calculations for selected time cursor
+            const selF = (S * Math.sqrt(selectedT)) + (A * selectedT);
+            const self_rate = (0.5 * S * Math.pow(selectedT, -0.5)) + A;
+
+            const pointF_Y = getYLeft(selF);
+            const pointf_Y = getYRight(self_rate);
+
+            // Plot Intersection Nodes (Glow circles)
+            // Node F(t)
+            ctx.beginPath();
+            ctx.arc(selX, pointF_Y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#00f2fe';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#00f2fe';
+            ctx.fill();
+            ctx.stroke();
+
+            // Node f(t)
+            ctx.beginPath();
+            ctx.arc(selX, pointf_Y, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffb300';
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 1.5;
+            ctx.shadowBlur = 8;
+            ctx.shadowColor = '#ffb300';
+            ctx.fill();
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset
+
+            // Axis labels inside panel
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '8px "Inter", sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText("Time axis (h)", padding.left, padding.top - 12);
+        }
+
+        // Initialize App
+        window.onload = () => {
+            resizeCanvas();
+            calculateModel();
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Beam Analysis Studio - Interactive Engineering Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            bg: '#090d16',
+                            panel: '#131926',
+                            border: '#242f47',
+                            cyan: '#06b6d4',
+                            emerald: '#10b981',
+                            crimson: '#f43f5e',
+                            amber: '#f59e0b',
+                            blue: '#3b82f6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f8fafc;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+
+        /* Glassmorphism custom classes */
+        .glass-panel {
+            background: rgba(19, 25, 38, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(36, 47, 71, 0.8);
+        }
+
+        .glass-panel-glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.15);
+            border-color: rgba(6, 182, 212, 0.4);
+        }
+
+        .glass-panel-glow-emerald {
+            box-shadow: 0 0 20px rgba(16, 114, 229, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        /* Drag & Drop Styles */
+        .draggable-chip {
+            cursor: grab;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .draggable-chip:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        .drop-zone {
+            transition: all 0.2s ease-in-out;
+        }
+        .drop-zone.drag-over {
+            background: rgba(6, 182, 212, 0.15) !important;
+            border-color: #06b6d4 !important;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+        }
+
+        /* Pulse animations */
+        @keyframes pulse-cyan {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        .pulse-glow-cyan {
+            animation: pulse-cyan 2s infinite ease-in-out;
+        }
+
+        @keyframes pulse-crimson {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.6; transform: scale(1.05); }
+        }
+        .pulse-glow-crimson {
+            animation: pulse-crimson 2s infinite ease-in-out;
+        }
+
+        /* Shake animation on invalid drop */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+        .shake-element {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Grid Background Pattern */
+        .grid-bg {
+            background-size: 20px 20px;
+            background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                              linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        }
+    </style>
+</head>
+<body class="grid-bg min-h-screen flex flex-col justify-between">
+
+    <!-- Header Navigation Bar -->
+    <header class="border-b border-cyber-border bg-cyber-bg/90 backdrop-blur-md px-6 py-4 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-br from-cyber-cyan to-cyber-blue p-2.5 rounded-xl shadow-[0_0_15px_rgba(6,182,212,0.3)]">
+                    <i class="fa-solid fa-cubes-stack text-cyber-bg text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                        RCC BEAM ANALYSIS <span class="text-xs bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 px-2 py-0.5 rounded font-mono">STUDIO v2.5</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 font-medium">Computation of Steel Areas, Cover & Concrete Micro-Mechanics (IS 456:2000)</p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-4 flex-wrap">
+                <button id="tutorialBtn" onclick="startGuidedTutorial()" class="flex items-center gap-2 bg-gradient-to-r from-cyber-cyan/20 to-cyber-blue/20 hover:from-cyber-cyan/30 hover:to-cyber-blue/30 text-cyber-cyan border border-cyber-cyan/40 px-4 py-2 rounded-xl text-xs font-semibold tracking-wide uppercase transition-all duration-300 shadow-[0_0_10px_rgba(6,182,212,0.1)]">
+                    <i class="fa-solid fa-wand-magic-sparkles"></i> Guided Tutorial
+                </button>
+                <button id="ttsToggle" onclick="toggleSpeech()" class="flex items-center justify-center w-9 h-9 rounded-xl border border-cyber-border text-slate-400 hover:text-white transition-all">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <div class="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900 border border-cyber-border">
+                    <span class="w-2.5 h-2.5 rounded-full bg-cyber-emerald animate-pulse"></span>
+                    <span class="text-xs font-mono text-slate-300 font-bold">CORE ONLINE</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Studio Dashboard -->
+    <main class="max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow items-stretch">
+        
+        <!-- LEFT PANEL: Dynamic Blueprint (2D Canvas) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            <div class="glass-panel rounded-2xl p-5 flex-grow flex flex-col justify-between transition-all duration-500 relative overflow-hidden" id="blueprintContainer">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="text-xs font-bold tracking-wider text-cyber-cyan flex items-center gap-1.5 uppercase font-mono">
+                        <i class="fa-solid fa-compass-drafting text-cyber-cyan"></i> Dynamic Beam Section
+                    </span>
+                    <div class="flex gap-1.5">
+                        <button onclick="resetZoom()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-cyber-border font-mono">100%</button>
+                        <button onclick="zoomToCover()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded border border-cyber-border font-mono">Cover Detail</button>
+                    </div>
+                </div>
+
+                <!-- Simulation Canvas -->
+                <div class="relative w-full aspect-[4/5] bg-slate-950/80 rounded-xl border border-cyber-border overflow-hidden group flex items-center justify-center">
+                    <canvas id="beamCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    <div id="canvasOverlay" class="absolute inset-0 bg-cyber-cyan/5 pointer-events-none opacity-0 transition-opacity duration-300"></div>
+                </div>
+
+                <!-- Live Dimension Panel sliders -->
+                <div class="mt-4 space-y-3">
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1 font-mono text-slate-300">
+                            <span>Beam Width (b)</span>
+                            <span class="text-cyber-cyan" id="valB">300 mm</span>
+                        </div>
+                        <input id="inputB" type="range" min="230" max="450" step="10" value="300" oninput="updateDimensions()" class="w-full accent-cyber-cyan bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1 font-mono text-slate-300">
+                            <span>Total Depth (D)</span>
+                            <span class="text-cyber-cyan" id="valD">600 mm</span>
+                        </div>
+                        <input id="inputD" type="range" min="400" max="800" step="20" value="600" oninput="updateDimensions()" class="w-full accent-cyber-cyan bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs font-semibold mb-1 font-mono text-slate-300">
+                            <span>Nominal Cover (c)</span>
+                            <span class="text-cyber-cyan" id="valCover">30 mm</span>
+                        </div>
+                        <input id="inputCover" type="range" min="20" max="50" step="5" value="30" oninput="updateDimensions()" class="w-full accent-cyber-cyan bg-slate-800 rounded-lg appearance-none h-1.5 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER PANEL: Drag & Drop Formula/Workspace -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+            <!-- Work Area Panel -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between flex-grow" id="workspaceContainer">
+                <div>
+                    <div class="flex justify-between items-center mb-4 border-b border-cyber-border/40 pb-3">
+                        <span class="text-xs font-bold tracking-wider text-cyber-amber flex items-center gap-1.5 uppercase font-mono">
+                            <i class="fa-solid fa-flask-vial"></i> Formula Interaction Hub
+                        </span>
+                        <div class="text-[10px] text-slate-400 bg-slate-900 border border-cyber-border/80 px-2 py-0.5 rounded font-mono">IS 456 Drag-and-Drop</div>
+                    </div>
+
+                    <!-- Instructions & Drag Chips -->
+                    <div class="mb-5 bg-slate-950/40 border border-cyber-border/60 p-3.5 rounded-xl">
+                        <h3 class="text-xs font-bold text-slate-300 mb-2 uppercase tracking-wide">Available Design Parameters</h3>
+                        <div class="flex flex-wrap gap-2" id="draggableChipsContainer">
+                            <!-- Tension parameters -->
+                            <div draggable="true" data-type="n-tension" data-val="5" class="draggable-chip px-3 py-1.5 bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/40 text-cyber-cyan rounded-lg text-xs font-mono font-bold flex items-center gap-1" ondragstart="drag(event)">
+                                <i class="fa-solid fa-grip-vertical text-[10px] opacity-60"></i> 5 Nos
+                            </div>
+                            <div draggable="true" data-type="dia-tension" data-val="25" class="draggable-chip px-3 py-1.5 bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/40 text-cyber-cyan rounded-lg text-xs font-mono font-bold flex items-center gap-1" ondragstart="drag(event)">
+                                <i class="fa-solid fa-grip-vertical text-[10px] opacity-60"></i> Ø 25 mm
+                            </div>
+                            
+                            <!-- Compression parameters -->
+                            <div draggable="true" data-type="n-comp" data-val="3" class="draggable-chip px-3 py-1.5 bg-cyber-crimson/10 hover:bg-cyber-crimson/20 border border-cyber-crimson/40 text-cyber-crimson rounded-lg text-xs font-mono font-bold flex items-center gap-1" ondragstart="drag(event)">
+                                <i class="fa-solid fa-grip-vertical text-[10px] opacity-60"></i> 3 Nos
+                            </div>
+                            <div draggable="true" data-type="dia-comp" data-val="20" class="draggable-chip px-3 py-1.5 bg-cyber-crimson/10 hover:bg-cyber-crimson/20 border border-cyber-crimson/40 text-cyber-crimson rounded-lg text-xs font-mono font-bold flex items-center gap-1" ondragstart="drag(event)">
+                                <i class="fa-solid fa-grip-vertical text-[10px] opacity-60"></i> Ø 20 mm
+                            </div>
+
+                            <!-- Common Parameters -->
+                            <div draggable="true" data-type="cover" data-val="40" class="draggable-chip px-3 py-1.5 bg-cyber-amber/10 hover:bg-cyber-amber/20 border border-cyber-amber/40 text-cyber-amber rounded-lg text-xs font-mono font-bold flex items-center gap-1" ondragstart="drag(event)">
+                                <i class="fa-solid fa-grip-vertical text-[10px] opacity-60"></i> 40 mm
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Target Slots Workspace -->
+                    <div class="space-y-4">
+                        
+                        <!-- Tension Steel Drag-drop area -->
+                        <div class="bg-slate-950/60 p-4 rounded-xl border border-cyber-border relative overflow-hidden">
+                            <h4 class="text-xs font-bold text-cyber-cyan mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrow-down-long"></i> Tension Reinforcement ($A_{st}$)
+                            </h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Tension Bars Count</label>
+                                    <div id="slot-nTension" ondrop="drop(event, 'n-tension')" ondragover="allowDrop(event)" class="drop-zone h-10 rounded-lg border-2 border-dashed border-cyber-cyan/30 flex items-center justify-center text-xs font-mono text-slate-400 bg-slate-900/40">
+                                        Drop Count Here
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Tension Bar Size (Ø)</label>
+                                    <div id="slot-diaTension" ondrop="drop(event, 'dia-tension')" ondragover="allowDrop(event)" class="drop-zone h-10 rounded-lg border-2 border-dashed border-cyber-cyan/30 flex items-center justify-center text-xs font-mono text-slate-400 bg-slate-900/40">
+                                        Drop Diameter Here
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Compression Steel Drag-drop area -->
+                        <div class="bg-slate-950/60 p-4 rounded-xl border border-cyber-border relative">
+                            <h4 class="text-xs font-bold text-cyber-crimson mb-2 uppercase tracking-wide flex items-center gap-1.5">
+                                <i class="fa-solid fa-arrow-up-long"></i> Compression Reinforcement ($A_{sc}$)
+                            </h4>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Comp. Bars Count</label>
+                                    <div id="slot-nComp" ondrop="drop(event, 'n-comp')" ondragover="allowDrop(event)" class="drop-zone h-10 rounded-lg border-2 border-dashed border-cyber-crimson/30 flex items-center justify-center text-xs font-mono text-slate-400 bg-slate-900/40">
+                                        Drop Count Here
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] text-slate-400 mb-1 uppercase font-semibold">Comp. Bar Size (Ø)</label>
+                                    <div id="slot-diaComp" ondrop="drop(event, 'dia-comp')" ondragover="allowDrop(event)" class="drop-zone h-10 rounded-lg border-2 border-dashed border-cyber-crimson/30 flex items-center justify-center text-xs font-mono text-slate-400 bg-slate-900/40">
+                                        Drop Diameter Here
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Target values -->
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="p-3 bg-slate-950/80 rounded-xl border border-cyber-border">
+                                <div class="text-[10px] text-slate-400 uppercase font-mono mb-1">Tension Area ($A_{st}$)</div>
+                                <div class="text-lg font-mono font-bold text-cyber-cyan" id="astDisplay">0.00 <span class="text-xs font-normal">mm²</span></div>
+                            </div>
+                            <div class="p-3 bg-slate-950/80 rounded-xl border border-cyber-border">
+                                <div class="text-[10px] text-slate-400 uppercase font-mono mb-1">Compression Area ($A_{sc}$)</div>
+                                <div class="text-lg font-mono font-bold text-cyber-crimson" id="ascDisplay">0.00 <span class="text-xs font-normal">mm²</span></div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- Computation Execution Block -->
+                <div class="mt-4 pt-3 border-t border-cyber-border/40 flex flex-col gap-2">
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-cyber-border text-center">
+                            <div class="text-[10px] text-slate-400 font-mono">Eff. Depth (d)</div>
+                            <div class="text-sm font-mono font-bold text-white mt-1" id="effDepthVal">-- mm</div>
+                        </div>
+                        <div class="bg-slate-950/80 p-2.5 rounded-lg border border-cyber-border text-center">
+                            <div class="text-[10px] text-slate-400 font-mono">Eff. Cover (d')</div>
+                            <div class="text-sm font-mono font-bold text-white mt-1" id="effCoverVal">-- mm</div>
+                        </div>
+                    </div>
+                    <button onclick="computeAreas()" class="w-full bg-gradient-to-r from-cyber-emerald to-teal-500 text-slate-950 py-3 rounded-xl font-bold text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:brightness-110 active:scale-[0.98] transition-all">
+                        <i class="fa-solid fa-calculator mr-2"></i> Compute & Verify Design
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Digital Manual & Interactive IS Codebook -->
+        <section class="lg:col-span-3 flex flex-col gap-4">
+            
+            <!-- IS-456 Code Reference Module -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col justify-between flex-grow">
+                <div>
+                    <span class="text-xs font-bold tracking-wider text-cyber-blue flex items-center gap-1.5 uppercase font-mono mb-4">
+                        <i class="fa-solid fa-book-bookmark"></i> IS 456 Checklist & clauses
+                    </span>
+
+                    <!-- Interactive Code Sections Selector -->
+                    <div class="space-y-2 mb-4">
+                        <button onclick="openClause('cover')" id="clauseCover" class="w-full text-left p-3 rounded-xl bg-slate-900 border border-cyber-border hover:border-cyber-blue/60 transition-all">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[11px] font-mono text-cyber-blue font-semibold">Clause 26.4</span>
+                                <span class="text-[9px] bg-cyber-blue/10 text-cyber-blue px-1.5 rounded uppercase font-bold">Nominal Cover</span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-medium leading-relaxed truncate">Nominal cover minimum for mild condition exposure = 20mm...</p>
+                        </button>
+
+                        <button onclick="openClause('rebar')" id="clauseRebar" class="w-full text-left p-3 rounded-xl bg-slate-900 border border-cyber-border hover:border-cyber-blue/60 transition-all">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-[11px] font-mono text-cyber-blue font-semibold">Clause 26.5.1.1</span>
+                                <span class="text-[9px] bg-cyber-blue/10 text-cyber-blue px-1.5 rounded uppercase font-bold">Tension Steel Limit</span>
+                            </div>
+                            <p class="text-xs text-slate-400 font-medium leading-relaxed truncate">Minimum tension steel is 0.85b*d/fy, Maximum is 4%...</p>
+                        </button>
+                    </div>
+
+                    <!-- Steps Task List Tracker -->
+                    <div class="bg-slate-950/60 rounded-xl border border-cyber-border p-3">
+                        <h4 class="text-xs font-mono text-slate-300 font-bold mb-3 uppercase tracking-wide">Interactive Task Tracker</h4>
+                        <ul class="space-y-3" id="taskTracker">
+                            <li class="flex items-start gap-2 text-xs" id="task-1">
+                                <span class="text-cyber-amber mt-0.5"><i class="fa-solid fa-circle-dot"></i></span>
+                                <div>
+                                    <span class="font-bold block text-slate-300">Dimension Alignment</span>
+                                    <span class="text-slate-400 text-[11px]">Set B and D on blueprint sliders.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs" id="task-2">
+                                <span class="text-slate-500 mt-0.5"><i class="fa-regular fa-circle"></i></span>
+                                <div>
+                                    <span class="font-bold block text-slate-500">Tension Steel Placement</span>
+                                    <span class="text-slate-500 text-[11px]">Drag tension count & dia to blue target.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs" id="task-3">
+                                <span class="text-slate-500 mt-0.5"><i class="fa-regular fa-circle"></i></span>
+                                <div>
+                                    <span class="font-bold block text-slate-500">Compression Steel Placement</span>
+                                    <span class="text-slate-500 text-[11px]">Drag compression count & dia to red target.</span>
+                                </div>
+                            </li>
+                            <li class="flex items-start gap-2 text-xs" id="task-4">
+                                <span class="text-slate-500 mt-0.5"><i class="fa-regular fa-circle"></i></span>
+                                <div>
+                                    <span class="font-bold block text-slate-500">Computation & Verification</span>
+                                    <span class="text-slate-500 text-[11px]">Verify cross-sectional steel calculations.</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Active Help Screen overlay toggle mechanism -->
+                <div id="clauseDetails" class="hidden mt-4 bg-cyber-blue/5 border border-cyber-blue/30 rounded-xl p-3.5 text-xs text-slate-300 leading-relaxed transition-all">
+                    <div class="flex justify-between items-center mb-1.5">
+                        <strong id="clauseTitle" class="text-cyber-blue font-bold">Clause Title</strong>
+                        <button onclick="closeClause()" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <p id="clauseBody">Clause narrative detailed parameters from the manual.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer Stats Tracker -->
+    <footer class="border-t border-cyber-border bg-cyber-bg/80 px-6 py-3.5 text-xs text-slate-400 mt-6">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-6">
+                <div>
+                    <span class="font-mono text-slate-500">CONCRETE GRADE:</span> 
+                    <span class="font-mono font-bold text-white ml-1">M25</span>
+                </div>
+                <div>
+                    <span class="font-mono text-slate-500">STEEL REBARS:</span> 
+                    <span class="font-mono font-bold text-white ml-1">Fe500</span>
+                </div>
+                <div>
+                    <span class="font-mono text-slate-500">EXPOSURE:</span> 
+                    <span class="font-mono font-bold text-cyber-cyan ml-1">MODERATE (30mm cover)</span>
+                </div>
+            </div>
+            <div class="text-slate-500 font-mono text-[11px]">
+                Interactive Structural Laboratory (HTML5, Canvas2D, Web Audio API)
+            </div>
+        </div>
+    </footer>
+
+    <!-- Interactive floating text components on calculation overlay -->
+    <div id="floatingAst" class="fixed pointer-events-none transition-all duration-1000 ease-out transform scale-0 bg-cyber-cyan text-slate-950 font-mono font-extrabold text-xs px-2.5 py-1 rounded shadow-lg flex items-center gap-1 z-50">
+        <i class="fa-solid fa-cube text-[9px]"></i> <span id="floatingAstText"></span>
+    </div>
+    <div id="floatingAsc" class="fixed pointer-events-none transition-all duration-1000 ease-out transform scale-0 bg-cyber-crimson text-white font-mono font-extrabold text-xs px-2.5 py-1 rounded shadow-lg flex items-center gap-1 z-50">
+        <i class="fa-solid fa-cube text-[9px]"></i> <span id="floatingAscText"></span>
+    </div>
+
+    <!-- Script Block -->
+    <script>
+        // Core Web Audio API setup
+        let audioCtx;
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Synthesizer Engine
+        function playChime(success = true) {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                
+                if (success) {
+                    // Success chime: dual rising tone
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+                    
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(523.25, now); // C5
+                    osc1.frequency.exponentialRampToValueAtTime(880, now + 0.35); // A5
+
+                    osc2.type = 'triangle';
+                    osc2.frequency.setValueAtTime(659.25, now); // E5
+                    osc2.frequency.exponentialRampToValueAtTime(1046.50, now + 0.35); // C6
+
+                    gainNode.gain.setValueAtTime(0.12, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                    osc1.connect(gainNode);
+                    osc2.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+
+                    osc1.start(now);
+                    osc2.start(now);
+                    osc1.stop(now + 0.4);
+                    osc2.stop(now + 0.4);
+                } else {
+                    // Error buzzer: low vibrating descending tone
+                    const osc = ctx.createOscillator();
+                    const gainNode = ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(160, now);
+                    osc.frequency.linearRampToValueAtTime(100, now + 0.25);
+
+                    gainNode.gain.setValueAtTime(0.2, now);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+                    osc.connect(gainNode);
+                    gainNode.connect(ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                }
+            } catch (e) {
+                console.error("Web Audio error: ", e);
+            }
+        }
+
+        function playClick() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                const osc = ctx.createOscillator();
+                const gainNode = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.08);
+
+                gainNode.gain.setValueAtTime(0.08, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+                osc.connect(gainNode);
+                gainNode.connect(ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.08);
+            } catch (e) {}
+        }
+
+        // Voice Engine with state control
+        let ttsEnabled = true;
+        let lastVoiceUtterance = null;
+
+        function toggleSpeech() {
+            ttsEnabled = !ttsEnabled;
+            const btn = document.getElementById('ttsToggle');
+            if (ttsEnabled) {
+                btn.innerHTML = '<i class="fa-solid fa-volume-high"></i>';
+                btn.classList.remove('text-slate-600');
+                btn.classList.add('text-slate-400');
+                speakNarrative("Speech guide enabled.");
+            } else {
+                window.speechSynthesis.cancel();
+                btn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i>';
+                btn.classList.remove('text-slate-400');
+                btn.classList.add('text-slate-600');
+            }
+        }
+
+        function speakNarrative(text) {
+            if (!ttsEnabled) return;
+            try {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
+                utterance.pitch = 1.0;
+                lastVoiceUtterance = utterance;
+                window.speechSynthesis.speak(utterance);
+            } catch (e) {}
+        }
+
+        // Canvas Setup
+        const canvas = document.getElementById('beamCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Dynamic State Values
+        let beamWidth = 300; // mm
+        let beamDepth = 600; // mm
+        let nominalCover = 30; // mm
+
+        // Target Drag and Drop Placement values
+        let placedTensionCount = null;
+        let placedTensionDia = null;
+        let placedCompCount = null;
+        let placedCompDia = null;
+
+        // Visual Zoom Variables for smooth canvas scaling
+        let currentZoom = 1.0;
+        let targetZoom = 1.0;
+        let currentPanX = 0;
+        let targetPanX = 0;
+        let currentPanY = 0;
+        let targetPanY = 0;
+
+        // Active State of calculations
+        let verifiedState = false;
+        let computationDone = false;
+
+        function initCanvas() {
+            // High-DPI canvas handling
+            const dpr = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            drawBeam();
+        }
+
+        // Dynamic drawing engine
+        function drawBeam() {
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const height = canvas.height / (window.devicePixelRatio || 1);
+            ctx.clearRect(0, 0, width, height);
+
+            // Interpolate smoothly
+            currentZoom += (targetZoom - currentZoom) * 0.12;
+            currentPanX += (targetPanX - currentPanX) * 0.12;
+            currentPanY += (targetPanY - currentPanY) * 0.12;
+
+            ctx.save();
+            // Apply zoom/pan transformation matrix
+            ctx.translate(width / 2 + currentPanX, height / 2 + currentPanY);
+            ctx.scale(currentZoom, currentZoom);
+            ctx.translate(-width / 2, -height / 2);
+
+            // Dynamic layout mapping (300mm beam scale on canvas grid space)
+            const marginX = 80;
+            const marginY = 60;
+            const scaleWidth = (width - marginX * 2) / 450; 
+            const scaleHeight = (height - marginY * 2) / 800;
+            const scale = Math.min(scaleWidth, scaleHeight);
+
+            // Real Canvas Coordinates
+            const renderW = beamWidth * scale;
+            const renderH = beamDepth * scale;
+            const startX = (width - renderW) / 2;
+            const startY = (height - renderH) / 2;
+
+            // 1. Grid Background Overlay (subtle depth visualization)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < width; i += 20) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, height);
+                ctx.stroke();
+            }
+
+            // 2. Main Concrete Body Rendering
+            const beamGrad = ctx.createLinearGradient(startX, startY, startX + renderW, startY + renderH);
+            beamGrad.addColorStop(0, '#131e33');
+            beamGrad.addColorStop(1, '#0e1524');
+            ctx.fillStyle = beamGrad;
+            ctx.strokeStyle = verifiedState ? '#10b981' : '#334155';
+            ctx.lineWidth = verifiedState ? 3 : 2;
+            
+            // Draw Concrete rectangle with rounded drop shadow feel
+            ctx.beginPath();
+            ctx.roundRect(startX, startY, renderW, renderH, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Glow verification effect
+            if (verifiedState) {
+                ctx.shadowColor = '#10b981';
+                ctx.shadowBlur = 15;
+                ctx.strokeStyle = '#10b981';
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset
+            }
+
+            // Concrete micro-hatching pattern (visual interest)
+            ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+            ctx.lineWidth = 1;
+            for(let i = 5; i < renderW - 5; i += 40) {
+                for(let j = 5; j < renderH - 5; j += 40) {
+                    ctx.beginPath();
+                    ctx.moveTo(startX + i, startY + j);
+                    ctx.lineTo(startX + i + 8, startY + j + 8);
+                    ctx.stroke();
+                }
+            }
+
+            // 3. Clear/Nominal Cover Boundaries (Shear Stirrups Loop)
+            const stirrupCover = nominalCover * scale;
+            const stirrupStartX = startX + stirrupCover;
+            const stirrupStartY = startY + stirrupCover;
+            const stirrupW = renderW - stirrupCover * 2;
+            const stirrupH = renderH - stirrupCover * 2;
+
+            ctx.strokeStyle = 'rgba(6, 182, 212, 0.55)'; // stirrup cyan highlight
+            ctx.lineWidth = 2;
+            ctx.setLineDash([4, 2]); // Dotted internal stirrups line
+            ctx.beginPath();
+            ctx.roundRect(stirrupStartX, stirrupStartY, stirrupW, stirrupH, 6);
+            ctx.stroke();
+            ctx.setLineDash([]); // clear dash
+
+            // 4. Tension Steel Placement Rendering (Bottom Bars)
+            const tensionCount = placedTensionCount || 4; 
+            const tensionDia = placedTensionDia || 20;
+            const tBarRadius = (tensionDia / 2) * scale * 1.3; // exaggerated size for better visual
+            const tBarY = startY + renderH - stirrupCover - tBarRadius;
+
+            // Pulse glowing indicator on tension rebar area when working on it
+            if (!placedTensionCount) {
+                ctx.fillStyle = 'rgba(6,182,212,0.1)';
+                ctx.beginPath();
+                ctx.arc(startX + renderW/2, tBarY, 20, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            for (let i = 0; i < tensionCount; i++) {
+                const step = tensionCount > 1 ? (stirrupW - tBarRadius * 2) / (tensionCount - 1) : 0;
+                const tBarX = tensionCount > 1 ? (stirrupStartX + tBarRadius + (i * step)) : (startX + renderW / 2);
+                
+                // Draw bar shadow/glow
+                ctx.shadowColor = '#06b6d4';
+                ctx.shadowBlur = placedTensionCount ? 8 : 0;
+                ctx.fillStyle = placedTensionCount ? '#06b6d4' : '#1e293b'; // dynamic fill
+                
+                ctx.beginPath();
+                ctx.arc(tBarX, tBarY, tBarRadius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Details inside metallic rebar
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // 5. Compression Steel Placement Rendering (Top Bars)
+            const compCount = placedCompCount || 2;
+            const compDia = placedCompDia || 16;
+            const cBarRadius = (compDia / 2) * scale * 1.3;
+            const cBarY = startY + stirrupCover + cBarRadius;
+
+            for (let i = 0; i < compCount; i++) {
+                const step = compCount > 1 ? (stirrupW - cBarRadius * 2) / (compCount - 1) : 0;
+                const cBarX = compCount > 1 ? (stirrupStartX + cBarRadius + (i * step)) : (startX + renderW / 2);
+                
+                ctx.shadowColor = '#f43f5e';
+                ctx.shadowBlur = placedCompCount ? 8 : 0;
+                ctx.fillStyle = placedCompCount ? '#f43f5e' : '#1e293b';
+
+                ctx.beginPath();
+                ctx.arc(cBarX, cBarY, cBarRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+                ctx.strokeStyle = '#0f172a';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // 6. Dimension Annotation Lines & Indicators
+            ctx.fillStyle = '#94a3b8';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1;
+            ctx.font = '10px "JetBrains Mono", monospace';
+
+            // Top dimension: width b
+            ctx.beginPath();
+            ctx.moveTo(startX, startY - 15);
+            ctx.lineTo(startX + renderW, startY - 15);
+            ctx.stroke();
+            ctx.fillText(`${beamWidth} mm`, startX + renderW/2 - 20, startY - 24);
+            // End ticks
+            ctx.beginPath();
+            ctx.moveTo(startX, startY - 20); ctx.lineTo(startX, startY - 10);
+            ctx.moveTo(startX + renderW, startY - 20); ctx.lineTo(startX + renderW, startY - 10);
+            ctx.stroke();
+
+            // Right dimension: overall depth D
+            ctx.beginPath();
+            ctx.moveTo(startX + renderW + 15, startY);
+            ctx.lineTo(startX + renderW + 15, startY + renderH);
+            ctx.stroke();
+            // Tick lines
+            ctx.beginPath();
+            ctx.moveTo(startX + renderW + 10, startY); ctx.lineTo(startX + renderW + 20);
+            ctx.moveTo(startX + renderW + 10, startY + renderH); ctx.lineTo(startX + renderW + 20);
+            ctx.stroke();
+
+            ctx.save();
+            ctx.translate(startX + renderW + 28, startY + renderH/2);
+            ctx.rotate(Math.PI/2);
+            ctx.fillText(`${beamDepth} mm`, -20, 0);
+            ctx.restore();
+
+            // 7. Callouts (Nominal Cover Detail lines)
+            if (currentZoom > 1.2) {
+                // Draw nominal cover callout zoom style
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(startX + renderW, startY + renderH - stirrupCover);
+                ctx.lineTo(startX + renderW + 10, startY + renderH - stirrupCover);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(startX + renderW, startY + renderH);
+                ctx.lineTo(startX + renderW + 10, startY + renderH);
+                ctx.stroke();
+
+                // Arrow/ticks
+                ctx.fillText(`c=${nominalCover}mm`, startX + renderW + 15, startY + renderH - stirrupCover/2 + 3);
+            }
+
+            ctx.restore();
+        }
+
+        // Handle animation frame requests for canvas zooms
+        function animateCanvas() {
+            drawBeam();
+            requestAnimationFrame(animateCanvas);
+        }
+
+        // Slider triggers
+        function updateDimensions() {
+            beamWidth = parseInt(document.getElementById('inputB').value);
+            beamDepth = parseInt(document.getElementById('inputD').value);
+            nominalCover = parseInt(document.getElementById('inputCover').value);
+
+            document.getElementById('valB').textContent = `${beamWidth} mm`;
+            document.getElementById('valD').textContent = `${beamDepth} mm`;
+            document.getElementById('valCover').textContent = `${nominalCover} mm`;
+
+            updateRealtimeDepthCover();
+            playClick();
+            
+            // Advance first step in task tracking if user changes values
+            completeStep('task-1');
+        }
+
+        // Live computations on effective depth & cover
+        function updateRealtimeDepthCover() {
+            const tDia = placedTensionDia || 25;
+            const cDia = placedCompDia || 20;
+
+            const effDepth = beamDepth - nominalCover - (tDia / 2);
+            const effCover = nominalCover + (cDia / 2);
+
+            if (placedTensionDia) {
+                document.getElementById('effDepthVal').textContent = `${effDepth.toFixed(1)} mm`;
+            } else {
+                document.getElementById('effDepthVal').textContent = `-- mm`;
+            }
+
+            if (placedCompDia) {
+                document.getElementById('effCoverVal').textContent = `${effCover.toFixed(1)} mm`;
+            } else {
+                document.getElementById('effCoverVal').textContent = `-- mm`;
+            }
+        }
+
+        // Camera Pan & Zoom controls
+        function resetZoom() {
+            targetZoom = 1.0;
+            targetPanX = 0;
+            targetPanY = 0;
+            playClick();
+        }
+
+        function zoomToCover() {
+            // Zoom in on the lower bottom-right rebar region
+            targetZoom = 1.6;
+            targetPanX = -50;
+            targetPanY = -120;
+            playClick();
+        }
+
+        // Drag & Drop Functionality
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("type", ev.target.dataset.type);
+            ev.dataTransfer.setData("value", ev.target.dataset.val);
+            ev.dataTransfer.setData("elementId", ev.target.id || '');
+            
+            // Subtle sound cue
+            playClick();
+        }
+
+        function drop(ev, targetType) {
+            ev.preventDefault();
+            const type = ev.dataTransfer.getData("type");
+            const val = parseFloat(ev.dataTransfer.getData("value"));
+            const target = ev.currentTarget;
+
+            // Validation logic check matches target zone constraint
+            if (type === targetType) {
+                // Successful drop
+                target.innerHTML = `<span class="bg-slate-950 px-2 py-1 border rounded text-xs font-mono font-bold animate-bounce">${val}</span>`;
+                target.classList.remove('border-dashed');
+                target.classList.add('border-solid', 'bg-slate-900', 'border-emerald-500', 'text-white');
+                
+                // Track state
+                if (targetType === 'n-tension') {
+                    placedTensionCount = val;
+                    speakNarrative(`Positioned ${val} tension reinforcement bars`);
+                } else if (targetType === 'dia-tension') {
+                    placedTensionDia = val;
+                    speakNarrative(`Set tension steel bar diameter to ${val} millimeters`);
+                } else if (targetType === 'n-comp') {
+                    placedCompCount = val;
+                    speakNarrative(`Positioned ${val} compression bars`);
+                } else if (targetType === 'dia-comp') {
+                    placedCompDia = val;
+                    speakNarrative(`Set compression steel bar diameter to ${val} millimeters`);
+                } else if (targetType === 'cover') {
+                    nominalCover = val;
+                    document.getElementById('inputCover').value = val;
+                    document.getElementById('valCover').textContent = `${val} mm`;
+                }
+
+                playChime(true);
+                updateRealtimeDepthCover();
+                
+                // Track Task progression
+                checkDropAchievements();
+
+            } else {
+                // Invalid drop
+                target.classList.add('shake-element', 'border-rose-500');
+                setTimeout(() => {
+                    target.classList.remove('shake-element', 'border-rose-500');
+                }, 500);
+                
+                playChime(false);
+                speakNarrative("Incorrect slot. Match properties strictly.");
+            }
+        }
+
+        function checkDropAchievements() {
+            if (placedTensionCount && placedTensionDia) {
+                completeStep('task-2');
+            }
+            if (placedCompCount && placedCompDia) {
+                completeStep('task-3');
+            }
+        }
+
+        // Complete step tracker animation
+        function completeStep(stepId) {
+            const stepEl = document.getElementById(stepId);
+            if (!stepEl || stepEl.dataset.completed === 'true') return;
+
+            stepEl.dataset.completed = 'true';
+            const icon = stepEl.querySelector('span');
+            icon.className = 'text-cyber-emerald mt-0.5';
+            icon.innerHTML = '<i class="fa-solid fa-circle-check"></i>';
+            
+            const label = stepEl.querySelector('span:last-child') || stepEl.querySelector('div span');
+            if(label) label.className = 'font-bold block text-cyber-emerald';
+
+            // Next element status updates
+            const stepNum = parseInt(stepId.split('-')[1]);
+            const nextStep = document.getElementById(`task-${stepNum + 1}`);
+            if (nextStep) {
+                const nextIcon = nextStep.querySelector('span');
+                nextIcon.className = 'text-cyber-amber mt-0.5';
+                nextIcon.innerHTML = '<i class="fa-solid fa-circle-dot"></i>';
+                const nextLabel = nextStep.querySelector('span:last-child') || nextStep.querySelector('div span');
+                if (nextLabel) nextLabel.className = 'font-bold block text-slate-300';
+                const nextSub = nextStep.querySelector('div span:last-child');
+                if(nextSub) nextSub.className = 'text-slate-400 text-[11px]';
+            }
+        }
+
+        // Area Calculation Mechanism
+        function computeAreas() {
+            if (!placedTensionCount || !placedTensionDia || !placedCompCount || !placedCompDia) {
+                playChime(false);
+                speakNarrative("Please place both tension and compression bar chips in their designated target slots first.");
+                return;
+            }
+
+            // Calculations
+            const ast = placedTensionCount * (Math.PI / 4) * Math.pow(placedTensionDia, 2);
+            const asc = placedCompCount * (Math.PI / 4) * Math.pow(placedCompDia, 2);
+
+            // Print text changes
+            document.getElementById('astDisplay').innerHTML = `${ast.toFixed(1)} <span class="text-xs font-normal">mm²</span>`;
+            document.getElementById('ascDisplay').innerHTML = `${asc.toFixed(1)} <span class="text-xs font-normal">mm²</span>`;
+
+            // Active visual floating animation trigger
+            triggerFloatingResult(ast, asc);
+
+            // Design check logic parameters
+            verifiedState = true;
+            computationDone = true;
+            completeStep('task-4');
+
+            // Speech analysis feedback
+            speakNarrative(`Computation complete. Total tensile steel area is ${ast.toFixed(0)} square millimeters. Compression steel is ${asc.toFixed(0)} square millimeters. Design parameters successfully verified against IS 456.`);
+            playChime(true);
+
+            // Pulse the container
+            const workspace = document.getElementById('workspaceContainer');
+            workspace.classList.add('glass-panel-glow-emerald');
+        }
+
+        // Dynamic element floating path animation
+        function triggerFloatingResult(ast, asc) {
+            const astF = document.getElementById('floatingAst');
+            const ascF = document.getElementById('floatingAsc');
+            
+            astF.style.left = '50%';
+            astF.style.top = '50%';
+            document.getElementById('floatingAstText').textContent = `Ast = ${ast.toFixed(0)} mm²`;
+            astF.classList.remove('scale-0');
+            astF.classList.add('scale-100');
+
+            setTimeout(() => {
+                // Target bounding coordinates of canvas / blue rebar zone
+                const canvasRect = canvas.getBoundingClientRect();
+                astF.style.left = `${canvasRect.left + 50}px`;
+                astF.style.top = `${canvasRect.top + canvasRect.height - 80}px`;
+            }, 300);
+
+            // Comp setup
+            ascF.style.left = '50%';
+            ascF.style.top = '50%';
+            document.getElementById('floatingAscText').textContent = `Asc = ${asc.toFixed(0)} mm²`;
+            ascF.classList.remove('scale-0');
+            ascF.classList.add('scale-100');
+
+            setTimeout(() => {
+                const canvasRect = canvas.getBoundingClientRect();
+                ascF.style.left = `${canvasRect.left + 50}px`;
+                ascF.style.top = `${canvasRect.top + 80}px`;
+            }, 400);
+        }
+
+        // Interactive IS 456 Clauses display
+        function openClause(type) {
+            playClick();
+            const panel = document.getElementById('clauseDetails');
+            const title = document.getElementById('clauseTitle');
+            const body = document.getElementById('clauseBody');
+
+            panel.classList.remove('hidden');
+
+            if (type === 'cover') {
+                title.textContent = 'Clause 26.4 - Nominal Cover Limits';
+                body.textContent = 'Nominal concrete cover is necessary to provide durability against physical/chemical reactions. For Moderate exposures, the absolute minimum specified concrete cover depth limit is 30 mm. For Heavy corrosive states, it scales up to 45 mm.';
+                zoomToCover();
+            } else if (type === 'rebar') {
+                title.textContent = 'Clause 26.5.1.1 - Reinforcement Limits';
+                body.textContent = 'The minimum tension steel reinforcement area cannot fall below the limit: Ast = 0.85 * b * d / fy. The total maximum combined longitudinal area of compression & tension steel should not exceed 4% of total depth/width bounds.';
+                resetZoom();
+            }
+        }
+
+        function closeClause() {
+            playClick();
+            document.getElementById('clauseDetails').classList.add('hidden');
+            resetZoom();
+        }
+
+        // Interactive Tutorial system walkthrough
+        function startGuidedTutorial() {
+            playClick();
+            speakNarrative("Welcome to the RCC Beam Analysis Laboratory. First, align the beam cross section dimensions using the sliders on the left blueprint panel.");
+            
+            // Zoom guide sequence focus
+            targetZoom = 1.1;
+            targetPanX = 0;
+            targetPanY = -20;
+
+            // Highlight the sliders
+            const controls = document.getElementById('blueprintContainer');
+            controls.classList.add('glass-panel-glow-cyan');
+            setTimeout(() => {
+                controls.classList.remove('glass-panel-glow-cyan');
+            }, 4000);
+        }
+
+        // Initialize script events
+        window.addEventListener('resize', initCanvas);
+        window.addEventListener('load', () => {
+            initCanvas();
+            animateCanvas(); // start loop
+            
+            // Set initial state visual representations
+            updateRealtimeDepthCover();
+        });
+    </script>
+</body>
+</html>

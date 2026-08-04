@@ -1,0 +1,1484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limit State Design of RCC Beams - Interactive Simulation Dashboard</title>
+  
+  <!-- CSS Reset & Fonts -->
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: rgba(15, 23, 42, 0.75);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-glow: rgba(34, 211, 238, 0.15);
+      
+      --cyan: #22d3ee;
+      --cyan-glow: 0 0 15px rgba(34, 211, 238, 0.6);
+      --purple: #c084fc;
+      --purple-glow: 0 0 15px rgba(192, 132, 252, 0.6);
+      --green: #22c55e;
+      --green-glow: 0 0 15px rgba(34, 197, 94, 0.6);
+      --red: #f43f5e;
+      --red-glow: 0 0 15px rgba(244, 63, 94, 0.6);
+      --yellow: #eab308;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbars styling for inner areas */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--cyan);
+    }
+
+    /* Header styling */
+    header {
+      height: 70px;
+      background: rgba(9, 13, 22, 0.9);
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--bg-dark);
+      font-size: 1.1rem;
+    }
+
+    .title-area h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(to right, #ffffff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .title-area p {
+      font-size: 0.75rem;
+      color: var(--cyan);
+      font-family: 'JetBrains Mono', monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .system-controls {
+      display: flex;
+      align-items: center;
+      gap: 1.5rem;
+    }
+
+    .audio-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      transition: all 0.3s ease;
+    }
+
+    .audio-btn:hover {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: var(--cyan);
+      box-shadow: var(--cyan-glow);
+    }
+
+    .status-tracker {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .status-step {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--glass-border);
+      position: relative;
+    }
+
+    .status-step.active {
+      background: var(--cyan);
+      box-shadow: var(--cyan-glow);
+    }
+
+    .status-step.completed {
+      background: var(--green);
+      box-shadow: var(--green-glow);
+    }
+
+    /* Main Grid Structure */
+    .dashboard {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 360px 1fr 380px;
+      gap: 1.25rem;
+      padding: 1.25rem;
+      height: calc(100vh - 70px);
+      box-sizing: border-box;
+    }
+
+    /* General Panel Styling */
+    .panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      backdrop-filter: blur(16px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .panel:hover {
+      border-color: rgba(34, 211, 238, 0.2);
+    }
+
+    .panel-header {
+      padding: 1rem 1.25rem;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 16px;
+      background: var(--cyan);
+      border-radius: 2px;
+    }
+
+    .panel-body {
+      flex: 1;
+      padding: 1.25rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    /* Left Pane: Toolkit & Codebook */
+    .problem-statement {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px dashed var(--glass-border);
+      border-radius: 12px;
+      padding: 1rem;
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    .interactive-param {
+      background: rgba(34, 211, 238, 0.1);
+      border: 1px solid rgba(34, 211, 238, 0.3);
+      color: var(--cyan);
+      padding: 1px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      transition: all 0.2s ease;
+      display: inline-block;
+    }
+
+    .interactive-param:hover {
+      background: var(--cyan);
+      color: var(--bg-dark);
+      box-shadow: var(--cyan-glow);
+    }
+
+    .interactive-param.collected {
+      background: var(--green);
+      border-color: var(--green);
+      color: var(--bg-dark);
+      text-decoration: line-through;
+      pointer-events: none;
+    }
+
+    .toolkit-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+    }
+
+    .toolkit-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      position: relative;
+    }
+
+    .toolkit-card.active {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.03);
+    }
+
+    .toolkit-card .label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .toolkit-card .val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    .codebook-trigger {
+      background: linear-gradient(135deg, rgba(192, 132, 252, 0.1), rgba(34, 211, 238, 0.1));
+      border: 1px solid rgba(192, 132, 252, 0.3);
+      padding: 0.75rem;
+      border-radius: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .codebook-trigger:hover {
+      border-color: var(--purple);
+      box-shadow: var(--purple-glow);
+    }
+
+    /* Center Pane: Workspace */
+    .center-workspace {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      gap: 1.25rem;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: radial-gradient(circle at center, rgba(15, 23, 42, 0.4) 0%, rgba(9, 13, 22, 0.8) 100%);
+      border-radius: 16px;
+      border: 1px solid var(--glass-border);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #visualizerCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+    }
+
+    .zoom-overlay {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      gap: 0.5rem;
+      z-index: 5;
+    }
+
+    .canvas-btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--glass-border);
+      color: var(--text-main);
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      transition: all 0.2s ease;
+    }
+
+    .canvas-btn:hover {
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* Equation Workspace Builder */
+    .equation-workspace {
+      background: var(--panel-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .equation-title {
+      font-size: 0.85rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--purple);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .equation-builder {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      min-height: 60px;
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px dashed var(--glass-border);
+      border-radius: 12px;
+      padding: 0.5rem;
+    }
+
+    .drop-slot {
+      width: 140px;
+      height: 44px;
+      border: 2px dashed rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      transition: all 0.3s ease;
+    }
+
+    .drop-slot.drag-over {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.05);
+      color: var(--cyan);
+    }
+
+    .drop-slot.correct {
+      border-style: solid;
+      border-color: var(--green);
+      background: rgba(34, 197, 94, 0.1);
+      color: var(--green);
+    }
+
+    .token-bank {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      justify-content: center;
+    }
+
+    .token {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      padding: 0.5rem 1rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      cursor: grab;
+      user-select: none;
+      transition: all 0.2s ease;
+    }
+
+    .token:active {
+      cursor: grabbing;
+    }
+
+    .token:hover {
+      border-color: var(--purple);
+      color: var(--purple);
+      background: rgba(192, 132, 252, 0.05);
+    }
+
+    /* Right Pane: Live Analysis & Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .slider-item {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .slider-label {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .slider-val {
+      color: var(--cyan);
+      font-weight: 700;
+    }
+
+    .slider-input {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    .slider-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: var(--cyan-glow);
+      transition: transform 0.1s ease;
+    }
+
+    .slider-input::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .decomposition-container {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    .decomp-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .progress-bar-bg {
+      height: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      overflow: hidden;
+      display: flex;
+    }
+
+    .progress-fill {
+      height: 100%;
+      transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .progress-fill.compression {
+      background: var(--cyan);
+      box-shadow: var(--cyan-glow);
+    }
+
+    .progress-fill.tension {
+      background: var(--purple);
+      box-shadow: var(--purple-glow);
+    }
+
+    /* Modal / Codebook Drawer */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.8);
+      backdrop-filter: blur(12px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-container {
+      background: #0f172a;
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      width: 600px;
+      max-width: 90%;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+
+    .modal-overlay.open .modal-container {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 1.25rem 1.5rem;
+      border-bottom: 1px solid var(--glass-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.5rem;
+      transition: color 0.2s;
+    }
+
+    .modal-close:hover {
+      color: var(--red);
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .code-clause-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--glass-border);
+      border-radius: 10px;
+      padding: 1rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .code-clause-card:hover {
+      border-color: var(--cyan);
+      background: rgba(34, 211, 238, 0.02);
+    }
+
+    .code-clause-card.active {
+      border-color: var(--green);
+      background: rgba(34, 197, 94, 0.05);
+    }
+
+    .clause-num {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--purple);
+      font-weight: 700;
+      font-size: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .clause-text {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    /* Diagnostic Badge */
+    .safety-badge {
+      padding: 0.75rem;
+      border-radius: 10px;
+      text-align: center;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-family: 'JetBrains Mono', monospace;
+      border: 1px solid transparent;
+    }
+
+    .safety-badge.under {
+      background: rgba(34, 211, 238, 0.1);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .safety-badge.over {
+      background: rgba(244, 63, 94, 0.1);
+      border-color: var(--red);
+      color: var(--red);
+      box-shadow: var(--red-glow);
+    }
+
+    .safety-badge.balanced {
+      background: rgba(34, 197, 94, 0.1);
+      border-color: var(--green);
+      color: var(--green);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main System Header -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">C</div>
+      <div class="title-area">
+        <h1>Singly Reinforced Concrete Solver</h1>
+        <p>Limit State Design (IS 456 : 2000)</p>
+      </div>
+    </div>
+    
+    <div class="system-controls">
+      <button class="audio-btn" id="audioBtn" onclick="toggleAudio()">
+        <svg id="audioIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        <span id="audioStatusText">SYNTH ON</span>
+      </button>
+
+      <button class="audio-btn" id="voiceBtn" onclick="toggleSpeech()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+        <span id="voiceStatusText">COACH ON</span>
+      </button>
+
+      <div class="status-tracker">
+        <div class="status-step active" id="step1" title="Extract Parameters"></div>
+        <div class="status-step" id="step2" title="IS Code Verification"></div>
+        <div class="status-step" id="step3" title="Force Equilibrium Match"></div>
+        <div class="status-step" id="step4" title="Simulation Ready"></div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Dashboard Container -->
+  <main class="dashboard">
+
+    <!-- Column 1: Engineering Toolkit & Codebook -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Engineering Toolkit</div>
+      </div>
+      <div class="panel-body">
+        
+        <div class="problem-statement">
+          <strong>Problem Context:</strong> Determine structural limit states for a rectangular RCC beam cross-section with width 
+          <span class="interactive-param" id="param-b" data-param="b" data-val="250">b = 250 mm</span>, 
+          effective depth <span class="interactive-param" id="param-d" data-param="d" data-val="450">d = 450 mm</span> 
+          (overall depth <span class="interactive-param" id="param-D" data-param="D" data-val="500">D = 500 mm</span>). 
+          The tension zone houses <span class="interactive-param" id="param-Ast" data-param="Ast" data-val="804">Ast = 804 mm²</span> 
+          of steel rebars. Structural characteristics: concrete grade 
+          <span class="interactive-param" id="param-fck" data-param="fck" data-val="20">fck = 20 N/mm²</span> and steel yield 
+          <span class="interactive-param" id="param-fy" data-param="fy" data-val="415">fy = 415 N/mm²</span>.
+        </div>
+
+        <div class="toolkit-grid">
+          <div class="toolkit-card" id="card-b">
+            <span class="label">Width (b)</span>
+            <span class="val" id="val-b">-</span>
+          </div>
+          <div class="toolkit-card" id="card-d">
+            <span class="label">Eff. Depth (d)</span>
+            <span class="val" id="val-d">-</span>
+          </div>
+          <div class="toolkit-card" id="card-D">
+            <span class="label">Total Depth (D)</span>
+            <span class="val" id="val-D">-</span>
+          </div>
+          <div class="toolkit-card" id="card-Ast">
+            <span class="label">Rebar Area (Ast)</span>
+            <span class="val" id="val-Ast">-</span>
+          </div>
+          <div class="toolkit-card" id="card-fck">
+            <span class="label">Concrete fck</span>
+            <span class="val" id="val-fck">-</span>
+          </div>
+          <div class="toolkit-card" id="card-fy">
+            <span class="label">Steel Yield fy</span>
+            <span class="val" id="val-fy">-</span>
+          </div>
+        </div>
+
+        <div class="codebook-trigger" onclick="openCodebook()">
+          <div>
+            <div style="font-weight: 700; font-size: 0.85rem; color: var(--purple);">IS 456:2000 REFERENCE</div>
+            <div style="font-size: 0.75rem; color: var(--text-muted);" id="unlocked-clause-txt">Select required clause to unlock calculations</div>
+          </div>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="color: var(--purple);"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path></svg>
+        </div>
+
+        <div class="decomposition-container">
+          <div class="decomp-header">
+            <span>Force Decomposition</span>
+            <span id="force-ratio">0%</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div id="comp-bar" class="progress-fill compression" style="width: 0%"></div>
+            <div id="tens-bar" class="progress-fill tension" style="width: 0%"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 0.5rem; font-size: 0.7rem; color: var(--text-muted);">
+            <span>Comp (Cc): <span id="cc-force-val">0</span> kN</span>
+            <span>Tension (Ts): <span id="ts-force-val">0</span> kN</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Column 2: Main Canvas & Visual Workspace -->
+    <section class="center-workspace">
+      
+      <div class="canvas-container">
+        <canvas id="visualizerCanvas"></canvas>
+        <div class="zoom-overlay">
+          <button class="canvas-btn" onclick="zoomCanvas('in')" title="Zoom In">+</button>
+          <button class="canvas-btn" onclick="zoomCanvas('out')" title="Zoom Out">-button>
+          <button class="canvas-btn" onclick="zoomCanvas('reset')" title="Reset Cam">⟲</button>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Equation Builder -->
+      <div class="equation-workspace">
+        <div class="equation-title" id="formula-stage-title">Force Equilibrium Derivation (C = T)</div>
+        
+        <div class="equation-builder">
+          <div class="drop-slot" id="slot-1" data-correct="0.36*fck*b*xu">Drop Compression</div>
+          <span style="font-size: 1.5rem; font-weight: bold; color: var(--text-muted);">=</span>
+          <div class="drop-slot" id="slot-2" data-correct="0.87*fy*Ast">Drop Tension</div>
+        </div>
+
+        <div class="token-bank" id="token-bank">
+          <div class="token" draggable="true" id="tok-1" data-val="0.36*fck*b*xu">0.36 · fck · b · xu</div>
+          <div class="token" draggable="true" id="tok-2" data-val="0.87*fy*Ast">0.87 · fy · Ast</div>
+          <div class="token" draggable="true" id="tok-3" data-val="0.446*fck*b*d">0.446 · fck · b · d</div>
+          <div class="token" draggable="true" id="tok-4" data-val="0.87*fy*xu">0.87 · fy · xu</div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Column 3: Live Analysis & Parameters Sliders -->
+    <section class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Dynamic Analysis</div>
+      </div>
+      <div class="panel-body">
+        
+        <div class="safety-badge under" id="safety-badge">
+          Under-Reinforced Section
+        </div>
+
+        <div class="slider-group" id="controller-group" style="opacity: 0.5; pointer-events: none;">
+          <div class="slider-item">
+            <div class="slider-header">
+              <span class="slider-label">Beam Width (b)</span>
+              <span class="slider-val" id="slide-val-b">250 mm</span>
+            </div>
+            <input type="range" class="slider-input" id="slide-b" min="150" max="500" value="250" oninput="updateSystemParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span class="slider-label">Overall Depth (D)</span>
+              <span class="slider-val" id="slide-val-D">500 mm</span>
+            </div>
+            <input type="range" class="slider-input" id="slide-D" min="300" max="800" value="500" oninput="updateSystemParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span class="slider-label">Steel Rebar Area (Ast)</span>
+              <span class="slider-val" id="slide-val-Ast">804 mm²</span>
+            </div>
+            <input type="range" class="slider-input" id="slide-Ast" min="150" max="2500" value="804" oninput="updateSystemParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span class="slider-label">Concrete Grade (fck)</span>
+              <span class="slider-val" id="slide-val-fck">20 MPa</span>
+            </div>
+            <input type="range" class="slider-input" id="slide-fck" min="15" max="50" step="5" value="20" oninput="updateSystemParams()">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-header">
+              <span class="slider-label">Steel Grade (fy)</span>
+              <span class="slider-val" id="slide-val-fy">415 MPa</span>
+            </div>
+            <input type="range" class="slider-input" id="slide-fy" min="250" max="550" step="50" value="415" oninput="updateSystemParams()">
+          </div>
+        </div>
+
+        <!-- Metric Details Readouts -->
+        <div style="display: flex; flex-direction: column; gap: 0.75rem; border-top: 1px solid var(--glass-border); padding-top: 1rem;">
+          <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <span style="color: var(--text-muted)">Actual N.A. (xu)</span>
+            <span id="metric-xu" style="color: var(--cyan); font-weight: 700;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <span style="color: var(--text-muted)">Limiting N.A. (xu,max)</span>
+            <span id="metric-xumax" style="color: var(--purple); font-weight: 700;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <span style="color: var(--text-muted)">Moment Capacity (Mu)</span>
+            <span id="metric-mu" style="color: var(--green); font-weight: 700;">-</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;">
+            <span style="color: var(--text-muted)">Min Rebar % Req.</span>
+            <span id="metric-minrebar" style="color: var(--yellow); font-weight: 700;">-</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- IS 456 Codebook Modal -->
+  <div class="modal-overlay" id="codebookModal" onclick="closeCodebookOnOuter(event)">
+    <div class="modal-container">
+      <div class="modal-header">
+        <div class="modal-title">IS 456:2000 Codebook Drawer</div>
+        <button class="modal-close" onclick="closeCodebook()">&times;</button>
+      </div>
+      <div class="modal-body">
+        
+        <div class="code-clause-card" onclick="selectClause('clause-26')">
+          <div class="clause-num">Clause 26.5.1.1 - Minimum Tension Reinforcement</div>
+          <div class="clause-text">
+            Minimum area of tension reinforcement shall not be less than: 
+            <strong>Ast / (b · d) = 0.85 / fy</strong>. This ensures a ductile failure state.
+          </div>
+        </div>
+
+        <div class="code-clause-card" id="target-clause" onclick="selectClause('clause-38')">
+          <div class="clause-num">Clause 38.1 - Assumptions for Limit State of Collapse (Flexure)</div>
+          <div class="clause-text">
+            Stress-strain behavior of concrete is parabolic-rectangular with design yield 0.446·fck. 
+            Equivalent compressive block results in total force: <strong>C = 0.36 · fck · b · xu</strong>.
+          </div>
+        </div>
+
+        <div class="code-clause-card" onclick="selectClause('clause-annex-g')">
+          <div class="clause-num">Annex G.1.1 - Moment of Resistance Equations</div>
+          <div class="clause-text">
+            Specifies the exact stress block center of gravity and equations for Mu: 
+            <strong>Mu = 0.87 · fy · Ast · d · [1 - (Ast · fy) / (b · d · fck)]</strong>.
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Audio Context and Interactive Logic Script -->
+  <script>
+    // Audio Synth System
+    let audioCtx = null;
+    let audioEnabled = true;
+    let speechEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function toggleAudio() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('audioBtn');
+      const text = document.getElementById('audioStatusText');
+      if (audioEnabled) {
+        text.innerText = "SYNTH ON";
+        btn.style.borderColor = "var(--cyan)";
+      } else {
+        text.innerText = "SYNTH OFF";
+        btn.style.borderColor = "var(--glass-border)";
+      }
+    }
+
+    function toggleSpeech() {
+      speechEnabled = !speechEnabled;
+      const btn = document.getElementById('voiceBtn');
+      const text = document.getElementById('voiceStatusText');
+      if (speechEnabled) {
+        text.innerText = "COACH ON";
+        btn.style.borderColor = "var(--cyan)";
+        speakText("Structural Coach activated.");
+      } else {
+        text.innerText = "COACH OFF";
+        btn.style.borderColor = "var(--glass-border)";
+      }
+    }
+
+    function playSuccessSound() {
+      if (!audioEnabled) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(880, now + 0.35);
+      
+      gain.gain.setValueAtTime(0.2, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      
+      osc.start(now);
+      osc.stop(now + 0.4);
+    }
+
+    function playWarnSound() {
+      if (!audioEnabled) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      const now = audioCtx.currentTime;
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.linearRampToValueAtTime(80, now + 0.5);
+      
+      gain.gain.setValueAtTime(0.25, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.5);
+      
+      osc.start(now);
+      osc.stop(now + 0.5);
+    }
+
+    function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+        setTimeout(function() {
+          try {
+            var utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            var voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+              var eng = voices.find(function(v) { return v.lang && v.lang.startsWith('en'); });
+              if (eng) utterance.voice = eng;
+            }
+            window.speechSynthesis.speak(utterance);
+          } catch (err) {
+            console.error('TTS Speak Error:', err);
+          }
+        }, 60);
+      } catch (e) {
+        console.error('TTS Error:', e);
+      }
+    }
+
+    // System State Management
+    const sysState = {
+      collectedParams: {
+        b: false, d: false, D: false, Ast: false, fck: false, fy: false
+      },
+      codeClauseSelected: false,
+      equationDerivationCorrect: false,
+      values: {
+        b: 250,
+        d: 450,
+        D: 500,
+        Ast: 804,
+        fck: 20,
+        fy: 415
+      },
+      zoomScale: 1.0
+    };
+
+    // Canvas Properties & High-DPI
+    const canvas = document.getElementById('visualizerCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function initCanvas() {
+      resizeCanvas();
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        drawWorkspace();
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.parentNode.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+    }
+
+    // Zoom Camera Handler
+    function zoomCanvas(dir) {
+      if (dir === 'in') sysState.zoomScale = Math.min(2.5, sysState.zoomScale + 0.15);
+      else if (dir === 'out') sysState.zoomScale = Math.max(0.6, sysState.zoomScale - 0.15);
+      else sysState.zoomScale = 1.0;
+      drawWorkspace();
+    }
+
+    // Modal Interaction
+    function openCodebook() {
+      if (!allParamsCollected()) {
+        speakText("Please click and collect all highlighted parameters first.");
+        return;
+      }
+      document.getElementById('codebookModal').classList.add('open');
+    }
+
+    function closeCodebook() {
+      document.getElementById('codebookModal').classList.remove('open');
+    }
+
+    function closeCodebookOnOuter(e) {
+      if (e.target.id === 'codebookModal') {
+        closeCodebook();
+      }
+    }
+
+    // Drag-and-Drop Operations
+    let activeToken = null;
+    
+    function setupDragAndDrop() {
+      const tokens = document.querySelectorAll('.token');
+      const slots = document.querySelectorAll('.drop-slot');
+
+      tokens.forEach(tok => {
+        tok.addEventListener('dragstart', (e) => {
+          activeToken = tok;
+          e.dataTransfer.setData('text/plain', tok.dataset.val);
+        });
+      });
+
+      slots.forEach(slot => {
+        slot.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          slot.classList.add('drag-over');
+        });
+
+        slot.addEventListener('dragleave', () => {
+          slot.classList.remove('drag-over');
+        });
+
+        slot.addEventListener('drop', (e) => {
+          e.preventDefault();
+          slot.classList.remove('drag-over');
+          const data = e.dataTransfer.getData('text/plain');
+          
+          if (slot.dataset.correct === data) {
+            slot.textContent = activeToken.textContent;
+            slot.classList.add('correct');
+            activeToken.style.visibility = 'hidden';
+            playSuccessSound();
+            checkEquilibriumDerivation();
+          } else {
+            playWarnSound();
+            speakText("Incorrect equilibrium block sequence.");
+          }
+        });
+      });
+    }
+
+    // Setup Interactive Parameter Extraction
+    document.querySelectorAll('.interactive-param').forEach(item => {
+      item.addEventListener('click', () => {
+        const param = item.dataset.param;
+        const valStr = item.dataset.val;
+        
+        sysState.collectedParams[param] = true;
+        item.classList.add('collected');
+        
+        // Show in toolkit UI
+        document.getElementById(`val-${param}`).innerText = valStr + (param === 'Ast' ? ' mm²' : (param === 'fck' || param === 'fy' ? ' N/mm²' : ' mm'));
+        document.getElementById(`card-${param}`).classList.add('active');
+        
+        playSuccessSound();
+        
+        if (allParamsCollected()) {
+          document.getElementById('step2').classList.add('active');
+          document.getElementById('step1').classList.add('completed');
+          speakText("Parameters captured. Select Codebook Assuring limits.");
+        }
+      });
+    });
+
+    function allParamsCollected() {
+      return Object.values(sysState.collectedParams).every(v => v === true);
+    }
+
+    function selectClause(clauseId) {
+      if (clauseId === 'clause-38') {
+        sysState.codeClauseSelected = true;
+        document.getElementById('target-clause').classList.add('active');
+        document.getElementById('unlocked-clause-txt').innerText = "Clause 38.1 assumption unlocked";
+        playSuccessSound();
+        setTimeout(() => {
+          closeCodebook();
+          document.getElementById('step3').classList.add('active');
+          document.getElementById('step2').classList.add('completed');
+          speakText("Clause unlocked. Complete force equilibrium construction.");
+        }, 800);
+      } else {
+        playWarnSound();
+        speakText("This clause is informative but not directly unlocking basic equilibrium.");
+      }
+    }
+
+    function checkEquilibriumDerivation() {
+      const slot1Correct = document.getElementById('slot-1').classList.contains('correct');
+      const slot2Correct = document.getElementById('slot-2').classList.contains('correct');
+
+      if (slot1Correct && slot2Correct) {
+        sysState.equationDerivationCorrect = true;
+        document.getElementById('step4').classList.add('active');
+        document.getElementById('step3').classList.add('completed');
+        document.getElementById('formula-stage-title').innerText = "Equilibrium Match Perfect!";
+        
+        // Unlock controller sliders
+        const controller = document.getElementById('controller-group');
+        controller.style.opacity = '1';
+        controller.style.pointer-events = 'auto';
+        
+        speakText("Success: Equilibrium proven. Beam analysis active!");
+        updateSystemParams();
+      }
+    }
+
+    // Dynamic Computations
+    function updateSystemParams() {
+      if (!sysState.equationDerivationCorrect) return;
+
+      sysState.values.b = parseFloat(document.getElementById('slide-b').value);
+      sysState.values.D = parseFloat(document.getElementById('slide-D').value);
+      sysState.values.Ast = parseFloat(document.getElementById('slide-Ast').value);
+      sysState.values.fck = parseFloat(document.getElementById('slide-fck').value);
+      sysState.values.fy = parseFloat(document.getElementById('slide-fy').value);
+      
+      // Calculate effective depth dynamically as D - 50 (constant cover for simplicity)
+      sysState.values.d = sysState.values.D - 50;
+
+      // Update text in sliders
+      document.getElementById('slide-val-b').innerText = `${sysState.values.b} mm`;
+      document.getElementById('slide-val-D').innerText = `${sysState.values.D} mm`;
+      document.getElementById('slide-val-Ast').innerText = `${sysState.values.Ast} mm²`;
+      document.getElementById('slide-val-fck').innerText = `${sysState.values.fck} MPa`;
+      document.getElementById('slide-val-fy').innerText = `${sysState.values.fy} MPa`;
+
+      computeLimitStates();
+    }
+
+    let previousSafetyState = "";
+
+    function computeLimitStates() {
+      const { b, d, D, Ast, fck, fy } = sysState.values;
+
+      // Force values: Tension T = 0.87 * fy * Ast
+      const T = 0.87 * fy * Ast; // Newtons
+      // Compression C = 0.36 * fck * b * xu. Since C = T, we solve for xu
+      const xu = T / (0.36 * fck * b);
+
+      // Limiting depth of neutral axis xu,max based on steel grade
+      let xuMaxFactor = 0.48; // default Fe415
+      if (fy <= 250) xuMaxFactor = 0.53;
+      else if (fy >= 500) xuMaxFactor = 0.46;
+      
+      const xuMax = xuMaxFactor * d;
+
+      // Moment of Resistance computation (Mu)
+      let Mu = 0;
+      let state = "";
+      let stateClass = "";
+
+      if (xu <= xuMax) {
+        // Under-reinforced section (Governed by tension steel)
+        Mu = 0.87 * fy * Ast * (d - 0.42 * xu);
+        state = "Under-Reinforced Section";
+        stateClass = "under";
+      } else {
+        // Over-reinforced section (Governed by concrete crushing, limited to xuMax)
+        Mu = 0.36 * xuMax / d * (1 - 0.42 * xuMax / d) * fck * b * d * d;
+        state = "Over-Reinforced Section (Brittle Failure Mode)";
+        stateClass = "over";
+      }
+
+      if (Math.abs(xu - xuMax) < (0.01 * xuMax)) {
+        state = "Balanced Design Section";
+        stateClass = "balanced";
+      }
+
+      // Minimum steel verification
+      const minAst = (0.85 * b * d) / fy;
+
+      // Set metrics values
+      document.getElementById('metric-xu').innerText = `${xu.toFixed(1)} mm`;
+      document.getElementById('metric-xumax').innerText = `${xuMax.toFixed(1)} mm`;
+      document.getElementById('metric-mu').innerText = `${(Mu / 1e6).toFixed(1)} kNm`;
+      document.getElementById('metric-minrebar').innerText = `${minAst.toFixed(0)} mm²`;
+
+      // Update badge
+      const badge = document.getElementById('safety-badge');
+      badge.className = `safety-badge ${stateClass}`;
+      badge.innerText = state;
+
+      // Update Force bars
+      const totalForce = 2 * T; // for visualization of equal contribution
+      const compPct = (T / totalForce) * 100;
+      const tensPct = (T / totalForce) * 100;
+
+      document.getElementById('comp-bar').style.width = `${compPct}%`;
+      document.getElementById('tens-bar').style.width = `${tensPct}%`;
+      document.getElementById('force-ratio').innerText = `1 : 1 Equilibrium`;
+      
+      document.getElementById('cc-force-val').innerText = (T / 1000).toFixed(1);
+      document.getElementById('ts-force-val').innerText = (T / 1000).toFixed(1);
+
+      // Warning voice alerts
+      if (stateClass === "over" && previousSafetyState !== "over") {
+        speakText("Danger. Over reinforced state. Compressive crushing imminent.");
+        playWarnSound();
+      } else if (stateClass === "under" && previousSafetyState !== "under") {
+        speakText("Section behaves in a ductile mode. Tension steel yields first.");
+      }
+      
+      previousSafetyState = stateClass;
+
+      // Force drawing update
+      drawWorkspace(xu, xuMax, d, D, b);
+    }
+
+    // High Quality Custom Canvas Drawing Engine
+    function drawWorkspace(xu = 150, xuMax = 216, d = 450, D = 500, b = 250) {
+      if (!ctx) return;
+      
+      // Clear viewport
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const width = canvas.width / window.devicePixelRatio;
+      const height = canvas.height / window.devicePixelRatio;
+
+      // Transform context scale & center camera
+      ctx.save();
+      ctx.translate(width / 2, height / 2);
+      ctx.scale(sysState.zoomScale, sysState.zoomScale);
+      ctx.translate(-width / 2, -height / 2);
+
+      // Render Dynamic RCC Diagram, Strain Profile, and Stress Block Side-by-side
+      const startX = 60;
+      const startY = 80;
+      const scaleY = (height - 180) / D; // scale to fit
+      const drawB = b * 0.45;
+
+      // 1. Concrete Beam Section Draw
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.fillRect(startX, startY, drawB, D * scaleY);
+      ctx.strokeRect(startX, startY, drawB, D * scaleY);
+
+      // Rebars layout
+      const rebarY = startY + d * scaleY;
+      ctx.fillStyle = '#c084fc';
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = '#c084fc';
+      const rebars = 3;
+      const stepX = drawB / (rebars + 1);
+      for (let i = 1; i <= rebars; i++) {
+        ctx.beginPath();
+        ctx.arc(startX + i * stepX, rebarY, 6, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0; // reset glow
+
+      // Section dimension line labeling with solid high contrast overlay boxes
+      drawLabelWithBox(`b=${b}mm`, startX + drawB / 2, startY - 15, '#22d3ee');
+      drawLabelWithBox(`D=${D}mm`, startX - 35, startY + (D * scaleY) / 2, '#94a3b8');
+
+      // Stirrup details
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.strokeRect(startX + 6, startY + 6, drawB - 12, (D * scaleY) - 12);
+
+      // 2. Strain Profile
+      const centerLineX = startX + drawB + 100;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(centerLineX, startY - 20);
+      ctx.lineTo(centerLineX, startY + (D * scaleY) + 20);
+      ctx.stroke();
+
+      // Strain lines
+      const xuY = startY + xu * scaleY;
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(centerLineX - 40, startY); // top compression strain
+      ctx.lineTo(centerLineX + 50, rebarY); // tension steel strain
+      ctx.stroke();
+
+      // Strain intersection labels
+      ctx.fillStyle = '#22d3ee';
+      ctx.beginPath();
+      ctx.arc(centerLineX - 40, startY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      drawLabelWithBox("ε_cu=0.0035", centerLineX - 40, startY - 15, '#22d3ee');
+
+      ctx.fillStyle = '#c084fc';
+      ctx.beginPath();
+      ctx.arc(centerLineX + 50, rebarY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      drawLabelWithBox("ε_st", centerLineX + 50, rebarY + 15, '#c084fc');
+
+      // Neutral axis indicator line (Pulsing glowing red)
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([6, 4]);
+      ctx.beginPath();
+      ctx.moveTo(startX - 20, xuY);
+      ctx.lineTo(centerLineX + 160, xuY);
+      ctx.stroke();
+      ctx.setLineDash([]); // reset line dash
+      drawLabelWithBox(`N.A. (xu=${xu.toFixed(0)})`, centerLineX + 130, xuY - 15, '#f43f5e');
+
+      // 3. Stress Block Drawing
+      const stressLineX = centerLineX + 130;
+      // Compressive stress curve (Ass assumptions: parabolic concrete curve up to 4/7 xu and straight rectangular top)
+      ctx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
+      ctx.fillStyle = 'rgba(34, 211, 238, 0.08)';
+      ctx.beginPath();
+      ctx.moveTo(stressLineX, startY);
+      ctx.lineTo(stressLineX + 60, startY); // design peak compressive stress block top edge
+      
+      const parabolicTransitionY = startY + (4/7) * xu * scaleY;
+      ctx.lineTo(stressLineX + 60, parabolicTransitionY);
+      ctx.quadraticCurveTo(stressLineX + 50, xuY, stressLineX, xuY); // parabolic down to NA
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Tension steel stress block indicator
+      ctx.strokeStyle = '#c084fc';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(stressLineX, rebarY);
+      ctx.lineTo(stressLineX + 50, rebarY);
+      ctx.stroke();
+
+      // Yield arrows
+      ctx.fillStyle = '#c084fc';
+      ctx.beginPath();
+      ctx.moveTo(stressLineX + 50, rebarY);
+      ctx.lineTo(stressLineX + 42, rebarY - 5);
+      ctx.lineTo(stressLineX + 42, rebarY + 5);
+      ctx.fill();
+
+      drawLabelWithBox("0.446 fck", stressLineX + 60, startY - 15, '#22d3ee');
+      drawLabelWithBox("0.87 fy", stressLineX + 60, rebarY + 15, '#c084fc');
+
+      ctx.restore();
+    }
+
+    function drawLabelWithBox(text, x, y, color) {
+      ctx.font = "bold 10px 'JetBrains Mono', monospace";
+      const metrics = ctx.measureText(text);
+      const w = metrics.width + 10;
+      const h = 18;
+
+      ctx.fillStyle = 'rgba(9, 13, 22, 0.8)';
+      ctx.fillRect(x - w / 2, y - h / 2, w, h);
+      
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x - w / 2, y - h / 2, w, h);
+
+      ctx.fillStyle = '#f1f5f9';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, x, y);
+    }
+
+    // Initialize application systems on load
+    window.addEventListener('DOMContentLoaded', () => {
+      initCanvas();
+      setupDragAndDrop();
+      
+      // Default drawing before simulation unlocked
+      drawWorkspace(150, 216, 450, 500, 250);
+    });
+  </script>
+</body>
+</html>

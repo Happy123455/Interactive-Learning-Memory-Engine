@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Hydrology: Horton Infiltration Solver (Step 2)</title>
+  
+  <!-- Inter Font for hyper-clean modern typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- KaTeX for gorgeous lightning-fast math typesetting -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+  
+  <style>
+    /* Theme Variables & Styling Reset */
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 50%, #0d1220 0%, #05070f 100%);
+      --panel-bg: rgba(13, 20, 38, 0.6);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f3f4f6;
+      --text-secondary: #9ca3af;
+      --accent-cyan: #00f2fe;
+      --accent-purple: #9d4edd;
+      --accent-blue: #3b82f6;
+      --accent-emerald: #10b981;
+      --glow-cyan: 0 0 20px rgba(0, 242, 254, 0.4);
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    /* Core Container Layout */
+    .app-container {
+      display: grid;
+      grid-template-columns: 360px 1fr 440px;
+      gap: 16px;
+      padding: 16px;
+      height: calc(100vh - 64px);
+      max-height: 960px;
+      width: 100%;
+      max-width: 1920px;
+      margin: 0 auto;
+    }
+
+    /* Header Styling */
+    header {
+      background: rgba(5, 7, 15, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      color: #05070f;
+    }
+
+    .logo-title h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      background: linear-gradient(90deg, #fff, #9ca3af);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-title p {
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-weight: 600;
+    }
+
+    /* Standard Card/Panel styling (Glassmorphism) */
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .glass-panel:hover {
+      border-color: rgba(0, 242, 254, 0.2);
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-primary);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--panel-border);
+      padding-bottom: 10px;
+    }
+
+    .panel-title span {
+      color: var(--accent-cyan);
+    }
+
+    /* Left Panel: Inputs & Parameter Tuning */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      flex: 1;
+      padding-right: 4px;
+    }
+
+    .control-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 12px;
+      padding: 14px;
+      transition: background 0.2s;
+    }
+
+    .control-item:hover {
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .control-label-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .control-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .control-unit {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .control-input-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      box-shadow: var(--glow-cyan);
+      cursor: pointer;
+      transition: transform 0.1s, background-color 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .num-input {
+      width: 76px;
+      background: rgba(5, 7, 15, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      color: var(--accent-cyan);
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      font-weight: bold;
+      padding: 4px 6px;
+      text-align: center;
+      outline: none;
+    }
+
+    .num-input:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+
+    /* Center Panel: Visualization Canvas */
+    .visualizer-container {
+      position: relative;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .canvas-card {
+      flex: 1;
+      background: rgba(5, 7, 15, 0.4);
+      border-radius: 12px;
+      border: 1px solid var(--panel-border);
+      position: relative;
+      overflow: hidden;
+      min-height: 250px;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Right Panel: Academic Solution Sheet */
+    .solution-panel {
+      overflow-y: auto;
+    }
+
+    .solution-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+    }
+
+    .math-block {
+      background: rgba(0, 0, 0, 0.25);
+      border-left: 3px solid var(--accent-cyan);
+      padding: 12px;
+      border-radius: 0 8px 8px 0;
+      margin: 8px 0;
+      font-family: var(--font-mono);
+      overflow-x: auto;
+    }
+
+    .math-block-purple {
+      border-left-color: var(--accent-purple);
+    }
+
+    .solution-step {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .solution-step-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-cyan);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .val-highlight {
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Bottom Action Bar & Results */
+    .output-bar {
+      grid-column: 1 / span 3;
+      background: rgba(5, 7, 15, 0.85);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .results-display {
+      display: flex;
+      gap: 24px;
+    }
+
+    .result-pill {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .result-pill .label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .result-pill .value {
+      font-size: 1.4rem;
+      font-weight: 800;
+      font-family: var(--font-mono);
+      color: var(--accent-cyan);
+      text-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+    }
+
+    .result-pill.purple .value {
+      color: var(--accent-purple);
+      text-shadow: 0 0 10px rgba(157, 78, 221, 0.3);
+    }
+
+    .actions-cluster {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-primary);
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-cyan);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-blue));
+      color: #05070f;
+      border: none;
+      font-weight: 700;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, #00f2fe, #60a5fa);
+      box-shadow: var(--glow-cyan);
+    }
+
+    .btn-icon {
+      font-size: 1.1rem;
+    }
+
+    /* Interactive UI Utilities */
+    .info-tooltip {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 50%;
+      text-align: center;
+      line-height: 14px;
+      font-size: 0.7rem;
+      cursor: help;
+      color: var(--text-secondary);
+      position: relative;
+    }
+
+    .info-tooltip:hover::after {
+      content: attr(data-tip);
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #0d1220;
+      border: 1px solid var(--accent-cyan);
+      color: var(--text-primary);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      width: 200px;
+      text-align: left;
+      line-height: 1.3;
+      z-index: 10;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+    }
+
+    /* Warning Toast Style notification */
+    .warning-banner {
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.25);
+      color: #fca5a5;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    /* Media Queries for Responsive Design */
+    @media (max-width: 1200px) {
+      .app-container {
+        grid-template-columns: 320px 1fr;
+        height: auto;
+        max-height: none;
+      }
+      .solution-panel {
+        grid-column: 1 / span 2;
+      }
+      .output-bar {
+        grid-column: 1 / span 2;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+      .solution-panel, .output-bar {
+        grid-column: 1;
+      }
+      .output-bar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .results-display {
+        flex-direction: column;
+        gap: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top App Header -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">H</div>
+      <div class="logo-title">
+        <h1>Horton Infiltration Solver</h1>
+        <p>Step 2: Mathematical Curve Evaluation</p>
+      </div>
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button class="btn" onclick="toggleMute()" id="mute-btn" title="Toggle SFX">
+        <span class="btn-icon" id="mute-icon">🔊</span>
+      </button>
+      <button class="btn btn-primary" onclick="narrateSteps()">
+        <span class="btn-icon">🎙️</span> Explain calculations
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace -->
+  <main class="app-container">
+
+    <!-- Left Sidebar: User Parameters -->
+    <aside class="glass-panel">
+      <div class="panel-title">
+        <span>⚙️</span> Incoming Soil Parameters
+      </div>
+      
+      <div id="fc-warn" class="warning-banner">
+        ⚠️ <strong>Physiological Boundary:</strong> $f_0$ must always be $\ge f_c$. Values have been auto-clamped.
+      </div>
+
+      <div class="control-group">
+        <!-- f0 -->
+        <div class="control-item">
+          <div class="control-label-wrapper">
+            <span class="control-label">
+              Initial Capacity ($f_0$)
+              <span class="info-tooltip" data-tip="The high initial infiltration capacity when the soil is completely dry.">?</span>
+            </span>
+            <span class="control-unit">mm/hr</span>
+          </div>
+          <div class="control-input-row">
+            <input type="range" id="f0-slider" min="0" max="150" step="1" value="75" oninput="updateParams('f0', this.value)">
+            <input type="number" id="f0-num" class="num-input" min="0" max="150" value="75" onchange="updateParams('f0', this.value)">
+          </div>
+        </div>
+
+        <!-- fc -->
+        <div class="control-item">
+          <div class="control-label-wrapper">
+            <span class="control-label">
+              Final Capacity ($f_c$)
+              <span class="info-tooltip" data-tip="The asymptotic capacity representing steady-state saturated soil hydraulic conductivity.">?</span>
+            </span>
+            <span class="control-unit">mm/hr</span>
+          </div>
+          <div class="control-input-row">
+            <input type="range" id="fc-slider" min="0" max="100" step="1" value="10" oninput="updateParams('fc', this.value)">
+            <input type="number" id="fc-num" class="num-input" min="0" max="100" value="10" onchange="updateParams('fc', this.value)">
+          </div>
+        </div>
+
+        <!-- k -->
+        <div class="control-item">
+          <div class="control-label-wrapper">
+            <span class="control-label">
+              Decay Constant ($k$)
+              <span class="info-tooltip" data-tip="Decay constant dictating how rapidly infiltration capacity decreases over time.">?</span>
+            </span>
+            <span class="control-unit">hr⁻¹</span>
+          </div>
+          <div class="control-input-row">
+            <input type="range" id="k-slider" min="0" max="2" step="0.01" value="0.2" oninput="updateParams('k', this.value)">
+            <input type="number" id="k-num" class="num-input" min="0" max="2" step="0.01" value="0.2" onchange="updateParams('k', this.value)">
+          </div>
+        </div>
+
+        <!-- t -->
+        <div class="control-item" style="border-color: rgba(0, 242, 254, 0.3);">
+          <div class="control-label-wrapper">
+            <span class="control-label" style="color: var(--accent-cyan);">
+              Target Evaluation Time ($t$)
+              <span class="info-tooltip" data-tip="The elapsed duration at which the final infiltration rate and cumulative volume are calculated.">?</span>
+            </span>
+            <span class="control-unit" style="color: var(--accent-cyan);">hr</span>
+          </div>
+          <div class="control-input-row">
+            <input type="range" id="t-slider" min="0.1" max="10" step="0.05" value="2" oninput="updateParams('t', this.value)">
+            <input type="number" id="t-num" class="num-input" min="0.1" max="10" step="0.1" value="2" onchange="updateParams('t', this.value)">
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Center Canvas: Active Graphical Plot -->
+    <section class="visualizer-container">
+      <div class="glass-panel" style="flex: 0 0 auto; padding: 12px 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h2 style="font-size: 0.9rem; font-weight:600; color: var(--text-secondary);">Interactive Graphical Visualization</h2>
+          <span style="font-size: 0.75rem; color: var(--accent-cyan); background: rgba(0,242,254,0.1); padding: 4px 8px; border-radius: 20px; font-weight:700;">Active Area represents $F_p(t)$</span>
+        </div>
+      </div>
+      <div class="canvas-card">
+        <canvas id="plotCanvas"></canvas>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Live Substitution Solution -->
+    <section class="glass-panel solution-panel">
+      <div class="panel-title">
+        <span>📝</span> Academic Solution Sheet
+      </div>
+      <div class="solution-container" id="solution-sheet">
+        <!-- Live-typeset substitutions are injected here by updateMath() -->
+      </div>
+    </section>
+
+    <!-- Bottom Action Console -->
+    <footer class="output-bar">
+      <div class="results-display">
+        <div class="result-pill">
+          <span class="label">Instantaneous Infiltration Rate ($f_p$)</span>
+          <span class="value" id="fp-out">0.00 mm/hr</span>
+        </div>
+        <div class="result-pill purple">
+          <span class="label">Cumulative Soil Intake Volume ($F_p$)</span>
+          <span class="value" id="Fp-out">0.00 mm</span>
+        </div>
+      </div>
+      <div class="actions-cluster">
+        <button class="btn" onclick="copyDataToClipboard()">
+          <span class="btn-icon">📋</span> Copy current parameters
+        </button>
+        <button class="btn btn-primary" onclick="triggerSuccess()">
+          <span class="btn-icon">✔️</span> Transfer to Step 3
+        </button>
+      </div>
+    </footer>
+
+  </main>
+
+  <script>
+    // Primary State Variables
+    let state = {
+      f0: 75,
+      fc: 10,
+      k: 0.2,
+      t: 2.0
+    };
+
+    let audioMuted = false;
+    let audioCtx = null;
+
+    // Initialize Audio Context lazily on user action
+    function getAudioCtx() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    function toggleMute() {
+      audioMuted = !audioMuted;
+      const btn = document.getElementById('mute-icon');
+      btn.innerText = audioMuted ? '🔇' : '🔊';
+    }
+
+    // High fidelity feedback audio engine
+    function playClick() {
+      if (audioMuted) return;
+      try {
+        const ctx = getAudioCtx();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(450, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.08);
+        gain.gain.setValueAtTime(0.08, ctx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.08);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.08);
+      } catch (e) { console.warn(e); }
+    }
+
+    function playSuccessChime() {
+      if (audioMuted) return;
+      try {
+        const ctx = getAudioCtx();
+        const now = ctx.currentTime;
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C major arpeggio
+        notes.forEach((freq, idx) => {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now + (idx * 0.12));
+          gain.gain.setValueAtTime(0.12, now + (idx * 0.12));
+          gain.gain.linearRampToValueAtTime(0.001, now + (idx * 0.12) + 0.4);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now + (idx * 0.12));
+          osc.stop(now + (idx * 0.12) + 0.4);
+        });
+      } catch (e) { console.warn(e); }
+    }
+
+    // Parameter boundaries clamping logic
+    function updateParams(param, value) {
+      let val = parseFloat(value);
+      if (isNaN(val)) return;
+
+      state[param] = val;
+
+      // Maintain soil physical constraint f0 >= fc
+      const warnBanner = document.getElementById('fc-warn');
+      if (state.f0 < state.fc) {
+        warnBanner.style.display = 'block';
+        if (param === 'f0') {
+          state.fc = state.f0;
+        } else if (param === 'fc') {
+          state.f0 = state.fc;
+        }
+      } else {
+        warnBanner.style.display = 'none';
+      }
+
+      // Sync dual-sliders & numeric values UI
+      document.getElementById('f0-slider').value = state.f0;
+      document.getElementById('f0-num').value = state.f0;
+      document.getElementById('fc-slider').value = state.fc;
+      document.getElementById('fc-num').value = state.fc;
+      document.getElementById('k-slider').value = state.k;
+      document.getElementById('k-num').value = state.k;
+      document.getElementById('t-slider').value = state.t;
+      document.getElementById('t-num').value = state.t;
+
+      playClick();
+      recalculate();
+    }
+
+    // Solver core formulas
+    function calculateHorton(t, f0, fc, k) {
+      let fp, Fp;
+      if (k === 0) {
+        // Safe mathematical limit as decay constant k -> 0
+        fp = f0;
+        Fp = f0 * t;
+      } else {
+        fp = fc + (f0 - fc) * Math.exp(-k * t);
+        Fp = fc * t + ((f0 - fc) / k) * (1 - Math.exp(-k * t));
+      }
+      return { fp, Fp };
+    }
+
+    // Primary UI update pipeline
+    function recalculate() {
+      const results = calculateHorton(state.t, state.f0, state.fc, state.k);
+      
+      document.getElementById('fp-out').innerText = `${results.fp.toFixed(3)} mm/hr`;
+      document.getElementById('Fp-out').innerText = `${results.Fp.toFixed(3)} mm`;
+
+      drawVisuals(results.fp, results.Fp);
+      updateAcademicSubstitution(results.fp, results.Fp);
+    }
+
+    // Dynamic High-Contrast Canvas Plotter
+    const canvas = document.getElementById('plotCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Adapt resolution for retina displays
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      recalculate();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function drawVisuals(currentFp, currentFpVolume) {
+      const w = canvas.getBoundingClientRect().width;
+      const h = canvas.getBoundingClientRect().height;
+      if (!w || !h) return;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const paddingLeft = 60;
+      const paddingRight = 40;
+      const paddingTop = 30;
+      const paddingBottom = 40;
+
+      const graphWidth = w - paddingLeft - paddingRight;
+      const graphHeight = h - paddingTop - paddingBottom;
+
+      // Define evaluation scale boundaries
+      const tMax = Math.max(5.0, state.t * 1.4);
+      const fMax = Math.max(80, state.f0 * 1.2);
+
+      const getX = (tVal) => paddingLeft + (tVal / tMax) * graphWidth;
+      const getY = (fVal) => h - paddingBottom - (fVal / fMax) * graphHeight;
+
+      // Draw mathematical axes grids
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      
+      // Horizontal Y-Axis Grids
+      for (let i = 0; i <= 5; i++) {
+        let fVal = (fMax / 5) * i;
+        let y = getY(fVal);
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(w - paddingRight, y);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = '10px "JetBrains Mono"';
+        ctx.textAlign = 'right';
+        ctx.fillText(fVal.toFixed(0), paddingLeft - 8, y + 4);
+      }
+
+      // Vertical X-Axis Grids
+      for (let i = 0; i <= 5; i++) {
+        let tVal = (tMax / 5) * i;
+        let x = getX(tVal);
+        ctx.beginPath();
+        ctx.moveTo(x, paddingTop);
+        ctx.lineTo(x, h - paddingBottom);
+        ctx.stroke();
+
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        ctx.font = '10px "JetBrains Mono"';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${tVal.toFixed(1)}h`, x, h - paddingBottom + 16);
+      }
+
+      // Fill Integral Area Representing Cumulative Intake Fp(t)
+      ctx.beginPath();
+      ctx.moveTo(getX(0), getY(0));
+      for (let xCoord = 0; xCoord <= 150; xCoord++) {
+        let tVal = (xCoord / 150) * state.t;
+        let fpVal = calculateHorton(tVal, state.f0, state.fc, state.k).fp;
+        ctx.lineTo(getX(tVal), getY(fpVal));
+      }
+      ctx.lineTo(getX(state.t), getY(0));
+      ctx.closePath();
+
+      let areaGradient = ctx.createLinearGradient(0, 0, 0, h);
+      areaGradient.addColorStop(0, 'rgba(0, 242, 254, 0.25)');
+      areaGradient.addColorStop(1, 'rgba(157, 78, 221, 0.03)');
+      ctx.fillStyle = areaGradient;
+      ctx.fill();
+
+      // Plot Infiltration Capacity Curve fp(t)
+      ctx.beginPath();
+      for (let xCoord = 0; xCoord <= 150; xCoord++) {
+        let tVal = (xCoord / 150) * tMax;
+        let fpVal = calculateHorton(tVal, state.f0, state.fc, state.k).fp;
+        if (xCoord === 0) {
+          ctx.moveTo(getX(tVal), getY(fpVal));
+        } else {
+          ctx.lineTo(getX(tVal), getY(fpVal));
+        }
+      }
+      ctx.strokeStyle = '#00f2fe';
+      ctx.lineWidth = 3.5;
+      ctx.stroke();
+
+      // Live Cursor Tracking vertical drop-line
+      const cursorX = getX(state.t);
+      const cursorY = getY(currentFp);
+
+      ctx.beginPath();
+      ctx.setLineDash([5, 5]);
+      ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+      ctx.moveTo(cursorX, paddingTop);
+      ctx.lineTo(cursorX, h - paddingBottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Glow Point indicator
+      ctx.beginPath();
+      ctx.arc(cursorX, cursorY, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#00f2fe';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = '#00f2fe';
+      ctx.fill();
+      ctx.shadowBlur = 0; // reset glow
+
+      ctx.beginPath();
+      ctx.arc(cursorX, cursorY, 4, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Infiltration capacity asymptotic baseline indicator
+      const asymptY = getY(state.fc);
+      ctx.beginPath();
+      ctx.setLineDash([2, 4]);
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
+      ctx.moveTo(paddingLeft, asymptY);
+      ctx.lineTo(w - paddingRight, asymptY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+      ctx.font = '9px "JetBrains Mono"';
+      ctx.fillText(`Asymptotic limit fc = ${state.fc}`, w - paddingRight - 100, asymptY - 5);
+
+      // Main Axes Boundary Labels
+      ctx.save();
+      ctx.translate(14, h / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '11px "Inter"';
+      ctx.textAlign = 'center';
+      ctx.fillText('Infiltration Capacity fp (mm/hr)', 0, 0);
+      ctx.restore();
+
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.font = '11px "Inter"';
+      ctx.textAlign = 'center';
+      ctx.fillText('Elapsed Duration t (hours)', w / 2, h - 8);
+    }
+
+    // Step-by-step substitution display (LaTeX quality rendering)
+    function updateAcademicSubstitution(fpVal, FpVal) {
+      const container = document.getElementById('solution-sheet');
+      
+      const expTerm = Math.exp(-state.k * state.t).toFixed(4);
+      const denominator = state.k !== 0 ? state.k.toFixed(2) : '1';
+      const isKZero = state.k === 0;
+
+      container.innerHTML = `
+        <div class="solution-step">
+          <div class="solution-step-title">1. Governing Equations</div>
+          <div>Horton's empirical Infiltration Capacity curve is modeled via:</div>
+          <div id="eq1" class="math-block"></div>
+          <div>The corresponding Cumulative Volume of water absorbed is the integration:</div>
+          <div id="eq2" class="math-block math-block-purple"></div>
+        </div>
+
+        <div class="solution-step">
+          <div class="solution-step-title">2. Parametric Substitution: fp(t)</div>
+          <div>Substitute the specified soil boundaries into the decay equation at <span class="val-highlight">t = ${state.t.toFixed(2)} hr</span>:</div>
+          <div id="eq3" class="math-block"></div>
+          <div style="margin-top: 8px;">Solving step-by-step:</div>
+          <div id="eq3-solve" class="math-block"></div>
+        </div>
+
+        <div class="solution-step">
+          <div class="solution-step-title">3. Parametric Integration: Fp(t)</div>
+          <div>Integrating to obtain the cumulative total infiltration depth:</div>
+          <div id="eq4" class="math-block math-block-purple"></div>
+          <div style="margin-top: 8px;">Evaluating numerical terms:</div>
+          <div id="eq4-solve" class="math-block math-block-purple"></div>
+        </div>
+      `;
+
+      // Render math formulas using KaTeX securely
+      try {
+        katex.render("f_p(t) = f_c + (f_0 - f_c) e^{-kt}", document.getElementById('eq1'), { displayMode: true });
+        katex.render("F_p(t) = \\int_0^t f_p(\\tau) d\\tau = f_c t + \\frac{f_0 - f_c}{k} (1 - e^{-kt})", document.getElementById('eq2'), { displayMode: true });
+        
+        katex.render(`f_p(${state.t.toFixed(2)}) = ${state.fc} + (${state.f0} - ${state.fc}) e^{-${state.k.toFixed(2)} \\cdot ${state.t.toFixed(2)}}`, document.getElementById('eq3'), { displayMode: true });
+        katex.render(`f_p(${state.t.toFixed(2)}) = ${state.fc} + ${state.f0 - state.fc} \\cdot ${expTerm} = ${fpVal.toFixed(4)}\\text{ mm/hr}`, document.getElementById('eq3-solve'), { displayMode: true });
+
+        if (isKZero) {
+          // Alternative display for k=0
+          katex.render(`F_p(${state.t.toFixed(2)}) = ${state.f0} \\cdot ${state.t.toFixed(2)}`, document.getElementById('eq4'), { displayMode: true });
+          katex.render(`F_p(${state.t.toFixed(2)}) = ${FpVal.toFixed(4)}\\text{ mm}`, document.getElementById('eq4-solve'), { displayMode: true });
+        } else {
+          katex.render(`F_p(${state.t.toFixed(2)}) = (${state.fc} \\cdot ${state.t.toFixed(2)}) + \\frac{${state.f0} - ${state.fc}}{${state.k.toFixed(2)}} (1 - e^{-${state.k.toFixed(2)} \\cdot ${state.t.toFixed(2)}})`, document.getElementById('eq4'), { displayMode: true });
+          
+          let term1 = (state.fc * state.t).toFixed(2);
+          let term2 = ((state.f0 - state.fc) / state.k).toFixed(2);
+          let term3 = (1 - Math.exp(-state.k * state.t)).toFixed(4);
+          katex.render(`F_p(${state.t.toFixed(2)}) = ${term1} + ${term2} \\cdot ${term3} = ${FpVal.toFixed(4)}\\text{ mm}`, document.getElementById('eq4-solve'), { displayMode: true });
+        }
+      } catch (e) {
+        console.error("KaTeX failed to render", e);
+      }
+    }
+
+    // Natural-sounding narration explaining the steps
+    let currentSynthesis = null;
+    function narrateSteps() {
+      // Cancel active speaking
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        return;
+      }
+
+      const results = calculateHorton(state.t, state.f0, state.fc, state.k);
+      const text = `In Step 2 of the Horton model evaluation, we analyze the decay profile. 
+      The initial infiltration capacity is ${state.f0} millimeters per hour, decay rate is ${state.k} inverse hours, and asymptotic limit is ${state.fc} millimeters per hour.
+      At your target evaluation time of ${state.t} hours, the instantaneous capacity decays to ${results.fp.toFixed(2)} millimeters per hour.
+      The cumulative area under the capacity curve represents the cumulative infiltration volume, which yields ${results.Fp.toFixed(2)} millimeters.`;
+
+      currentSynthesis = new SpeechSynthesisUtterance(text);
+      currentSynthesis.rate = 1.0;
+      currentSynthesis.pitch = 1.05;
+      
+      // Select the best available native english voice
+      const voices = window.speechSynthesis.getVoices();
+      const premiumVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
+      if (premiumVoice) currentSynthesis.voice = premiumVoice;
+
+      window.speechSynthesis.speak(currentSynthesis);
+    }
+
+    // Copy to clipboard with UI confirmation feedback
+    function copyDataToClipboard() {
+      const results = calculateHorton(state.t, state.f0, state.fc, state.k);
+      const output = `Horton Infiltration Solver [Evaluation Sheet]
+-----------------------------------------
+Input Parameters:
+f0 = ${state.f0} mm/hr
+fc = ${state.fc} mm/hr
+k  = ${state.k} hr⁻¹
+t  = ${state.t} hr
+
+Evaluated Outputs:
+fp = ${results.fp.toFixed(4)} mm/hr
+Fp = ${results.Fp.toFixed(4)} mm`;
+
+      navigator.clipboard.writeText(output).then(() => {
+        triggerSuccess();
+      }).catch(err => {
+        alert("Unable to copy automatically. Please transcribe the bottom console values manually.");
+      });
+    }
+
+    // Interactive Action Completed
+    function triggerSuccess() {
+      playSuccessChime();
+      
+      // Create and inject a transient glowing particle overlay
+      const splash = document.createElement('div');
+      splash.style.position = 'fixed';
+      splash.style.top = '50%';
+      splash.style.left = '50%';
+      splash.style.transform = 'translate(-50%, -50%)';
+      splash.style.background = 'rgba(0, 242, 254, 0.95)';
+      splash.style.color = '#05070f';
+      splash.style.padding = '18px 36px';
+      splash.style.borderRadius = '50px';
+      splash.style.fontFamily = 'Inter';
+      splash.style.fontWeight = 'bold';
+      splash.style.boxShadow = '0 0 50px rgba(0, 242, 254, 0.6)';
+      splash.style.pointerEvents = 'none';
+      splash.style.opacity = '0';
+      splash.style.transition = 'opacity 0.4s ease, transform 0.4s ease';
+      splash.style.zIndex = '9999';
+      splash.innerText = '✨ Data Transferred Successfully!';
+
+      document.body.appendChild(splash);
+
+      setTimeout(() => {
+        splash.style.opacity = '1';
+        splash.style.transform = 'translate(-50%, -50%) scale(1.1)';
+      }, 50);
+
+      setTimeout(() => {
+        splash.style.opacity = '0';
+        splash.style.transform = 'translate(-50%, -50%) scale(0.9)';
+        setTimeout(() => splash.remove(), 400);
+      }, 1600);
+    }
+
+    // Initialization hook
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      // Required for safari / firefox voice list updates
+      if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = () => {};
+      }
+    });
+  </script>
+
+</body>
+</html>

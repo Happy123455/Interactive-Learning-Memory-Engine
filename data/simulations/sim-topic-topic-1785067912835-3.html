@@ -1,0 +1,1601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Steel Column Buckling Lab — IS 800 Premium Simulator</title>
+  <style>
+    :root {
+      --bg-space: #070a13;
+      --bg-panel: rgba(15, 22, 42, 0.75);
+      --bg-panel-solid: #0f162a;
+      --border-glow: rgba(0, 242, 254, 0.2);
+      --border-glow-active: rgba(0, 242, 254, 0.6);
+      
+      --neon-cyan: #00f2fe;
+      --neon-purple: #9d4edd;
+      --neon-green: #39ff14;
+      --neon-red: #ff3838;
+      --neon-amber: #ff9f43;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      
+      --font-mono: 'Fira Code', 'Courier New', monospace;
+      --glass-blur: blur(16px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(157, 78, 221, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(0, 242, 254, 0.15) 0px, transparent 50%),
+        linear-gradient(rgba(255, 255, 255, 0.01) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.01) 1px, transparent 1px);
+      background-size: 100% 100%, 100% 100%, 40px 40px, 40px 40px;
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* HEADER */
+    header {
+      background: rgba(11, 15, 25, 0.8);
+      backdrop-filter: var(--glass-blur);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 0.75rem 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      height: 60px;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+      box-shadow: 0 0 15px var(--neon-cyan);
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      font-weight: 800;
+      background: linear-gradient(to right, #fff, #94a3b8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-tag {
+      font-size: 0.75rem;
+      color: var(--neon-cyan);
+      border: 1px solid var(--neon-cyan);
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: rgba(0, 242, 254, 0.05);
+      font-family: var(--font-mono);
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .btn-primary {
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-primary:hover {
+      background: var(--neon-cyan);
+      color: #000;
+      box-shadow: 0 0 15px var(--neon-cyan);
+    }
+
+    /* DASHBOARD WRAPPER */
+    .dashboard {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* LEFT SIDE: SIMULATOR CANVAS */
+    .sim-panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      background: rgba(5, 8, 16, 0.4);
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Overlaid Telemetry inside Canvas view */
+    .telemetry-overlay {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      pointer-events: none;
+      z-index: 5;
+    }
+
+    .telemetry-card {
+      background: var(--bg-panel);
+      backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border-glow);
+      border-radius: 8px;
+      padding: 12px;
+      width: 240px;
+    }
+
+    .telemetry-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 4px;
+    }
+
+    .tel-val {
+      font-family: var(--font-mono);
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: var(--neon-cyan);
+    }
+
+    .tel-val.warning {
+      color: var(--neon-red);
+      text-shadow: 0 0 8px rgba(255, 56, 56, 0.5);
+    }
+
+    /* Gesture Guidance Display Overlay */
+    .gesture-hint {
+      position: absolute;
+      bottom: 120px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      animation: pulse-border 2s infinite alternate;
+    }
+
+    @keyframes pulse-border {
+      0% { border-color: rgba(0, 242, 254, 0.2); }
+      100% { border-color: rgba(0, 242, 254, 0.8); }
+    }
+
+    /* Live Controls Slider Bar (Horizontal, bottom of canvas) */
+    .canvas-controls {
+      background: rgba(15, 22, 42, 0.9);
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 15px 25px;
+      display: flex;
+      gap: 30px;
+      align-items: center;
+      z-index: 5;
+    }
+
+    .control-group {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label-wrapper {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .control-lbl {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .control-val {
+      font-family: var(--font-mono);
+      color: var(--neon-cyan);
+      font-weight: bold;
+    }
+
+    /* Cyber Sliders */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: #1e293b;
+      border-radius: 3px;
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+    }
+
+    /* RIGHT PANEL: TOOLBOX / CONTROLS */
+    .toolbox {
+      background: var(--bg-panel-solid);
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    .section-header {
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 12px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-weight: bold;
+      color: var(--neon-purple);
+    }
+
+    /* GUMMY BEAR AUDIO ADVISOR */
+    .mascot-card {
+      background: radial-gradient(circle at top right, rgba(157, 78, 221, 0.15), transparent);
+      border: 1px solid rgba(157, 78, 221, 0.2);
+      margin: 15px;
+      padding: 12px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .mascot-avatar {
+      width: 48px;
+      height: 48px;
+      background: #9d4edd;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.6rem;
+      box-shadow: 0 0 15px rgba(157, 78, 221, 0.5);
+      flex-shrink: 0;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+
+    .mascot-avatar:hover {
+      transform: scale(1.1) rotate(5deg);
+    }
+
+    .mascot-bubble {
+      flex: 1;
+    }
+
+    .mascot-bubble p {
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: var(--text-main);
+    }
+
+    .mascot-btn {
+      background: rgba(157, 78, 221, 0.2);
+      border: 1px solid var(--neon-purple);
+      color: #dfb2ff;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      margin-top: 6px;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .mascot-btn:hover {
+      background: var(--neon-purple);
+      color: #000;
+    }
+
+    /* TESTBED DROP SLOTS */
+    .testbed-slots {
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .slot-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+    }
+
+    .drop-slot {
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 54px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s ease;
+      background: rgba(255, 255, 255, 0.01);
+      position: relative;
+    }
+
+    .drop-slot.active-hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 242, 254, 0.05);
+      box-shadow: inset 0 0 10px rgba(0, 242, 254, 0.1);
+    }
+
+    .drop-slot.success {
+      border-color: var(--neon-green);
+      background: rgba(57, 255, 20, 0.04);
+    }
+
+    .slot-placeholder {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* WAREHOUSE DRAGGABLE ITEMS */
+    .warehouse {
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      flex: 1;
+    }
+
+    .shelf-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .shelf-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.5px;
+      border-left: 2px solid var(--neon-cyan);
+      padding-left: 6px;
+    }
+
+    .items-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* Premium Draggable Cards */
+    .drag-item {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: grab;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .drag-item:active {
+      cursor: grabbing;
+    }
+
+    .drag-item:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.2);
+      transform: translateY(-1px);
+    }
+
+    .drag-item.section-card {
+      padding: 8px 12px;
+      flex: 1 1 calc(50% - 4px);
+      min-width: 140px;
+    }
+
+    /* Cross section vector icon thumbnail */
+    .cs-thumb {
+      width: 18px;
+      height: 18px;
+      border: 1px solid var(--text-muted);
+      display: inline-block;
+      position: relative;
+      background: rgba(255,255,255,0.05);
+    }
+    .cs-thumb.chs { border-radius: 50%; }
+    .cs-thumb.rhs { border-radius: 2px; }
+    .cs-thumb.rolled-i::before, .cs-thumb.rolled-i::after {
+      content: ''; position: absolute; background: var(--text-muted);
+    }
+    .cs-thumb.rolled-i::before { top: 0; left: 0; right: 0; height: 3px; }
+    .cs-thumb.rolled-i::after { bottom: 0; left: 0; right: 0; height: 3px; }
+    .cs-thumb.rolled-i-web {
+      position: absolute; left: 7px; top: 3px; bottom: 3px; width: 3px; background: var(--text-muted);
+    }
+
+    .drag-chip {
+      background: rgba(0, 242, 254, 0.05);
+      border: 1px solid rgba(0, 242, 254, 0.2);
+      color: var(--neon-cyan);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-family: var(--font-mono);
+      font-weight: bold;
+    }
+
+    .drag-chip.purple {
+      background: rgba(157, 78, 221, 0.05);
+      border-color: rgba(157, 78, 221, 0.2);
+      color: var(--neon-purple);
+    }
+
+    /* EQUATION & PLOTTING AREA */
+    .formula-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      margin: 15px;
+      border-radius: 8px;
+      padding: 15px;
+    }
+
+    .formula-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+
+    .equation-display {
+      font-size: 1rem;
+      font-family: var(--font-mono);
+      text-align: center;
+      margin: 10px 0;
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .equation-active-slot {
+      display: inline-block;
+      width: 45px;
+      height: 24px;
+      border-bottom: 2px dashed var(--neon-purple);
+      vertical-align: middle;
+      text-align: center;
+      color: var(--neon-purple);
+      font-weight: bold;
+    }
+
+    /* LIVE CAPACITY GRAPH CONTAINER */
+    .capacity-graph-container {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      margin: 15px;
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .graph-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .graph-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--neon-red);
+      border-radius: 50%;
+      animation: pulse 1s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.5; box-shadow: 0 0 0 rgba(255, 56, 56, 0); }
+      100% { transform: scale(1.2); opacity: 1; box-shadow: 0 0 10px rgba(255, 56, 56, 0.8); }
+    }
+
+    /* MODERN MODALS & OVERLAYS */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(5, 8, 16, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(0, 242, 254, 0.15);
+      border-radius: 16px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: scale(0.95);
+      transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .modal-overlay.open .modal-card {
+      transform: scale(1);
+    }
+
+    .modal-header {
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.02);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-body {
+      padding: 24px;
+      overflow-y: auto;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #fff;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+      transition: color 0.2s;
+    }
+
+    .close-btn:hover {
+      color: var(--neon-red);
+    }
+
+    /* CODEBOOK TABLE STYLING */
+    .codebook-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      color: var(--text-main);
+      text-align: left;
+    }
+
+    .codebook-table th, .codebook-table td {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 10px;
+    }
+
+    .codebook-table th {
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .codebook-table tr:hover {
+      background: rgba(255, 255, 255, 0.01);
+    }
+
+    .highlight-cell {
+      color: var(--neon-green);
+      font-weight: bold;
+    }
+
+    .modal-interactive-shelf {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- TOP HEADER PANEL -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-icon">S</div>
+      <div>
+        <h1>Steel Column Buckling Lab</h1>
+        <p style="font-size: 0.65rem; color: var(--text-muted); letter-spacing: 0.5px;">EUROCODE 3 & IS 800 STABILITY TESTBED</p>
+      </div>
+    </div>
+    <div class="header-controls">
+      <span class="header-tag">LIMIT STATE DESIGN (LSD)</span>
+      <button class="btn-primary" onclick="openCodebook()">
+        <svg style="width:14px;height:14px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3a1 1 0 0 1 1-1h13a1 1 0 0 1 1 1v14H6.5a2.5 2.5 0 0 0-2.5 2.5z"/></svg>
+        IS 800 Table 10
+      </button>
+    </div>
+  </header>
+
+  <!-- DASHBOARD WORKSPACE -->
+  <div class="dashboard">
+
+    <!-- LEFT SIDE: DYNAMIC SIMULATOR & VECTOR VIEWPORT -->
+    <div class="sim-panel">
+      <!-- Live Telemetry Overlays directly on top of dynamic canvas -->
+      <div class="telemetry-overlay">
+        <div class="telemetry-card">
+          <div class="telemetry-title">Lab Telemetry</div>
+          <div class="telemetry-grid">
+            <div class="control-lbl">Load Ratio:</div>
+            <div class="tel-val" id="telemetry-load-ratio">0.0 %</div>
+            
+            <div class="control-lbl">Buckling Cap:</div>
+            <div class="tel-val" id="telemetry-pcr">452.1 kN</div>
+
+            <div class="control-lbl">Actual Load P:</div>
+            <div class="tel-val" id="telemetry-p">0.0 kN</div>
+
+            <div class="control-lbl">Deflection δ:</div>
+            <div class="tel-val" id="telemetry-deflection">0.00 mm</div>
+          </div>
+        </div>
+
+        <div class="telemetry-card">
+          <div class="telemetry-title">Design Parameters</div>
+          <div class="telemetry-grid">
+            <div class="control-lbl">Section:</div>
+            <div class="tel-val" id="tel-section">None</div>
+            
+            <div class="control-lbl">Class:</div>
+            <div class="tel-val" id="tel-class">None</div>
+
+            <div class="control-lbl">Factor α:</div>
+            <div class="tel-val" id="tel-alpha">0.00</div>
+
+            <div class="control-lbl">Factor χ:</div>
+            <div class="tel-val" id="tel-chi">1.000</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Gesture Help Overlay -->
+      <div class="gesture-hint">
+        <svg style="width:16px;height:16px;color:var(--neon-cyan);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>Wobble the column by moving cursor horizontally</span>
+        <svg style="width:16px;height:16px;color:var(--neon-cyan);" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </div>
+
+      <!-- High-DPI Lab Canvas -->
+      <div class="canvas-container" id="canvas-container">
+        <canvas id="physics-canvas"></canvas>
+      </div>
+
+      <!-- Bottom Interactive Controls Sliders -->
+      <div class="canvas-controls">
+        <div class="control-group">
+          <div class="control-label-wrapper">
+            <span class="control-lbl">Axial Squeezing Load (P)</span>
+            <span class="control-val" id="slider-p-val">0 kN</span>
+          </div>
+          <input type="range" id="slider-p" min="0" max="600" value="120" step="1">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label-wrapper">
+            <span class="control-lbl">Slenderness Ratio (λ)</span>
+            <span class="control-val" id="slider-slender-val">0.80</span>
+          </div>
+          <input type="range" id="slider-slender" min="0.2" max="2.0" value="0.8" step="0.01">
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: PARAMETER TOOLBOX & GAMIFIED EQUATIONS -->
+    <div class="toolbox">
+      
+      <!-- MASCOT / CHAT ADVISOR -->
+      <div class="mascot-card">
+        <div class="mascot-avatar" id="mascot-btn" onclick="triggerMascotSpeech()">🧸</div>
+        <div class="mascot-bubble">
+          <strong style="font-size: 0.75rem; color: var(--neon-purple); display: block; margin-bottom: 2px;">Advisor: Buckie</strong>
+          <p id="mascot-speech">Welcome, engineer! Try dragging a Steel cross-section to start. Click me for an ELI5 summary!</p>
+          <button class="mascot-btn" onclick="speakELI5()">Explain like I'm 5 🔊</button>
+        </div>
+      </div>
+
+      <!-- DESTINATION SLOTS (TESTBED) -->
+      <div class="section-header">
+        <div class="section-title">Column Testbed (Drop Zones)</div>
+      </div>
+      <div class="testbed-slots">
+        <div>
+          <div class="slot-title">1. Structural Profile</div>
+          <div class="drop-slot" id="slot-section" data-accept="section">
+            <div class="slot-placeholder">
+              <span class="cs-thumb rhs" style="border-style: dashed;"></span>
+              Drop Steel Profile Here
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div class="slot-title">2. Buckling Class (IS 800)</div>
+          <div class="drop-slot" id="slot-class" data-accept="class">
+            <div class="slot-placeholder">Drop Class (a, b, c, or d) Here</div>
+          </div>
+        </div>
+
+        <div>
+          <div class="slot-title">3. Imperfection Factor Slot (α)</div>
+          <div class="drop-slot" id="slot-alpha" data-accept="alpha">
+            <div class="slot-placeholder">Drop α Value Here</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TOOLBOX DRAGGABLES SHELF -->
+      <div class="section-header">
+        <div class="section-title">Warehouse Elements (Drag items)</div>
+      </div>
+      <div class="warehouse">
+        <!-- Group 1: Cross Sections -->
+        <div class="shelf-group">
+          <div class="shelf-label">Cross-Section Profiles</div>
+          <div class="items-row">
+            <div class="drag-item section-card" draggable="true" id="section-chs" data-type="section" data-class="a" data-alpha="0.21" data-name="Hollow Circle (CHS)">
+              <span class="cs-thumb chs"></span>
+              Hollow Circle (CHS)
+            </div>
+            <div class="drag-item section-card" draggable="true" id="section-rolled-i" data-type="section" data-class="b" data-alpha="0.34" data-name="Rolled I-Section">
+              <span class="cs-thumb rolled-i"><span class="rolled-i-web"></span></span>
+              Rolled I-Section
+            </div>
+            <div class="drag-item section-card" draggable="true" id="section-welded-box" data-type="section" data-class="c" data-alpha="0.49" data-name="Welded Box Section">
+              <span class="cs-thumb rhs"></span>
+              Welded Box Section
+            </div>
+            <div class="drag-item section-card" draggable="true" id="section-welded-i" data-type="section" data-class="d" data-alpha="0.76" data-name="Welded Heavy I-Section">
+              <span class="cs-thumb rolled-i" style="border-color:var(--neon-red);"><span class="rolled-i-web" style="width:5px; left:6px;"></span></span>
+              Heavy Welded I
+            </div>
+          </div>
+        </div>
+
+        <!-- Group 2: Classes -->
+        <div class="shelf-group">
+          <div class="shelf-label">Imperfection Buckling Class</div>
+          <div class="items-row">
+            <div class="drag-item drag-chip" draggable="true" id="class-a" data-type="class" data-val="a">Class a</div>
+            <div class="drag-item drag-chip" draggable="true" id="class-b" data-type="class" data-val="b">Class b</div>
+            <div class="drag-item drag-chip" draggable="true" id="class-c" data-type="class" data-val="c">Class c</div>
+            <div class="drag-item drag-chip" draggable="true" id="class-d" data-type="class" data-val="d">Class d</div>
+          </div>
+        </div>
+
+        <!-- Group 3: Alpha values -->
+        <div class="shelf-group">
+          <div class="shelf-label">Imperfection Factors (α)</div>
+          <div class="items-row">
+            <div class="drag-item drag-chip purple" draggable="true" id="alpha-a" data-type="alpha" data-val="0.21">α = 0.21</div>
+            <div class="drag-item drag-chip purple" draggable="true" id="alpha-b" data-type="alpha" data-val="0.34">α = 0.34</div>
+            <div class="drag-item drag-chip purple" draggable="true" id="alpha-c" data-type="alpha" data-val="0.49">α = 0.49</div>
+            <div class="drag-item drag-chip purple" draggable="true" id="alpha-d" data-type="alpha" data-val="0.76">α = 0.76</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ACTIVE EQUATION BOX -->
+      <div class="formula-card">
+        <div class="formula-title">IS 800 Buckling Reduction Solver</div>
+        <div class="equation-display">
+          <span>χ = 1 / [ φ + √(φ² - λ²) ]</span>
+        </div>
+        <div class="equation-display" style="font-size: 0.8rem; color: var(--text-muted);">
+          <span>φ = 0.5 [ 1 + </span>
+          <span class="equation-active-slot" id="eq-alpha-slot">α</span>
+          <span>(λ - 0.2) + λ² ]</span>
+        </div>
+        <div style="text-align: center; margin-top: 10px;">
+          <span style="font-size:0.75rem; color: var(--text-muted);">Solver Reduction Output (χ):</span>
+          <span id="reduction-factor-val" style="font-size: 1.1rem; font-family: var(--font-mono); color: var(--neon-green); font-weight: bold; margin-left: 8px;">1.0000</span>
+        </div>
+      </div>
+
+      <!-- SVG CAPACITY CURVE PLOT -->
+      <div class="capacity-graph-container">
+        <div class="graph-header">
+          <span class="graph-title">Euler vs. Practical Reduction Curve</span>
+          <span class="live-dot"></span>
+        </div>
+        <div style="height: 120px; width: 100%; position: relative;">
+          <svg viewBox="0 0 300 120" width="100%" height="100%" style="overflow: visible;">
+            <!-- Grid lines -->
+            <line x1="30" y1="10" x2="30" y2="100" stroke="#1e293b" stroke-width="1" />
+            <line x1="30" y1="100" x2="280" y2="100" stroke="#1e293b" stroke-width="1" />
+            
+            <text x="25" y="105" fill="#55637c" font-size="7" text-anchor="end">0.0</text>
+            <text x="25" y="55" fill="#55637c" font-size="7" text-anchor="end">0.5</text>
+            <text x="25" y="15" fill="#55637c" font-size="7" text-anchor="end">1.0 (χ)</text>
+            <text x="30" y="112" fill="#55637c" font-size="7" text-anchor="middle">0.0</text>
+            <text x="155" y="112" fill="#55637c" font-size="7" text-anchor="middle">1.0 (λ)</text>
+            <text x="280" y="112" fill="#55637c" font-size="7" text-anchor="middle">2.0</text>
+
+            <!-- Euler theoretical curve -->
+            <path id="euler-curve-path" d="" fill="none" stroke="#2563eb" stroke-dasharray="2,2" stroke-width="1.5" />
+            <!-- Design actual curve -->
+            <path id="design-curve-path" d="" fill="none" stroke="url(#cyan-grad)" stroke-width="2.5" />
+            
+            <!-- Graph linear gradient -->
+            <defs>
+              <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f2fe" />
+                <stop offset="100%" stop-color="#9d4edd" />
+              </linearGradient>
+            </defs>
+
+            <!-- Current operating point dot -->
+            <circle id="graph-tracker-dot" cx="30" cy="100" r="4" fill="#ff3838" stroke="#fff" stroke-width="1" />
+          </svg>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FLOATING MODAL: CODEBOOK STANDARD IS 800 TABLES -->
+  <div class="modal-overlay" id="codebook-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 class="modal-title">IS 800 : 2007 Steel Design Code</h2>
+        <button class="close-btn" onclick="closeCodebook()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px; line-height: 1.4;">
+          <strong>Table 10: Imperfection Factors (Clause 7.1.1)</strong><br>
+          The imperfection factor α governs the geometric imperfections and residual stress factors associated with different cross-sectional geometries and manufacturing methodologies.
+        </p>
+
+        <table class="codebook-table">
+          <thead>
+            <tr>
+              <th>Buckling Class</th>
+              <th>a</th>
+              <th>b</th>
+              <th>c</th>
+              <th>d</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Imperfection Factor (α)</strong></td>
+              <td class="highlight-cell">0.21</td>
+              <td class="highlight-cell">0.34</td>
+              <td class="highlight-cell">0.49</td>
+              <td class="highlight-cell">0.76</td>
+            </tr>
+            <tr>
+              <td><strong>Typical Profiles</strong></td>
+              <td>Hot-rolled tubes, Welded Circular Hollow sections. Space trusses.</td>
+              <td>Rolled I-sections (Major axis of bending), Built-up boxes.</td>
+              <td>Rolled I-sections (Minor axis of bending), Welded channel girders.</td>
+              <td>Heavy welded columns with extra-thick plate profiles (&gt; 40mm).</td>
+            </tr>
+            <tr>
+              <td><strong>Stability Margin</strong></td>
+              <td>Highest stability</td>
+              <td>Standard build</td>
+              <td>Elevated imperfection</td>
+              <td>Severe initial bending / high residual stress</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <!-- Interactive Drag elements inside the handbook -->
+        <div class="modal-interactive-shelf">
+          <p style="font-size: 0.75rem; color: var(--neon-cyan); margin-bottom: 8px; font-weight: bold;">Quick-Grab Reference Chips from Table 10:</p>
+          <div style="display: flex; gap: 10px;">
+            <div class="drag-item drag-chip" draggable="true" id="modal-a" data-type="alpha" data-val="0.21">α = 0.21</div>
+            <div class="drag-item drag-chip" draggable="true" id="modal-b" data-type="alpha" data-val="0.34">α = 0.34</div>
+            <div class="drag-item drag-chip" draggable="true" id="modal-c" data-type="alpha" data-val="0.49">α = 0.49</div>
+            <div class="drag-item drag-chip" draggable="true" id="modal-d" data-type="alpha" data-val="0.76">α = 0.76</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AUDIO AND INTERACTIVE PHYSICS SCRIPTS -->
+  <script>
+    // WEB AUDIO API INFRASTRUCTURE
+    let audioCtx = null;
+    let stabilityOscillator = null;
+    let oscillatorGain = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      stabilityOscillator = audioCtx.createOscillator();
+      oscillatorGain = audioCtx.createGain();
+      
+      stabilityOscillator.type = 'sawtooth';
+      stabilityOscillator.frequency.value = 100;
+      
+      // Filter for standard synthesizer cyber vibe
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 400;
+      
+      stabilityOscillator.connect(filter);
+      filter.connect(oscillatorGain);
+      oscillatorGain.connect(audioCtx.destination);
+      
+      oscillatorGain.gain.value = 0.0; // Start muted
+      stabilityOscillator.start();
+    }
+
+    function playDing(frequency = 440) {
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      
+      const dingOsc = audioCtx.createOscillator();
+      const dingGain = audioCtx.createGain();
+      
+      dingOsc.type = 'sine';
+      dingOsc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+      // Swept frequency logic for higher complexity
+      dingOsc.frequency.exponentialRampToValueAtTime(frequency / 2, audioCtx.currentTime + 0.4);
+      
+      dingGain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      dingGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+      
+      dingOsc.connect(dingGain);
+      dingGain.connect(audioCtx.destination);
+      
+      dingOsc.start();
+      dingOsc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function playFailureHorn() {
+      if (!audioCtx) initAudio();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const hornGain = audioCtx.createGain();
+
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(90, audioCtx.currentTime);
+      
+      osc2.type = 'sawtooth';
+      osc2.frequency.setValueAtTime(93, audioCtx.currentTime);
+
+      hornGain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      hornGain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.0);
+
+      osc1.connect(hornGain);
+      osc2.connect(hornGain);
+      hornGain.connect(audioCtx.destination);
+
+      osc1.start();
+      osc2.start();
+      osc1.stop(audioCtx.currentTime + 1.0);
+      osc2.stop(audioCtx.currentTime + 1.0);
+    }
+
+    // SPEECH SYNTHESIS ENGINE
+    function speakText(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function speakELI5() {
+      initAudio();
+      speakText("Imagine this steel column is like a gummy bear! If we squeeze it, it wants to wobble. The Buckling Class tells us how much it hates to wobble. The higher the imperfection alpha value, the wobblier the column is and the easier it collapses into a jelly donut!");
+    }
+
+    function triggerMascotSpeech() {
+      initAudio();
+      const speeches = [
+        "Columns have high strength under compression, but they fail instantly when bending kicks in!",
+        "Hot rolled tubes belong to Class A. They have minimal initial crookedness and perform brilliantly!",
+        "Heavy welded plates (Class D) contain huge internal residual tension. Watch out for rapid failure!",
+        "Check Table 10 from the IS 800 standards for exact numerical parameters.",
+        "Squeeze the column with the bottom slider and push it side-to-side with your mouse to test integrity!"
+      ];
+      const randomSpeech = speeches[Math.floor(Math.random() * speeches.length)];
+      document.getElementById('mascot-speech').innerText = randomSpeech;
+      speakText(randomSpeech);
+    }
+
+    // STATE VARIABLES
+    let activeProfile = null; // { name, class, alpha }
+    let activeClass = null;   // "a", "b", "c", "d"
+    let activeAlpha = null;   // 0.21, 0.34, 0.49, 0.76
+
+    let currentLoad = 120; // P in kN
+    let currentSlenderness = 0.8; // lambda
+    let lateralPush = 0.0; // Dynamic gesture push
+    let smoothLateralPush = 0.0;
+
+    let targetZoom = 1.0;
+    let currentZoom = 1.0;
+
+    // PHYSICS PARAMETERS
+    const baseEulerPcr = 300; // Reference critical buckling load at lambda = 1.0
+
+    // SETUP CANVAS
+    const canvas = document.getElementById('physics-canvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvas-container');
+
+    function resizeCanvas() {
+      const rect = canvasContainer.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // INTERACTION GESTURES (SIDE PUSH & ZOOM)
+    canvasContainer.addEventListener('mousemove', (e) => {
+      initAudio();
+      const rect = canvasContainer.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const normalizedX = (x / rect.width) * 2 - 1; // -1 to +1
+      lateralPush = normalizedX * 2.5; // Scale lateral force push magnitude
+    });
+
+    canvasContainer.addEventListener('mouseleave', () => {
+      lateralPush = 0.0;
+    });
+
+    // DRAG AND DROP HANDLERS
+    const dragItems = document.querySelectorAll('.drag-item');
+    const dropSlots = document.querySelectorAll('.drop-slot');
+
+    dragItems.forEach(item => {
+      item.addEventListener('dragstart', (e) => {
+        initAudio();
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          id: item.id,
+          type: item.dataset.type,
+          val: item.dataset.val,
+          alpha: item.dataset.alpha,
+          class: item.dataset.class,
+          name: item.dataset.name
+        }));
+        item.style.opacity = '0.5';
+      });
+
+      item.addEventListener('dragend', () => {
+        item.style.opacity = '1';
+      });
+    });
+
+    dropSlots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        const acceptType = slot.dataset.accept;
+        slot.classList.add('active-hover');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('active-hover');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('active-hover');
+        
+        try {
+          const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+          const acceptType = slot.dataset.accept;
+
+          if (data.type === acceptType) {
+            handleSuccessfulDrop(slot, data);
+          } else {
+            // Error feedback
+            playDing(180);
+            document.getElementById('mascot-speech').innerText = `Oops! That item goes in a different slot. Try again!`;
+          }
+        } catch (err) {
+          console.error(err);
+        }
+      });
+    });
+
+    function handleSuccessfulDrop(slot, data) {
+      slot.classList.add('success');
+      
+      if (data.type === 'section') {
+        activeProfile = { name: data.name, class: data.class, alpha: parseFloat(data.alpha) };
+        slot.innerHTML = `
+          <div style="font-weight:bold; color:var(--neon-cyan); font-size:0.85rem;">
+            ${data.name}
+          </div>
+        `;
+        document.getElementById('tel-section').innerText = data.name;
+        playDing(350);
+        
+        // Trigger visual Zoom onto residual stress profile
+        targetZoom = 1.6;
+        setTimeout(() => { targetZoom = 1.0; }, 1800); // Zoom back out safely after inspection
+        
+        document.getElementById('mascot-speech').innerText = `Great profile! This profile usually operates in Class ${data.class.toUpperCase()}. Drag class label to verify.`;
+        speakText(`Profile added. This profile is categorized as Buckling Class ${data.class.toUpperCase()}`);
+      } 
+      
+      else if (data.type === 'class') {
+        activeClass = data.val;
+        slot.innerHTML = `
+          <div class="drag-chip" style="font-size:0.85rem;">Class ${data.val.toUpperCase()}</div>
+        `;
+        document.getElementById('tel-class').innerText = `Class ${data.val.toUpperCase()}`;
+        
+        // Validation with current section profile
+        if (activeProfile && activeProfile.class === activeClass) {
+          playDing(500);
+          document.getElementById('mascot-speech').innerText = `Perfect match! Now drag the correct imperfection factor alpha into the solver slot.`;
+        } else {
+          playDing(220);
+          document.getElementById('mascot-speech').innerText = `Careful! According to Table 10, this class might mismatch the dropped profile geometry. Check the handbook!`;
+        }
+      } 
+      
+      else if (data.type === 'alpha') {
+        activeAlpha = parseFloat(data.val);
+        slot.innerHTML = `
+          <div class="drag-chip purple" style="font-size:0.85rem;">α = ${data.val}</div>
+        `;
+        document.getElementById('tel-alpha').innerText = data.val;
+        document.getElementById('eq-alpha-slot').innerText = data.val;
+        document.getElementById('eq-alpha-slot').style.color = 'var(--neon-green)';
+        document.getElementById('eq-alpha-slot').style.borderBottom = 'none';
+        
+        playDing(600);
+        document.getElementById('mascot-speech').innerText = `Factor α locked in! Calculating design reduction factor chi instantly.`;
+        speakText(`Imperfection factor set to point ${data.val.replace('.', ' point ')}`);
+      }
+
+      evaluateFormulas();
+    }
+
+    // STABILITY FORMULA EVALUATION (IS 800)
+    let calculatedChi = 1.0;
+    let calculatedPcr = 400;
+
+    function evaluateFormulas() {
+      const alpha = activeAlpha !== null ? activeAlpha : 0.0;
+      const lambda = currentSlenderness;
+
+      // Calculated Euler Critical Buckling Capacity (Theoretical perfect column)
+      // P_cr scale based on slenderness ratio inverse square relation
+      calculatedPcr = baseEulerPcr / (lambda * lambda);
+
+      // Perry-Robertson reduction formula (IS 800)
+      const phi = 0.5 * (1 + alpha * (lambda - 0.2) + (lambda * lambda));
+      let chi = 1.0 / (phi + Math.sqrt(Math.max(0, (phi * phi) - (lambda * lambda))));
+      if (chi > 1.0) chi = 1.0;
+      if (isNaN(chi)) chi = 1.0;
+
+      calculatedChi = chi;
+
+      // Update UI displays
+      document.getElementById('reduction-factor-val').innerText = chi.toFixed(4);
+      document.getElementById('tel-chi').innerText = chi.toFixed(3);
+      document.getElementById('telemetry-pcr').innerText = `${(calculatedPcr * chi).toFixed(1)} kN`;
+    }
+
+    // SLIDERS REAL-TIME READOUT EVENTS
+    const sliderP = document.getElementById('slider-p');
+    const sliderPVal = document.getElementById('slider-p-val');
+    sliderP.addEventListener('input', () => {
+      currentLoad = parseFloat(sliderP.value);
+      sliderPVal.innerText = `${currentLoad} kN`;
+      evaluateFormulas();
+    });
+
+    const sliderSlender = document.getElementById('slider-slender');
+    const sliderSlenderVal = document.getElementById('slider-slender-val');
+    sliderSlender.addEventListener('input', () => {
+      currentSlenderness = parseFloat(sliderSlender.value);
+      sliderSlenderVal.innerText = currentSlenderness.toFixed(2);
+      evaluateFormulas();
+    });
+
+    // OPEN & CLOSE CODEBOOK MODALS
+    function openCodebook() {
+      initAudio();
+      document.getElementById('codebook-modal').classList.add('open');
+    }
+    function closeCodebook() {
+      document.getElementById('codebook-modal').classList.remove('open');
+    }
+
+    // MAIN VECTOR SIMULATOR GRAPHICS LOOP
+    let isFailing = false;
+    let failureFlashCounter = 0;
+
+    function drawColumnLab() {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      
+      ctx.clearRect(0, 0, width, height);
+
+      // Smooth animations & parameter interpolations
+      smoothLateralPush += (lateralPush - smoothLateralPush) * 0.1;
+      currentZoom += (targetZoom - currentZoom) * 0.08;
+
+      const centerX = width / 2;
+      const colHeight = height * 0.65;
+      const topY = height * 0.15;
+      const bottomY = topY + colHeight;
+
+      // COMPUTE DYNAMIC BUCKLING WOBBLE DEFLECTION
+      const actualCap = calculatedPcr * calculatedChi;
+      const loadRatio = currentLoad / actualCap;
+      document.getElementById('telemetry-load-ratio').innerText = `${(loadRatio * 100).toFixed(1)} %`;
+      document.getElementById('telemetry-p').innerText = `${currentLoad} kN`;
+
+      // Singularity math prevention for Euler deflection scaling
+      let magnificationFactor = 1.0 / (1.0 - Math.min(0.98, loadRatio));
+      
+      // Dynamic elastic deflection under lateral displacement + load magnification
+      const imperfectionScale = activeAlpha ? (activeAlpha * 12.0) : 3.0;
+      let midDeflection = (smoothLateralPush + imperfectionScale * 0.8) * magnificationFactor;
+      
+      // Safety Cap so column doesn't fly offscreen
+      if (Math.abs(midDeflection) > width * 0.35) {
+        midDeflection = Math.sign(midDeflection) * width * 0.35;
+      }
+
+      document.getElementById('telemetry-deflection').innerText = `${Math.abs(midDeflection * 1.2).toFixed(2)} mm`;
+
+      // Check unstable buckling state trigger
+      if (loadRatio >= 0.98 && !isFailing) {
+        isFailing = true;
+        playFailureHorn();
+        document.getElementById('mascot-speech').innerText = "ALERT! Squeezing stress exceeded Critical Capacity limits. Structural buckling occurred!";
+      } else if (loadRatio < 0.95) {
+        isFailing = false;
+      }
+
+      // 1. DYNAMIC HIGH-FREQUENCY SOUND FREQUENCY UPDATE
+      if (audioCtx) {
+        if (Math.abs(midDeflection) > 5.0) {
+          oscillatorGain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+          // Frequency ranges up depending on strain
+          const targetFreq = 100 + Math.min(600, Math.abs(midDeflection) * 12.5);
+          stabilityOscillator.frequency.value += (targetFreq - stabilityOscillator.frequency.value) * 0.1;
+        } else {
+          oscillatorGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        }
+      }
+
+      // ZOOM MATH (Apply local matrix modifications around the cross-section focus)
+      ctx.save();
+      if (currentZoom > 1.0) {
+        ctx.translate(centerX + midDeflection, topY + colHeight/2);
+        ctx.scale(currentZoom, currentZoom);
+        ctx.translate(-(centerX + midDeflection), -(topY + colHeight/2));
+      }
+
+      // Draw background grid lines within lab canvas viewport
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < width; i += 40) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, height);
+        ctx.stroke();
+      }
+
+      // DRAW SHEAR/MOMENT FAILURE ARC ENVELOPE (BENDING ZONE INDICATORS)
+      if (Math.abs(midDeflection) > 8) {
+        ctx.strokeStyle = 'rgba(255, 56, 56, 0.15)';
+        ctx.lineWidth = Math.abs(midDeflection) * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(centerX, topY);
+        ctx.quadraticCurveTo(centerX + midDeflection * 1.8, topY + colHeight / 2, centerX, bottomY);
+        ctx.stroke();
+      }
+
+      // DRAW STRUCTURAL COLUMN BEAM ELEMENT
+      // Profile color schemes depending on materials
+      let steelColor = '#38bdf8'; // Default neon cyan
+      if (isFailing) {
+        failureFlashCounter++;
+        steelColor = (Math.floor(failureFlashCounter / 6) % 2 === 0) ? '#ff3838' : '#e2e8f0';
+      } else if (loadRatio > 0.75) {
+        steelColor = '#ff9f43'; // Impending amber alert
+      }
+
+      ctx.beginPath();
+      ctx.strokeStyle = steelColor;
+      ctx.lineWidth = activeProfile ? 14 : 6;
+      ctx.lineCap = 'round';
+      ctx.moveTo(centerX, topY);
+      
+      // Curved shape using quadratic Bezier matching first mode elastic curve shape
+      ctx.quadraticCurveTo(centerX + midDeflection, topY + colHeight / 2, centerX, bottomY);
+      ctx.stroke();
+
+      // Draw Profile Inside Details if Zoomed (Shows high-fidelity material profile)
+      if (currentZoom > 1.25 && activeProfile) {
+        ctx.save();
+        ctx.translate(centerX + midDeflection, topY + colHeight/2);
+        
+        // Draw cross-section representation with residual stress zones
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+        ctx.fillRect(-25, -25, 50, 50);
+        ctx.strokeStyle = '#00f2fe';
+        ctx.lineWidth = 2.5;
+        ctx.strokeRect(-20, -20, 40, 40);
+
+        // Highlight residual stress lines (pulsing red corners)
+        ctx.fillStyle = `rgba(255, 56, 56, ${0.4 + Math.sin(Date.now() / 150) * 0.3})`;
+        ctx.fillRect(-20, -20, 6, 40); // Welded left flange edge
+        ctx.fillRect(14, -20, 6, 40);  // Welded right flange edge
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = '7px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Residual Stress Zones', 0, 32);
+        ctx.restore();
+      }
+
+      // DRAW ANCHORS/BOUNDARY CONDITIONS
+      // Pins / Fixed Foundations
+      ctx.fillStyle = '#475569';
+      // Bottom Pin Anchor
+      ctx.beginPath();
+      ctx.moveTo(centerX - 15, bottomY);
+      ctx.lineTo(centerX + 15, bottomY);
+      ctx.lineTo(centerX, bottomY - 12);
+      ctx.closePath();
+      ctx.fill();
+      
+      // Pin hinge center dot
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.arc(centerX, bottomY, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Top Roller Sliding Plate
+      ctx.fillStyle = '#475569';
+      ctx.fillRect(centerX - 20, topY - 14, 40, 6);
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.arc(centerX, topY - 4, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // DRAW AXIAL LOAD FORCE VECTOR (P)
+      const arrowLength = Math.max(25, 12 + loadRatio * 35);
+      const startArrowY = topY - 20 - arrowLength;
+      
+      ctx.strokeStyle = '#ff3838';
+      ctx.lineWidth = 3 + loadRatio * 2.5;
+      ctx.beginPath();
+      ctx.moveTo(centerX, startArrowY);
+      ctx.lineTo(centerX, topY - 14);
+      // Arrowhead
+      ctx.lineTo(centerX - 6, topY - 22);
+      ctx.moveTo(centerX, topY - 14);
+      ctx.lineTo(centerX + 6, topY - 22);
+      ctx.stroke();
+
+      // Label Force vector P
+      ctx.fillStyle = '#ff3838';
+      ctx.font = 'bold 11px monospace';
+      ctx.fillText(`P = ${currentLoad.toFixed(0)} kN`, centerX + 12, startArrowY + 12);
+
+      // DRAW IMPERFECTION INDICATOR ARC MEASUREMENT
+      ctx.strokeStyle = 'rgba(157, 78, 221, 0.6)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(centerX, topY);
+      ctx.lineTo(centerX, bottomY);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line dashes
+
+      if (Math.abs(midDeflection) > 4) {
+        ctx.strokeStyle = 'var(--neon-purple)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(centerX, topY + colHeight / 2);
+        ctx.lineTo(centerX + midDeflection, topY + colHeight / 2);
+        ctx.stroke();
+
+        ctx.fillStyle = 'var(--neon-purple)';
+        ctx.font = '9px sans-serif';
+        ctx.fillText(`Max Imperfection = ${(Math.abs(midDeflection)*0.7).toFixed(1)}mm`, centerX + (midDeflection > 0 ? 10 : -95), topY + colHeight / 2 - 5);
+      }
+
+      ctx.restore(); // Restore zoom settings
+
+      // LOOP AGAIN
+      requestAnimationFrame(drawColumnLab);
+    }
+
+    // DRAW SVG CAPACITY GRAPH REDUCTION PATHS
+    function updateCapacityCurves() {
+      const eulerPath = document.getElementById('euler-curve-path');
+      const designPath = document.getElementById('design-curve-path');
+      const trackerDot = document.getElementById('graph-tracker-dot');
+
+      let eulerPoints = "";
+      let designPoints = "";
+
+      // Compute visual plots coordinates (x: 30 to 280, y: 100 to 10)
+      for (let l = 0.2; l <= 2.0; l += 0.05) {
+        // x map
+        const x = 30 + ((l - 0.0) / 2.0) * 250;
+        
+        // Euler Curve (Y)
+        const chiEuler = Math.min(1.0, 1.0 / (l * l));
+        const yEuler = 100 - (chiEuler * 90);
+        eulerPoints += `${l === 0.2 ? 'M' : 'L'} ${x} ${yEuler} `;
+
+        // Design reduction curve mapping
+        const alpha = activeAlpha !== null ? activeAlpha : 0.49; // Fallback to Class C curve
+        const phi = 0.5 * (1 + alpha * (l - 0.2) + (l * l));
+        let chiDesign = 1.0 / (phi + Math.sqrt(Math.max(0, (phi * phi) - (l * l))));
+        if (chiDesign > 1.0) chiDesign = 1.0;
+        const yDesign = 100 - (chiDesign * 90);
+        designPoints += `${l === 0.2 ? 'M' : 'L'} ${x} ${yDesign} `;
+      }
+
+      eulerPath.setAttribute('d', eulerPoints);
+      designPath.setAttribute('d', designPoints);
+
+      // Track current lambda and active reduction factor position
+      const trackX = 30 + ((currentSlenderness - 0.0) / 2.0) * 250;
+      const trackY = 100 - (calculatedChi * 90);
+      trackerDot.setAttribute('cx', trackX);
+      trackerDot.setAttribute('cy', trackY);
+    }
+
+    // Interval checker for slower math graph updates to conserve rendering power
+    setInterval(updateCapacityCurves, 80);
+
+    // INITIATE ENGINE LOOP
+    drawColumnLab();
+
+  </script>
+</body>
+</html>

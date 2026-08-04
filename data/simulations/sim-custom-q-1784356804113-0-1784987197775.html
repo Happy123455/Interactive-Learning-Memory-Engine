@@ -1,0 +1,1070 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structural Design - Beam Failure Modes</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#111c33',
+                            900: '#0f172a',
+                            950: '#080d1a',
+                        },
+                        neon: {
+                            cyan: '#06b6d4',
+                            magenta: '#ec4899',
+                            lime: '#84cc16',
+                            amber: '#f59e0b',
+                            red: '#ef4444',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism utility classes */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* Glowing accents */
+        .glow-cyan { box-shadow: 0 0 15px rgba(6, 182, 212, 0.35); }
+        .glow-magenta { box-shadow: 0 0 15px rgba(236, 72, 153, 0.35); }
+        .glow-lime { box-shadow: 0 0 15px rgba(132, 204, 22, 0.35); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.5); }
+
+        /* Custom range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 8px;
+            height: 8px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.8);
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Canvas container responsiveness */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 380px;
+        }
+
+        /* Pulse animation for warnings */
+        @keyframes pulse-red {
+            0%, 100% { border-color: rgba(239, 68, 68, 0.8); box-shadow: 0 0 15px rgba(239, 68, 68, 0.4); }
+            50% { border-color: rgba(239, 68, 68, 0.3); box-shadow: 0 0 5px rgba(239, 68, 68, 0.1); }
+        }
+
+        .border-pulse-red {
+            animation: pulse-red 1.5s infinite;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col justify-between text-slate-100 selection:bg-cyan-500 selection:text-slate-900">
+
+    <!-- Top Navigation Header -->
+    <header class="w-full glass-panel sticky top-0 z-50 px-4 py-3 border-b border-slate-800">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl shadow-lg">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-sky-200 to-indigo-300 bg-clip-text text-transparent">
+                        Beam Structural Mechanics
+                    </h1>
+                    <p class="text-xs text-slate-400">Singly Reinforced Concrete (Limit State Design - IS 456)</p>
+                </div>
+            </div>
+
+            <!-- Mode Switcher Presets & Audio Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <div class="flex bg-slate-900/80 p-1 rounded-xl border border-slate-700/60 text-xs font-semibold">
+                    <button id="btn-preset-under" onclick="setPreset('under')" class="px-3 py-1.5 rounded-lg transition-all text-slate-300 hover:text-white">
+                        Under-Reinforced
+                    </button>
+                    <button id="btn-preset-balanced" onclick="setPreset('balanced')" class="px-3 py-1.5 rounded-lg transition-all text-slate-300 hover:text-white">
+                        Balanced
+                    </button>
+                    <button id="btn-preset-over" onclick="setPreset('over')" class="px-3 py-1.5 rounded-lg transition-all text-slate-300 hover:text-white">
+                        Over-Reinforced
+                    </button>
+                </div>
+
+                <button id="btn-sound-toggle" onclick="toggleAudio()" class="p-2 glass-card rounded-xl hover:bg-slate-700/50 transition border border-slate-700 text-cyan-400" title="Toggle Sound Effects">
+                    <svg id="icon-sound-on" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                    </svg>
+                </button>
+
+                <button id="btn-tts" onclick="narrateCurrentState()" class="flex items-center gap-1.5 px-3 py-1.5 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded-xl text-xs font-medium transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 000-6M5.436 13.683A4.001 4.001 0 017 6h1.832c.41 0 .789-.252.935-.635l.43-1.121a2.001 2.001 0 013.78 0l.43 1.121c.146.383.525.635.935.635H17a4 4 0 014 4v.245"></path>
+                    </svg>
+                    <span>Narrate</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-5 my-auto">
+
+        <!-- Left Column: Primary Visual Simulation Canvas (8 cols) -->
+        <section class="lg:col-span-8 flex flex-col gap-4">
+            
+            <!-- Main Beam & Cross Section Canvas Container -->
+            <div id="main-canvas-card" class="glass-panel rounded-2xl p-4 border border-slate-700/60 shadow-2xl relative flex flex-col">
+                <div class="flex justify-between items-center mb-2 px-1">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse"></span>
+                        <h2 class="text-sm font-semibold text-slate-200">Interactive Beam & Stress Block Simulation</h2>
+                    </div>
+                    <span id="badge-failure-mode" class="px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        Under-Reinforced
+                    </span>
+                </div>
+
+                <div class="canvas-container bg-slate-950/70 rounded-xl border border-slate-800/80 overflow-hidden flex-1">
+                    <canvas id="beamCanvas" class="w-full h-full block cursor-grab active:cursor-grabbing"></canvas>
+                </div>
+
+                <!-- Canvas Visual Key / Legend -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3 pt-3 border-t border-slate-800/80 text-xs">
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <span class="w-3 h-3 rounded-sm bg-slate-500 border border-slate-300"></span>
+                        <span>Concrete Zone</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <span class="w-3 h-3 rounded-full bg-cyan-400 border border-cyan-200 glow-cyan"></span>
+                        <span>Steel Rebar ($A_{st}$)</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <span class="w-3 h-3 rounded-sm bg-rose-500/60 border border-rose-400"></span>
+                        <span>Stress Block ($C$)</span>
+                    </div>
+                    <div class="flex items-center gap-2 text-slate-300">
+                        <span class="w-3 h-1 bg-lime-400"></span>
+                        <span>Neutral Axis ($x_u$)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 border border-slate-700/60 relative overflow-hidden">
+                <div class="flex items-center gap-2 mb-2 text-amber-400 font-semibold text-sm">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3>Explain Like I'm 5 (ELI5)</h3>
+                </div>
+                <p id="eli5-text" class="text-sm text-slate-300 leading-relaxed">
+                    Concrete is like a strong rock that loves to be squished (compression), but snaps easily if pulled. Steel bars are like super strong stretchy rubber bands that love to be pulled (tension). In an <strong>Under-Reinforced</strong> beam, the steel gives plenty of stretch warning before anything breaks!
+                </p>
+            </div>
+        </section>
+
+        <section class="lg:col-span-4 flex flex-col gap-4">
+            
+            <!-- Dynamic Strain Triangle Canvas -->
+            <div class="glass-panel rounded-2xl p-4 border border-slate-700/60 shadow-xl flex flex-col">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Strain Distribution Diagram</h3>
+                <div class="h-44 bg-slate-950/70 rounded-xl border border-slate-800 overflow-hidden relative">
+                    <canvas id="strainCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Interactive Sliders Controls Panel -->
+            <div class="glass-panel rounded-2xl p-4 border border-slate-700/60 shadow-xl space-y-4">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Interactive Controls</h3>
+
+                <!-- Steel Area Slider -->
+                <div>
+                    <div class="flex justify-between text-xs font-medium mb-1.5">
+                        <label for="slider-ast" class="text-cyan-300 flex items-center gap-1">
+                            Steel Area ($A_{st}$)
+                        </label>
+                        <span id="val-ast" class="font-mono text-cyan-400 font-bold">1000 mm²</span>
+                    </div>
+                    <input type="range" id="slider-ast" min="400" max="2200" step="20" value="800" class="w-full cursor-pointer accent-cyan-400" oninput="onAstInput(this.value)">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                        <span>400 (Under)</span>
+                        <span id="lbl-bal-ast">1195 (Balanced)</span>
+                        <span>2200 (Over)</span>
+                    </div>
+                </div>
+
+                <!-- Applied Load Slider -->
+                <div>
+                    <div class="flex justify-between text-xs font-medium mb-1.5">
+                        <label for="slider-load" class="text-amber-300 flex items-center gap-1">
+                            Applied Load ($P$)
+                        </label>
+                        <span id="val-load" class="font-mono text-amber-400 font-bold">50%</span>
+                    </div>
+                    <input type="range" id="slider-load" min="0" max="100" step="1" value="40" class="w-full cursor-pointer accent-amber-400" oninput="onLoadInput(this.value)">
+                    <p class="text-[11px] text-slate-400 mt-1">Or drag the load arrow directly on the beam canvas!</p>
+                </div>
+            </div>
+
+            <div class="glass-panel rounded-2xl p-4 border border-slate-700/60 shadow-xl">
+                <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Live Calculations (IS 456)</h3>
+                
+                <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                    <div class="glass-card p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block uppercase">Neutral Axis ($x_u$)</span>
+                        <span id="stat-xu" class="text-lime-400 font-bold text-sm">128.5 mm</span>
+                    </div>
+                    <div class="glass-card p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block uppercase">Max $x_{u,lim}$</span>
+                        <span id="stat-xulim" class="text-slate-300 font-bold text-sm">191.8 mm</span>
+                    </div>
+                    <div class="glass-card p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block uppercase">Compression Force ($C$)</span>
+                        <span id="stat-c" class="text-rose-400 font-bold text-sm">289.1 kN</span>
+                    </div>
+                    <div class="glass-card p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-slate-400 text-[10px] block uppercase">Tension Force ($T$)</span>
+                        <span id="stat-t" class="text-cyan-400 font-bold text-sm">289.1 kN</span>
+                    </div>
+                    <div class="col-span-2 glass-card p-2.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <div>
+                            <span class="text-slate-400 text-[10px] block uppercase">Moment Capacity ($M_u$)</span>
+                            <span id="stat-mu" class="text-amber-300 font-bold text-base">100.2 kNm</span>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-slate-400 text-[10px] block uppercase">Lever Arm ($z$)</span>
+                            <span id="stat-z" class="text-slate-200 font-bold text-sm">346.0 mm</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full glass-panel py-2.5 px-4 text-center text-xs text-slate-500 border-t border-slate-800">
+        Interactive Structural Engineering Visualizer &bull; Limit State Design of Singly Reinforced Beams
+    </footer>
+
+    <script>
+        /**
+         * STRUCTURAL DESIGN PHYSICS PARAMETERS (Standard IS 456 / Eurocode values)
+         * b = 250 mm (Beam width)
+         * d = 400 mm (Effective depth)
+         * D = 450 mm (Total depth)
+         * fck = 25 N/mm² (Concrete Grade M25)
+         * fy = 415 N/mm² (Steel Grade Fe 415)
+         * Es = 200,000 N/mm² (Young's modulus of steel)
+         * ecu = 0.0035 (Ultimate concrete strain)
+         * ey = 0.002 + 0.87 * fy / Es = 0.0038 (Steel yield strain for Fe415)
+         */
+        const BEAM_PARAMS = {
+            b: 250,          // mm
+            d: 400,          // mm
+            D: 450,          // mm
+            fck: 25,         // N/mm²
+            fy: 415,         // N/mm²
+            Es: 200000,      // N/mm²
+            ecu: 0.0035,     // Ultimate concrete strain limit
+            ey: 0.0038       // Yield strain of Fe415 steel
+        };
+
+        // Balanced neutral axis ratio xu_lim / d = 0.0035 / (0.0035 + 0.002 + 0.87*fy/Es) = 0.479
+        BEAM_PARAMS.xu_max = 0.479 * BEAM_PARAMS.d; // ~191.8 mm
+        // Balanced steel area Ast_bal = (0.36 * fck * b * xu_max) / (0.87 * fy)
+        BEAM_PARAMS.Ast_bal = (0.36 * BEAM_PARAMS.fck * BEAM_PARAMS.b * BEAM_PARAMS.xu_max) / (0.87 * BEAM_PARAMS.fy); // ~1195.2 mm²
+
+        // Dynamic State Variables
+        let state = {
+            Ast: 800,        // Area of steel (mm²)
+            loadPct: 40,     // Applied load percentage (0 - 100)
+            xu: 0,           // Neutral axis depth (mm)
+            mode: 'under',   // 'under', 'balanced', 'over'
+            isCrushed: false,
+            isYielded: false,
+            audioEnabled: true,
+            isDraggingLoad: false,
+            animTime: 0
+        };
+
+        // UI Canvas References
+        let beamCanvas, beamCtx;
+        let strainCanvas, strainCtx;
+
+        // Audio Context Engine
+        let soundEngine = null;
+
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    this.initialized = true;
+                } catch (e) {
+                    console.warn("Web Audio API not supported", e);
+                }
+            }
+
+            ensureResume() {
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            // High frequency soft sine pluck for sliders and drag interactions
+            playPluck(freq = 600) {
+                if (!state.audioEnabled || !this.initialized) return;
+                this.ensureResume();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(freq * 0.5, this.ctx.currentTime + 0.08);
+
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.09);
+                } catch (e) {}
+            }
+
+            // Resonant mode switch tones (440Hz under, 660Hz balanced, 880Hz over)
+            playModeTone(freq) {
+                if (!state.audioEnabled || !this.initialized) return;
+                this.ensureResume();
+                try {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.26);
+                } catch (e) {}
+            }
+
+            // Low frequency pitch sweep + distortion noise for brittle crushing/cracking failure
+            playCrushingSound() {
+                if (!state.audioEnabled || !this.initialized) return;
+                this.ensureResume();
+                try {
+                    const now = this.ctx.currentTime;
+                    // Low sweep oscillator
+                    const osc = this.ctx.createOscillator();
+                    const oscGain = this.ctx.createGain();
+
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(120, now);
+                    osc.frequency.exponentialRampToValueAtTime(20, now + 0.6);
+
+                    oscGain.gain.setValueAtTime(0.35, now);
+                    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+
+                    // Distortion node
+                    const waveshaper = this.ctx.createWaveShaper();
+                    waveshaper.curve = this.makeDistortionCurve(400);
+
+                    osc.connect(waveshaper);
+                    waveshaper.connect(oscGain);
+                    oscGain.connect(this.ctx.destination);
+
+                    osc.start(now);
+                    osc.stop(now + 0.6);
+
+                    // Crackle Noise Buffer
+                    const bufferSize = this.ctx.sampleRate * 0.4;
+                    const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const data = buffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (bufferSize * 0.2));
+                    }
+
+                    const noise = this.ctx.createBufferSource();
+                    const noiseGain = this.ctx.createGain();
+                    noise.buffer = buffer;
+                    noiseGain.gain.setValueAtTime(0.3, now);
+                    noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+                    noise.connect(noiseGain);
+                    noiseGain.connect(this.ctx.destination);
+
+                    noise.start(now);
+                } catch (e) {}
+            }
+
+            makeDistortionCurve(amount) {
+                const k = typeof amount === 'number' ? amount : 50;
+                const n_samples = 44100;
+                const curve = new Float32Array(n_samples);
+                const deg = Math.PI / 180;
+                for (let i = 0; i < n_samples; ++i) {
+                    const x = (i * 2) / n_samples - 1;
+                    curve[i] = ((3 + k) * x * 20 * deg) / (Math.PI + k * Math.abs(x));
+                }
+                return curve;
+            }
+        }
+
+        let lastSpeechTime = 0;
+        function speakText(text, isAutoWarning = false) {
+            if (!('speechSynthesis' in window)) return;
+            
+            // Throttle auto warnings to prevent audio spam
+            const now = Date.now();
+            if (isAutoWarning && now - lastSpeechTime < 5000) return;
+            lastSpeechTime = now;
+
+            window.speechSynthesis.cancel(); // Stop current speaking
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function calculateMechanics() {
+            // Neutral Axis xu from tension-compression equilibrium:
+            // C = T => 0.36 * fck * b * xu = 0.87 * fy * Ast
+            state.xu = (0.87 * BEAM_PARAMS.fy * state.Ast) / (0.36 * BEAM_PARAMS.fck * BEAM_PARAMS.b);
+            
+            // Determine failure classification
+            const xuRatio = state.xu / BEAM_PARAMS.xu_max;
+            if (xuRatio < 0.96) {
+                state.mode = 'under';
+            } else if (xuRatio <= 1.04) {
+                state.mode = 'balanced';
+            } else {
+                state.mode = 'over';
+            }
+
+            // Calculate Strains based on linear strain distribution:
+            // strain_c / xu = strain_s / (d - xu)
+            const loadFactor = state.loadPct / 100;
+            
+            if (state.mode === 'under') {
+                // Steel yields first!
+                state.strain_s = BEAM_PARAMS.ey * loadFactor * 1.3;
+                state.strain_c = state.strain_s * (state.xu / (BEAM_PARAMS.d - state.xu));
+            } else {
+                // Concrete reaches ultimate limit strain ecu first!
+                state.strain_c = BEAM_PARAMS.ecu * loadFactor * 1.1;
+                state.strain_s = state.strain_c * ((BEAM_PARAMS.d - state.xu) / state.xu);
+            }
+
+            state.isYielded = state.strain_s >= BEAM_PARAMS.ey;
+            state.isCrushed = state.strain_c >= BEAM_PARAMS.ecu;
+
+            // Forces
+            // C = 0.36 * fck * b * xu (N) -> convert to kN
+            const actualXu = Math.min(state.xu, BEAM_PARAMS.d);
+            state.C = (0.36 * BEAM_PARAMS.fck * BEAM_PARAMS.b * actualXu) / 1000; // kN
+            state.T = (0.87 * BEAM_PARAMS.fy * state.Ast) / 1000; // kN
+
+            // Lever Arm z = d - 0.42 * min(xu, xu_max)
+            const designXu = Math.min(state.xu, BEAM_PARAMS.xu_max);
+            state.z = BEAM_PARAMS.d - 0.42 * designXu; // mm
+
+            // Ultimate Moment Capacity Mu = C * z (or T * z) in kNm
+            state.Mu = (state.C * state.z) / 1000; // kNm
+
+            updateUIElements();
+        }
+
+        function updateUIElements() {
+            document.getElementById('val-ast').innerText = `${Math.round(state.Ast)} mm²`;
+            document.getElementById('val-load').innerText = `${Math.round(state.loadPct)}%`;
+            document.getElementById('lbl-bal-ast').innerText = `${Math.round(BEAM_PARAMS.Ast_bal)} (Bal)`;
+
+            document.getElementById('stat-xu').innerText = `${state.xu.toFixed(1)} mm`;
+            document.getElementById('stat-xulim').innerText = `${BEAM_PARAMS.xu_max.toFixed(1)} mm`;
+            document.getElementById('stat-c').innerText = `${state.C.toFixed(1)} kN`;
+            document.getElementById('stat-t').innerText = `${state.T.toFixed(1)} kN`;
+            document.getElementById('stat-z').innerText = `${state.z.toFixed(1)} mm`;
+            document.getElementById('stat-mu').innerText = `${state.Mu.toFixed(1)} kNm`;
+
+            const badge = document.getElementById('badge-failure-mode');
+            const mainCard = document.getElementById('main-canvas-card');
+            const eli5Text = document.getElementById('eli5-text');
+
+            // Reset borders
+            mainCard.classList.remove('border-pulse-red', 'glow-red');
+
+            if (state.mode === 'under') {
+                badge.innerText = "Under-Reinforced (Ductile Failure)";
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 glow-lime";
+                eli5Text.innerHTML = `
+                    Concrete is like a strong rock that loves to be squished, but snaps easily if pulled. Steel bars are like super strong stretchy rubber bands. In an <strong>Under-Reinforced</strong> beam, we use less steel so the steel stretches and bends first! This gives a huge warning before anything breaks!
+                `;
+            } else if (state.mode === 'balanced') {
+                badge.innerText = "Balanced Section";
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-sky-500/20 text-sky-300 border border-sky-500/40 glow-cyan";
+                eli5Text.innerHTML = `
+                    In a <strong>Balanced</strong> section, the concrete gets squished to its limit at the exact same second the steel rubber bands reach their maximum stretch. It is the theoretical perfect middle boundary!
+                `;
+            } else {
+                badge.innerText = "Over-Reinforced (Brittle Failure)";
+                badge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold tracking-wide uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40 glow-red";
+                mainCard.classList.add('border-pulse-red');
+                eli5Text.innerHTML = `
+                    <strong>Warning!</strong> There is way too much steel here! Because the steel is so strong, it won't stretch at all. Instead, the top concrete crushes suddenly like a crunchy cookie with zero warning! Structural codes (IS 456) prohibit designing over-reinforced beams for safety.
+                `;
+
+                // Auto sound and narration trigger if crushing load applied
+                if (state.isCrushed && state.loadPct > 70) {
+                    soundEngine.playCrushingSound();
+                    speakText("Warning: Over-reinforced section. The concrete reaches its ultimate strain before the steel yields, leading to sudden brittle failure.", true);
+                }
+            }
+
+            // Update Preset Buttons state
+            document.getElementById('btn-preset-under').className = state.mode === 'under' ? 
+                "px-3 py-1.5 rounded-lg transition-all bg-emerald-500/30 text-emerald-300 border border-emerald-500/50 shadow" : "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white";
+            document.getElementById('btn-preset-balanced').className = state.mode === 'balanced' ? 
+                "px-3 py-1.5 rounded-lg transition-all bg-sky-500/30 text-sky-300 border border-sky-500/50 shadow" : "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white";
+            document.getElementById('btn-preset-over').className = state.mode === 'over' ? 
+                "px-3 py-1.5 rounded-lg transition-all bg-rose-500/30 text-rose-300 border border-rose-500/50 shadow" : "px-3 py-1.5 rounded-lg transition-all text-slate-400 hover:text-white";
+        }
+
+        function renderBeamCanvas() {
+            if (!beamCtx) return;
+            const width = beamCanvas.width;
+            const height = beamCanvas.height;
+
+            beamCtx.clearRect(0, 0, width, height);
+
+            // Layout Dimensions
+            const isMobile = width < 500;
+            const elevationWidth = width * (isMobile ? 0.50 : 0.56);
+            const crossSectionWidth = width * (isMobile ? 0.28 : 0.28);
+            const startX = 40;
+            const beamY = height * 0.38;
+            const beamH = height * 0.45;
+
+            // Deflection calculation under load
+            const maxDeflection = (state.loadPct / 100) * (state.mode === 'under' ? 28 : 12);
+            const currentDeflection = maxDeflection * Math.sin(state.animTime * 0.05) * 0.15 + maxDeflection;
+
+            // -------------------------------------------------------------
+            // 1. ELEVATION VIEW OF BEAM
+            // -------------------------------------------------------------
+            beamCtx.save();
+            
+            // Draw Supports (Left Pin, Right Roller)
+            drawSupportPin(beamCtx, startX, beamY + beamH);
+            drawSupportRoller(beamCtx, startX + elevationWidth, beamY + beamH);
+
+            // Draw Deflected Concrete Beam Body
+            beamCtx.beginPath();
+            beamCtx.moveTo(startX, beamY);
+            // Quadratic curve for flexural bending deflection
+            beamCtx.quadraticCurveTo(startX + elevationWidth / 2, beamY + currentDeflection, startX + elevationWidth, beamY);
+            beamCtx.lineTo(startX + elevationWidth, beamY + beamH);
+            beamCtx.quadraticCurveTo(startX + elevationWidth / 2, beamY + beamH + currentDeflection, startX, beamY + beamH);
+            beamCtx.closePath();
+
+            // Concrete Gradient fill
+            const concreteGrad = beamCtx.createLinearGradient(0, beamY, 0, beamY + beamH);
+            concreteGrad.addColorStop(0, '#334155');
+            concreteGrad.addColorStop(1, '#1e293b');
+            beamCtx.fillStyle = concreteGrad;
+            beamCtx.fill();
+            beamCtx.strokeStyle = '#64748b';
+            beamCtx.lineWidth = 2;
+            beamCtx.stroke();
+
+            // Draw Steel Reinforcement Bars (Bottom longitudinal line)
+            const steelYOffset = beamH * 0.82;
+            beamCtx.beginPath();
+            beamCtx.moveTo(startX + 10, beamY + steelYOffset);
+            beamCtx.quadraticCurveTo(startX + elevationWidth / 2, beamY + steelYOffset + currentDeflection, startX + elevationWidth - 10, beamY + steelYOffset);
+            beamCtx.strokeStyle = '#06b6d4';
+            beamCtx.lineWidth = 4;
+            beamCtx.shadowColor = '#06b6d4';
+            beamCtx.shadowBlur = 8;
+            beamCtx.stroke();
+            beamCtx.shadowBlur = 0; // reset
+
+            // Draw Tensile Cracks (Under-reinforced) or Top Concrete Spalling (Over-reinforced)
+            if (state.loadPct > 35) {
+                if (state.mode === 'under' || state.mode === 'balanced') {
+                    // Flexural vertical cracks starting from bottom
+                    const numCracks = Math.floor(state.loadPct / 15);
+                    beamCtx.strokeStyle = '#ef4444';
+                    beamCtx.lineWidth = 1.8;
+                    for (let i = 1; i <= numCracks; i++) {
+                        const crackX = startX + (elevationWidth / (numCracks + 1)) * i;
+                        const crackH = (state.loadPct / 100) * 35 * (1 - Math.abs(i - (numCracks + 1) / 2) * 0.3);
+                        beamCtx.beginPath();
+                        beamCtx.moveTo(crackX, beamY + beamH + currentDeflection * 0.8);
+                        beamCtx.lineTo(crackX + (Math.random() - 0.5) * 6, beamY + beamH - crackH);
+                        beamCtx.stroke();
+                    }
+                } else if (state.mode === 'over' && state.loadPct > 50) {
+                    // Top Concrete Crushing / Spalling
+                    beamCtx.fillStyle = '#ef4444';
+                    const crushWidth = (state.loadPct / 100) * 60;
+                    const crushX = startX + elevationWidth / 2 - crushWidth / 2;
+                    beamCtx.fillRect(crushX, beamY, crushWidth, 8);
+                }
+            }
+
+            // Draw Load Arrow (Point Load at Midspan)
+            const loadX = startX + elevationWidth / 2;
+            const loadArrowY = beamY + currentDeflection / 2;
+            drawLoadArrow(beamCtx, loadX, loadArrowY - 50, loadX, loadArrowY - 5, state.loadPct);
+
+            beamCtx.restore();
+
+            // -------------------------------------------------------------
+            // 2. CROSS-SECTION VIEW & WHITNEY STRESS BLOCK
+            // -------------------------------------------------------------
+            const csX = startX + elevationWidth + 45;
+            const csY = beamY;
+            const csH = beamH;
+
+            // Concrete Rectangle Cross Section
+            beamCtx.save();
+            beamCtx.fillStyle = '#1e293b';
+            beamCtx.strokeStyle = '#475569';
+            beamCtx.lineWidth = 2;
+            beamCtx.fillRect(csX, csY, crossSectionWidth, csH);
+            beamCtx.strokeRect(csX, csY, crossSectionWidth, csH);
+
+            // Neutral Axis Depth Pixel Scaled
+            const xuPixel = (state.xu / BEAM_PARAMS.D) * csH;
+            const naY = csY + Math.min(xuPixel, csH);
+
+            // Whitney Stress Block Overlay (Height = 0.85 * xu, Stress = 0.36 fck)
+            const stressBlockH = Math.min(xuPixel, csH);
+            if (stressBlockH > 0) {
+                beamCtx.fillStyle = 'rgba(236, 72, 153, 0.35)'; // Translucent Magenta
+                beamCtx.fillRect(csX, csY, crossSectionWidth, stressBlockH);
+                beamCtx.strokeStyle = '#ec4899';
+                beamCtx.lineWidth = 1.5;
+                beamCtx.strokeRect(csX, csY, crossSectionWidth, stressBlockH);
+            }
+
+            // Neutral Axis Line (Lime Green Dashed)
+            beamCtx.beginPath();
+            beamCtx.setLineDash([5, 4]);
+            beamCtx.moveTo(csX - 15, naY);
+            beamCtx.lineTo(csX + crossSectionWidth + 15, naY);
+            beamCtx.strokeStyle = '#84cc16';
+            beamCtx.lineWidth = 2;
+            beamCtx.stroke();
+            beamCtx.setLineDash([]); // reset
+
+            // Label for Neutral Axis
+            beamCtx.fillStyle = '#84cc16';
+            beamCtx.font = '10px Inter';
+            beamCtx.fillText(`N.A. (xu = ${state.xu.toFixed(0)}mm)`, csX + crossSectionWidth + 18, naY + 3);
+
+            // Rebar Circles at Bottom (Number of bars scaling with Ast)
+            const numBars = Math.max(2, Math.min(6, Math.round(state.Ast / 300)));
+            const barY = csY + csH * 0.85;
+            const barSpacing = crossSectionWidth / (numBars + 1);
+
+            for (let i = 1; i <= numBars; i++) {
+                const barX = csX + barSpacing * i;
+                beamCtx.beginPath();
+                beamCtx.arc(barX, barY, 6, 0, Math.PI * 2);
+                beamCtx.fillStyle = '#06b6d4';
+                beamCtx.shadowColor = '#06b6d4';
+                beamCtx.shadowBlur = 10;
+                beamCtx.fill();
+                beamCtx.strokeStyle = '#ffffff';
+                beamCtx.lineWidth = 1.5;
+                beamCtx.stroke();
+                beamCtx.shadowBlur = 0;
+            }
+
+            // -------------------------------------------------------------
+            // 3. VECTOR OVERLAYS (Compression C & Tension T Forces)
+            // -------------------------------------------------------------
+            const forceVectorScale = 0.22; // px per kN
+            const maxArrowLen = crossSectionWidth * 0.8;
+
+            // Compression Force Vector (C) at centroid of stress block (0.42 xu)
+            const cY = csY + Math.min(xuPixel * 0.42, csH * 0.42);
+            const cLen = Math.min(state.C * forceVectorScale, maxArrowLen);
+            drawForceArrow(beamCtx, csX - 10, cY, csX - 10 - cLen, cY, '#f43f5e', `C = ${state.C.toFixed(0)}kN`);
+
+            // Tension Force Vector (T) at Steel Level
+            const tLen = Math.min(state.T * forceVectorScale, maxArrowLen);
+            drawForceArrow(beamCtx, csX - 10, barY, csX - 10 - tLen, barY, '#06b6d4', `T = ${state.T.toFixed(0)}kN`);
+
+            // Lever Arm Brackets (z)
+            beamCtx.strokeStyle = '#cbd5e1';
+            beamCtx.lineWidth = 1;
+            beamCtx.beginPath();
+            beamCtx.moveTo(csX - 25, cY);
+            beamCtx.lineTo(csX - 25, barY);
+            beamCtx.stroke();
+            beamCtx.fillText(`z`, csX - 35, (cY + barY) / 2);
+
+            beamCtx.restore();
+        }
+
+        function drawLoadArrow(ctx, x1, y1, x2, y2, loadPct) {
+            ctx.save();
+            ctx.strokeStyle = '#f59e0b';
+            ctx.fillStyle = '#f59e0b';
+            ctx.lineWidth = 3 + (loadPct / 100) * 3;
+            
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Arrow head
+            const headLen = 12;
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headLen / 2, y2 - headLen);
+            ctx.lineTo(x2 + headLen / 2, y2 - headLen);
+            ctx.closePath();
+            ctx.fill();
+
+            // Label
+            ctx.font = 'bold 11px Inter';
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText(`P = ${Math.round(loadPct)}%`, x1 - 20, y1 - 8);
+            ctx.restore();
+        }
+
+        function drawForceArrow(ctx, x1, y1, x2, y2, color, label) {
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            const headLen = 8;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headLen * Math.cos(angle - Math.PI / 6), y2 - headLen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - headLen * Math.cos(angle + Math.PI / 6), y2 - headLen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText(label, Math.min(x1, x2) - 10, y1 - 6);
+            ctx.restore();
+        }
+
+        function drawSupportPin(ctx, x, y) {
+            ctx.save();
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x - 12, y + 18);
+            ctx.lineTo(x + 12, y + 18);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function drawSupportRoller(ctx, x, y) {
+            ctx.save();
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.arc(x, y + 10, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function renderStrainCanvas() {
+            if (!strainCtx) return;
+            const w = strainCanvas.width;
+            const h = strainCanvas.height;
+
+            strainCtx.clearRect(0, 0, w, h);
+
+            const originX = w / 2;
+            const topY = 25;
+            const botY = h - 25;
+            const totalH = botY - topY;
+
+            // Neutral Axis Y position on strain diagram
+            const xuRatio = Math.min(state.xu / BEAM_PARAMS.D, 0.95);
+            const naY = topY + xuRatio * totalH;
+
+            // Draw Reference Axis (Vertical line)
+            strainCtx.save();
+            strainCtx.strokeStyle = '#475569';
+            strainCtx.lineWidth = 1;
+            strainCtx.beginPath();
+            strainCtx.moveTo(originX, topY - 10);
+            strainCtx.lineTo(originX, botY + 10);
+            strainCtx.stroke();
+
+            // Strain Line color coding: Green (safe), Yellow (yielding), Red (crushing)
+            let strainColor = '#10b981'; // Lime green
+            if (state.isCrushed) {
+                strainColor = '#ef4444'; // Red
+            } else if (state.isYielded) {
+                strainColor = '#f59e0b'; // Amber yellow
+            }
+
+            // Calculate Strain Profile Widths
+            const maxStrainWidth = w * 0.35;
+            const ecWidth = (state.strain_c / 0.005) * maxStrainWidth;
+            const esWidth = (state.strain_s / 0.008) * maxStrainWidth;
+
+            const topX = originX - ecWidth;  // Concrete compression on left
+            const botX = originX + esWidth;  // Steel tension on right
+
+            // Draw Strain Triangles
+            strainCtx.beginPath();
+            strainCtx.moveTo(topX, topY);
+            strainCtx.lineTo(originX, naY);
+            strainCtx.lineTo(botX, botY);
+            strainCtx.strokeStyle = strainColor;
+            strainCtx.lineWidth = 3;
+            strainCtx.shadowColor = strainColor;
+            strainCtx.shadowBlur = 8;
+            strainCtx.stroke();
+            strainCtx.shadowBlur = 0;
+
+            // Fill Strain Area
+            strainCtx.beginPath();
+            strainCtx.moveTo(topX, topY);
+            strainCtx.lineTo(originX, topY);
+            strainCtx.lineTo(originX, naY);
+            strainCtx.closePath();
+            strainCtx.fillStyle = 'rgba(239, 68, 68, 0.2)';
+            strainCtx.fill();
+
+            strainCtx.beginPath();
+            strainCtx.moveTo(botX, botY);
+            strainCtx.lineTo(originX, botY);
+            strainCtx.lineTo(originX, naY);
+            strainCtx.closePath();
+            strainCtx.fillStyle = 'rgba(6, 182, 212, 0.2)';
+            strainCtx.fill();
+
+            // Strain Value Labels
+            strainCtx.font = '10px JetBrains Mono';
+            strainCtx.fillStyle = state.isCrushed ? '#ef4444' : '#f8fafc';
+            strainCtx.fillText(`ε_c = ${state.strain_c.toFixed(4)}`, topX - 55, topY + 4);
+
+            strainCtx.fillStyle = state.isYielded ? '#f59e0b' : '#38bdf8';
+            strainCtx.fillText(`ε_s = ${state.strain_s.toFixed(4)}`, botX + 5, botY + 4);
+
+            // Neutral axis depth marker
+            strainCtx.strokeStyle = '#84cc16';
+            strainCtx.setLineDash([3, 3]);
+            strainCtx.beginPath();
+            strainCtx.moveTo(10, naY);
+            strainCtx.lineTo(w - 10, naY);
+            strainCtx.stroke();
+
+            strainCtx.restore();
+        }
+
+        function onAstInput(val) {
+            state.Ast = parseFloat(val);
+            soundEngine.playPluck(400 + state.Ast * 0.3);
+            calculateMechanics();
+        }
+
+        function onLoadInput(val) {
+            state.loadPct = parseFloat(val);
+            soundEngine.playPluck(300 + state.loadPct * 4);
+            calculateMechanics();
+        }
+
+        function setPreset(presetMode) {
+            if (presetMode === 'under') {
+                state.Ast = 650;
+                soundEngine.playModeTone(440);
+            } else if (presetMode === 'balanced') {
+                state.Ast = BEAM_PARAMS.Ast_bal;
+                soundEngine.playModeTone(660);
+            } else if (presetMode === 'over') {
+                state.Ast = 1850;
+                soundEngine.playModeTone(880);
+            }
+
+            document.getElementById('slider-ast').value = state.Ast;
+            calculateMechanics();
+            narrateCurrentState();
+        }
+
+        function toggleAudio() {
+            state.audioEnabled = !state.audioEnabled;
+            const btn = document.getElementById('btn-sound-toggle');
+            if (state.audioEnabled) {
+                btn.classList.remove('text-slate-500');
+                btn.classList.add('text-cyan-400');
+                soundEngine.init();
+                soundEngine.playPluck(800);
+            } else {
+                btn.classList.remove('text-cyan-400');
+                btn.classList.add('text-slate-500');
+            }
+        }
+
+        function narrateCurrentState() {
+            let text = "";
+            if (state.mode === 'under') {
+                text = "Under-reinforced beam. Steel yields first, providing a ductile failure with visible warning before concrete crushes.";
+            } else if (state.mode === 'balanced') {
+                text = "Balanced section. Concrete reaches maximum compressive strain at the exact same moment steel yields.";
+            } else {
+                text = "Warning: Over-reinforced section. The concrete reaches its ultimate strain before steel yields, leading to sudden brittle failure.";
+            }
+            speakText(text);
+        }
+
+        function resizeCanvases() {
+            const mainContainer = beamCanvas.parentElement;
+            beamCanvas.width = mainContainer.clientWidth;
+            beamCanvas.height = mainContainer.clientHeight || 380;
+
+            const strainContainer = strainCanvas.parentElement;
+            strainCanvas.width = strainContainer.clientWidth;
+            strainCanvas.height = strainContainer.clientHeight || 180;
+
+            calculateMechanics();
+        }
+
+        // Mouse Drag Handle for Load on Main Canvas
+        function initCanvasInteractions() {
+            let isDragging = false;
+
+            beamCanvas.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                soundEngine.init();
+            });
+
+            window.addEventListener('mouseup', () => { isDragging = false; });
+
+            beamCanvas.addEventListener('mousemove', (e) => {
+                if (!isDragging) return;
+                const rect = beamCanvas.getBoundingClientRect();
+                const mouseY = e.clientY - rect.top;
+                const pct = Math.max(0, Math.min(100, (mouseY / rect.height) * 150 - 20));
+                
+                state.loadPct = pct;
+                document.getElementById('slider-load').value = pct;
+                calculateMechanics();
+            });
+
+            // Touch events for mobile screens
+            beamCanvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    const rect = beamCanvas.getBoundingClientRect();
+                    const touchY = e.touches[0].clientY - rect.top;
+                    const pct = Math.max(0, Math.min(100, (touchY / rect.height) * 150 - 20));
+                    
+                    state.loadPct = pct;
+                    document.getElementById('slider-load').value = pct;
+                    calculateMechanics();
+                }
+            }, { passive: true });
+        }
+
+        function animate() {
+            state.animTime++;
+            renderBeamCanvas();
+            renderStrainCanvas();
+            requestAnimationFrame(animate);
+        }
+
+        window.onload = function() {
+            beamCanvas = document.getElementById('beamCanvas');
+            beamCtx = beamCanvas.getContext('2d');
+
+            strainCanvas = document.getElementById('strainCanvas');
+            strainCtx = strainCanvas.getContext('2d');
+
+            soundEngine = new SoundEngine();
+
+            // Initialize sound context on first click anywhere
+            document.body.addEventListener('click', () => { soundEngine.init(); }, { once: true });
+
+            window.addEventListener('resize', resizeCanvases);
+            resizeCanvases();
+            initCanvasInteractions();
+
+            // Start animation loop
+            animate();
+        };
+    </script>
+</body>
+</html>

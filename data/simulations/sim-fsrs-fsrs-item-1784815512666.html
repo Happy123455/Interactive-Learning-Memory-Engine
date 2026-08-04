@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>CONTRAST_STUDIO // ARCH-COMP-001</title>
+    <style>
+        :root { --bg: #0a0a0c; --ui: #1a1a20; --accent: #00f2ff; --text: #e0e0e0; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Segoe UI', monospace; display: flex; height: 100vh; overflow: hidden; }
+        #canvas-container { flex: 1; position: relative; cursor: crosshair; }
+        canvas { display: block; }
+        #ui-panel { width: 320px; background: var(--ui); border-left: 1px solid #333; padding: 20px; display: flex; flex-direction: column; gap: 20px; z-index: 10; }
+        .slider-group { display: flex; flex-direction: column; gap: 5px; }
+        input[type=range] { accent-color: var(--accent); }
+        .stats { font-size: 0.8em; color: var(--accent); }
+        #stress-report { height: 150px; background: #000; border: 1px solid var(--accent); padding: 10px; font-size: 11px; overflow-y: auto; }
+        button { background: transparent; color: var(--accent); border: 1px solid var(--accent); padding: 10px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: var(--accent); color: black; }
+    </style>
+</head>
+<body>
+
+<div id="canvas-container">
+    <canvas id="mainCanvas"></canvas>
+</div>
+
+<div id="ui-panel">
+    <h3>VISUAL TENSION ENGINE</h3>
+    <div class="slider-group">
+        <label>Scale Divergence</label>
+        <input type="range" id="sScale" min="0" max="10" step="0.1" value="1">
+    </div>
+    <div class="slider-group">
+        <label>Luminance Gradient</label>
+        <input type="range" id="sLum" min="0" max="10" step="0.1" value="1">
+    </div>
+    <div class="slider-group">
+        <label>Density Variance</label>
+        <input type="range" id="sTex" min="0" max="10" step="0.1" value="1">
+    </div>
+    <hr style="width:100%; border: 0; border-top: 1px solid #444;">
+    <label><input type="checkbox" id="tHeat" checked> Heatmap Overlay</label>
+    <label><input type="checkbox" id="tVec" checked> Vector Flow</label>
+    <div class="stats" id="balanceDisplay">Balance: 0.00</div>
+    <div id="stress-report">Select an object to inspect stress...</div>
+    <button onclick="exportState()">EXPORT COMPOSITION (JSON)</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+    let objects = [
+        {x: 200, y: 300, r: 40, lum: 50, tex: 1, id: 1},
+        {x: 600, y: 300, r: 40, lum: 50, tex: 1, id: 2}
+    ];
+    let selected = null;
+
+    function resize() {
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function draw() {
+        ctx.fillStyle = '#0a0a0c';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        const showHeat = document.getElementById('tHeat').checked;
+        const showVec = document.getElementById('tVec').checked;
+
+        // Calculations
+        const wS = parseFloat(document.getElementById('sScale').value);
+        const wL = parseFloat(document.getElementById('sLum').value);
+        const wT = parseFloat(document.getElementById('sTex').value);
+
+        objects.forEach(o => {
+            o.vp = (o.r * wS) + (o.lum * wL) + (o.tex * wT);
+            
+            if(showHeat) {
+                let grad = ctx.createRadialGradient(o.x, o.y, 0, o.x, o.y, o.r * 2);
+                grad.addColorStop(0, `rgba(255, 50, 50, ${o.vp/500})`);
+                grad.addColorStop(1, 'transparent');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0,0, canvas.width, canvas.height);
+            }
+
+            ctx.fillStyle = `hsl(0, 0%, ${o.lum}%)`;
+            ctx.beginPath();
+            ctx.arc(o.x, o.y, o.r, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        if(showVec) {
+            ctx.strokeStyle = 'rgba(0, 242, 255, 0.5)';
+            ctx.beginPath();
+            ctx.moveTo(objects[0].x, objects[0].y);
+            ctx.lineTo(objects[1].x, objects[1].y);
+            ctx.stroke();
+        }
+
+        const bal = objects[0].vp - objects[1].vp;
+        document.getElementById('balanceDisplay').innerText = `Balance: ${bal.toFixed(2)}`;
+        
+        requestAnimationFrame(draw);
+    }
+
+    canvas.addEventListener('mousedown', e => {
+        objects.forEach(o => {
+            if(Math.hypot(e.clientX - o.x, e.clientY - o.y) < o.r) {
+                selected = o;
+                const report = `OBJECT ${o.id} REPORT:\n- VP: ${o.vp.toFixed(2)}\n- Scale: ${o.r}\n- Lum: ${o.lum}%\n- Tex: ${o.tex}`;
+                document.getElementById('stress-report').innerText = report;
+                speechSynthesis.speak(new SpeechSynthesisUtterance("Object selected. High contrast detected."));
+            }
+        });
+    });
+
+    function exportState() {
+        const data = JSON.stringify(objects);
+        const blob = new Blob([data], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'composition.json'; a.click();
+    }
+
+    draw();
+</script>
+</body>
+</html>

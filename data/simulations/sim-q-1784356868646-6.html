@@ -1,0 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pavement Playground: Interactive Flexible Road Sandbox</title>
+  
+  <!-- Tailwind CSS CDN for layout efficiency -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Premium Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --neon-cyan: #00f0ff;
+      --neon-pink: #ff007f;
+      --neon-lime: #39ff14;
+      --neon-yellow: #ffe600;
+      --bg-dark: #0a0b10;
+      --glass-bg: rgba(18, 20, 32, 0.7);
+      --glass-border: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 10% 20%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
+        radial-gradient(at 90% 80%, rgba(255, 0, 127, 0.08) 0px, transparent 50%);
+      overflow: hidden;
+    }
+
+    .outfit {
+      font-family: 'Outfit', sans-serif;
+    }
+
+    /* Glassmorphism utility */
+    .glass-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    }
+
+    /* Custom neon text glows */
+    .glow-cyan { text-shadow: 0 0 10px rgba(0, 240, 255, 0.6); }
+    .glow-pink { text-shadow: 0 0 10px rgba(255, 0, 127, 0.6); }
+    .glow-lime { text-shadow: 0 0 10px rgba(57, 255, 20, 0.6); }
+
+    /* Custom slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+      height: 6px;
+      outline: none;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      box-shadow: 0 0 10px var(--neon-cyan);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Drag & Drop Neon Styles */
+    .draggable-card {
+      touch-action: none;
+      cursor: grab;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .draggable-card:active {
+      cursor: grabbing;
+      transform: scale(1.05);
+    }
+
+    .drop-target {
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .drop-target.drag-over {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: var(--neon-cyan);
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.4);
+    }
+    .drop-target.correct {
+      background: rgba(57, 255, 20, 0.15);
+      border-color: var(--neon-lime);
+      box-shadow: 0 0 20px rgba(57, 255, 20, 0.4);
+    }
+
+    /* Custom scrollbars for details panel */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between p-4 text-slate-100 select-none">
+
+  <!-- Header Panel -->
+  <header class="w-full glass-card rounded-2xl px-6 py-3 flex justify-between items-center z-10">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-pink-500 flex items-center justify-center font-bold text-xl outfit tracking-tighter text-white animate-pulse">
+        PP
+      </div>
+      <div>
+        <h1 class="text-xl font-bold outfit tracking-wide text-white flex items-center gap-2">
+          Pavement Playground <span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full border border-cyan-500/30 font-mono">ELI5 Sandbox</span>
+        </h1>
+        <p class="text-xs text-slate-400">Interactive Flexible Pavement Simulator &amp; Distress Visualizer</p>
+      </div>
+    </div>
+    
+    <!-- Realtime Indicator Board -->
+    <div class="flex items-center space-x-6 text-xs">
+      <div class="flex items-center space-x-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+        <span class="text-slate-400">System Status:</span>
+        <span class="text-cyan-400 font-mono font-bold uppercase tracking-wider">Simulation Ready</span>
+      </div>
+      <button onclick="resetSandbox()" class="px-4 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-lg font-semibold transition-all duration-300">
+        Reset Simulation
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Grid (Perfect 100vh confinement spacing) -->
+  <main class="w-full flex-grow my-4 grid grid-cols-12 gap-4 overflow-hidden h-[calc(100vh-140px)]">
+    
+    <!-- Left Column: Interactive Sandbox & Telemetry Graph (7 Cols) -->
+    <section class="col-span-8 flex flex-col space-y-4 h-full">
+      
+      <!-- Interactive Sandbox Viewport -->
+      <div class="relative flex-grow glass-card rounded-3xl overflow-hidden flex flex-col" id="canvasContainer">
+        <!-- Overlay Target Zones for Drag & Drop Game -->
+        <div id="dropzone-bleeding" data-distress="bleeding" class="drop-target absolute top-[12%] left-[25%] w-24 h-24 rounded-full border-2 border-dashed border-pink-500/40 bg-pink-500/5 flex flex-col items-center justify-center text-center p-2 z-10 cursor-default">
+          <span class="text-[10px] text-pink-400 font-bold uppercase tracking-widest leading-tight">Bleeding Target</span>
+          <span class="text-[9px] text-slate-500 mt-1">Chocolate Ooze</span>
+        </div>
+
+        <div id="dropzone-pothole" data-distress="pothole" class="drop-target absolute top-[28%] left-[70%] w-24 h-24 rounded-full border-2 border-dashed border-yellow-500/40 bg-yellow-500/5 flex flex-col items-center justify-center text-center p-2 z-10 cursor-default">
+          <span class="text-[10px] text-yellow-400 font-bold uppercase tracking-widest leading-tight">Pothole Target</span>
+          <span class="text-[9px] text-slate-500 mt-1">Cookie Crumbles</span>
+        </div>
+
+        <div id="dropzone-fatigue" data-distress="fatigue" class="drop-target absolute top-[48%] left-[45%] w-24 h-24 rounded-full border-2 border-dashed border-cyan-500/40 bg-cyan-500/5 flex flex-col items-center justify-center text-center p-2 z-10 cursor-default">
+          <span class="text-[10px] text-cyan-400 font-bold uppercase tracking-widest leading-tight">Fatigue Target</span>
+          <span class="text-[9px] text-slate-500 mt-1">Cracked Cookie</span>
+        </div>
+
+        <div id="dropzone-rutting" data-distress="rutting" class="drop-target absolute bottom-[12%] left-[30%] w-24 h-24 rounded-full border-2 border-dashed border-lime-500/40 bg-lime-500/5 flex flex-col items-center justify-center text-center p-2 z-10 cursor-default">
+          <span class="text-[10px] text-lime-400 font-bold uppercase tracking-widest leading-tight">Rutting Target</span>
+          <span class="text-[9px] text-slate-500 mt-1">Playdough Soil</span>
+        </div>
+
+        <!-- HTML5 Canvas -->
+        <canvas id="sandboxCanvas" class="w-full flex-grow block"></canvas>
+      </div>
+
+      <!-- Real-time Telemetry & Structural Graphs -->
+      <div class="h-36 glass-card rounded-2xl p-4 grid grid-cols-3 gap-4">
+        <!-- Telemetry Metrics -->
+        <div class="flex flex-col justify-between border-r border-slate-800 pr-4">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-widest">Structural Telemetry</h3>
+          <div class="grid grid-cols-2 gap-2 my-1">
+            <div>
+              <p class="text-[10px] text-slate-500">Peak Rut Depth</p>
+              <p id="metric-rut" class="text-lg font-bold font-mono text-lime-400">0.00 mm</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-500">Fatigue Index</p>
+              <p id="metric-fatigue" class="text-lg font-bold font-mono text-cyan-400">0.0 %</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-500">Asphalt Bleed Rate</p>
+              <p id="metric-bleed" class="text-lg font-bold font-mono text-pink-400">0.0 %</p>
+            </div>
+            <div>
+              <p class="text-[10px] text-slate-500">Water Damage</p>
+              <p id="metric-water" class="text-lg font-bold font-mono text-yellow-400">0.0 %</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Telemetry Graphs -->
+        <div class="col-span-2 flex flex-col justify-between">
+          <div class="flex justify-between items-center text-xs font-bold text-slate-400 tracking-wider">
+            <span>LIVE DISTRESS METRICS GRAPH (CUMULATIVE STRESS CYCLE)</span>
+            <span class="text-[10px] text-slate-500">X: Passes | Y: Severity</span>
+          </div>
+          <div class="relative w-full h-24 bg-black/40 rounded-lg border border-slate-800/80 overflow-hidden">
+            <svg id="telemetryGraph" class="w-full h-full" viewBox="0 0 400 100" preserveAspectRatio="none">
+              <!-- Grid lines -->
+              <line x1="0" y1="25" x2="400" y2="25" stroke="#1e293b" stroke-dasharray="2,2"/>
+              <line x1="0" y1="50" x2="400" y2="50" stroke="#1e293b" stroke-dasharray="2,2"/>
+              <line x1="0" y1="75" x2="400" y2="75" stroke="#1e293b" stroke-dasharray="2,2"/>
+              <!-- Live drawing paths -->
+              <path id="graph-path-rut" d="M 0 100" fill="none" stroke="#39ff14" stroke-width="2" class="transition-all duration-100"/>
+              <path id="graph-path-fatigue" d="M 0 100" fill="none" stroke="#00f0ff" stroke-width="2" class="transition-all duration-100"/>
+              <path id="graph-path-pothole" d="M 0 100" fill="none" stroke="#ffe600" stroke-width="2" class="transition-all duration-100"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Damage Controls, Audio Synth, Drag-&-Drop Challenge (4 Cols) -->
+    <section class="col-span-4 flex flex-col space-y-4 h-full overflow-hidden">
+      
+      <!-- Environmental & Structural Controls -->
+      <div class="glass-card rounded-2xl p-4 flex flex-col space-y-3">
+        <h2 class="text-sm font-bold tracking-wider text-slate-300 uppercase flex items-center justify-between">
+          <span>Damage Control Deck</span>
+          <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded border border-slate-700">Sandbox Variables</span>
+        </h2>
+        
+        <!-- Controls Grid -->
+        <div class="space-y-3">
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400 flex items-center gap-1">🚚 Truck Cargo Weight <span class="text-slate-600">(Squeezes Soil)</span></span>
+              <span id="label-load" class="font-bold text-lime-400 font-mono">50 Tons</span>
+            </div>
+            <input type="range" id="ctrl-load" min="10" max="100" value="50" class="w-full">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400 flex items-center gap-1">☀️ Sun Heat Temperature <span class="text-slate-600">(Melts Asphalt)</span></span>
+              <span id="label-heat" class="font-bold text-pink-400 font-mono">25°C</span>
+            </div>
+            <input type="range" id="ctrl-heat" min="0" max="60" value="25" class="w-full">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400 flex items-center gap-1">🌧️ Rain Intensity <span class="text-slate-600">(Fills Cracks)</span></span>
+              <span id="label-rain" class="font-bold text-cyan-400 font-mono">0 mm/h</span>
+            </div>
+            <input type="range" id="ctrl-rain" min="0" max="100" value="0" class="w-full">
+          </div>
+
+          <div>
+            <div class="flex justify-between text-xs mb-1">
+              <span class="text-slate-400 flex items-center gap-1">⚙️ Truck Drive Loop <span class="text-slate-600">(Repeats Passes)</span></span>
+              <span id="label-passes" class="font-bold text-yellow-400 font-mono">0 Passes</span>
+            </div>
+            <div class="flex items-center space-x-2 mt-1">
+              <button id="btn-autopass" onclick="toggleAutoDrive()" class="flex-grow py-1.5 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-lg text-xs font-semibold transition-all">
+                Auto-Drive Truck: OFF
+              </button>
+              <button onclick="triggerPass()" class="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-all">
+                Single Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playful Matcher & Quest Deck -->
+      <div class="glass-card rounded-2xl p-4 flex flex-col flex-grow min-h-0 overflow-hidden">
+        <div class="mb-2">
+          <h2 class="text-sm font-bold tracking-wider text-slate-300 uppercase flex items-center justify-between">
+            <span>ELI5 Concept Deck</span>
+            <span class="text-[10px] bg-slate-800 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/30">Drag to Active Zones</span>
+          </h2>
+          <p class="text-[11px] text-slate-400 mt-1">Drag each playful card onto its flashing highway matched distress target.</p>
+        </div>
+
+        <!-- Draggable Cards Container -->
+        <div class="grid grid-cols-2 gap-2 mb-3" id="cardsContainer">
+          <div id="card-rutting" draggable="true" data-distress="rutting" class="draggable-card glass-card rounded-xl p-2.5 border-l-4 border-l-lime-400 bg-lime-500/5 hover:bg-lime-500/10 flex flex-col justify-between">
+            <span class="text-xs font-bold text-lime-400 outfit leading-none">Rutting (Squeezed Playdough)</span>
+            <span class="text-[10px] text-slate-400 mt-1">Tires push soil out like playdough under fingers.</span>
+          </div>
+          <div id="card-fatigue" draggable="true" data-distress="fatigue" class="draggable-card glass-card rounded-xl p-2.5 border-l-4 border-l-cyan-400 bg-cyan-500/5 hover:bg-cyan-500/10 flex flex-col justify-between">
+            <span class="text-xs font-bold text-cyan-400 outfit leading-none">Fatigue (Cracked Cookie)</span>
+            <span class="text-[10px] text-slate-400 mt-1">Repeated bending breaks the structure bottom-up.</span>
+          </div>
+          <div id="card-bleeding" draggable="true" data-distress="bleeding" class="draggable-card glass-card rounded-xl p-2.5 border-l-4 border-l-pink-400 bg-pink-500/5 hover:bg-pink-500/10 flex flex-col justify-between">
+            <span class="text-xs font-bold text-pink-400 outfit leading-none">Bleeding (Melting Choc)</span>
+            <span class="text-[10px] text-slate-400 mt-1">The black glue melts and floats to the top.</span>
+          </div>
+          <div id="card-pothole" draggable="true" data-distress="pothole" class="draggable-card glass-card rounded-xl p-2.5 border-l-4 border-l-yellow-400 bg-yellow-500/5 hover:bg-yellow-500/10 flex flex-col justify-between">
+            <span class="text-xs font-bold text-yellow-400 outfit leading-none">Potholes (Pop-out Crumbs)</span>
+            <span class="text-[10px] text-slate-400 mt-1">Rain inside cracks causes the road to pop apart.</span>
+          </div>
+        </div>
+
+        <!-- Scrollable ELI5 Explanations & Audio Reader -->
+        <div class="flex-grow overflow-y-auto custom-scrollbar bg-black/20 rounded-xl p-3 border border-slate-800/80 text-xs space-y-3">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-1.5">
+            <span class="font-bold text-slate-400 uppercase tracking-widest text-[10px]">Playground Narrator</span>
+            <span class="text-[10px] text-slate-500">Web Audio Synth Linked</span>
+          </div>
+          
+          <div class="space-y-3" id="explanation-box">
+            <div class="border-l-2 border-slate-700 pl-2">
+              <p class="font-bold text-slate-300">How to Play:</p>
+              <p class="text-slate-400 mt-0.5 leading-relaxed">Turn up your speakers! Click "Auto-Drive Truck", crank up the sun heat and rain sliders, and watch the physical layers bend, deform, and break. Try dragging the cards onto the targeted spots.</p>
+            </div>
+          </div>
+          
+          <!-- Quick Speech Synth Playback Panel -->
+          <div class="pt-2 border-t border-slate-800 flex justify-between gap-1">
+            <button onclick="speakELI5('rutting')" class="flex-1 py-1 px-2 bg-lime-500/10 hover:bg-lime-500/20 text-lime-400 border border-lime-500/20 rounded text-[10px] font-bold uppercase transition">🔊 Playdough</button>
+            <button onclick="speakELI5('fatigue')" class="flex-1 py-1 px-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 rounded text-[10px] font-bold uppercase transition">🔊 Cookie</button>
+            <button onclick="speakELI5('bleeding')" class="flex-1 py-1 px-2 bg-pink-500/10 hover:bg-pink-500/20 text-pink-400 border border-pink-500/20 rounded text-[10px] font-bold uppercase transition">🔊 Chocolate</button>
+            <button onclick="speakELI5('pothole')" class="flex-1 py-1 px-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 border border-yellow-500/20 rounded text-[10px] font-bold uppercase transition">🔊 Crumbs</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Sandbox & Web Audio Scripting -->
+  <script>
+    // Canvas & Container Selection
+    const canvas = document.getElementById('sandboxCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvasContainer');
+
+    // Controls Selection
+    const loadSlider = document.getElementById('ctrl-load');
+    const heatSlider = document.getElementById('ctrl-heat');
+    const rainSlider = document.getElementById('ctrl-rain');
+    const labelLoad = document.getElementById('label-load');
+    const labelHeat = document.getElementById('label-heat');
+    const labelRain = document.getElementById('label-rain');
+    const labelPasses = document.getElementById('label-passes');
+
+    // Telemetry Paths & Metrics
+    const metricRut = document.getElementById('metric-rut');
+    const metricFatigue = document.getElementById('metric-fatigue');
+    const metricBleed = document.getElementById('metric-bleed');
+    const metricWater = document.getElementById('metric-water');
+    const pathRut = document.getElementById('graph-path-rut');
+    const pathFatigue = document.getElementById('graph-path-fatigue');
+    const pathPothole = document.getElementById('graph-path-pothole');
+
+    // Web Audio State
+    let audioCtx = null;
+    let engineOsc = null;
+    let engineGain = null;
+
+    // Simulation Physics State Variables
+    let width = 800;
+    let height = 400;
+    let autoDrive = false;
+    let passes = 0;
+    
+    // Truck Physical State
+    let truckX = 50; 
+    let truckSpeed = 2;
+    let truckDirection = 1;
+    let truckWeight = 50; // Metric Tons
+
+    // Structural Conditions & Damage Overlays
+    let rutDepth = 0; // accumulated permanent deformation (soil layer)
+    let dynamicDeflection = 0; // elastic deflection directly under tires
+    let fatigueDamage = 0; // bottom of binder cracking damage
+    let surfaceCrackDensity = 0; // surface cracking progress (pothole trigger)
+    let bleedingCoverage = 0; // bleeding asphalt accumulation
+    let waterInfiltration = 0; // subgrade/cracked layer water saturation
+    let potholeShattered = false; // complete chunk structural collapse
+    
+    // Dynamic Particle Systems
+    let droplets = []; // Raindrop particles
+    let splashes = []; // Rain splash particles
+    let bleedingDrops = []; // Rising bleeding binder particles
+    let debris = []; // Exploding asphalt structural crumble debris
+    let crackNodes = []; // Coordinates of fractal cracking paths
+    
+    // Historical Graph points
+    let telemetryHistory = [];
+
+    // ELI5 Quotes Map
+    const eli5Explanations = {
+      rutting: {
+        title: "Rutting (Squeezed Playdough)",
+        desc: "Watch! When the giant heavy truck drives over the road, it pushes way deep into the soft soil below. Because the dirt is squishy like playdough, it oozes out to the sides. This leaves deep ruts that fill with water and make cars wiggle!",
+        color: "text-lime-400"
+      },
+      fatigue: {
+        title: "Fatigue (Cracked Cookie)",
+        desc: "Imagine holding a chocolate chip cookie and bending it back and forth. Snap! It breaks. Every single time our heavy truck rolls over, it bends the asphalt layer until tiny micro-cracks form at the very bottom and crawl to the top like spiderwebs!",
+        color: "text-cyan-400"
+      },
+      bleeding: {
+        title: "Bleeding (Melting Chocolate)",
+        desc: "When the blazing hot sun shines directly onto the road, the gooey black tar is heated up until it melts. Like dark hot chocolate, it boils up to the surface. It gets shiny and super slippery, meaning cars lose their grip!",
+        color: "text-pink-400"
+      },
+      pothole: {
+        title: "Potholes (Pop-out Crumbs)",
+        desc: "This is a recipe for disaster! When rain falls into the cracks, and the giant truck tires stomp straight on top of it, the high water pressure blasts the asphalt blocks clean out! Boom! It leaves a massive hole in the ground with bouncing crumbs!",
+        color: "text-yellow-400"
+      }
+    };
+
+    // Initialize Audio Synthesis context upon first touch/interaction
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      
+      // Setup Engine Humming Synth
+      engineOsc = audioCtx.createOscillator();
+      engineGain = audioCtx.createGain();
+      
+      engineOsc.type = 'triangle';
+      engineOsc.frequency.setValueAtTime(60, audioCtx.currentTime); // Low engine rumbling base
+      engineGain.gain.setValueAtTime(0.02, audioCtx.currentTime); // Low background hum
+      
+      engineOsc.connect(engineGain);
+      engineGain.connect(audioCtx.destination);
+      engineOsc.start();
+    }
+
+    // Interactive audio hum change responsive to truck load/motion
+    function updateSynthSound() {
+      if (!audioCtx) return;
+      // Frequency adjusts with truck movement speed and load weight
+      let targetFreq = 40 + (truckWeight * 0.8) + (Math.abs(truckSpeed) * 10);
+      engineOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+      
+      // Engine hum volume boosts when truck is driving and active
+      let targetGain = autoDrive ? 0.05 + (truckWeight * 0.0005) : 0.02;
+      engineGain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+    }
+
+    // Play high pitch bell sound for drag and drop chime success
+    function playChime() {
+      if (!audioCtx) initAudio();
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5 note
+      osc.frequency.exponentialRampToValueAtTime(1046.50, audioCtx.currentTime + 0.15); // Sweep to C6
+      
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    // Speech Synthesis Narrator Engine
+    function speakELI5(distressType) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop running speakers
+        const msg = new SpeechSynthesisUtterance(eli5Explanations[distressType].desc);
+        msg.rate = 1.05;
+        msg.pitch = 1.2; // Playful, friendly cartoon pitch
+        window.speechSynthesis.speak(msg);
+
+        // Update the layout explaining panel
+        const panel = document.getElementById('explanation-box');
+        panel.innerHTML = `
+          <div class="border-l-2 border-pink-500 pl-2 animate-pulse">
+            <p class="font-bold uppercase tracking-wider text-[10px] text-pink-400">Speaker Audio Active</p>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold ${eli5Explanations[distressType].color} outfit">${eli5Explanations[distressType].title}</h3>
+            <p class="text-slate-300 mt-1 leading-relaxed text-xs">${eli5Explanations[distressType].desc}</p>
+          </div>
+        `;
+      }
+    }
+
+    // High-DPI responsive canvas scaling handler
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      width = rect.width;
+      height = rect.height;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    // Handle initial state setup
+    window.addEventListener('resize', resizeCanvas);
+    const resizeObserver = new ResizeObserver(() => resizeCanvas());
+    resizeObserver.observe(container);
+
+    // Initial load parameters and inputs
+    loadSlider.addEventListener('input', (e) => {
+      truckWeight = parseInt(e.target.value);
+      labelLoad.innerText = truckWeight + " Tons";
+      initAudio();
+    });
+
+    heatSlider.addEventListener('input', (e) => {
+      const heat = parseInt(e.target.value);
+      labelHeat.innerText = heat + "°C";
+      initAudio();
+    });
+
+    rainSlider.addEventListener('input', (e) => {
+      const rain = parseInt(e.target.value);
+      labelRain.innerText = rain + " mm/h";
+      initAudio();
+    });
+
+    // Handle physics loop reset
+    function resetSandbox() {
+      rutDepth = 0;
+      fatigueDamage = 0;
+      surfaceCrackDensity = 0;
+      bleedingCoverage = 0;
+      waterInfiltration = 0;
+      potholeShattered = false;
+      passes = 0;
+      labelPasses.innerText = "0 Passes";
+      droplets = [];
+      splashes = [];
+      bleedingDrops = [];
+      debris = [];
+      crackNodes = [];
+      telemetryHistory = [];
+      
+      // Reset targets indicators
+      document.querySelectorAll('.drop-target').forEach(target => {
+        target.classList.remove('correct', 'drag-over');
+      });
+
+      // Clear layout explanation panel
+      document.getElementById('explanation-box').innerHTML = `
+        <div class="border-l-2 border-slate-700 pl-2">
+          <p class="font-bold text-slate-300">Sandbox Reset Complete!</p>
+          <p class="text-slate-400 mt-0.5 leading-relaxed">Turn up your audio, slide the variables and drive the cargo truck across the highway.</p>
+        </div>
+      `;
+    }
+
+    function toggleAutoDrive() {
+      initAudio();
+      autoDrive = !autoDrive;
+      const btn = document.getElementById('btn-autopass');
+      if (autoDrive) {
+        btn.classList.add('bg-lime-500/20', 'text-lime-400', 'border-lime-500/40');
+        btn.classList.remove('bg-cyan-500/10', 'text-cyan-400', 'border-cyan-500/30');
+        btn.innerText = "Auto-Drive Truck: ON";
+      } else {
+        btn.classList.remove('bg-lime-500/20', 'text-lime-400', 'border-lime-500/40');
+        btn.classList.add('bg-cyan-500/10', 'text-cyan-400', 'border-cyan-500/30');
+        btn.innerText = "Auto-Drive Truck: OFF";
+      }
+    }
+
+    function triggerPass() {
+      initAudio();
+      passes++;
+      labelPasses.innerText = passes + " Passes";
+      calculateDamage();
+    }
+
+    // Physics Engine & Damage Calculations
+    function calculateDamage() {
+      // Rutting accumulates from load weight
+      const loadFactor = (truckWeight / 50.0);
+      rutDepth += (0.15 * loadFactor);
+      if (rutDepth > 45) rutDepth = 45; // cap display
+
+      // Fatigue cracks progress depending on repeating bending (passes) and load
+      fatigueDamage += (0.4 * loadFactor);
+      if (fatigueDamage > 100) fatigueDamage = 100;
+
+      // Surface Crack emergence starts when bottom fatigue cracking exceeds 40%
+      if (fatigueDamage > 40) {
+        surfaceCrackDensity = Math.min(100, surfaceCrackDensity + 0.8 * loadFactor);
+        // Build interactive crack coordinate node tree
+        if (crackNodes.length < 35 && Math.random() < 0.5) {
+          generateCrackNode();
+        }
+      }
+
+      // Bleeding Progress based on sun heat intensity
+      const heat = parseInt(heatSlider.value);
+      if (heat > 40) {
+        bleedingCoverage = Math.min(100, bleedingCoverage + (heat - 40) * 0.4);
+      }
+
+      // Potholes triggered if water is in cracked surface and heavy load drives directly over
+      const rain = parseInt(rainSlider.value);
+      if (rain > 10 && surfaceCrackDensity > 50) {
+        waterInfiltration = Math.min(100, waterInfiltration + (rain / 20));
+        
+        // Critical destruction trigger!
+        if (waterInfiltration > 30 && !potholeShattered && Math.random() < 0.4) {
+          triggerPotholeShatter();
+        }
+      }
+
+      // Update Telemetry Chart database points (keep max 100 entries)
+      if (telemetryHistory.length > 100) telemetryHistory.shift();
+      telemetryHistory.push({
+        passes: passes,
+        rut: rutDepth,
+        fatigue: fatigueDamage,
+        pothole: potholeShattered ? 100 : surfaceCrackDensity
+      });
+
+      renderTelemetryGraph();
+    }
+
+    // Generates a fractal crack crawling upwards from asphalt bottom
+    function generateCrackNode() {
+      // Coordinate parameters (relative base layout values)
+      const startX = width * 0.45 + (Math.random() - 0.5) * 120;
+      const startY = height * 0.52; // Bottom limit of Asphalt wearing course
+      
+      if (crackNodes.length === 0) {
+        crackNodes.push({ x: startX, y: startY, parentIdx: -1 });
+      } else {
+        // Select random existing node near the bottom to branch up
+        const parentIdx = Math.floor(Math.random() * crackNodes.length);
+        const pNode = crackNodes[parentIdx];
+        const nextY = pNode.y - (10 + Math.random() * 15);
+        const nextX = pNode.x + (Math.random() - 0.5) * 20;
+        
+        if (nextY > height * 0.28) { // Confine within asphalt boundary limits
+          crackNodes.push({ x: nextX, y: nextY, parentIdx: parentIdx });
+        }
+      }
+    }
+
+    // Explosion particles event turning asphalt chunks into physics debris
+    function triggerPotholeShatter() {
+      potholeShattered = true;
+      speakELI5('pothole');
+      
+      // Spark explosive crumbs
+      for (let i = 0; i < 45; i++) {
+        debris.push({
+          x: width * 0.70 + (Math.random() - 0.5) * 60,
+          y: height * 0.28 + (Math.random() - 0.5) * 15,
+          vx: (Math.random() - 0.5) * 10,
+          vy: - (5 + Math.random() * 10),
+          r: 3 + Math.random() * 5,
+          color: Math.random() > 0.5 ? '#1a202c' : '#4a5568',
+          rotation: Math.random() * Math.PI,
+          spinSpeed: (Math.random() - 0.5) * 0.2
+        });
+      }
+    }
+
+    // Main Interactive Sandbox Render Loop (Runs 60fps)
+    function draw() {
+      ctx.clearRect(0, 0, width, height);
+
+      // Environment & Background grid layers
+      ctx.fillStyle = '#0a0b10';
+      ctx.fillRect(0, 0, width, height);
+      
+      // Cyber Grid Lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.lineWidth = 1;
+      const gridSize = 25;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Live Calculations
+      updatePavementDeformation();
+      updateWeatherParticles();
+      updateBleedingParticles();
+      updateDebrisPhysics();
+
+      // Render Pavement layers
+      drawPavementLayers();
+
+      // Overlays: Cracks, Rain Drops, Bleed Liquid, Debris
+      drawCracks();
+      drawRainAndSplashes();
+      drawBleedingLiquid();
+      drawDebris();
+      drawStressVectorOverlay();
+
+      // Vehicle Rendering
+      drawTruck();
+
+      // UI Indicators text over canvas
+      drawVisualLabels();
+
+      // Recurrent continuous auto drive logic
+      if (autoDrive) {
+        truckX += truckSpeed * truckDirection;
+        if (truckX > width - 120 || truckX < 40) {
+          truckDirection *= -1; // bounce direction bounds
+          triggerPass();
+        }
+        updateSynthSound();
+      }
+
+      requestAnimationFrame(draw);
+    }
+
+    // Active deformation curve calculations
+    function updatePavementDeformation() {
+      // Dynamic elastic deflection under active vehicle location
+      let dist = Math.abs((width * 0.5) - truckX); // distance center
+      const currentTireX = truckX + 50; // wheel center positioning
+      
+      // Dynamic elastic drop (bounces up and down)
+      dynamicDeflection = 0;
+      if (autoDrive || Math.abs(currentTireX - width*0.5) < 300) {
+        const influence = Math.max(0, 1 - Math.abs(currentTireX - (width*0.5)) / 250);
+        dynamicDeflection = influence * (truckWeight * 0.15);
+      }
+    }
+
+    // Environmental weathering loops
+    function updateWeatherParticles() {
+      const rain = parseInt(rainSlider.value);
+      if (rain > 0 && Math.random() < (rain / 100)) {
+        // Spawn falling drop
+        droplets.push({
+          x: Math.random() * width,
+          y: -10,
+          speed: 8 + Math.random() * 6,
+          len: 12 + Math.random() * 8
+        });
+      }
+
+      // Update falling raindrop pathing
+      for (let i = droplets.length - 1; i >= 0; i--) {
+        const drop = droplets[i];
+        drop.y += drop.speed;
+        drop.x += (Math.sin(drop.y / 30) * 0.5); // sway falling wind simulation
+
+        // Surface boundary target collision
+        const surfaceY = height * 0.28 + (rutDepth * 0.3);
+        if (drop.y >= surfaceY) {
+          // Splash particle spawn
+          for (let s = 0; s < 3; s++) {
+            splashes.push({
+              x: drop.x,
+              y: surfaceY,
+              vx: (Math.random() - 0.5) * 4,
+              vy: - (1 + Math.random() * 3),
+              life: 1.0
+            });
+          }
+          droplets.splice(i, 1);
+        }
+      }
+
+      // Update Splashes life
+      for (let i = splashes.length - 1; i >= 0; i--) {
+        const splash = splashes[i];
+        splash.x += splash.vx;
+        splash.y += splash.vy;
+        splash.vy += 0.25; // gravity fall
+        splash.life -= 0.08;
+        if (splash.life <= 0) splashes.splice(i, 1);
+      }
+    }
+
+    // Bleeding tar bubble bubbles
+    function updateBleedingParticles() {
+      const heat = parseInt(heatSlider.value);
+      if (heat > 40 && Math.random() < 0.1) {
+        bleedingDrops.push({
+          x: width * 0.1 + Math.random() * (width * 0.8),
+          y: height * 0.45, // starts inside bottom asphalt binder course
+          speed: 0.3 + Math.random() * 0.5,
+          r: 2 + Math.random() * 4
+        });
+      }
+
+      for (let i = bleedingDrops.length - 1; i >= 0; i--) {
+        const drop = bleedingDrops[i];
+        drop.y -= drop.speed;
+        // Limit to pavement surface
+        const surfY = height * 0.28 + (rutDepth * 0.3);
+        if (drop.y <= surfY) {
+          bleedingDrops.splice(i, 1);
+          bleedingCoverage = Math.min(100, bleedingCoverage + 0.5);
+        }
+      }
+    }
+
+    // Crumble debris physical bounds calculations
+    function updateDebrisPhysics() {
+      const surfaceY = height * 0.28 + (rutDepth * 0.3);
+      for (let i = debris.length - 1; i >= 0; i--) {
+        const particle = debris[i];
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.vy += 0.4; // constant gravitational drop
+        particle.rotation += particle.spinSpeed;
+
+        // Bounce off bottom boundaries or ground layers
+        if (particle.y > height - 10) {
+          particle.y = height - 10;
+          particle.vy *= -0.5; // lose velocity energy
+          particle.vx *= 0.8;
+        }
+
+        // Despawn off-screen particles
+        if (particle.x < -20 || particle.x > width + 20) {
+          debris.splice(i, 1);
+        }
+      }
+    }
+
+    // Heavy duty flexible pavement layer paths drawing
+    function drawPavementLayers() {
+      const w = width;
+      const h = height;
+
+      // Realtime layer profile curves reflecting rutting depth & load stress bends
+      const getLayerY = (x, baseLineFraction, rutEffectScale) => {
+        // Find how close this point is to our permanent rut depression center
+        const rutCenter = w * 0.5;
+        const rutDist = Math.abs(x - rutCenter);
+        const rutBellCurve = Math.exp(-Math.pow(rutDist / 120, 2));
+        
+        // Elastic deflection under tire position
+        const tireX = truckX + 50;
+        const tireDist = Math.abs(x - tireX);
+        const elasticBellCurve = Math.exp(-Math.pow(tireDist / 110, 2));
+
+        const baseDef = h * baseLineFraction;
+        const permanentDepression = (rutDepth * rutEffectScale) * rutBellCurve;
+        const temporaryDeflection = (dynamicDeflection * rutEffectScale * 0.8) * elasticBellCurve;
+
+        return baseDef + permanentDepression + temporaryDeflection;
+      };
+
+      // Draw Subgrade Soil Layer (Bottom Earth Layer 4)
+      ctx.fillStyle = '#22150f'; // Earthy Deep Brown
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 10) {
+        ctx.lineTo(x, getLayerY(x, 0.72, 1.2));
+      }
+      ctx.lineTo(w, h);
+      ctx.closePath();
+      ctx.fill();
+
+      // Soil Layer Grains & Pebbles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.03)';
+      for (let i = 0; i < 30; i++) {
+        let px = (i * 27) % w;
+        let py = (h * 0.85) + ((i * 13) % (h * 0.12));
+        ctx.beginPath();
+        ctx.arc(px, py, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw Subbase Granular Gravel Layer (Layer 3)
+      ctx.fillStyle = '#3a332d'; // Granular Grey Brown
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 10) {
+        ctx.lineTo(x, getLayerY(x, 0.52, 1.0));
+      }
+      for (let x = w; x >= 0; x -= 10) {
+        ctx.lineTo(x, getLayerY(x, 0.72, 1.2));
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Subbase stones/aggregates detail drawings
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 40; i++) {
+        let sx = (i * 19) % w;
+        let sy = getLayerY(sx, 0.62, 1.1) + ((i * 7) % 25);
+        ctx.beginPath();
+        ctx.moveTo(sx, sy);
+        ctx.lineTo(sx + 4, sy - 3);
+        ctx.lineTo(sx + 8, sy);
+        ctx.closePath();
+        ctx.stroke();
+      }
+
+      // Draw Asphalt Base/Binder Course Layer (Layer 2)
+      ctx.fillStyle = '#1e222b'; // Dark Asphalt Grey
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 10) {
+        ctx.lineTo(x, getLayerY(x, 0.28, 0.6));
+      }
+      for (let x = w; x >= 0; x -= 10) {
+        ctx.lineTo(x, getLayerY(x, 0.52, 1.0));
+      }
+      ctx.closePath();
+      ctx.fill();
+
+      // Draw Wearing Seal Surface Course Layer (Layer 1)
+      ctx.fillStyle = '#111318'; // Charcoal Asphalt Black
+      ctx.beginPath();
+      ctx.moveTo(0, h);
+      for (let x = 0; x <= w; x += 10) {
+        // Render Pothole structural cavity drop cut
+        let baseHeight = getLayerY(x, 0.28, 0.6);
+        if (potholeShattered && x > w * 0.62 && x < w * 0.78) {
+          // Carve out visual pothole dip
+          const dipCenter = w * 0.70;
+          const dist = Math.abs(x - dipCenter);
+          const excavation = Math.max(0, 35 - (dist * 0.7));
+          baseHeight += excavation;
+        }
+        ctx.lineTo(x, baseHeight);
+      }
+      for (let x = w; x >= 0; x -= 10) {
+        ctx.lineTo(x, getLayerY(x, 0.38, 0.7));
+      }
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // Progressive bottom-up cracking renderer
+    function drawCracks() {
+      if (crackNodes.length === 0) return;
+      
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.8)';
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.5)';
+      ctx.shadowBlur = 4;
+      ctx.lineWidth = 1.5;
+      
+      crackNodes.forEach(node => {
+        if (node.parentIdx !== -1) {
+          const parent = crackNodes[node.parentIdx];
+          ctx.beginPath();
+          ctx.moveTo(parent.x, parent.y);
+          ctx.lineTo(node.x, node.y);
+          ctx.stroke();
+        }
+      });
+      
+      // Reset canvas glow overrides
+      ctx.shadowBlur = 0;
+    }
+
+    // Dynamic weather details drawer
+    function drawRainAndSplashes() {
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.lineWidth = 1.2;
+      droplets.forEach(drop => {
+        ctx.beginPath();
+        ctx.moveTo(drop.x, drop.y);
+        ctx.lineTo(drop.x + 1.5, drop.y + drop.len);
+        ctx.stroke();
+      });
+
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.6)';
+      splashes.forEach(splash => {
+        ctx.beginPath();
+        ctx.arc(splash.x, splash.y, 1.5, 0, Math.PI*2);
+        ctx.fill();
+      });
+    }
+
+    // Asphalt bleeding glossy liquid drawing
+    function drawBleedingLiquid() {
+      if (bleedingCoverage <= 0) return;
+
+      const surfY = height * 0.28 + (rutDepth * 0.3);
+      ctx.fillStyle = 'rgba(10, 10, 15, 0.95)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 0.5;
+
+      // Draw slippery fluid puddles across the middle road
+      const activeWidth = width * 0.6 * (bleedingCoverage / 100);
+      const startX = (width - activeWidth) * 0.5;
+
+      ctx.beginPath();
+      ctx.ellipse(width * 0.35, surfY + 1, activeWidth * 0.5, 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Render rising micro blobs
+      ctx.fillStyle = 'rgba(255, 0, 127, 0.6)';
+      bleedingDrops.forEach(drop => {
+        ctx.beginPath();
+        ctx.arc(drop.x, drop.y, drop.r, 0, Math.PI * 2);
+        ctx.fill();
+      });
+    }
+
+    // Explosion physics particles drawer
+    function drawDebris() {
+      debris.forEach(p => {
+        ctx.fillStyle = p.color;
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.rotation);
+        ctx.fillRect(-p.r, -p.r, p.r * 2, p.r * 2);
+        ctx.restore();
+      });
+    }
+
+    // Dynamic compressive & tensile stress-strain vectors visualizer
+    function drawStressVectorOverlay() {
+      const tireX = truckX + 50;
+      const surfY = height * 0.28 + (rutDepth * 0.3);
+      
+      // Only display stress vectors if truck is over canvas center
+      if (tireX > 60 && tireX < width - 100) {
+        // 1. Compressive Stress bulbs in Subgrade Soil (Layer 4)
+        ctx.strokeStyle = 'rgba(57, 255, 20, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        
+        for (let i = 1; i <= 3; i++) {
+          ctx.beginPath();
+          ctx.arc(tireX, surfY + 40, i * 25, 0, Math.PI);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+
+        // Vertical compressive forces arrow vectors
+        ctx.fillStyle = 'rgba(57, 255, 20, 0.7)';
+        ctx.strokeStyle = 'rgba(57, 255, 20, 0.7)';
+        ctx.lineWidth = 1.5;
+        
+        for (let offset = -40; offset <= 40; offset += 40) {
+          const startVecY = surfY + 80;
+          const arrowLength = 25 * (truckWeight / 50);
+          ctx.beginPath();
+          ctx.moveTo(tireX + offset, startVecY);
+          ctx.lineTo(tireX + offset, startVecY + arrowLength);
+          ctx.stroke();
+          
+          // Draw arrow tip
+          ctx.beginPath();
+          ctx.moveTo(tireX + offset - 4, startVecY + arrowLength - 4);
+          ctx.lineTo(tireX + offset, startVecY + arrowLength);
+          ctx.lineTo(tireX + offset + 4, startVecY + arrowLength - 4);
+          ctx.fill();
+        }
+
+        // 2. Tensile stress arrows at bottom of Asphalt Binder Layer 2 (Bending stretch forces)
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.7)';
+        ctx.fillStyle = 'rgba(255, 0, 127, 0.7)';
+        ctx.lineWidth = 2;
+        const flexBaseY = height * 0.50;
+
+        // Leftward tensile arrow
+        ctx.beginPath();
+        ctx.moveTo(tireX - 10, flexBaseY);
+        ctx.lineTo(tireX - 40, flexBaseY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(tireX - 36, flexBaseY - 4);
+        ctx.lineTo(tireX - 44, flexBaseY);
+        ctx.lineTo(tireX - 36, flexBaseY + 4);
+        ctx.fill();
+
+        // Rightward tensile arrow
+        ctx.beginPath();
+        ctx.moveTo(tireX + 10, flexBaseY);
+        ctx.lineTo(tireX + 40, flexBaseY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(tireX + 36, flexBaseY - 4);
+        ctx.lineTo(tireX + 44, flexBaseY);
+        ctx.lineTo(tireX + 36, flexBaseY + 4);
+        ctx.fill();
+      }
+    }
+
+    // Toy Truck Neon Drawing
+    function drawTruck() {
+      const surfY = height * 0.28 + (rutDepth * 0.3) + dynamicDeflection * 0.3;
+      
+      ctx.save();
+      ctx.translate(truckX, surfY - 45);
+
+      // Cabin / Chassis body
+      ctx.fillStyle = '#090d16';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+      ctx.lineWidth = 2.5;
+      
+      // Draw modern vector electric rig
+      ctx.beginPath();
+      ctx.moveTo(0, 30);
+      ctx.lineTo(60, 30);
+      ctx.lineTo(60, 0);
+      ctx.lineTo(95, 0);
+      ctx.lineTo(105, 12);
+      ctx.lineTo(105, 30);
+      ctx.lineTo(110, 30);
+      ctx.lineTo(110, 40);
+      ctx.lineTo(0, 40);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Glowing Cyan Windshield glass
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.25)';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(68, 5);
+      ctx.lineTo(85, 5);
+      ctx.lineTo(92, 14);
+      ctx.lineTo(68, 14);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Dynamic Payload blocks (heavier loads spawn more cargo stack blocks)
+      const blocksCount = Math.ceil(truckWeight / 20);
+      ctx.fillStyle = '#ff007f';
+      ctx.strokeStyle = '#ff007f';
+      for (let b = 0; b < blocksCount; b++) {
+        let blockX = 5 + (b * 12);
+        let blockY = 16;
+        ctx.fillRect(blockX, blockY, 10, 12);
+        ctx.strokeRect(blockX, blockY, 10, 12);
+      }
+
+      // Spinning Wheels
+      const spinAngle = (truckX / 10) % (Math.PI * 2);
+      drawWheel(18, 40, spinAngle);
+      drawWheel(48, 40, spinAngle);
+      drawWheel(88, 40, spinAngle);
+
+      ctx.restore();
+    }
+
+    function drawWheel(wx, wy, spinAngle) {
+      ctx.save();
+      ctx.translate(wx, wy);
+      ctx.rotate(spinAngle);
+
+      // Tire Outer Rim
+      ctx.fillStyle = '#11131a';
+      ctx.strokeStyle = '#39ff14';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(0, 0, 9, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Spokes/Crosshairs to capture rotation velocity visually
+      ctx.strokeStyle = '#39ff14';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(-9, 0); ctx.lineTo(9, 0);
+      ctx.moveTo(0, -9); ctx.lineTo(0, 9);
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // High contrast canvas text labels overlay
+    function drawVisualLabels() {
+      // Background label banner
+      const drawLabelBox = (text, tx, ty, fillCol, textCol) => {
+        ctx.font = 'bold 9px "Space Grotesk"';
+        const bounds = ctx.measureText(text);
+        
+        ctx.fillStyle = 'rgba(10, 11, 16, 0.85)';
+        ctx.fillRect(tx - 6, ty - 10, bounds.width + 12, 16);
+        ctx.strokeStyle = fillCol;
+        ctx.lineWidth = 1;
+        ctx.strokeRect(tx - 6, ty - 10, bounds.width + 12, 16);
+        
+        ctx.fillStyle = textCol;
+        ctx.fillText(text, tx, ty + 1);
+      };
+
+      // Surface wearing Course label (Layer 1)
+      drawLabelBox("ASPHALT WEARING COURSE", 15, height * 0.33, '#ff007f', '#ff007f');
+      
+      // Binder Course label (Layer 2)
+      drawLabelBox("ASPHALT BINDER/BASE COURSE", 15, height * 0.44, '#00f0ff', '#00f0ff');
+      
+      // Subbase label (Layer 3)
+      drawLabelBox("GRANULAR SUBBASE (GRAVEL)", 15, height * 0.60, '#cbd5e1', '#cbd5e1');
+
+      // Subgrade Soil label (Layer 4)
+      drawLabelBox("SUBGRADE SOIL LAYER", 15, height * 0.80, '#39ff14', '#39ff14');
+
+      // Static target overlays labeling help descriptors
+      drawLabelBox("Pothole Risk Zone", width * 0.64, height * 0.22, '#ffe600', '#ffe600');
+    }
+
+    // Live Telemetry SVGs updater
+    function renderTelemetryGraph() {
+      if (telemetryHistory.length === 0) return;
+
+      // Construct dynamic SVG coordinates representing historical distresses
+      let rutPoints = [];
+      let fatiguePoints = [];
+      let potholePoints = [];
+
+      const totalItems = telemetryHistory.length;
+      telemetryHistory.forEach((item, index) => {
+        let x = (index / (totalItems - 1)) * 400;
+        
+        // Scale values to graph limits (0 to 100 maps to 0 to 100 max)
+        // Y coord: 100 represents graph bottom, 0 represents graph top
+        let yRut = 100 - (item.rut * 2.2); // max 45 scaled to range
+        let yFatigue = 100 - item.fatigue;
+        let yPothole = 100 - item.pothole;
+
+        rutPoints.push(`${x},${yRut}`);
+        fatiguePoints.push(`${x},${yFatigue}`);
+        potholePoints.push(`${x},${yPothole}`);
+      });
+
+      pathRut.setAttribute('d', "M " + rutPoints.join(" L "));
+      pathFatigue.setAttribute('d', "M " + fatiguePoints.join(" L "));
+      pathPothole.setAttribute('d', "M " + potholePoints.join(" L "));
+
+      // Live Telemetry Values labels panel
+      metricRut.innerText = rutDepth.toFixed(2) + " mm";
+      metricFatigue.innerText = fatigueDamage.toFixed(1) + " %";
+      metricBleed.innerText = bleedingCoverage.toFixed(1) + " %";
+      metricWater.innerText = waterInfiltration.toFixed(1) + " %";
+    }
+
+
+    // Drag & Drop Matching Game Code
+    const draggableCards = document.querySelectorAll('.draggable-card');
+    const dropTargets = document.querySelectorAll('.drop-target');
+
+    draggableCards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        initAudio();
+        e.dataTransfer.setData('text/plain', card.dataset.distress);
+        card.classList.add('opacity-50');
+      });
+
+      card.addEventListener('dragend', () => {
+        card.classList.remove('opacity-50');
+      });
+    });
+
+    dropTargets.forEach(target => {
+      target.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (!target.classList.contains('correct')) {
+          target.classList.add('drag-over');
+        }
+      });
+
+      target.addEventListener('dragleave', () => {
+        target.classList.remove('drag-over');
+      });
+
+      target.addEventListener('drop', (e) => {
+        e.preventDefault();
+        target.classList.remove('drag-over');
+        
+        const droppedDistress = e.dataTransfer.getData('text/plain');
+        const expectedDistress = target.dataset.distress;
+
+        if (droppedDistress === expectedDistress) {
+          // Success Game Match
+          target.classList.add('correct');
+          
+          // Disable matching card
+          const card = document.getElementById(`card-${droppedDistress}`);
+          if (card) {
+            card.removeAttribute('draggable');
+            card.classList.add('opacity-40', 'cursor-not-allowed');
+            card.classList.remove('draggable-card');
+          }
+
+          // Dynamic feedback bells & verbal voice lines
+          playChime();
+          speakELI5(droppedDistress);
+        } else {
+          // Error shake matching card
+          target.classList.add('border-red-500', 'bg-red-500/10');
+          setTimeout(() => {
+            target.classList.remove('border-red-500', 'bg-red-500/10');
+          }, 600);
+        }
+      });
+    });
+
+    // Start Simulation visual render loops
+    resetSandbox();
+    draw();
+  </script>
+</body>
+</html>

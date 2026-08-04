@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RC Beams - Combined Bending & Torsion Simulator</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@400;500;700&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --bg-dark: #07080e;
+            --bg-card: rgba(13, 17, 28, 0.7);
+            --bg-card-hover: rgba(18, 23, 37, 0.85);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --border-glow: rgba(0, 243, 255, 0.15);
+            
+            --primary: #00f3ff;
+            --primary-glow: rgba(0, 243, 255, 0.4);
+            --secondary: #ff007f;
+            --secondary-glow: rgba(255, 0, 127, 0.4);
+            --accent: #ffaa00;
+            --accent-glow: rgba(255, 170, 0, 0.4);
+            --success: #39ff14;
+            --success-glow: rgba(57, 255, 20, 0.4);
+            --danger: #ff3131;
+            --danger-glow: rgba(255, 49, 49, 0.4);
+            
+            --text-main: #f0f4fc;
+            --text-muted: #8a99ad;
+            --font-sans: 'Plus Jakarta Sans', sans-serif;
+            --font-display: 'Space Grotesk', sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(0, 243, 255, 0.05) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(255, 0, 127, 0.05) 0px, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        /* App Layout Grid */
+        .app-container {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            grid-template-rows: auto 1fr;
+            grid-template-areas: 
+                "header header"
+                "sidebar main";
+            height: 100vh;
+            max-height: 100vh;
+            gap: 16px;
+            padding: 16px;
+        }
+
+        /* Glassmorphic Cards styling */
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(0, 243, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 243, 255, 0.05);
+        }
+
+        /* Header CSS */
+        header {
+            grid-area: header;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 24px;
+            height: 70px;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-display);
+            font-weight: bold;
+            color: var(--bg-dark);
+            box-shadow: 0 0 15px var(--primary-glow);
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: var(--font-display);
+        }
+
+        /* System Metrics in Header */
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--success);
+            box-shadow: 0 0 8px var(--success-glow);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.6; }
+        }
+
+        /* Sidebar Styling (Controls) */
+        .sidebar {
+            grid-area: sidebar;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            overflow-y: auto;
+            padding: 20px;
+            padding-bottom: 30px;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--primary);
+        }
+
+        .section-title {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-left: 3px solid var(--primary);
+            padding-left: 8px;
+        }
+
+        /* Control Group styling */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .control-value {
+            font-family: var(--font-mono);
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        /* Custom Slider Style */
+        .slider-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--primary-glow);
+            transition: transform 0.1s, background-color 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #fff;
+        }
+
+        /* Active styling for Torsional control group with magenta */
+        .torsion-group input[type="range"]::-webkit-slider-thumb {
+            background: var(--secondary);
+            box-shadow: 0 0 10px var(--secondary-glow);
+        }
+        .torsion-group .control-value {
+            color: var(--secondary);
+        }
+
+        /* Material buttons selectors */
+        .btn-group {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .selector-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 6px 0;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            font-weight: 500;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .selector-btn.active {
+            background: var(--primary);
+            color: var(--bg-dark);
+            font-weight: 700;
+            box-shadow: 0 0 8px var(--primary-glow);
+        }
+
+        /* Audio & Speech Controls */
+        .audio-controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .audio-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .audio-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.1);
+        }
+
+        .audio-btn.active {
+            background: rgba(0, 243, 255, 0.15);
+            border-color: var(--primary);
+            color: var(--primary);
+        }
+
+        /* Interactive Equations panel */
+        .equation-panel {
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .equation-title {
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+        }
+
+        .equation-step {
+            margin-bottom: 8px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+
+        .equation-step:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .math-expr {
+            color: var(--text-main);
+            display: block;
+            margin: 4px 0;
+            font-size: 0.8rem;
+        }
+
+        .math-highlight {
+            color: var(--primary);
+            font-weight: bold;
+        }
+        .math-highlight-alt {
+            color: var(--secondary);
+            font-weight: bold;
+        }
+
+        /* Main Display Area */
+        .main-viewport {
+            grid-area: main;
+            display: grid;
+            grid-template-rows: 1fr 220px;
+            gap: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            border-radius: 16px;
+        }
+
+        #simulationCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 50%, #101525 0%, #06070d 100%);
+            display: block;
+        }
+
+        /* Drag Overlay instruction */
+        .drag-tip {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--primary);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 0 15px var(--primary-glow);
+            pointer-events: none;
+            animation: bounce 2s infinite;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translate(-50%, 0); }
+            50% { transform: translate(-50%, -6px); }
+        }
+
+        /* Graphing Dashboard bottom panel */
+        .graph-dashboard {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 16px;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .graph-card {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .graph-wrapper {
+            position: relative;
+            flex: 1;
+            width: 100%;
+            min-height: 0;
+        }
+
+        #interactionGraph {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Dynamic Status Dashboard */
+        .status-card {
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .safety-badge {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--success);
+            color: var(--success);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+            font-family: var(--font-display);
+            font-weight: 700;
+            font-size: 1.1rem;
+            letter-spacing: 1px;
+            box-shadow: 0 0 15px rgba(57, 255, 20, 0.05);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+        }
+
+        .safety-badge.failure {
+            background: rgba(255, 49, 49, 0.1);
+            border: 1px solid var(--danger);
+            color: var(--danger);
+            box-shadow: 0 0 15px rgba(255, 49, 49, 0.15);
+            animation: borderPulse 1s infinite alternate;
+        }
+
+        @keyframes borderPulse {
+            from { border-color: rgba(255, 49, 49, 0.4); }
+            to { border-color: var(--danger); }
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.75rem;
+        }
+
+        .status-item {
+            background: rgba(255, 255, 255, 0.02);
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.04);
+        }
+
+        .status-item-lbl {
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .status-item-val {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        /* Instruction overlay/Speech text banner */
+        .narrator-bubble {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            max-width: 320px;
+            background: rgba(7, 8, 14, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: var(--text-main);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            pointer-events: none;
+            opacity: 0;
+            transform: translateY(-10px);
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 10;
+        }
+
+        .narrator-bubble.active {
+            opacity: 1;
+            transform: translateY(0);
+            border-color: var(--primary);
+        }
+
+        .narrator-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--primary);
+            font-family: var(--font-display);
+            font-weight: bold;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        /* Responsiveness adjustments */
+        @media (max-width: 1024px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr auto;
+                grid-template-areas: 
+                    "header"
+                    "sidebar"
+                    "main"
+                    "main";
+                height: auto;
+                max-height: none;
+                overflow: visible;
+            }
+            .sidebar {
+                height: auto;
+                overflow: visible;
+            }
+            .main-viewport {
+                height: 800px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <!-- 1. Header Area -->
+    <header class="glass-panel">
+        <div class="logo-container">
+            <div class="logo-icon">Ω</div>
+            <div>
+                <h1>RC Beam Diagnostics</h1>
+                <div class="subtitle">Bending & Torsion Interaction Laboratory</div>
+            </div>
+        </div>
+        <div class="system-status">
+            <div class="status-indicator">
+                <div class="status-dot"></div>
+                <span style="color: var(--text-muted); font-family: var(--font-mono);">SIM_ACTIVE v2.4</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- 2. Sidebar Left panel (Controls) -->
+    <aside class="sidebar glass-panel">
+        
+        <!-- Section: Structural Geometry -->
+        <div>
+            <div class="section-title">
+                <span>BEAM GEOMETRY</span>
+                <span style="color: var(--primary); font-size: 0.75rem;">(mm)</span>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Width (b)</span>
+                    <span class="control-value" id="val-b">300 mm</span>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="slide-b" min="250" max="450" step="10" value="300">
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Overall Depth (D)</span>
+                    <span class="control-value" id="val-D">500 mm</span>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="slide-D" min="400" max="700" step="10" value="500">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Concrete properties -->
+        <div class="control-group">
+            <div class="section-title">
+                <span>CONCRETE STRENGTH (fck)</span>
+                <span class="control-value" id="val-fck">M25</span>
+            </div>
+            <div class="btn-group" id="group-fck">
+                <button class="selector-btn" data-val="20">M20</button>
+                <button class="selector-btn active" data-val="25">M25</button>
+                <button class="selector-btn" data-val="30">M30</button>
+                <button class="selector-btn" data-val="35">M35</button>
+            </div>
+        </div>
+
+        <!-- Section: Dynamic Loading parameters -->
+        <div>
+            <div class="section-title">
+                <span>DESIGN FORCES</span>
+            </div>
+            
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Bending Moment (M<sub>u</sub>)</span>
+                    <span class="control-value" id="val-Mu">65 kNm</span>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="slide-Mu" min="0" max="150" step="5" value="65">
+                </div>
+            </div>
+
+            <div class="control-group torsion-group">
+                <div class="control-label">
+                    <span>Torsional Moment (T<sub>u</sub>)</span>
+                    <span class="control-value" id="val-Tu" style="color: var(--secondary);">30 kNm</span>
+                </div>
+                <div class="slider-container">
+                    <input type="range" id="slide-Tu" min="0" max="80" step="2" value="30">
+                </div>
+            </div>
+        </div>
+
+        <!-- Section: Interactive Live Equations -->
+        <div>
+            <div class="section-title">LIVE CALCULATIONS</div>
+            <div class="equation-panel">
+                <div class="equation-step">
+                    <div class="equation-title">1. Equivalent Bending Moment</div>
+                    <span class="math-expr">M<sub>e1</sub> = M<sub>u</sub> + M<sub>t</sub></span>
+                    <span class="math-expr">
+                        M<sub>t</sub> = T<sub>u</sub> [1 + (D/b)] / 1.7
+                    </span>
+                    <span class="math-expr" id="eq-Me" style="font-size:0.75rem; color: var(--primary);">
+                        M<sub>e1</sub> = <span class="math-highlight">65.0</span> + <span class="math-highlight-alt">47.1</span> = <span style="font-weight:bold;">112.1</span> kNm
+                    </span>
+                </div>
+                <div class="equation-step">
+                    <div class="equation-title">2. Equivalent Nominal Shear</div>
+                    <span class="math-expr">V<sub>e</sub> = V<sub>u</sub> + 1.6(T<sub>u</sub> / b)</span>
+                    <span class="math-expr" id="eq-Ve" style="font-size:0.75rem; color: var(--primary);">
+                        V<sub>e</sub> = 50.0 + 1.6(30.0 / 0.3) = <span style="font-weight:bold;">210.0</span> kN
+                    </span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio and Professor voice panel -->
+        <div>
+            <div class="section-title">INTELLIGENT TUTOR</div>
+            <div class="audio-controls">
+                <button class="audio-btn active" id="btn-audio-synth">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                    Audio Synth
+                </button>
+                <button class="audio-btn" id="btn-professor">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                    Narrate Step
+                </button>
+            </div>
+            <div class="audio-controls" style="margin-top: 8px;">
+                <button class="audio-btn" id="btn-tour" style="border-color: rgba(255, 0, 127, 0.2); color: var(--text-muted);">
+                    <div style="width: 8px; height: 8px; border-radius:50%; background: var(--secondary);" id="tour-dot"></div>
+                    Guided Tour Mode
+                </button>
+            </div>
+        </div>
+
+    </aside>
+
+    <!-- 3. Main content area (Visual canvas & Graph dashboard) -->
+    <main class="main-viewport">
+        
+        <!-- Viewport 1: 3D visual canvas of Concrete Beam -->
+        <div class="canvas-container glass-panel">
+            <canvas id="simulationCanvas"></canvas>
+            
+            <!-- Virtual bubble speech helper -->
+            <div class="narrator-bubble" id="tutor-bubble">
+                <div class="narrator-header">
+                    <span style="font-size:1.1rem; margin-right:4px;">👨‍🏫</span> Professor Spark
+                </div>
+                <div id="tutor-speech-text">Welcome! Adjust loading conditions to analyze dynamic stress states.</div>
+            </div>
+
+            <!-- Draggable indicator -->
+            <div class="drag-tip">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 9l-3 3 3 3M9 5l3-3 3 3M15 19l-3 3-3-3M19 9l3 3-3 3"></path></svg>
+                Drag point load along top span to redistribute shear
+            </div>
+        </div>
+
+        <!-- Viewport 2: Graphing & Status displays -->
+        <div class="graph-dashboard">
+            
+            <!-- Interaction Curve Graph -->
+            <div class="graph-card glass-panel">
+                <div class="section-title">
+                    <span>M-T STRESS LIMIT INTERACTION CURVE</span>
+                    <span style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--secondary);">M<sub>u</sub> / M<sub>ux</sub> + (T<sub>u</sub> / T<sub>ux</sub>)² = 1</span>
+                </div>
+                <div class="graph-wrapper">
+                    <canvas id="interactionGraph"></canvas>
+                </div>
+            </div>
+
+            <!-- Health diagnostics -->
+            <div class="status-card glass-panel">
+                <div>
+                    <div class="section-title" style="border-left-color: var(--secondary);">SAFETY AUDIT</div>
+                    <div class="safety-badge" id="safety-badge">SAFE LIMITS</div>
+                </div>
+                
+                <div class="status-grid">
+                    <div class="status-item">
+                        <div class="status-item-lbl">Max Shear Stress (&tau;<sub>c,max</sub>)</div>
+                        <div class="status-item-val" id="lbl-taumax" style="color: var(--primary);">3.1 MPa</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-item-lbl">Calculated stress (&tau;<sub>ve</sub>)</div>
+                        <div class="status-item-val" id="lbl-tauve" style="color: var(--secondary);">2.25 MPa</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-item-lbl">Stirrup Spacing (s<sub>v</sub>)</div>
+                        <div class="status-item-val" id="lbl-sv" style="color: var(--accent);">180 mm</div>
+                    </div>
+                    <div class="status-item">
+                        <div class="status-item-lbl">Min Longitudinal Steel</div>
+                        <div class="status-item-val" id="lbl-ast" style="color: var(--success);">4 - 16&phi; mm</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+</div>
+
+<script>
+    // -------------------------------------------------------------
+    // Global Constants / State Definition
+    // -------------------------------------------------------------
+    const STATE = {
+        // Geometry
+        b: 300,        // mm
+        D: 500,        // mm
+        d: 450,        // mm (Effective depth, calculated dynamically)
+        
+        // Materials
+        fck: 25,       // MPa
+        fy: 415,       // Rebar Yield Strength
+
+        // Loadings
+        Mu: 65,        // kNm
+        Tu: 30,        // kNm
+        Vu: 50,        // kN (Load at position modifies shear dynamically)
+        loadPos: 0.5,  // 0.0 to 1.0 along span (draggable)
+
+        // Math Outputs
+        Mt: 0,
+        Me1: 0,
+        Ve: 0,
+        tauMax: 0,
+        tauVe: 0,
+        sv: 150,
+        isSafe: true,
+
+        // Settings / Engine state
+        audioEnabled: true,
+        guidedTour: false,
+        tourStep: 0,
+        prevSafeState: true
+    };
+
+    // -------------------------------------------------------------
+    // Modern Vector-based Audio Synthesis Engine (Web Audio API)
+    // -------------------------------------------------------------
+    const AudioEngine = {
+        ctx: null,
+
+        init() {
+            if (this.ctx) return;
+            try {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn("Web Audio API not supported", e);
+            }
+        },
+
+        triggerClick() {
+            if (!STATE.audioEnabled || !this.ctx) return;
+            this.init();
+            
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.1);
+            
+            gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+            
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.1);
+        },
+
+        triggerWarning() {
+            if (!STATE.audioEnabled || !this.ctx) return;
+            this.init();
+
+            const osc = this.ctx.createOscillator();
+            const gain = this.ctx.createGain();
+            
+            osc.connect(gain);
+            gain.connect(this.ctx.destination);
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(140, this.ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(280, this.ctx.currentTime + 0.4);
+            
+            gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.45);
+            
+            osc.start();
+            osc.stop(this.ctx.currentTime + 0.5);
+        },
+
+        triggerChime() {
+            if (!STATE.audioEnabled || !this.ctx) return;
+            this.init();
+
+            const t = this.ctx.currentTime;
+            const chords = [261.63, 329.63, 392.00, 523.25]; // C major chord
+            
+            chords.forEach((freq, idx) => {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, t + idx * 0.08);
+                
+                gain.gain.setValueAtTime(0.08, t + idx * 0.08);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + idx * 0.08 + 0.6);
+                
+                osc.start(t + idx * 0.08);
+                osc.stop(t + idx * 0.08 + 0.6);
+            });
+        }
+    };
+
+    // -------------------------------------------------------------
+    // Live Diagnostics & Structural Mathematics
+    // -------------------------------------------------------------
+    function recalculateMechanics() {
+        // Effective depth assumption
+        STATE.d = STATE.D - 50; 
+        
+        // Variable dynamic shear based on drag-load position (Lethbridge standard)
+        // Load position affects the base shear force
+        STATE.Vu = Math.round(40 + Math.abs(STATE.loadPos - 0.5) * 60);
+
+        // MT calculation
+        STATE.Mt = STATE.Tu * (1 + (STATE.D / STATE.b)) / 1.7;
+        STATE.Me1 = STATE.Mu + STATE.Mt;
+
+        // Equivalent nominal shear calculation Ve
+        STATE.Ve = STATE.Vu + 1.6 * (STATE.Tu / (STATE.b / 1000.0));
+
+        // Max Shear Stress of concrete according to IS-456 standard lookups
+        STATE.tauMax = 0.62 * Math.sqrt(STATE.fck);
+
+        // Calculated combined nominal shear stress tau_ve
+        STATE.tauVe = (STATE.Ve * 1000.0) / (STATE.b * STATE.d);
+
+        // Required longitudinal reinforcement calculation (simplified design steel)
+        // Minimum longitudinal steel requirements
+        let astPct = (0.85 / STATE.fy) * 100;
+        let reqAst = (astPct / 100) * STATE.b * STATE.d;
+        let numBars = Math.max(4, Math.ceil(reqAst / (3.14159 * 8 * 8))); // using 16dia bars
+
+        // Stirrups Spacing Calculation
+        // Combining shear & torsion
+        let asv = 157; // 2-legged 10mm stirrups (A_sv = 157 mm^2)
+        let svTorsion = (asv * STATE.fy * STATE.d) / ((STATE.Tu * 1e6) / (STATE.b - 50) + (STATE.Ve * 1e3) / 2.5);
+        let maxAllowedSv = Math.min(300, 0.75 * STATE.d, STATE.b);
+        STATE.sv = Math.max(80, Math.min(maxAllowedSv, Math.round(svTorsion / 10) * 10));
+
+        // Interaction safety boundaries
+        // Parabolic safe envelope check
+        let mRatio = STATE.Mu / 140.0;
+        let tRatio = STATE.Tu / 65.0;
+        let interactionMetric = (mRatio * mRatio) + (tRatio * tRatio);
+
+        let previousSafe = STATE.isSafe;
+        STATE.isSafe = (STATE.tauVe <= STATE.tauMax) && (interactionMetric <= 1.25);
+
+        // State Transition sound triggers
+        if (previousSafe && !STATE.isSafe) {
+            AudioEngine.triggerWarning();
+        } else if (!previousSafe && STATE.isSafe) {
+            AudioEngine.triggerChime();
+        }
+
+        updateUIElements(numBars);
+    }
+
+    // -------------------------------------------------------------
+    // UI Synchronizers
+    // -------------------------------------------------------------
+    function updateUIElements(numBars) {
+        // Text updates
+        document.getElementById('val-b').innerText = `${STATE.b} mm`;
+        document.getElementById('val-D').innerText = `${STATE.D} mm`;
+        document.getElementById('val-Mu').innerText = `${STATE.Mu} kNm`;
+        document.getElementById('val-Tu').innerText = `${STATE.Tu} kNm`;
+        document.getElementById('val-fck').innerText = `M${STATE.fck}`;
+
+        // Calculations equations live-update
+        document.getElementById('eq-Me').innerHTML = `
+            M<sub>e1</sub> = <span class="math-highlight">${STATE.Mu.toFixed(1)}</span> + <span class="math-highlight-alt">${STATE.Mt.toFixed(1)}</span> = <strong>${STATE.Me1.toFixed(1)}</strong> kNm
+        `;
+        document.getElementById('eq-Ve').innerHTML = `
+            V<sub>e</sub> = ${STATE.Vu.toFixed(1)} + 1.6(${STATE.Tu.toFixed(1)} / ${(STATE.b/1000).toFixed(2)}) = <strong>${STATE.Ve.toFixed(1)}</strong> kN
+        `;
+
+        // Diagnostic panel values
+        document.getElementById('lbl-taumax').innerText = `${STATE.tauMax.toFixed(2)} MPa`;
+        document.getElementById('lbl-tauve').innerText = `${STATE.tauVe.toFixed(2)} MPa`;
+        document.getElementById('lbl-sv').innerText = `${STATE.sv} mm`;
+        document.getElementById('lbl-ast').innerText = `${numBars} - 16Φ mm`;
+
+        // Safety indicator styling update
+        const badge = document.getElementById('safety-badge');
+        if (STATE.isSafe) {
+            badge.innerText = "SAFE LIMITS";
+            badge.className = "safety-badge";
+        } else {
+            badge.innerText = "DANGER: CRITICAL UNBALANCE";
+            badge.className = "safety-badge failure";
+        }
+    }
+
+    // -------------------------------------------------------------
+    // Native TTS "Virtual Professor Spark"
+    // -------------------------------------------------------------
+    const Narrator = {
+        speechSynth: window.speechSynthesis,
+        isSpeaking: false,
+        
+        narrations: [
+            "We determine structural equivalence. Notice how increased torsional force triggers dynamic stirrup crowding.",
+            "As the Torsional moment increases, the shear stress increases rapidly. Dynamic spacing drops to compensate.",
+            "Check the parabolic stress limit. Red indicates high stress failure modes. Reduce loads or increase beam width.",
+            "Great balance. Concrete section is healthy, and the interactive operating point sits inside the interaction boundary."
+        ],
+
+        speak(text) {
+            if (!this.speechSynth) return;
+            this.speechSynth.cancel(); // kill existing speech
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.pitch = 1.05;
+            utterance.rate = 1.0;
+            
+            // Set voice (select a premium one if available)
+            const voices = this.speechSynth.getVoices();
+            const idealVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural"));
+            if (idealVoice) utterance.voice = idealVoice;
+
+            const bubble = document.getElementById('tutor-bubble');
+            const bubbleText = document.getElementById('tutor-speech-text');
+            
+            utterance.onstart = () => {
+                this.isSpeaking = true;
+                bubble.classList.add('active');
+                bubbleText.innerText = text;
+            };
+
+            utterance.onend = () => {
+                this.isSpeaking = false;
+                setTimeout(() => {
+                    if(!this.isSpeaking) bubble.classList.remove('active');
+                }, 4000);
+            };
+
+            this.speechSynth.speak(utterance);
+        },
+
+        narrateCurrentState() {
+            if (!STATE.isSafe) {
+                this.speak(this.narrations[2]);
+            } else if (STATE.Tu > 40) {
+                this.speak(this.narrations[1]);
+            } else if (STATE.Mu > 90) {
+                this.speak(this.narrations[0]);
+            } else {
+                this.speak(this.narrations[3]);
+            }
+        }
+    };
+
+    // -------------------------------------------------------------
+    // Master 2D Canvas Visualization Engine (Isometric Projection)
+    // -------------------------------------------------------------
+    const BeamRenderer = {
+        canvas: null,
+        ctx: null,
+        width: 0,
+        height: 0,
+        dragActive: false,
+
+        init() {
+            this.canvas = document.getElementById('simulationCanvas');
+            this.ctx = this.canvas.getContext('2d');
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+
+            this.setupInteractivity();
+        },
+
+        resize() {
+            const rect = this.canvas.parentElement.getBoundingClientRect();
+            this.canvas.width = rect.width * window.devicePixelRatio;
+            this.canvas.height = rect.height * window.devicePixelRatio;
+            this.width = rect.width;
+            this.height = rect.height;
+            this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        },
+
+        setupInteractivity() {
+            // Mouse/Touch load dragging along beam
+            const handleInteract = (clientX) => {
+                const rect = this.canvas.getBoundingClientRect();
+                const relativeX = clientX - rect.left;
+                
+                // Active draggable bounds (center 60% of the screen)
+                const startX = this.width * 0.25;
+                const endX = this.width * 0.75;
+                
+                if (relativeX >= startX - 20 && relativeX <= endX + 20) {
+                    const posNorm = (relativeX - startX) / (endX - startX);
+                    STATE.loadPos = Math.max(0.0, Math.min(1.0, posNorm));
+                    recalculateMechanics();
+                    AudioEngine.triggerClick();
+                }
+            };
+
+            this.canvas.addEventListener('mousedown', (e) => {
+                this.dragActive = true;
+                handleInteract(e.clientX);
+            });
+
+            this.canvas.addEventListener('mousemove', (e) => {
+                if (this.dragActive) handleInteract(e.clientX);
+            });
+
+            window.addEventListener('mouseup', () => {
+                this.dragActive = false;
+            });
+
+            // Touch support
+            this.canvas.addEventListener('touchstart', (e) => {
+                this.dragActive = true;
+                if (e.touches.length > 0) handleInteract(e.touches[0].clientX);
+            });
+
+            this.canvas.addEventListener('touchmove', (e) => {
+                if (this.dragActive && e.touches.length > 0) handleInteract(e.touches[0].clientX);
+            });
+
+            window.addEventListener('touchend', () => {
+                this.dragActive = false;
+            });
+        },
+
+        draw() {
+            this.ctx.clearRect(0, 0, this.width, this.height);
+            
+            // Draw premium grid background
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.015)';
+            this.ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < this.width; x += gridSize) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, 0);
+                this.ctx.lineTo(x, this.height);
+                this.ctx.stroke();
+            }
+            for (let y = 0; y < this.height; y += gridSize) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(0, y);
+                this.ctx.lineTo(this.width, y);
+                this.ctx.stroke();
+            }
+
+            // Isometric 3D Projection parameters
+            const originX = this.width * 0.15;
+            const originY = this.height * 0.55;
+            const beamLength = this.width * 0.6;
+            const scaleH = STATE.b * 0.35; // depth display scale
+            const scaleV = STATE.D * 0.35; // width display scale
+            
+            // Projection function
+            const project = (x, y, z) => {
+                // Iso projection matrix equations
+                return {
+                    x: originX + x + z * 0.5,
+                    y: originY - y + z * 0.25
+                };
+            };
+
+            // 1. Draw Concrete Beam (Translucent box)
+            const p0 = project(0, 0, 0);
+            const p1 = project(beamLength, 0, 0);
+            const p2 = project(beamLength, scaleV, 0);
+            const p3 = project(0, scaleV, 0);
+            const p4 = project(0, 0, scaleH);
+            const p5 = project(beamLength, 0, scaleH);
+            const p6 = project(beamLength, scaleV, scaleH);
+            const p7 = project(0, scaleV, scaleH);
+
+            // Set color based on failure state
+            const glowColor = STATE.isSafe ? '0, 243, 255' : '255, 49, 49';
+            const stressColor = STATE.isSafe ? 'rgba(0, 243, 255, 0.08)' : 'rgba(255, 49, 49, 0.15)';
+
+            // Draw concrete backfaces
+            this.ctx.strokeStyle = `rgba(${glowColor}, 0.15)`;
+            this.ctx.lineWidth = 1;
+            
+            this.ctx.beginPath();
+            this.ctx.moveTo(p4.x, p4.y); this.ctx.lineTo(p5.x, p5.y);
+            this.ctx.moveTo(p5.x, p5.y); this.ctx.lineTo(p6.x, p6.y);
+            this.ctx.moveTo(p6.x, p6.y); this.ctx.lineTo(p7.x, p7.y);
+            this.ctx.moveTo(p7.x, p7.y); this.ctx.lineTo(p4.x, p4.y);
+            this.ctx.stroke();
+
+            // Concrete body fill
+            this.ctx.fillStyle = stressColor;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p0.x, p0.y);
+            this.ctx.lineTo(p1.x, p1.y);
+            this.ctx.lineTo(p2.x, p2.y);
+            this.ctx.lineTo(p3.x, p3.y);
+            this.ctx.closePath();
+            this.ctx.fill();
+
+            // Top Concrete Panel Glass fill
+            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+            this.ctx.beginPath();
+            this.ctx.moveTo(p3.x, p3.y);
+            this.ctx.lineTo(p2.x, p2.y);
+            this.ctx.lineTo(p6.x, p6.y);
+            this.ctx.lineTo(p7.x, p7.y);
+            this.ctx.closePath();
+            this.ctx.fill();
+
+            // 2. Draw Longitudinal Reinforcement Bars
+            const drawRebar = (startZ, startY, endZ, endY, isTop = false) => {
+                const rStart = project(15, startY, startZ);
+                const rEnd = project(beamLength - 15, endY, endZ);
+                
+                this.ctx.lineWidth = isTop ? 3 : 5;
+                this.ctx.strokeStyle = isTop ? '#ffaa00' : '#00ff66';
+                this.ctx.shadowColor = isTop ? 'rgba(255, 170, 0, 0.5)' : 'rgba(0, 255, 102, 0.5)';
+                this.ctx.shadowBlur = 8;
+                
+                this.ctx.beginPath();
+                this.ctx.moveTo(rStart.x, rStart.y);
+                this.ctx.lineTo(rEnd.x, rEnd.y);
+                this.ctx.stroke();
+                
+                // Reset shadow
+                this.ctx.shadowBlur = 0;
+            };
+
+            // 4 main corner bars
+            drawRebar(15, 15, 15, 15, false); // Bottom left
+            drawRebar(scaleH - 15, 15, scaleH - 15, 15, false); // Bottom right
+            drawRebar(15, scaleV - 15, 15, scaleV - 15, true); // Top left
+            drawRebar(scaleH - 15, scaleV - 15, scaleH - 15, scaleV - 15, true); // Top right
+
+            // 3. Draw Closed Loop Stirrups
+            // Stirrup spacing affects visualization spacing
+            const stirrupDensityStep = Math.max(15, STATE.sv * 0.4); 
+            
+            this.ctx.strokeStyle = 'rgba(255, 0, 127, 0.7)';
+            this.ctx.shadowColor = 'rgba(255, 0, 127, 0.6)';
+            this.ctx.lineWidth = 2 + (80 / STATE.sv); // Stirrups thicken visually as spacing tightens
+            
+            for (let xOffset = 30; xOffset < beamLength - 30; xOffset += stirrupDensityStep) {
+                const s0 = project(xOffset, 12, 12);
+                const s1 = project(xOffset, 12, scaleH - 12);
+                const s2 = project(xOffset, scaleV - 12, scaleH - 12);
+                const s3 = project(xOffset, scaleV - 12, 12);
+
+                this.ctx.shadowBlur = 5;
+                this.ctx.beginPath();
+                this.ctx.moveTo(s0.x, s0.y);
+                this.ctx.lineTo(s1.x, s1.y);
+                this.ctx.lineTo(s2.x, s2.y);
+                this.ctx.lineTo(s3.x, s3.y);
+                this.ctx.closePath();
+                this.ctx.stroke();
+            }
+            this.ctx.shadowBlur = 0; // reset
+
+            // 4. Draw Outer Concrete Outline (Front faces)
+            this.ctx.strokeStyle = `rgba(${glowColor}, 0.8)`;
+            this.ctx.lineWidth = 1.5;
+            this.ctx.beginPath();
+            this.ctx.moveTo(p0.x, p0.y); this.ctx.lineTo(p1.x, p1.y);
+            this.ctx.lineTo(p2.x, p2.y); this.ctx.lineTo(p3.x, p3.y);
+            this.ctx.lineTo(p0.x, p0.y);
+            this.ctx.lineTo(p4.x, p4.y);
+            this.ctx.moveTo(p1.x, p1.y); this.ctx.lineTo(p5.x, p5.y);
+            this.ctx.moveTo(p2.x, p2.y); this.ctx.lineTo(p6.x, p6.y);
+            this.ctx.moveTo(p3.x, p3.y); this.ctx.lineTo(p7.x, p7.y);
+            this.ctx.stroke();
+
+            // 5. Draw Dynamic Vectors/Load Force
+            const loadX = originX + (beamLength * STATE.loadPos);
+            const loadY = originY - scaleV - 40;
+
+            // Draggable Load Node
+            this.ctx.fillStyle = 'var(--accent)';
+            this.ctx.shadowColor = 'var(--accent-glow)';
+            this.ctx.shadowBlur = 10;
+            this.ctx.beginPath();
+            this.ctx.arc(loadX, loadY, 8, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.shadowBlur = 0;
+
+            // Load arrow line
+            this.ctx.strokeStyle = 'var(--accent)';
+            this.ctx.lineWidth = 3;
+            this.ctx.beginPath();
+            this.ctx.moveTo(loadX, loadY);
+            this.ctx.lineTo(loadX, loadY + 30);
+            this.ctx.stroke();
+            
+            // Arrow head
+            this.ctx.beginPath();
+            this.ctx.moveTo(loadX - 6, loadY + 24);
+            this.ctx.lineTo(loadX, loadY + 31);
+            this.ctx.lineTo(loadX + 6, loadY + 24);
+            this.ctx.stroke();
+
+            // Double Headed Bending Vector Arc
+            const bendingOffset = 25;
+            const bendRadius = Math.min(30, 10 + STATE.Mu * 0.3);
+            this.ctx.strokeStyle = 'var(--primary)';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.beginPath();
+            this.ctx.arc(originX - bendingOffset, originY - scaleV*0.5, bendRadius, -Math.PI*0.5, Math.PI*0.8);
+            this.ctx.stroke();
+            
+            // Draw mini-text
+            this.ctx.fillStyle = 'var(--text-main)';
+            this.ctx.font = 'bold 10px Space Grotesk';
+            this.ctx.fillText(`Mu: ${STATE.Mu} kNm`, originX - bendingOffset - 25, originY - scaleV*0.5 - bendRadius - 5);
+
+            // Dynamic Torsion Vector Ring wrapping beam width
+            const torsionX = originX + beamLength * 0.5;
+            const torsionY = originY - scaleV * 0.5 + 40;
+            const tRadiusW = scaleH * 0.6;
+            const tRadiusH = scaleV * 0.4;
+            
+            this.ctx.strokeStyle = 'var(--secondary)';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.beginPath();
+            this.ctx.ellipse(torsionX, torsionY, tRadiusW, tRadiusH, Math.PI * 0.125, 0.2 * Math.PI, 1.8 * Math.PI);
+            this.ctx.stroke();
+            
+            // Arrow head on ellipse
+            this.ctx.fillStyle = 'var(--secondary)';
+            this.ctx.beginPath();
+            this.ctx.arc(torsionX + tRadiusW * 0.8, torsionY + tRadiusH * 0.3, 4, 0, Math.PI * 2);
+            this.ctx.fill();
+
+            this.ctx.fillText(`Tu: ${STATE.Tu} kNm`, torsionX - 25, torsionY - tRadiusH - 8);
+        }
+    };
+
+    // -------------------------------------------------------------
+    // Real-time Graphing Engine (Interactive Envelope Chart)
+    // -------------------------------------------------------------
+    const ChartEngine = {
+        canvas: null,
+        ctx: null,
+        width: 0,
+        height: 0,
+
+        init() {
+            this.canvas = document.getElementById('interactionGraph');
+            this.ctx = this.canvas.getContext('2d');
+            this.resize();
+            window.addEventListener('resize', () => this.resize());
+        },
+
+        resize() {
+            const rect = this.canvas.parentElement.getBoundingClientRect();
+            this.canvas.width = rect.width * window.devicePixelRatio;
+            this.canvas.height = rect.height * window.devicePixelRatio;
+            this.width = rect.width;
+            this.height = rect.height;
+            this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        },
+
+        draw() {
+            this.ctx.clearRect(0, 0, this.width, this.height);
+
+            const marginX = 40;
+            const marginY = 30;
+            const graphW = this.width - marginX - 20;
+            const graphH = this.height - marginY - 15;
+
+            // 1. Draw Axis lines
+            this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            this.ctx.lineWidth = 1;
+            this.ctx.beginPath();
+            this.ctx.moveTo(marginX, marginY);
+            this.ctx.lineTo(marginX, marginY + graphH);
+            this.ctx.lineTo(marginX + graphW, marginY + graphH);
+            this.ctx.stroke();
+
+            // Axis labels text
+            this.ctx.fillStyle = 'var(--text-muted)';
+            this.ctx.font = '500 9px Fira Code';
+            this.ctx.fillText('0', marginX - 10, marginY + graphH + 10);
+            this.ctx.fillText('Tu (kNm)', marginX + graphW - 50, marginY + graphH + 12);
+            
+            this.ctx.save();
+            this.ctx.translate(marginX - 15, marginY + 45);
+            this.ctx.rotate(-Math.PI / 2);
+            this.ctx.fillText('Mu (kNm)', 0, 0);
+            this.ctx.restore();
+
+            // Limits of Graph: Tu (0 to 100), Mu (0 to 200)
+            const mapCoords = (t, m) => {
+                const x = marginX + (t / 100) * graphW;
+                const y = marginY + graphH - (m / 200) * graphH;
+                return { x, y };
+            };
+
+            // 2. Plot Dynamic safe boundary limit interaction curve
+            // Formula: (Mu/Mux)^2 + (Tu/Tux)^2 <= 1.25
+            this.ctx.strokeStyle = 'rgba(0, 243, 255, 0.35)';
+            this.ctx.lineWidth = 2.5;
+            this.ctx.beginPath();
+            
+            for (let t = 0; t <= 100; t += 2) {
+                // Calculate max allowable Mu for given Tu under standard envelope formula
+                const term = 1.25 - Math.pow(t / 65.0, 2);
+                let maxM = 0;
+                if (term > 0) {
+                    maxM = 140.0 * Math.sqrt(term);
+                }
+                const pt = mapCoords(t, maxM);
+                if (t === 0) {
+                    this.ctx.moveTo(pt.x, pt.y);
+                } else {
+                    this.ctx.lineTo(pt.x, pt.y);
+                }
+            }
+            this.ctx.stroke();
+
+            // Draw shadow envelope zone
+            this.ctx.fillStyle = 'rgba(0, 243, 255, 0.02)';
+            this.ctx.lineTo(marginX + graphW, marginY + graphH);
+            this.ctx.lineTo(marginX, marginY + graphH);
+            this.ctx.fill();
+
+            // Plot Operating Point
+            const activePt = mapCoords(STATE.Tu, STATE.Mu);
+            const stateColor = STATE.isSafe ? 'var(--primary)' : 'var(--danger)';
+            const shadowColor = STATE.isSafe ? 'var(--primary-glow)' : 'var(--danger-glow)';
+
+            this.ctx.shadowColor = shadowColor;
+            this.ctx.shadowBlur = 12;
+            this.ctx.fillStyle = stateColor;
+            this.ctx.beginPath();
+            this.ctx.arc(activePt.x, activePt.y, 6, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.shadowBlur = 0;
+
+            // Coordinates text overlay
+            this.ctx.fillStyle = '#fff';
+            this.ctx.font = 'bold 9px Space Grotesk';
+            this.ctx.fillText(`Current [${STATE.Tu}, ${STATE.Mu}]`, activePt.x + 10, activePt.y - 4);
+        }
+    };
+
+    // -------------------------------------------------------------
+    // App Initialization & Orchestrator Event Hookups
+    // -------------------------------------------------------------
+    function initApp() {
+        recalculateMechanics();
+        BeamRenderer.init();
+        ChartEngine.init();
+
+        // 1. Slider Event binding
+        const bindSlider = (id, stateKey, displaySuffix = '') => {
+            const input = document.getElementById(id);
+            input.addEventListener('input', (e) => {
+                STATE[stateKey] = parseFloat(e.target.value);
+                recalculateMechanics();
+                AudioEngine.triggerClick();
+            });
+        };
+
+        bindSlider('slide-b', 'b', ' mm');
+        bindSlider('slide-D', 'D', ' mm');
+        bindSlider('slide-Mu', 'Mu', ' kNm');
+        bindSlider('slide-Tu', 'Tu', ' kNm');
+
+        // 2. Concrete Selection Buttons binding
+        const fckButtons = document.querySelectorAll('#group-fck .selector-btn');
+        fckButtons.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                fckButtons.forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                STATE.fck = parseInt(e.target.dataset.val);
+                recalculateMechanics();
+                AudioEngine.triggerChime();
+            });
+        });
+
+        // 3. Synth Audio toggle
+        const synthBtn = document.getElementById('btn-audio-synth');
+        synthBtn.addEventListener('click', () => {
+            STATE.audioEnabled = !STATE.audioEnabled;
+            synthBtn.classList.toggle('active', STATE.audioEnabled);
+            if (STATE.audioEnabled) AudioEngine.triggerChime();
+        });
+
+        // 4. Professor Audio Click
+        document.getElementById('btn-professor').addEventListener('click', () => {
+            AudioEngine.init();
+            Narrator.narrateCurrentState();
+        });
+
+        // 5. Guided Tour feature
+        const tourBtn = document.getElementById('btn-tour');
+        tourBtn.addEventListener('click', () => {
+            STATE.guidedTour = !STATE.guidedTour;
+            tourBtn.classList.toggle('active', STATE.guidedTour);
+            
+            if (STATE.guidedTour) {
+                document.getElementById('tour-dot').style.background = 'var(--success)';
+                Narrator.speak("Initiating Guided Tour Mode. Move the loading parameters sliders to study dynamic torsion stresses.");
+            } else {
+                document.getElementById('tour-dot').style.background = 'var(--secondary)';
+            }
+        });
+
+        // Loop animation draw loops
+        function loop() {
+            BeamRenderer.draw();
+            ChartEngine.draw();
+            requestAnimationFrame(loop);
+        }
+        loop();
+    }
+
+    // Launch!
+    window.onload = initApp;
+</script>
+
+</body>
+</html>

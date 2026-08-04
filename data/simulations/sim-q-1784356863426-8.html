@@ -1,0 +1,1106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pavement Engineering: Flexible Pavement Design Studio</title>
+  
+  <!-- Tailwind CSS CDN for utility classes -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Orbitron for tech elements, Inter for body -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;600;800;900&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Orbitron', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              obsidian: '#07080d',
+              glass: 'rgba(15, 20, 35, 0.7)',
+              cyan: '#00f0ff',
+              amber: '#ffb703',
+              green: '#39ff14',
+              pink: '#ff007f',
+              border: 'rgba(0, 240, 255, 0.15)',
+              borderActive: 'rgba(0, 240, 255, 0.6)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Premium custom styles override standard scrollbars & add styling details */
+    body {
+      background-color: #07080d;
+      color: #f1f5f9;
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 20, 35, 0.3);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.6);
+    }
+
+    /* Glassmorphism utility */
+    .glass-panel {
+      background: rgba(15, 22, 42, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 240, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .neon-text-cyan {
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+    }
+    .neon-text-amber {
+      text-shadow: 0 0 8px rgba(255, 183, 3, 0.6);
+    }
+
+    /* Draggable chip visual effect */
+    .draggable-chip {
+      cursor: grab;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .draggable-chip:active {
+      cursor: grabbing;
+      transform: scale(0.95);
+    }
+
+    /* Pulse animations for dropzones */
+    @keyframes pulse-cyan {
+      0%, 100% { border-color: rgba(0, 240, 255, 0.2); box-shadow: 0 0 0 0 rgba(0, 240, 255, 0); }
+      50% { border-color: rgba(0, 240, 255, 0.8); box-shadow: 0 0 12px 2px rgba(0, 240, 255, 0.3); }
+    }
+    .pulse-target {
+      animation: pulse-cyan 2s infinite;
+    }
+
+    /* Tooltip styling */
+    .tooltip {
+      visibility: hidden;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .tooltip-trigger:hover .tooltip {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body class="w-screen h-screen flex flex-col justify-between overflow-hidden text-slate-100 select-none">
+
+  <!-- TOP HUB HEADER -->
+  <header class="w-full h-16 border-b border-cyber-border glass-panel flex items-center justify-between px-6 z-50">
+    <div class="flex items-center space-x-3">
+      <div class="w-3 h-3 bg-cyber-cyan rounded-full animate-ping"></div>
+      <span class="font-mono text-xs tracking-widest text-slate-400">PROJECT CORE:</span>
+      <h1 class="font-mono text-lg font-bold bg-gradient-to-r from-cyber-cyan to-white bg-clip-text text-transparent">
+        FLEX-PAVE STUDIO v4.1
+      </h1>
+    </div>
+
+    <!-- Active Parameter States -->
+    <div class="hidden lg:flex items-center space-x-6 text-xs font-mono">
+      <div class="flex items-center space-x-2 border-r border-slate-800 pr-6">
+        <span class="text-slate-400">SUBGRADE CBR:</span>
+        <span id="header-cbr" class="text-cyber-cyan font-bold">5.0%</span>
+      </div>
+      <div class="flex items-center space-x-2 border-r border-slate-800 pr-6">
+        <span class="text-slate-400">DESIGN TRAFFIC:</span>
+        <span id="header-traffic" class="text-cyber-amber font-bold">150 msa</span>
+      </div>
+      <div class="flex items-center space-x-2">
+        <span class="text-slate-400">STRESS INTENSITY:</span>
+        <span id="header-stress" class="text-red-400 font-bold">OPTIMAL</span>
+      </div>
+    </div>
+
+    <!-- Interface Utilities -->
+    <div class="flex items-center space-x-4">
+      <button id="audio-toggle" class="p-2 border border-cyber-border rounded hover:bg-slate-800 transition duration-150 flex items-center justify-center" title="Toggle Sound Engine">
+        <svg id="audio-icon" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyber-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+        </svg>
+      </button>
+      <button id="trigger-speech" class="p-2 border border-cyber-border rounded hover:bg-slate-800 transition duration-150 flex items-center justify-center" title="Narrate Design State">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-cyber-cyan" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+        </svg>
+      </button>
+      <button id="btn-reset" class="px-3 py-1 text-xs font-mono font-bold text-cyber-obsidian bg-cyber-cyan hover:bg-white rounded transition duration-200">
+        RESET CORE
+      </button>
+    </div>
+  </header>
+
+  <!-- WORKSPACE WRAPPER -->
+  <div class="flex-grow w-full flex overflow-hidden">
+
+    <!-- LEFT PANEL: MISSION CONTROL (30% WIDTH) -->
+    <aside class="w-[32%] h-full border-r border-cyber-border flex flex-col justify-between overflow-y-auto glass-panel p-4 space-y-4">
+      
+      <!-- Interactive Problem Checklist & Objectives -->
+      <section class="border border-cyber-border rounded p-3 bg-slate-900/60">
+        <h2 class="text-xs font-mono tracking-widest text-cyber-cyan uppercase mb-2 flex justify-between">
+          <span>Problem Analysis</span>
+          <span class="text-[10px] text-slate-400">Interactive Setup</span>
+        </h2>
+        <p class="text-xs text-slate-300 leading-relaxed mb-3">
+          Explain structural dynamic responses of flexible multi-layered pavement systems. Identify factors below to analyze dynamic reactions:
+        </p>
+        
+        <!-- Checklist items with state updating -->
+        <div class="space-y-2">
+          <div id="check-traffic" onclick="toggleAnalysisCheck('traffic')" class="flex items-center justify-between p-2 rounded border border-slate-800 hover:border-cyber-cyan/50 bg-slate-950/80 cursor-pointer transition">
+            <div class="flex items-center space-x-2">
+              <div class="check-box w-4 h-4 border border-cyber-cyan rounded flex items-center justify-center text-[10px] text-cyber-cyan"></div>
+              <span class="text-xs text-slate-300 font-medium">Design Traffic loading & Axle configurations</span>
+            </div>
+            <span class="status-badge font-mono text-[10px] text-cyber-amber px-1.5 py-0.5 rounded bg-amber-500/10">PENDING</span>
+          </div>
+
+          <div id="check-subgrade" onclick="toggleAnalysisCheck('subgrade')" class="flex items-center justify-between p-2 rounded border border-slate-800 hover:border-cyber-cyan/50 bg-slate-950/80 cursor-pointer transition">
+            <div class="flex items-center space-x-2">
+              <div class="check-box w-4 h-4 border border-cyber-cyan rounded flex items-center justify-center text-[10px] text-cyber-cyan"></div>
+              <span class="text-xs text-slate-300 font-medium">Subgrade Soil Support (CBR Parameter)</span>
+            </div>
+            <span class="status-badge font-mono text-[10px] text-cyber-amber px-1.5 py-0.5 rounded bg-amber-500/10">PENDING</span>
+          </div>
+
+          <div id="check-env" onclick="toggleAnalysisCheck('env')" class="flex items-center justify-between p-2 rounded border border-slate-800 hover:border-cyber-cyan/50 bg-slate-950/80 cursor-pointer transition">
+            <div class="flex items-center space-x-2">
+              <div class="check-box w-4 h-4 border border-cyber-cyan rounded flex items-center justify-center text-[10px] text-cyber-cyan"></div>
+              <span class="text-xs text-slate-300 font-medium">Environmental drainage & Water Table factors</span>
+            </div>
+            <span class="status-badge font-mono text-[10px] text-cyber-amber px-1.5 py-0.5 rounded bg-amber-500/10">PENDING</span>
+          </div>
+
+          <div id="check-materials" onclick="toggleAnalysisCheck('materials')" class="flex items-center justify-between p-2 rounded border border-slate-800 hover:border-cyber-cyan/50 bg-slate-950/80 cursor-pointer transition">
+            <div class="flex items-center space-x-2">
+              <div class="check-box w-4 h-4 border border-cyber-cyan rounded flex items-center justify-center text-[10px] text-cyber-cyan"></div>
+              <span class="text-xs text-slate-300 font-medium">Layer stiffness / Moduli of materials</span>
+            </div>
+            <span class="status-badge font-mono text-[10px] text-cyber-amber px-1.5 py-0.5 rounded bg-amber-500/10">PENDING</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Superposition Visualizer: Mathematical Equation Grid -->
+      <section class="border border-cyber-border rounded p-3 bg-slate-900/60 flex-grow flex flex-col justify-between">
+        <div>
+          <h2 class="text-xs font-mono tracking-widest text-cyber-cyan uppercase mb-2">Equation Matrix</h2>
+          <p class="text-[11px] text-slate-400 mb-2">Dynamic structural layer response (Boussinesq Equivalent thickness model):</p>
+          
+          <div class="p-3 bg-slate-950 rounded border border-slate-800 flex flex-col items-center justify-center relative overflow-hidden">
+            <!-- Dynamic Equation -->
+            <div class="font-mono text-sm md:text-base text-slate-100 flex items-center justify-center space-x-2 py-3">
+              <span class="text-cyber-cyan">t<sub>eq</sub></span>
+              <span>=</span>
+              <span class="text-xl">[</span>
+              <div class="flex flex-col items-center">
+                <span class="border-b border-slate-500 pb-0.5 px-2 text-center">
+                  1.75 &middot; <span id="eq-load" class="text-cyber-cyan font-bold">41</span>
+                </span>
+                <span id="eq-cbr" class="pt-0.5 text-cyber-amber font-bold">CBR</span>
+              </div>
+              <span>-</span>
+              <div class="flex flex-col items-center">
+                <span class="border-b border-slate-500 pb-0.5 px-1">A</span>
+                <span>&pi;</span>
+              </div>
+              <span class="text-xl">]</span>
+              <sup class="text-xs text-cyber-cyan">0.5</sup>
+            </div>
+
+            <!-- Drag-and-drop code references slots -->
+            <div class="w-full grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-900">
+              <div id="drop-clause-32" class="clause-dropzone p-2 border border-dashed border-slate-700 rounded text-center text-[10px] text-slate-400 hover:border-cyber-cyan/40 transition" ondragover="allowDrop(event)" ondrop="handleDropClause(event, '3.2')">
+                <span class="block text-slate-500 mb-1">Standard Core Clause</span>
+                <div class="slot-content text-cyber-cyan font-mono font-bold">EMPTY SLOT</div>
+              </div>
+              <div id="drop-clause-41" class="clause-dropzone p-2 border border-dashed border-slate-700 rounded text-center text-[10px] text-slate-400 hover:border-cyber-cyan/40 transition" ondragover="allowDrop(event)" ondrop="handleDropClause(event, '4.1')">
+                <span class="block text-slate-500 mb-1">Subgrade Standard</span>
+                <div class="slot-content text-cyber-cyan font-mono font-bold">EMPTY SLOT</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- IRC Codebook Sidebar Widget (Integrated inside Mission Control for streamlined ergonomics) -->
+        <div class="mt-4 pt-3 border-t border-slate-800">
+          <div class="flex justify-between items-center mb-2">
+            <h3 class="text-xs font-mono text-cyber-cyan uppercase flex items-center">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+              IS/IRC:37-2018 Codebook references
+            </h3>
+            <button onclick="toggleModal('modal-codebook')" class="text-[10px] text-cyber-cyan underline hover:text-white transition">Full Reference</button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <div id="clause-chip-32" draggable="true" ondragstart="handleDragStart(event, '3.2')" class="draggable-chip flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-950 border border-cyber-cyan/30 hover:border-cyber-cyan text-[10px] font-mono text-slate-300">
+              <span class="w-1.5 h-1.5 bg-cyber-cyan rounded-full"></span>
+              <span>IRC Clause 3.2 (Axle Factor)</span>
+            </div>
+            <div id="clause-chip-41" draggable="true" ondragstart="handleDragStart(event, '4.1')" class="draggable-chip flex items-center space-x-1 px-2.5 py-1 rounded bg-slate-950 border border-cyber-amber/30 hover:border-cyber-amber text-[10px] font-mono text-slate-300">
+              <span class="w-1.5 h-1.5 bg-cyber-amber rounded-full"></span>
+              <span>IRC Clause 4.1 (CBR Limit)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Active Layer Information Stats -->
+      <section class="border border-cyber-border rounded p-3 bg-slate-900/60">
+        <h2 class="text-xs font-mono tracking-widest text-cyber-cyan uppercase mb-2">Layer Thickness Analysis</h2>
+        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+          <div class="p-2 bg-slate-950 border border-slate-800 rounded">
+            <span class="text-slate-400 block text-[10px]">SURFACE DEFLECTION:</span>
+            <span id="stat-deflection" class="text-cyber-green font-bold">0.42 mm</span>
+          </div>
+          <div class="p-2 bg-slate-950 border border-slate-800 rounded">
+            <span class="text-slate-400 block text-[10px]">SUBGRADE STRAIN:</span>
+            <span id="stat-strain" class="text-cyber-cyan font-bold">240 microstrain</span>
+          </div>
+        </div>
+      </section>
+
+    </aside>
+
+    <!-- RIGHT PANEL: SIMULATION STUDIO (70% WIDTH) -->
+    <main class="w-[68%] h-full flex flex-col justify-between p-4 overflow-hidden space-y-4">
+      
+      <!-- Upper Section: Interactive 2D Cross Section & Stress Cone Canvas -->
+      <section class="flex-grow w-full relative border border-cyber-border rounded bg-cyber-obsidian overflow-hidden flex flex-col">
+        <div class="absolute top-2 left-3 z-20 flex items-center justify-between w-[96%]">
+          <div class="flex items-center space-x-3 bg-slate-950/80 px-3 py-1.5 rounded border border-cyber-border">
+            <span class="text-xs font-mono text-cyber-cyan tracking-wider">VISUAL PAVEMENT SIMULATOR</span>
+            <div class="h-2 w-px bg-slate-700"></div>
+            <span class="text-[10px] text-slate-400 font-mono">STRESS CONE ANGLE: <span id="lbl-cone-angle" class="text-cyber-amber">45°</span></span>
+          </div>
+
+          <!-- Quick Drop Environment Actions -->
+          <div class="flex items-center space-x-2">
+            <span class="text-[10px] text-slate-400 font-mono">DRAG STRESSORS TO PAVEMENT:</span>
+            <div id="chip-rain" draggable="true" ondragstart="handleDragStart(event, 'rain')" class="draggable-chip px-2.5 py-1 text-[10px] font-mono bg-blue-950/60 border border-blue-400/40 hover:border-blue-400 text-blue-300 rounded flex items-center space-x-1">
+              <span>🌧️ Heavy Rainfall</span>
+            </div>
+            <div id="chip-traffic-load" draggable="true" ondragstart="handleDragStart(event, 'load')" class="draggable-chip px-2.5 py-1 text-[10px] font-mono bg-amber-950/60 border border-amber-400/40 hover:border-amber-400 text-amber-300 rounded flex items-center space-x-1">
+              <span>🚛 Overloaded Axle</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Render Target Canvas -->
+        <div class="relative flex-grow w-full" id="canvas-container">
+          <!-- Drop Targets overlaying the canvas layers area (perfect responsiveness & robust event mapping) -->
+          <div id="dropzone-pavement" class="absolute inset-0 z-10 pointer-events-auto" ondragover="allowDrop(event)" ondrop="handleDropPavement(event)"></div>
+          <canvas id="pavementCanvas" class="absolute inset-0 w-full h-full pointer-events-none"></canvas>
+        </div>
+      </section>
+
+      <!-- Bottom Section: Graphing & Calibration Deck -->
+      <section class="h-[40%] min-h-[220px] w-full grid grid-cols-12 gap-4">
+        
+        <!-- Live Stress/Strain Graph (Canvas 2) -->
+        <div class="col-span-5 border border-cyber-border rounded glass-panel p-3 flex flex-col justify-between">
+          <div class="flex justify-between items-center mb-1">
+            <h3 class="text-xs font-mono tracking-wider text-cyber-cyan">REAL-TIME PRESSURE DEGRADATION</h3>
+            <span class="text-[9px] text-slate-400 font-mono uppercase">Depth vs stress</span>
+          </div>
+          <div class="flex-grow w-full relative bg-slate-950/80 rounded border border-slate-900 overflow-hidden">
+            <canvas id="graphCanvas" class="w-full h-full"></canvas>
+          </div>
+        </div>
+
+        <!-- Parameters sliders and manual calibrations -->
+        <div class="col-span-7 border border-cyber-border rounded glass-panel p-3 flex flex-col justify-between">
+          <div>
+            <h3 class="text-xs font-mono tracking-wider text-cyber-cyan mb-3 uppercase">Pavement Calibration Core</h3>
+            
+            <div class="space-y-3">
+              <!-- Slider 1: Modulus / Thickness of Surface Course -->
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <label class="col-span-4 text-xs font-mono text-slate-300 flex flex-col">
+                  <span>Surface Layer (t1)</span>
+                  <span class="text-[9px] text-slate-500">Thickness (mm)</span>
+                </label>
+                <input id="slider-t1" type="range" min="30" max="150" value="50" class="col-span-6 accent-cyber-cyan bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                <span id="lbl-t1" class="col-span-2 text-xs font-mono text-cyber-cyan text-right font-bold">50 mm</span>
+              </div>
+
+              <!-- Slider 2: Base layer thickness -->
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <label class="col-span-4 text-xs font-mono text-slate-300 flex flex-col">
+                  <span>Base Course (t2)</span>
+                  <span class="text-[9px] text-slate-500">Thickness (mm)</span>
+                </label>
+                <input id="slider-t2" type="range" min="100" max="350" value="150" class="col-span-6 accent-cyber-cyan bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                <span id="lbl-t2" class="col-span-2 text-xs font-mono text-cyber-cyan text-right font-bold">150 mm</span>
+              </div>
+
+              <!-- Slider 3: Subgrade CBR -->
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <label class="col-span-4 text-xs font-mono text-slate-300 flex flex-col">
+                  <span>Subgrade CBR</span>
+                  <span class="text-[9px] text-slate-500">California Bearing Ratio</span>
+                </label>
+                <input id="slider-cbr" type="range" min="2" max="20" value="5" class="col-span-6 accent-cyber-amber bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                <span id="lbl-cbr" class="col-span-2 text-xs font-mono text-cyber-amber text-right font-bold">5%</span>
+              </div>
+
+              <!-- Slider 4: Dynamic Axle Load P -->
+              <div class="grid grid-cols-12 gap-2 items-center">
+                <label class="col-span-4 text-xs font-mono text-slate-300 flex flex-col">
+                  <span>Axle Wheel Load (P)</span>
+                  <span class="text-[9px] text-slate-500">Dynamic Load P (kN)</span>
+                </label>
+                <input id="slider-load" type="range" min="20" max="120" value="41" class="col-span-6 accent-red-500 bg-slate-800 h-1.5 rounded-lg appearance-none cursor-pointer">
+                <span id="lbl-load" class="col-span-2 text-xs font-mono text-red-400 text-right font-bold">41 kN</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Bottom micro actions / triggers -->
+          <div class="flex items-center justify-between border-t border-slate-900 pt-2 text-[11px] font-mono">
+            <span class="text-slate-500">DYNAMIC REAL-TIME GRAPH FEEDS AUTO-ADJUSTED VISCOSITY ANALYSIS</span>
+            <div class="flex space-x-3">
+              <span id="status-rain-alert" class="hidden text-cyber-cyan animate-pulse">🌧️ RAIN WATER INFILTRATION DETECTED</span>
+              <span id="status-stress-alert" class="hidden text-cyber-amber animate-pulse">⚠️ OVERLOADED AXLE RISK</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </main>
+
+  </div>
+
+  <!-- INTERACTIVE CODEBOOK FULL MODAL -->
+  <div id="modal-codebook" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+    <div class="w-full max-w-3xl glass-panel border border-cyber-cyan/50 rounded-lg p-6 shadow-2xl">
+      <div class="flex justify-between items-center border-b border-cyber-border pb-4 mb-4">
+        <h2 class="font-mono text-lg font-bold text-cyber-cyan">IRC:37-2018 STANDARD REFERENCE MATRIX</h2>
+        <button onclick="toggleModal('modal-codebook')" class="text-slate-400 hover:text-white font-mono text-sm">[CLOSE X]</button>
+      </div>
+      
+      <div class="space-y-4 text-slate-300 text-sm max-h-[400px] overflow-y-auto pr-2">
+        <div class="p-3 bg-slate-900/80 rounded border border-slate-800">
+          <h3 class="font-mono text-cyber-amber text-xs uppercase font-bold mb-1">Clause 3.2: Equivalent Standard Axle (ESAL) Computation</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            The design traffic is considered in terms of standard axle load of 80 kN. All dynamic wheel distributions are converted into Standard Axle repetitions using the Axle Load Equivalency Factor (LEF).
+          </p>
+        </div>
+
+        <div class="p-3 bg-slate-900/80 rounded border border-slate-800">
+          <h3 class="font-mono text-cyber-amber text-xs uppercase font-bold mb-1">Clause 4.1: Subgrade Characterization & CBR</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Subgrade soils must be evaluated using California Bearing Ratio (CBR) tests at the worst moisture condition (soaking method). In situations with high water tables, corrective granular drains are mandatory.
+          </p>
+        </div>
+
+        <div class="p-3 bg-slate-900/80 rounded border border-slate-800">
+          <h3 class="font-mono text-cyber-amber text-xs uppercase font-bold mb-1">Clause 5.2: Multi-layer Stress Analysis Criteria</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Flexible pavements disperses stress to native layers by utilizing depth distribution. Minimum thicknesses of dynamic surfacing materials prevent structural cracking and rutting shear zones.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRAPH INTERACTIVE CONTROL STATE INDICATOR / AUDIO NOTIFICATIONS BAR -->
+  <footer class="w-full h-8 border-t border-cyber-border bg-slate-950/90 flex items-center justify-between px-6 z-40 text-[10px] font-mono text-slate-500">
+    <div>SYSTEM STATUS: <span id="lbl-status" class="text-cyber-green">OPERATIONAL</span></div>
+    <div>AUDIO SINT ENGINE: <span id="lbl-audio-status" class="text-cyber-cyan font-bold">READY</span></div>
+    <div>TRANSPORTATION ENGINEERING LABS © 2024</div>
+  </footer>
+
+  <!-- SCRIPTING CORE FOR AUDIO, RE-RENDER, GRAPH, MATH & ACTIONS -->
+  <script>
+    // System Variables
+    let audioCtx = null;
+    let mainRumbleOsc = null;
+    let mainRumbleGain = null;
+    let synthToggled = true;
+    let voiceSynthesisActive = true;
+
+    // Simulation Pavement parameters
+    let state = {
+      t1: 50, // Surface thickness (mm)
+      t2: 150, // Base course thickness (mm)
+      cbr: 5.0, // Subgrade California Bearing Ratio (%)
+      load: 41, // Dynamic wheel load P (kN)
+      rainActive: false,
+      isOverloaded: false,
+      clause32Dropped: false,
+      clause41Dropped: false,
+      checklist: {
+        traffic: false,
+        subgrade: false,
+        env: false,
+        materials: false
+      }
+    };
+
+    // Particle pool for rain animation
+    let rainParticles = [];
+    const maxRainParticles = 40;
+
+    // Vehicle state
+    let vehicleX = -100;
+    let vehicleSpeed = 1.2;
+
+    // Initialize Canvas Objects
+    const paveCanvas = document.getElementById('pavementCanvas');
+    const paveCtx = paveCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    // UI elements references
+    const headerCbr = document.getElementById('header-cbr');
+    const headerTraffic = document.getElementById('header-traffic');
+    const headerStress = document.getElementById('header-stress');
+    const eqLoad = document.getElementById('eq-load');
+    const eqCbr = document.getElementById('eq-cbr');
+    const statDeflection = document.getElementById('stat-deflection');
+    const statStrain = document.getElementById('stat-strain');
+    const lblConeAngle = document.getElementById('lbl-cone-angle');
+    const statusRainAlert = document.getElementById('status-rain-alert');
+    const statusStressAlert = document.getElementById('status-stress-alert');
+
+    // Sliders
+    const sliderT1 = document.getElementById('slider-t1');
+    const sliderT2 = document.getElementById('slider-t2');
+    const sliderCbr = document.getElementById('slider-cbr');
+    const sliderLoad = document.getElementById('slider-load');
+
+    const lblT1 = document.getElementById('lbl-t1');
+    const lblT2 = document.getElementById('lbl-t2');
+    const lblCbr = document.getElementById('lbl-cbr');
+    const lblLoad = document.getElementById('lbl-load');
+
+    // Drag data carrier
+    let dragType = '';
+
+    // Init Web Audio API
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Setup low range dynamic vehicle rumble sound node
+        mainRumbleGain = audioCtx.createGain();
+        mainRumbleGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+        
+        mainRumbleOsc = audioCtx.createOscillator();
+        mainRumbleOsc.type = 'sawtooth';
+        mainRumbleOsc.frequency.setValueAtTime(45, audioCtx.currentTime); // low rumble
+        
+        // Low pass filter for vehicle aesthetic noise profile
+        const lowpass = audioCtx.createBiquadFilter();
+        lowpass.type = 'lowpass';
+        lowpass.frequency.setValueAtTime(90, audioCtx.currentTime);
+
+        mainRumbleOsc.connect(lowpass);
+        lowpass.connect(mainRumbleGain);
+        mainRumbleGain.connect(audioCtx.destination);
+        
+        mainRumbleOsc.start();
+        document.getElementById('lbl-audio-status').textContent = "ACTIVE";
+      } catch (err) {
+        console.warn('Audio API init error:', err);
+      }
+    }
+
+    // Audio SFX trigger actions
+    function playChime() {
+      if (!synthToggled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, now);
+        osc.frequency.exponentialRampToValueAtTime(880, now + 0.15);
+        
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(now + 0.35);
+      } catch (e) {}
+    }
+
+    function playWarning() {
+      if (!synthToggled || !audioCtx) return;
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(150, now);
+        osc.frequency.linearRampToValueAtTime(110, now + 0.25);
+        
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(now + 0.3);
+      } catch (e) {}
+    }
+
+    // Speech Synthesizer narrator
+    function speakText(text) {
+      if (!voiceSynthesisActive || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 0.95;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // Handle Drag start
+    function handleDragStart(ev, type) {
+      initAudio(); // Trigger init on user action
+      dragType = type;
+      ev.dataTransfer.setData("text/plain", type);
+    }
+
+    function allowDrop(ev) {
+      ev.preventDefault();
+    }
+
+    // Drop actions
+    function handleDropClause(ev, slot) {
+      ev.preventDefault();
+      const type = ev.dataTransfer.getData("text");
+      if (type === slot) {
+        if (slot === '3.2') {
+          state.clause32Dropped = true;
+          document.querySelector('#drop-clause-32 .slot-content').innerHTML = "Clause 3.2 UNLOCKED";
+          document.querySelector('#drop-clause-32').classList.add('bg-green-950/40', 'border-cyber-green');
+          document.getElementById('clause-chip-32').style.display = 'none';
+        } else if (slot === '4.1') {
+          state.clause41Dropped = true;
+          document.querySelector('#drop-clause-41 .slot-content').innerHTML = "Clause 4.1 UNLOCKED";
+          document.querySelector('#drop-clause-41').classList.add('bg-green-950/40', 'border-cyber-green');
+          document.getElementById('clause-chip-41').style.display = 'none';
+        }
+        playChime();
+        speakText(`Success. Clause reference ${slot} connected.`);
+        updateCalculations();
+      } else {
+        playWarning();
+        speakText(`Invalid reference. This formula slot requires Clause reference ${slot}.`);
+      }
+    }
+
+    function handleDropPavement(ev) {
+      ev.preventDefault();
+      const type = ev.dataTransfer.getData("text");
+      if (type === 'rain') {
+        state.rainActive = true;
+        state.cbr = Math.max(2.0, state.cbr - 1.5); // Softens subgrade
+        sliderCbr.value = state.cbr;
+        statusRainAlert.classList.remove('hidden');
+        playChime();
+        speakText("Heavy rainfall registered. Water infiltration softens soil structure, diminishing CBR.");
+        updateCalculations();
+      } else if (type === 'load') {
+        state.isOverloaded = true;
+        state.load = 100; // Boost axial dynamic load
+        sliderLoad.value = 100;
+        statusStressAlert.classList.remove('hidden');
+        playWarning();
+        speakText("Critical alert. Axle overload increases stresses exponentially.");
+        updateCalculations();
+      }
+    }
+
+    // Interactive checklist logic
+    function toggleAnalysisCheck(item) {
+      initAudio();
+      state.checklist[item] = !state.checklist[item];
+      const el = document.getElementById(`check-${item}`);
+      const checkNode = el.querySelector('.check-box');
+      const badgeNode = el.querySelector('.status-badge');
+
+      if (state.checklist[item]) {
+        checkNode.innerHTML = '✓';
+        checkNode.classList.add('bg-cyber-cyan/20');
+        badgeNode.innerHTML = 'ANALYZED';
+        badgeNode.classList.remove('text-cyber-amber', 'bg-amber-500/10');
+        badgeNode.classList.add('text-cyber-green', 'bg-cyber-green/10');
+        playChime();
+      } else {
+        checkNode.innerHTML = '';
+        checkNode.classList.remove('bg-cyber-cyan/20');
+        badgeNode.innerHTML = 'PENDING';
+        badgeNode.classList.remove('text-cyber-green', 'bg-cyber-green/10');
+        badgeNode.classList.add('text-cyber-amber', 'bg-amber-500/10');
+      }
+    }
+
+    // High-DPI responsive canvas scaling handler
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      
+      // Pavement canvas configuration
+      const pRect = paveCanvas.parentElement.getBoundingClientRect();
+      paveCanvas.width = pRect.width * dpr;
+      paveCanvas.height = pRect.height * dpr;
+      paveCanvas.style.width = pRect.width + 'px';
+      paveCanvas.style.height = pRect.height + 'px';
+      paveCtx.scale(dpr, dpr);
+
+      // Graph canvas configuration
+      const gRect = graphCanvas.parentElement.getBoundingClientRect();
+      graphCanvas.width = gRect.width * dpr;
+      graphCanvas.height = gRect.height * dpr;
+      graphCanvas.style.width = gRect.width + 'px';
+      graphCanvas.style.height = gRect.height + 'px';
+      graphCtx.scale(dpr, dpr);
+    }
+
+    // Math Engine: Flexible pavement deflection calculations based on Boussinesq model
+    function updateCalculations() {
+      // Fetch dynamic slider states
+      state.t1 = parseFloat(sliderT1.value);
+      state.t2 = parseFloat(sliderT2.value);
+      state.cbr = parseFloat(sliderCbr.value);
+      state.load = parseFloat(sliderLoad.value);
+
+      // Dynamic label update
+      lblT1.textContent = `${state.t1} mm`;
+      lblT2.textContent = `${state.t2} mm`;
+      lblCbr.textContent = `${state.cbr.toFixed(1)}%`;
+      lblLoad.textContent = `${state.load} kN`;
+
+      // Top state syncs
+      headerCbr.textContent = `${state.cbr.toFixed(1)}%`;
+      headerTraffic.textContent = `${(state.load * 1.8).toFixed(0)} msa`;
+      eqLoad.textContent = state.load;
+      eqCbr.textContent = state.cbr.toFixed(1);
+
+      // Basic analytical modeling of deflection & strain relative to thickness & CBR
+      const totalT = state.t1 + state.t2;
+      const baseDeflection = (state.load * 1.5) / (state.cbr * totalT * 0.05);
+      const scaledDef = Math.min(1.5, baseDeflection).toFixed(2);
+      const strainValue = Math.round((state.load * 450) / (state.cbr * (totalT/100)));
+
+      // Display calculations metrics
+      statDeflection.textContent = `${scaledDef} mm`;
+      statStrain.textContent = `${strainValue} µε`;
+
+      // Set warnings metrics
+      if (strainValue > 600 || scaledDef > 1.0) {
+        headerStress.textContent = "CRITICAL LIMIT";
+        headerStress.className = "text-red-500 font-bold animate-pulse";
+      } else if (strainValue > 400) {
+        headerStress.textContent = "WARNING STRESS";
+        headerStress.className = "text-cyber-amber font-bold";
+      } else {
+        headerStress.textContent = "OPTIMAL SYSTEM";
+        headerStress.className = "text-cyber-green font-bold";
+      }
+
+      // Dynamic cone dispersion calculations
+      // Stiffer subgrade = better distribution angle
+      const calculatedAngle = Math.min(55, 30 + (state.cbr * 1.5));
+      lblConeAngle.textContent = `${calculatedAngle.toFixed(0)}°`;
+    }
+
+    // Real-Time Pavement Graph Renderer (Stress vs Depth)
+    function renderStressGraph() {
+      const w = graphCanvas.getBoundingClientRect().width;
+      const h = graphCanvas.getBoundingClientRect().height;
+      if (!w || !h) return;
+
+      graphCtx.clearRect(0, 0, w, h);
+
+      // Background Grid
+      graphCtx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+      graphCtx.lineWidth = 1;
+      const gridInterval = 30;
+      for (let x = 0; x < w; x += gridInterval) {
+        graphCtx.beginPath();
+        graphCtx.moveTo(x, 0);
+        graphCtx.lineTo(x, h);
+        graphCtx.stroke();
+      }
+      for (let y = 0; y < h; y += gridInterval) {
+        graphCtx.beginPath();
+        graphCtx.moveTo(0, y);
+        graphCtx.lineTo(w, y);
+        graphCtx.stroke();
+      }
+
+      // Base line axes
+      graphCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      graphCtx.beginPath();
+      graphCtx.moveTo(40, 10);
+      graphCtx.lineTo(40, h - 30);
+      graphCtx.lineTo(w - 10, h - 30);
+      graphCtx.stroke();
+
+      // Axis labels
+      graphCtx.fillStyle = '#8b9bb4';
+      graphCtx.font = '8px Orbitron';
+      graphCtx.fillText("PRESSURE (kPa)", 45, 18);
+      graphCtx.fillText("DEPTH (cm)", w - 75, h - 15);
+
+      // Calculate the curve values dynamically
+      // Stress drops exponentially with depth
+      const startStress = state.load * 12; // kPa at the interface surface
+      const exponentFactor = 0.004 + ( (20 - state.cbr) * 0.0003 ); // CBR softeness scales rate
+
+      graphCtx.strokeStyle = '#00f0ff';
+      graphCtx.lineWidth = 2.5;
+      graphCtx.shadowColor = '#00f0ff';
+      graphCtx.shadowBlur = 6;
+      graphCtx.beginPath();
+
+      const startX = 40;
+      const curveHeight = h - 40;
+      const maxPlotDepth = 100; // cm
+
+      for (let depth = 0; depth <= maxPlotDepth; depth++) {
+        const activeStress = startStress * Math.exp(-exponentFactor * depth * 3.5);
+        
+        // Map calculations to graph space coordinates
+        const plotX = startX + (activeStress / (120 * 12)) * (w - 60);
+        const plotY = 15 + (depth / maxPlotDepth) * (curveHeight - 15);
+
+        if (depth === 0) {
+          graphCtx.moveTo(plotX, plotY);
+        } else {
+          graphCtx.lineTo(plotX, plotY);
+        }
+      }
+      graphCtx.stroke();
+      graphCtx.shadowBlur = 0; // Reset canvas effects shadow
+    }
+
+    // Dynamic Visual Rain Particles
+    function processRainEffect(w, h) {
+      if (!state.rainActive) return;
+      if (rainParticles.length < maxRainParticles && Math.random() < 0.25) {
+        rainParticles.push({
+          x: Math.random() * w,
+          y: -10,
+          speed: 4 + Math.random() * 4,
+          len: 10 + Math.random() * 15
+        });
+      }
+
+      // Render rain drops on the surface layer zone
+      paveCtx.strokeStyle = 'rgba(100, 150, 255, 0.4)';
+      paveCtx.lineWidth = 1.2;
+      for (let i = 0; i < rainParticles.length; i++) {
+        let p = rainParticles[i];
+        paveCtx.beginPath();
+        paveCtx.moveTo(p.x, p.y);
+        paveCtx.lineTo(p.x + 1, p.y + p.len);
+        paveCtx.stroke();
+
+        p.y += p.speed;
+        
+        // Check for boundary contact to clear
+        if (p.y > 60) {
+          // Triggers visual splash ripple at tarmac level
+          paveCtx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+          paveCtx.beginPath();
+          paveCtx.ellipse(p.x, 60, 4, 1.5, 0, 0, Math.PI * 2);
+          paveCtx.fill();
+          
+          // Reset item
+          p.y = -10;
+          p.x = Math.random() * w;
+        }
+      }
+    }
+
+    // Primary 2D Canvas Simulation loop (Runs at 60FPS using window.requestAnimationFrame)
+    function renderSimulationEngine() {
+      const w = paveCanvas.getBoundingClientRect().width;
+      const h = paveCanvas.getBoundingClientRect().height;
+      if (!w || !h) {
+        window.requestAnimationFrame(renderSimulationEngine);
+        return;
+      }
+
+      paveCtx.clearRect(0, 0, w, h);
+
+      // 1. Drawing structural Pavement Layers boundaries & fills
+      const surfaceBoundary = 60; // top pavement level
+      const baseBoundary = surfaceBoundary + state.t1 * 0.7;
+      const subbaseBoundary = baseBoundary + state.t2 * 0.5;
+      const subgradeBoundary = h;
+
+      // Surface course texture render (Bituminous concrete - Dark grey textured)
+      paveCtx.fillStyle = '#1e2230';
+      paveCtx.fillRect(0, surfaceBoundary, w, baseBoundary - surfaceBoundary);
+      
+      // Fine aggregate speckles for realism
+      paveCtx.fillStyle = '#2d334a';
+      for (let i = 0; i < w; i += 25) {
+        paveCtx.fillRect(i + (state.t1 % 7), surfaceBoundary + 12, 2.5, 2.5);
+      }
+
+      // Base Course texture (Gravel / Crushed aggregates - Sandy/greyish matrix)
+      paveCtx.fillStyle = '#3a3f58';
+      paveCtx.fillRect(0, baseBoundary, w, subbaseBoundary - baseBoundary);
+
+      // Sub-base course (Fine Soil/Stabilized - Earth tones)
+      paveCtx.fillStyle = '#524b42';
+      paveCtx.fillRect(0, subbaseBoundary, w, h);
+
+      // Overlay text layers descriptor labels (Safe behind translucent background box)
+      paveCtx.font = 'bold 9px Orbitron';
+      paveCtx.fillStyle = 'rgba(7, 8, 13, 0.8)';
+      
+      // Label 1: Tarmac
+      paveCtx.fillRect(10, surfaceBoundary + 4, 130, 16);
+      paveCtx.fillStyle = '#00f0ff';
+      paveCtx.fillText(`SURFACE COURSE: ${state.t1}mm`, 15, surfaceBoundary + 15);
+
+      // Label 2: Base
+      paveCtx.fillStyle = 'rgba(7, 8, 13, 0.8)';
+      paveCtx.fillRect(10, baseBoundary + 4, 130, 16);
+      paveCtx.fillStyle = '#ffb703';
+      paveCtx.fillText(`BASE COURSE: ${state.t2}mm`, 15, baseBoundary + 15);
+
+      // Label 3: Native Soil
+      paveCtx.fillStyle = 'rgba(7, 8, 13, 0.8)';
+      paveCtx.fillRect(10, subbaseBoundary + 4, 140, 16);
+      paveCtx.fillStyle = '#8b9bb4';
+      paveCtx.fillText(`SUBGRADE (CBR: ${state.cbr.toFixed(1)}%)`, 15, subbaseBoundary + 15);
+
+      // 2. Animate and Render Active Loading Vehicle (Wheel Axle configuration)
+      vehicleX += vehicleSpeed;
+      if (vehicleX > w + 100) {
+        vehicleX = -100;
+      }
+
+      // Update vehicle low oscillator rumble audio frequency if audioCtx initialized
+      if (audioCtx && mainRumbleGain) {
+        const distFromCenter = Math.abs(vehicleX - (w / 2)) / (w / 2);
+        // Louder when vehicle is directly in visual center
+        const dynamicGain = Math.max(0.01, (1.0 - distFromCenter) * 0.08);
+        mainRumbleGain.gain.setTargetAtTime(synthToggled ? dynamicGain : 0, audioCtx.currentTime, 0.1);
+      }
+
+      // Draw vehicle chassis (heavy-duty dynamic transport truck schematic representation)
+      const vY = surfaceBoundary - 22;
+      paveCtx.fillStyle = '#00f0ff';
+      paveCtx.strokeStyle = '#00f0ff';
+      paveCtx.lineWidth = 1.5;
+
+      // Front cab
+      paveCtx.beginPath();
+      paveCtx.roundRect(vehicleX + 45, vY - 12, 28, 20, 3);
+      paveCtx.fill();
+      // Windshield
+      paveCtx.fillStyle = '#07080d';
+      paveCtx.fillRect(vehicleX + 61, vY - 9, 10, 8);
+      // Container box bed
+      paveCtx.fillStyle = 'rgba(15, 20, 35, 0.9)';
+      paveCtx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+      paveCtx.beginPath();
+      paveCtx.roundRect(vehicleX, vY - 22, 42, 28, 2);
+      paveCtx.fill();
+      paveCtx.stroke();
+
+      // Dynamic load indicator lights on transport container body
+      paveCtx.fillStyle = state.isOverloaded ? '#ff007f' : '#39ff14';
+      paveCtx.beginPath();
+      paveCtx.arc(vehicleX + 6, vY - 16, 2.5, 0, Math.PI*2);
+      paveCtx.fill();
+
+      // Tyres
+      paveCtx.fillStyle = '#000000';
+      paveCtx.strokeStyle = '#00f0ff';
+      paveCtx.lineWidth = 1;
+      paveCtx.beginPath();
+      paveCtx.arc(vehicleX + 10, vY + 12, 8, 0, Math.PI * 2);
+      paveCtx.arc(vehicleX + 32, vY + 12, 8, 0, Math.PI * 2);
+      paveCtx.arc(vehicleX + 58, vY + 12, 8, 0, Math.PI * 2);
+      paveCtx.fill();
+
+      // 3. Render dynamic structural stress distribution cone originating from tyres
+      const calculatedAngle = Math.min(55, 30 + (state.cbr * 1.5));
+      const rad = (calculatedAngle * Math.PI) / 180;
+      
+      // Primary axle center contact point projection
+      const axleX = vehicleX + 32;
+      const originY = vY + 12;
+
+      // Stress Cone drawing path
+      paveCtx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+      paveCtx.strokeStyle = 'rgba(0, 240, 255, 0.3)';
+      if (state.isOverloaded) {
+        paveCtx.fillStyle = 'rgba(255, 0, 127, 0.12)';
+        paveCtx.strokeStyle = 'rgba(255, 0, 127, 0.4)';
+      }
+      paveCtx.lineWidth = 2.5;
+      paveCtx.setLineDash([4, 4]);
+
+      paveCtx.beginPath();
+      paveCtx.moveTo(axleX, originY);
+      
+      // Calculate spread widths at boundaries
+      const baseSpan = (baseBoundary - originY) * Math.tan(rad);
+      const subbaseSpan = (subbaseBoundary - originY) * Math.tan(rad);
+      const totalSpan = (h - originY) * Math.tan(rad);
+
+      paveCtx.lineTo(axleX - totalSpan, h);
+      paveCtx.lineTo(axleX + totalSpan, h);
+      paveCtx.closePath();
+      paveCtx.fill();
+      paveCtx.stroke();
+      paveCtx.setLineDash([]); // Reset line options
+
+      // Active vectors detailing strain at boundary crossings
+      paveCtx.strokeStyle = state.isOverloaded ? '#ff007f' : '#00f0ff';
+      paveCtx.lineWidth = 1.5;
+      
+      // Arrow vector 1 (base boundary strain)
+      paveCtx.beginPath();
+      paveCtx.moveTo(axleX - baseSpan, baseBoundary);
+      paveCtx.lineTo(axleX + baseSpan, baseBoundary);
+      paveCtx.stroke();
+
+      // Rain integration mechanics process call
+      processRainEffect(w, h);
+
+      // Call graph loop in parallel
+      renderStressGraph();
+
+      window.requestAnimationFrame(renderSimulationEngine);
+    }
+
+    // Toggle target overlay visibility Modal
+    function toggleModal(id) {
+      const modal = document.getElementById(id);
+      modal.classList.toggle('hidden');
+    }
+
+    // Trigger state changes listener
+    function bindInputs() {
+      // Sliders listeners
+      sliderT1.addEventListener('input', () => { updateCalculations(); });
+      sliderT2.addEventListener('input', () => { updateCalculations(); });
+      sliderCbr.addEventListener('input', () => { updateCalculations(); });
+      sliderLoad.addEventListener('input', () => { updateCalculations(); });
+
+      // Audio engine toggling button
+      document.getElementById('audio-toggle').addEventListener('click', () => {
+        synthToggled = !synthToggled;
+        const icon = document.getElementById('audio-icon');
+        const stat = document.getElementById('lbl-audio-status');
+        if (synthToggled) {
+          icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />';
+          stat.textContent = "ACTIVE";
+        } else {
+          icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />';
+          stat.textContent = "MUTED";
+        }
+      });
+
+      // Reset System Core button
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        state.t1 = 50;
+        state.t2 = 150;
+        state.cbr = 5.0;
+        state.load = 41;
+        state.rainActive = false;
+        state.isOverloaded = false;
+        state.clause32Dropped = false;
+        state.clause41Dropped = false;
+
+        // Reset check inputs
+        for (let key in state.checklist) {
+          state.checklist[key] = false;
+          const el = document.getElementById(`check-${key}`);
+          el.querySelector('.check-box').innerHTML = '';
+          el.querySelector('.check-box').classList.remove('bg-cyber-cyan/20');
+          el.querySelector('.status-badge').innerHTML = 'PENDING';
+          el.querySelector('.status-badge').className = "status-badge font-mono text-[10px] text-cyber-amber px-1.5 py-0.5 rounded bg-amber-500/10";
+        }
+
+        // Reset DOM items
+        sliderT1.value = 50;
+        sliderT2.value = 150;
+        sliderCbr.value = 5.0;
+        sliderLoad.value = 41;
+        
+        document.querySelector('#drop-clause-32 .slot-content').innerHTML = "EMPTY SLOT";
+        document.querySelector('#drop-clause-32').className = "clause-dropzone p-2 border border-dashed border-slate-700 rounded text-center text-[10px] text-slate-400 hover:border-cyber-cyan/40 transition";
+        document.getElementById('clause-chip-32').style.display = 'flex';
+
+        document.querySelector('#drop-clause-41 .slot-content').innerHTML = "EMPTY SLOT";
+        document.querySelector('#drop-clause-41').className = "clause-dropzone p-2 border border-dashed border-slate-700 rounded text-center text-[10px] text-slate-400 hover:border-cyber-cyan/40 transition";
+        document.getElementById('clause-chip-41').style.display = 'flex';
+
+        statusRainAlert.classList.add('hidden');
+        statusStressAlert.classList.add('hidden');
+        
+        playChime();
+        speakText("Structural modeling parameters reset to default standard.");
+        updateCalculations();
+      });
+
+      // Narrator speak button manual trigger
+      document.getElementById('trigger-speech').addEventListener('click', () => {
+        initAudio();
+        speakText(`Pavement structure has a surface deflection of ${statDeflection.textContent} and dynamic structural strain of ${statStrain.textContent} under dynamic loading.`);
+      });
+    }
+
+    // Setup Window scaling constraints and initiation
+    window.addEventListener('resize', () => {
+      resizeCanvases();
+      updateCalculations();
+    });
+
+    // Start-up sequence call
+    window.addEventListener('load', () => {
+      resizeCanvases();
+      bindInputs();
+      updateCalculations();
+      
+      // Auto initiate canvas continuous render cycle
+      window.requestAnimationFrame(renderSimulationEngine);
+    });
+  </script>
+</body>
+</html>

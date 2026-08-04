@@ -1,0 +1,1483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RCC Shear Design Simulator - IS 456:2000</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts & FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Fira Code', 'monospace'],
+          },
+          colors: {
+            cyberDark: '#0d0e15',
+            glassBg: 'rgba(20, 24, 35, 0.75)',
+            concretePaste: '#b2f2bb',
+            concreteDark: '#0ca678',
+            steelPink: '#ff2a85',
+            steelPurple: '#d0bfff',
+            shearRed: '#ff8787',
+            neonGreen: '#39ff14',
+            cyberBlue: '#00f0ff',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Premium Glassmorphic Styles & Scrollbars */
+    body {
+      background-color: #0d0e15;
+      overflow: hidden;
+      color: #e2e8f0;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    .glass-card {
+      background: rgba(20, 24, 35, 0.75);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-card-active {
+      border: 1px solid rgba(57, 255, 20, 0.4);
+      box-shadow: 0 0 15px rgba(57, 255, 20, 0.15);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+    }
+
+    .glow-magenta {
+      box-shadow: 0 0 15px rgba(255, 42, 133, 0.3);
+    }
+
+    /* Custom Retro Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(13, 14, 21, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.3);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.6);
+    }
+
+    /* Highlight pulse */
+    @keyframes pulse-neon {
+      0%, 100% { border-color: rgba(0, 240, 255, 0.3); }
+      50% { border-color: rgba(0, 240, 255, 0.8); }
+    }
+    .pulse-border {
+      animation: pulse-neon 2s infinite;
+    }
+
+    /* Text highlight clickables */
+    .clickable-var {
+      cursor: pointer;
+      border-bottom: 2px dashed #00f0ff;
+      padding: 0 2px;
+      transition: all 0.2s ease-in-out;
+    }
+    .clickable-var:hover {
+      background: rgba(0, 240, 255, 0.2);
+      color: #00f0ff;
+    }
+    .clickable-var.identified {
+      border-bottom: 2px solid #39ff14;
+      color: #39ff14;
+      background: rgba(57, 255, 20, 0.1);
+    }
+
+    /* Step transition styles */
+    .step-panel {
+      transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+    }
+    .step-hidden {
+      display: none;
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+
+    /* Drag and drop aesthetics */
+    .drag-chip {
+      touch-action: none;
+      cursor: grab;
+      user-select: none;
+    }
+    .drag-chip:active {
+      cursor: grabbing;
+    }
+    .drop-slot {
+      transition: all 0.2s ease;
+    }
+    .drop-slot.drag-over {
+      background: rgba(0, 240, 255, 0.2);
+      border-color: #00f0ff;
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between">
+
+  <!-- TOP HEADER / CONTROL BAR -->
+  <header class="h-16 border-b border-cyan-500/20 glass-card px-6 flex items-center justify-between z-50">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-lg bg-cyan-500/20 flex items-center justify-center border border-cyan-500/40 glow-cyan">
+        <i class="fa-solid fa-bridge text-cyan-400 text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-md font-bold tracking-wider text-white uppercase flex items-center gap-2">
+          ShearCraft <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono">IS 456:2000</span>
+        </h1>
+        <p class="text-[10px] text-slate-400">RCC Shear Capacity & Stirrup Wrapping Sandbox</p>
+      </div>
+    </div>
+
+    <!-- Live Audio Visualizer -->
+    <div class="hidden md:flex items-center space-x-4 bg-black/40 px-4 py-1.5 rounded-full border border-slate-800">
+      <div class="flex items-center space-x-1.5" id="visualizer-container">
+        <span class="text-[10px] text-slate-400 font-mono uppercase mr-2">Audio Synth:</span>
+        <div class="w-1 h-3 bg-cyan-400 rounded-full animate-pulse"></div>
+        <div class="w-1 h-5 bg-cyan-400 rounded-full animate-pulse delay-75"></div>
+        <div class="w-1 h-2 bg-cyan-400 rounded-full animate-pulse delay-100"></div>
+        <div class="w-1 h-4 bg-cyan-400 rounded-full animate-pulse delay-150"></div>
+      </div>
+      
+      <!-- Audio & Voice Toggles -->
+      <div class="flex items-center space-x-2 border-l border-slate-700 pl-3">
+        <button id="toggle-sound-btn" class="text-slate-400 hover:text-cyan-400 transition" title="Toggle Synthesizer Hum">
+          <i id="sound-icon" class="fa-solid fa-volume-high text-sm"></i>
+        </button>
+        <button id="toggle-voice-btn" class="text-slate-400 hover:text-cyan-400 transition" title="Toggle AI Narrator">
+          <i id="voice-icon" class="fa-solid fa-comment-dots text-sm"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER (ZERO OVERFLOW, PURE VIEWPORT CONTAINMENT) -->
+  <main class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+    
+    <!-- LEFT CONTROL & PEDAGOGICAL PANEL (40% Width) -->
+    <section class="w-full lg:w-[42%] border-r border-slate-800 flex flex-col justify-between overflow-hidden relative bg-cyberDark/95">
+      
+      <!-- Step Navigation Header -->
+      <div class="p-4 bg-black/30 border-b border-slate-800/80 flex justify-between items-center">
+        <span class="text-xs font-mono text-cyan-400 uppercase tracking-widest">Pedagogical Flow</span>
+        <div class="flex items-center space-x-1">
+          <button id="nav-step-1" onclick="jumpToStep(1)" class="w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition glass-card border-cyan-500/20 text-cyan-400 font-bold">1</button>
+          <div class="w-2 h-[1px] bg-slate-800"></div>
+          <button id="nav-step-2" onclick="jumpToStep(2)" class="w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition bg-slate-900 border-slate-800 text-slate-500">2</button>
+          <div class="w-2 h-[1px] bg-slate-800"></div>
+          <button id="nav-step-3" onclick="jumpToStep(3)" class="w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition bg-slate-900 border-slate-800 text-slate-500">3</button>
+          <div class="w-2 h-[1px] bg-slate-800"></div>
+          <button id="nav-step-4" onclick="jumpToStep(4)" class="w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition bg-slate-900 border-slate-800 text-slate-500">4</button>
+        </div>
+      </div>
+
+      <!-- ACTIVE STEP SCREEN PORT -->
+      <div class="flex-1 overflow-y-auto p-5 space-y-5">
+        
+        <!-- STEP 1: PARAMETER IDENTIFICATION -->
+        <div id="step-1-panel" class="step-panel space-y-4">
+          <div class="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono uppercase tracking-wider">Step 1 of 4</span>
+            <h2 class="text-lg font-bold text-white mt-1">Extracting variables from the spec</h2>
+            <p class="text-xs text-slate-300 mt-1">Before building, we must decode the structural blueprint. Click on the highlighted parameters inside the problem statement below to identify them.</p>
+          </div>
+
+          <!-- Clickable Problem Statement Card -->
+          <div class="glass-card p-4 rounded-xl border-dashed border-cyan-500/30">
+            <p class="text-sm leading-relaxed text-slate-300 font-sans" id="problem-statement">
+              "A Simply R.C.C. beam of <span class="clickable-var" data-var="b" data-val="300">300 mm width</span> × <span class="clickable-var" data-var="D" data-val="500">500 mm overall depth</span> size has <span class="clickable-var" data-var="Ast" data-val="1256.64">4 nos. 20 mm diameter bars</span> of steel at an effective cover of <span class="clickable-var" data-var="c" data-val="30">30 mm</span>. The beam is subjected to a Shear Force of <span class="clickable-var" data-var="Vu" data-val="150">Vu kN</span>. Design the shear reinforcement. Use <span class="clickable-var" data-var="fck" data-val="20">M-20 grade concrete</span> & <span class="clickable-var" data-var="dv" data-val="8">8 mm diameter stirrups</span> of <span class="clickable-var" data-var="fyv" data-val="250">Fe250 steel</span>."
+            </p>
+          </div>
+
+          <!-- Parameter Checklist / Ledger -->
+          <div class="space-y-2">
+            <div class="flex justify-between items-center">
+              <h3 class="text-xs font-mono text-slate-400 uppercase tracking-widest">Identified Parameters</h3>
+              <span id="ledger-progress" class="text-xs text-cyan-400 font-mono">0 / 7 Identified</span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2" id="ledger-grid">
+              <!-- Dynamically populated parameters with check indicators -->
+              <div id="ledger-b" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">b (Beam Width)</span>
+                  <span class="font-bold text-white font-mono" id="val-b">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+
+              <div id="ledger-D" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">D (Overall Depth)</span>
+                  <span class="font-bold text-white font-mono" id="val-D">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+
+              <div id="ledger-Ast" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">Ast (Tension Steel)</span>
+                  <span class="font-bold text-white font-mono" id="val-Ast">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+
+              <div id="ledger-c" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">Cover (Effective)</span>
+                  <span class="font-bold text-white font-mono" id="val-c">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+
+              <div id="ledger-fck" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">fck (Concrete Grade)</span>
+                  <span class="font-bold text-white font-mono" id="val-fck">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+
+              <div id="ledger-fyv" class="p-2.5 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+                <div>
+                  <span class="text-slate-400 font-mono block">fyv (Stirrup Steel)</span>
+                  <span class="font-bold text-white font-mono" id="val-fyv">--</span>
+                </div>
+                <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot"></i></span>
+              </div>
+            </div>
+
+            <!-- Single wide parameter block for target force -->
+            <div id="ledger-Vu" class="p-3 rounded bg-black/40 border border-slate-800 text-xs flex justify-between items-center transition duration-200">
+              <div>
+                <span class="text-slate-400 font-mono block text-xs">Vu (Dynamic Exterior Design Shear Force)</span>
+                <span class="text-sm font-bold text-cyan-400 font-mono" id="val-Vu">Pending Slider Activation...</span>
+              </div>
+              <span class="status-dot text-slate-600"><i class="fa-solid fa-circle-dot text-lg"></i></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: THE CRACK SANDBOX -->
+        <div id="step-2-panel" class="step-panel step-hidden space-y-4">
+          <div class="p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-pink-500/20 text-pink-300 font-mono uppercase tracking-wider">Step 2 of 4</span>
+            <h2 class="text-lg font-bold text-white mt-1">The Diagonal Shear Crack Sandbox</h2>
+            <p class="text-xs text-slate-300 mt-1"><b class="text-concretePaste">ELI5 Metaphor:</b> Shear acts like giant neon-pink scissors trying to snap our beam. Concrete is like crumbly cookie dough; it holds compression but tears apart easily under diagonal tension!</p>
+          </div>
+
+          <!-- Dynamic Parameter Controls -->
+          <div class="glass-card p-4 rounded-xl space-y-4">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-mono text-slate-300">Exterior Shear Force ($V_u$)</span>
+                <span class="text-sm font-mono font-bold text-pink-500" id="vu-slider-val">150 kN</span>
+              </div>
+              <input type="range" id="vu-range-slider" min="0" max="400" value="150" class="w-full accent-pink-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+              <div class="flex justify-between text-[9px] font-mono text-slate-500 mt-1">
+                <span>0 kN (No Load)</span>
+                <span>150 kN (Nominal)</span>
+                <span>395 kN (Concrete Crush!)</span>
+              </div>
+            </div>
+
+            <!-- Real-time IS 456 stress calculations ledger -->
+            <div class="border-t border-slate-800 pt-3 space-y-2">
+              <h3 class="text-xs font-mono text-slate-400 uppercase tracking-widest">IS 456 Calculation Readout</h3>
+              
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div class="p-2 bg-slate-900/60 rounded border border-slate-800">
+                  <span class="text-slate-400 block font-mono text-[10px]">Nominal Shear ($\tau_v$)</span>
+                  <span class="font-mono text-sm font-bold text-white" id="calc-tau-v">1.06 N/mm²</span>
+                </div>
+                <div class="p-2 bg-slate-900/60 rounded border border-slate-800">
+                  <span class="text-slate-400 block font-mono text-[10px]">Concrete Capacity ($\tau_c$)</span>
+                  <span class="font-mono text-sm font-bold text-concretePaste" id="calc-tau-c">0.59 N/mm²</span>
+                </div>
+              </div>
+
+              <!-- Stress Comparison Alert Banner -->
+              <div id="shear-verdict-banner" class="p-3 rounded-lg flex items-center space-x-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs">
+                <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                <span id="shear-verdict-text">$\tau_v > \tau_c$: Stirrups required. Diagonal crack will propagate!</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 3: DRAG & DROP FORMULA BUILDER -->
+        <div id="step-3-panel" class="step-panel step-hidden space-y-4">
+          <div class="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-mono uppercase tracking-wider">Step 3 of 4</span>
+            <h2 class="text-lg font-bold text-white mt-1">Formula Assembler (IS 456 Cl. 26.5.1.5)</h2>
+            <p class="text-xs text-slate-300 mt-1">Drag the correct parameter variables into the top of the stirrup spacing formula to unlock the structural logic.</p>
+          </div>
+
+          <!-- Formula Puzzle Arena -->
+          <div class="glass-card p-5 rounded-xl flex flex-col items-center justify-center space-y-6">
+            <div class="flex items-center space-x-2 text-white font-mono text-lg">
+              <span class="font-bold text-purple-400">s<sub>v</sub></span>
+              <span>=</span>
+              <div class="flex flex-col items-center">
+                <!-- Numerator slots -->
+                <div class="flex items-center space-x-1 pb-2 border-b border-white min-h-[50px] px-2">
+                  <span class="text-sm text-slate-400">0.87</span>
+                  <span class="text-slate-500 font-sans">×</span>
+                  <div class="drop-slot w-16 h-10 border border-dashed border-purple-500/40 rounded flex items-center justify-center text-xs font-bold text-purple-400 bg-purple-500/5" data-slot="fyv">?</div>
+                  <span class="text-slate-500 font-sans">×</span>
+                  <div class="drop-slot w-16 h-10 border border-dashed border-purple-500/40 rounded flex items-center justify-center text-xs font-bold text-purple-400 bg-purple-500/5" data-slot="Asv">?</div>
+                  <span class="text-slate-500 font-sans">×</span>
+                  <div class="drop-slot w-16 h-10 border border-dashed border-purple-500/40 rounded flex items-center justify-center text-xs font-bold text-purple-400 bg-purple-500/5" data-slot="d">?</div>
+                </div>
+                <!-- Denominator -->
+                <span class="text-sm pt-1 text-pink-400" id="formula-denominator">V<sub>us</sub></span>
+              </div>
+            </div>
+
+            <!-- Draggable parameter chips container -->
+            <div class="w-full">
+              <span class="text-[10px] font-mono text-slate-500 block mb-2 text-center uppercase tracking-widest">Available Variable Chips (Drag or click to place)</span>
+              <div class="flex flex-wrap justify-center gap-2" id="draggable-dock">
+                <div class="drag-chip bg-slate-900 border border-slate-700 hover:border-purple-400 text-xs font-mono text-white px-3 py-2 rounded shadow cursor-grab flex items-center space-x-1.5" draggable="true" data-var="fyv">
+                  <span>fyv (250)</span>
+                </div>
+                <div class="drag-chip bg-slate-900 border border-slate-700 hover:border-purple-400 text-xs font-mono text-white px-3 py-2 rounded shadow cursor-grab flex items-center space-x-1.5" draggable="true" data-var="Asv">
+                  <span>Asv (100.5)</span>
+                </div>
+                <div class="drag-chip bg-slate-900 border border-slate-700 hover:border-purple-400 text-xs font-mono text-white px-3 py-2 rounded shadow cursor-grab flex items-center space-x-1.5" draggable="true" data-var="d">
+                  <span>d (470)</span>
+                </div>
+                <div class="drag-chip bg-slate-900 border border-slate-700 hover:border-purple-400 text-xs font-mono text-white px-3 py-2 rounded shadow cursor-grab flex items-center space-x-1.5" draggable="true" data-var="b">
+                  <span>b (300)</span>
+                </div>
+                <div class="drag-chip bg-slate-900 border border-slate-700 hover:border-purple-400 text-xs font-mono text-white px-3 py-2 rounded shadow cursor-grab flex items-center space-x-1.5" draggable="true" data-var="fck">
+                  <span>fck (20)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 4: STITCHING THE CRACK (GESTURE AREA) -->
+        <div id="step-4-panel" class="step-panel step-hidden space-y-4">
+          <div class="p-3 bg-neonGreen/10 border border-neonGreen/20 rounded-lg">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-neonGreen/20 text-neonGreen font-mono uppercase tracking-wider">Step 4 of 4</span>
+            <h2 class="text-lg font-bold text-white mt-1">Stitch the Crack</h2>
+            <p class="text-xs text-slate-300 mt-1">Move your pointer back and forth over the diagonal canvas crack zone to "stitch" the structural fracture with vertical steel stirrup loops!</p>
+          </div>
+
+          <!-- Spacing Controls & Metrics -->
+          <div class="glass-card p-4 rounded-xl space-y-4">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-mono text-slate-300">Stirrup Loop Spacing ($s_v$)</span>
+                <span class="text-sm font-mono font-bold text-neonGreen" id="spacing-slider-val">150 mm</span>
+              </div>
+              <input type="range" id="spacing-range-slider" min="50" max="350" value="150" class="w-full accent-neonGreen bg-slate-800 h-2 rounded-lg cursor-pointer">
+              <div class="flex justify-between text-[9px] font-mono text-slate-500 mt-1">
+                <span>50 mm (Extremely Tight)</span>
+                <span>300 mm (IS Code Maximum)</span>
+              </div>
+            </div>
+
+            <!-- Dynamic Stitch Performance Status Card -->
+            <div class="border-t border-slate-800 pt-3 space-y-2">
+              <div class="flex justify-between items-center">
+                <span class="text-xs font-mono text-slate-400 uppercase tracking-widest font-bold">Stitching Diagnostics</span>
+                <span id="stitching-badge" class="px-2 py-0.5 rounded text-[10px] font-mono bg-red-500/20 text-red-400 uppercase">Under-reinforced</span>
+              </div>
+
+              <!-- Spacing limits display -->
+              <div class="bg-black/40 p-3 rounded border border-slate-800 text-xs space-y-1.5 font-mono">
+                <div class="flex justify-between">
+                  <span class="text-slate-400">Calculated Ideal Spacing:</span>
+                  <span class="text-white font-bold" id="diag-ideal">150 mm</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-slate-400">IS 456 Upper Bound Limit:</span>
+                  <span class="text-white" id="diag-max">182 mm</span>
+                </div>
+                <div class="flex justify-between border-t border-slate-800 pt-1.5 mt-1">
+                  <span class="text-slate-400">Applied Spacing Check:</span>
+                  <span id="diag-check" class="text-red-400 font-bold">CRITICAL FAILURE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- FOOTER ACTIONS (Nav buttons, ELI5 explanation helper triggers) -->
+      <div class="p-4 bg-black/40 border-t border-slate-800/80 flex justify-between items-center space-x-2">
+        <button id="prev-btn" class="px-4 py-2 bg-slate-800/50 hover:bg-slate-800 rounded text-slate-400 hover:text-white transition text-xs font-mono" disabled>
+          <i class="fa-solid fa-arrow-left mr-1"></i> Back
+        </button>
+        
+        <!-- ELI5 Narration Assist Button -->
+        <button id="eli5-trigger-btn" class="px-3 py-2 bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 rounded hover:bg-cyan-500/20 transition text-[11px] font-mono flex items-center space-x-1">
+          <i class="fa-solid fa-graduation-cap"></i> <span>Explain Like I'm 5</span>
+        </button>
+
+        <button id="next-btn" class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 rounded text-black transition text-xs font-bold font-mono">
+          Next <i class="fa-solid fa-arrow-right ml-1"></i>
+        </button>
+      </div>
+
+    </section>
+
+    <!-- RIGHT SIMULATION ARENA (60% Width) -->
+    <section class="flex-1 flex flex-col overflow-hidden relative bg-slate-950/80">
+      
+      <!-- Live Indicator Bars -->
+      <div class="h-12 border-b border-slate-900 px-6 flex items-center justify-between bg-cyberDark">
+        <div class="flex items-center space-x-4">
+          <span class="text-xs text-slate-400 font-mono flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-concreteDark"></span> Concrete Paste: M20
+          </span>
+          <span class="text-xs text-slate-400 font-mono flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-steelPink"></span> Tension: 4-T20 Fe415
+          </span>
+          <span class="text-xs text-slate-400 font-mono flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 rounded-full bg-steelPurple animate-pulse"></span> Stirrups: 2L-8Φ Fe250
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-2">
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-black border border-slate-800 text-slate-300">
+            DPR: <span id="val-dpr">2.0</span>
+          </span>
+        </div>
+      </div>
+
+      <!-- SIMULATION VIEWPORT FRAME -->
+      <div class="flex-1 relative flex flex-col md:flex-row overflow-hidden p-4 gap-4">
+        
+        <!-- Longitudinal Main Interactive Viewport (70% width or grow) -->
+        <div class="flex-1 glass-card rounded-2xl overflow-hidden relative flex flex-col">
+          <!-- Canvas Top Information bar overlay -->
+          <div class="absolute top-3 left-3 z-10 flex flex-col space-y-1">
+            <span class="text-[10px] font-mono tracking-widest uppercase bg-black/60 px-2 py-1 rounded border border-slate-800 text-cyan-400">
+              Longitudinal Elevation (Stress Profile)
+            </span>
+            <span id="canvas-instruction-overlay" class="text-[10px] font-sans text-slate-400 bg-black/60 px-2 py-0.5 rounded border border-slate-800/50">
+              Increase Vu to see concrete diagonal cracking.
+            </span>
+          </div>
+
+          <!-- The primary interactive Canvas container -->
+          <div class="flex-1 w-full h-full relative" id="canvas-container">
+            <canvas id="simulation-canvas" class="w-full h-full block absolute inset-0 touch-none"></canvas>
+          </div>
+        </div>
+
+        <!-- Cross Section View (30% width or stacked on small screens) -->
+        <div class="w-full md:w-56 glass-card rounded-2xl overflow-hidden flex flex-col relative p-3">
+          <span class="text-[10px] font-mono tracking-widest uppercase bg-black/60 px-2 py-1 rounded border border-slate-800 text-purple-400 self-start mb-2">
+            Section X-X
+          </span>
+          
+          <div class="flex-1 relative" id="cross-canvas-container">
+            <canvas id="cross-section-canvas" class="w-full h-full block absolute inset-0"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- LIVE PLOTTER DATA STRIP (Dynamic shear capacity graphing) -->
+      <div class="h-24 bg-black/50 border-t border-slate-900 p-4 flex items-center justify-between font-mono text-xs">
+        <div class="flex-1 grid grid-cols-4 gap-4">
+          <div class="border-r border-slate-800 pr-2">
+            <span class="text-[10px] text-slate-500 block uppercase">Shear Force Capacity:</span>
+            <div class="flex items-baseline space-x-1">
+              <span class="text-lg font-bold text-white" id="strip-v-cap">83.7</span>
+              <span class="text-[10px] text-slate-400">kN</span>
+            </div>
+            <span class="text-[9px] text-concretePaste block mt-0.5">Vc Concrete Base Limit</span>
+          </div>
+
+          <div class="border-r border-slate-800 pr-2">
+            <span class="text-[10px] text-slate-500 block uppercase">Steel Stirrup Capacity:</span>
+            <div class="flex items-baseline space-x-1">
+              <span class="text-lg font-bold text-purple-400" id="strip-vs-cap">0.0</span>
+              <span class="text-[10px] text-slate-400">kN</span>
+            </div>
+            <span class="text-[9px] text-slate-400 block mt-0.5">Vus Stirrups Share</span>
+          </div>
+
+          <div class="border-r border-slate-800 pr-2">
+            <span class="text-[10px] text-slate-500 block uppercase">Ultimate Design Shear:</span>
+            <div class="flex items-baseline space-x-1">
+              <span class="text-lg font-bold text-pink-400" id="strip-vu-total">150.0</span>
+              <span class="text-[10px] text-slate-400">kN</span>
+            </div>
+            <span class="text-[9px] text-slate-400 block mt-0.5">Applied External Load</span>
+          </div>
+
+          <div>
+            <span class="text-[10px] text-slate-500 block uppercase">Structural Safety Status:</span>
+            <span id="strip-status-pill" class="inline-block mt-1 px-2.5 py-1 rounded text-[10px] uppercase font-bold tracking-wider bg-orange-500/20 text-orange-400">
+              Needs Stirrups
+            </span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- ELI5 POPUP SCREEN OVERLAY (Interactive Backdrop) -->
+  <div id="eli5-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[100] opacity-0 pointer-events-none transition-opacity duration-300">
+    <div class="glass-card max-w-lg w-full p-6 rounded-2xl space-y-4 m-4">
+      <div class="flex justify-between items-start">
+        <div class="flex items-center space-x-2">
+          <i class="fa-solid fa-graduation-cap text-cyan-400 text-2xl"></i>
+          <h3 class="text-lg font-bold text-white tracking-wide">ELI5 Conceptual Analogy</h3>
+        </div>
+        <button onclick="closeELI5Modal()" class="text-slate-400 hover:text-white transition text-lg"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      
+      <div class="space-y-3 text-sm text-slate-300 leading-relaxed" id="eli5-modal-body">
+        <!-- Content will be dynamically populated -->
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeELI5Modal()" class="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold font-mono text-xs rounded transition uppercase">Got it!</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==========================================
+    // GLOBAL APP STATE & MATHEMATICAL PARAMETERS
+    // ==========================================
+    const state = {
+      currentStep: 1,
+      soundEnabled: true,
+      voiceEnabled: true,
+      
+      // Variable tracking
+      identifiedVars: new Set(),
+      allVars: ['b', 'D', 'Ast', 'c', 'fck', 'fyv', 'Vu'],
+
+      // Geometric/Material Constants (IS 456 specification)
+      b: 300,        // Width (mm)
+      D: 500,        // Overall Depth (mm)
+      c: 30,         // Cover (mm)
+      d: 470,        // Effective depth (D - c) (mm)
+      Ast: 1256.64,  // Area Tension Steel (4 - T20)
+      pt: 0.891,     // Percentage of Tension Steel
+      fck: 20,       // Concrete Grade (M20)
+      fyv: 250,      // Stirrup Steel strength (Fe250)
+      dv: 8,         // Stirrup diameter (mm)
+      n: 2,          // Stirrup Legs (2-legged)
+      Asv: 100.53,   // 2 * PI/4 * 8^2
+
+      // Dynamic variables updated via simulation sandbox
+      Vu: 150,       // Exterior Design Shear Force (kN)
+      sv: 150,       // Stirrup loop spacing (mm)
+
+      // Step 3 Puzzle Drag tracker
+      puzzleCompleted: false,
+      puzzleAnswers: {
+        fyv: false,
+        Asv: false,
+        d: false
+      },
+
+      // Interaction coordinates
+      crackHoverActive: false,
+      stirrupPlacedCount: 0,
+      gestureTriggeredStitch: false
+    };
+
+    // ==========================================
+    // AUDIO ENGINE (WEB AUDIO API SYNTHESIZER)
+    // ==========================================
+    let audioCtx = null;
+    let shearOscillator = null;
+    let shearGain = null;
+    let visualizerAnalyser = null;
+    let visualizerDataArray = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+        
+        // Background Pitch-Shifting Shear Hum
+        shearOscillator = audioCtx.createOscillator();
+        shearGain = audioCtx.createGain();
+        
+        // Low warm mechanical hum
+        shearOscillator.type = 'triangle';
+        shearOscillator.frequency.value = 100;
+        shearGain.gain.value = 0.02; // comfortable background level
+        
+        // Route audio elements
+        shearOscillator.connect(shearGain);
+        shearGain.connect(audioCtx.destination);
+        shearOscillator.start();
+
+        // Setup Analyser for header visualizer
+        visualizerAnalyser = audioCtx.createAnalyser();
+        visualizerAnalyser.fftSize = 32;
+        shearGain.connect(visualizerAnalyser);
+        
+        visualizerDataArray = new Uint8Array(visualizerAnalyser.frequencyBinCount);
+        updateVisualizer();
+      } catch (err) {
+        console.warn("Web Audio API is not fully supported in this browser.", err);
+      }
+    }
+
+    // Dynamic pitch updates based on Shear Stress
+    function updateAudioPitch() {
+      if (!audioCtx || !state.soundEnabled) return;
+      const tau_v = (state.Vu * 1000) / (state.b * state.d);
+      
+      // Scale frequency from 100Hz at 0 kN up to 430Hz at high stress/overload
+      const targetFrequency = 100 + (tau_v * 120);
+      const targetVolume = Math.min(0.08, (tau_v / 2.8) * 0.08);
+
+      // Smooth sweep transitions using exponential ramp
+      shearOscillator.frequency.setTargetAtTime(targetFrequency, audioCtx.currentTime, 0.1);
+      shearGain.gain.setTargetAtTime(state.soundEnabled ? targetVolume : 0, audioCtx.currentTime, 0.1);
+    }
+
+    // Synthesized chime sound (FM synthesis)
+    function playChime() {
+      if (!audioCtx || !state.soundEnabled) return;
+      const now = audioCtx.currentTime;
+      
+      const carrier = audioCtx.createOscillator();
+      const modulator = audioCtx.createOscillator();
+      const modGain = audioCtx.createGain();
+      const carrierGain = audioCtx.createGain();
+
+      carrier.frequency.setValueAtTime(880, now); // A5 chime note
+      modulator.frequency.setValueAtTime(220, now);
+      modGain.gain.setValueAtTime(5, now);
+      
+      carrierGain.gain.setValueAtTime(0.15, now);
+      carrierGain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+      modulator.connect(modGain);
+      modGain.connect(carrier.frequency);
+      
+      carrier.connect(carrierGain);
+      carrierGain.connect(audioCtx.destination);
+
+      carrier.start(now);
+      modulator.start(now);
+      
+      carrier.stop(now + 0.4);
+      modulator.stop(now + 0.4);
+    }
+
+    // Synthesized Boing (Error) sound
+    function playBoing() {
+      if (!audioCtx || !state.soundEnabled) return;
+      const now = audioCtx.currentTime;
+      
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(180, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.3);
+
+      gainNode.gain.setValueAtTime(0.1, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.3);
+    }
+
+    // Web Audio visualizer animation loops
+    function updateVisualizer() {
+      if (!visualizerAnalyser) return;
+      requestAnimationFrame(updateVisualizer);
+      
+      visualizerAnalyser.getByteFrequencyData(visualizerDataArray);
+      const container = document.getElementById('visualizer-container');
+      if (!container) return;
+      
+      const lines = container.querySelectorAll('div');
+      for (let i = 0; i < lines.length; i++) {
+        const val = visualizerDataArray[i % visualizerDataArray.length];
+        const height = Math.max(2, Math.round(val / 25));
+        lines[i].style.height = `${height}px`;
+      }
+    }
+
+    // ==========================================
+    // NATIVE WEB SPEECH NARRATION
+    // ==========================================
+    let spokenTriggers = {
+      welcome: false,
+      sandbox: false,
+      assembly: false,
+      overload: false,
+      stitchSuccess: false
+    };
+
+    function speakText(text) {
+      if (!state.voiceEnabled) return;
+      
+      // Cancel active voice prompts to avoid stacking queues
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.15;
+      
+      // Attempt standard expressive US/Samantha system voice
+      const voices = window.speechSynthesis.getVoices();
+      const selectedVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Samantha") || v.lang === "en-US");
+      if (selectedVoice) utterance.voice = selectedVoice;
+      
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function checkSpeechTriggers() {
+      if (!state.voiceEnabled) return;
+      
+      if (state.currentStep === 1 && !spokenTriggers.welcome) {
+        speakText("Welcome to the concrete shear design lab! Let's help our beam stay strong. Click on the dimensions and material values in the problem statement to find our design numbers first.");
+        spokenTriggers.welcome = true;
+      } else if (state.currentStep === 2 && !spokenTriggers.sandbox) {
+        speakText("Whoa! Look at those giant scissors pressing down! As you drag the load up, see how the concrete starts to tear diagonally. That's diagonal shear failure!");
+        spokenTriggers.sandbox = true;
+      } else if (state.currentStep === 3 && !spokenTriggers.assembly) {
+        speakText("Perfect, you've unlocked the physics puzzle! Now drag and place the variables into the structural spacing formula from the Indian Standard code.");
+        spokenTriggers.assembly = true;
+      }
+    }
+
+    // ==========================================
+    // MATHEMATICAL MODELS & CALCULATIONS
+    // ==========================================
+    function recalculateShear() {
+      // Nominal Shear stress (Tau_v)
+      const Vu_N = state.Vu * 1000;
+      const tau_v = Vu_N / (state.b * state.d);
+      
+      // Design Shear strength of concrete (Tau_c) based on M20 & Pt = 0.891%
+      // Interpolating from IS 456 table 19:
+      // For Pt = 0.75% -> Tau_c = 0.56. For Pt = 1.00% -> Tau_c = 0.62
+      const pt_1 = 0.75, tau_c1 = 0.56;
+      const pt_2 = 1.00, tau_c2 = 0.62;
+      const tau_c = tau_c1 + ((state.pt - pt_1) / (pt_2 - pt_1)) * (tau_c2 - tau_c1);
+      const Vc_N = tau_c * state.b * state.d;
+      const Vc = Vc_N / 1000;
+
+      // Max concrete limit Tau_c_max
+      const tau_c_max = 2.8; // M20
+      const Vc_max = (tau_c_max * state.b * state.d) / 1000;
+
+      // Spacing constraints & calculations
+      let sv_req = 300; // default maximum standard
+      let status = "";
+      let statusPillText = "";
+      let statusPillClass = "";
+      
+      // Ultimate shear resistance profile
+      const Vus = Math.max(0, state.Vu - Vc);
+
+      if (tau_v > tau_c_max) {
+        status = "CRUSHING ERROR: The shear force is too high! The concrete cross section will crush regardless of how many stirrup loops we add. We must increase the concrete beam depth immediately!";
+        statusPillText = "Concrete Crushing";
+        statusPillClass = "bg-red-600/30 text-red-400 border border-red-500/30";
+        sv_req = 50; // unsafe default
+        if (!spokenTriggers.overload) {
+          speakText("Stop! The force is too high! The concrete is turning to powder! We must increase the beam depth!");
+          spokenTriggers.overload = true;
+        }
+      } else if (tau_v > tau_c) {
+        // Design stirrups required
+        const Vus_N = Vus * 1000;
+        sv_req = (0.87 * state.fyv * state.Asv * state.d) / Vus_N;
+        
+        // Cl. 26.5.1.5 bounds
+        const max_allowed = Math.min(0.75 * state.d, 300);
+        sv_req = Math.min(sv_req, max_allowed);
+        
+        status = `Stirrups Required: Design spacing calculated at ${Math.round(sv_req)} mm to safely carry the residual shear of ${Vus.toFixed(1)} kN.`;
+        statusPillText = "Stirrups Required";
+        statusPillClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30 animate-pulse";
+      } else {
+        // Minimum nominal stirrups required
+        const min_sv = (0.87 * state.fyv * state.Asv) / (0.4 * state.b);
+        sv_req = Math.min(0.75 * state.d, 300, min_sv);
+        
+        status = `Safe Concrete Base: Concrete carries shear load, but IS 456 mandates a nominal minimum stirrup spacing of ${Math.round(sv_req)} mm.`;
+        statusPillText = "Safe Concrete Base";
+        statusPillClass = "bg-green-500/20 text-green-400 border border-green-500/30";
+      }
+
+      // Update calculations display elements
+      document.getElementById('calc-tau-v').innerText = `${tau_v.toFixed(2)} N/mm²`;
+      document.getElementById('calc-tau-c').innerText = `${tau_c.toFixed(2)} N/mm²`;
+      
+      const banner = document.getElementById('shear-verdict-banner');
+      const text = document.getElementById('shear-verdict-text');
+      
+      if (tau_v > tau_c_max) {
+        banner.className = "p-3 rounded-lg flex items-center space-x-3 bg-red-600/10 border border-red-600/20 text-red-400 text-xs";
+        text.innerHTML = `<strong>CRITICAL OVERLOAD:</strong> $\\tau_v > \\tau_{c,max}$ (${tau_v.toFixed(2)} > 2.80). Section redesign required!`;
+      } else if (tau_v > tau_c) {
+        banner.className = "p-3 rounded-lg flex items-center space-x-3 bg-orange-500/10 border border-orange-500/20 text-orange-400 text-xs";
+        text.innerHTML = `<strong>REINFORCED CRACK:</strong> $\\tau_v > \\tau_c$. Steel stirrups are strictly needed to stitch the tension fractures.`;
+      } else {
+        banner.className = "p-3 rounded-lg flex items-center space-x-3 bg-green-500/10 border border-green-500/20 text-green-400 text-xs";
+        text.innerHTML = `<strong>BASE LEVEL SECURE:</strong> $\\tau_v \\le \\tau_c$. Concrete alone resists the force, applying nominal structural ties.`;
+      }
+
+      // Update Strip indicators
+      document.getElementById('strip-v-cap').innerText = Vc.toFixed(1);
+      document.getElementById('strip-vs-cap').innerText = Vus.toFixed(1);
+      document.getElementById('strip-vu-total').innerText = state.Vu.toFixed(1);
+      
+      const statusPill = document.getElementById('strip-status-pill');
+      statusPill.innerText = statusPillText;
+      statusPill.className = `inline-block mt-1 px-2.5 py-1 rounded text-[10px] uppercase font-bold tracking-wider ${statusPillClass}`;
+
+      // Update Step 4 specific diagnostics
+      document.getElementById('diag-ideal').innerText = `${Math.round(sv_req)} mm`;
+      document.getElementById('diag-max').innerText = `${Math.round(Math.min(0.75 * state.d, 300))} mm`;
+      
+      const dCheck = document.getElementById('diag-check');
+      const stitchBadge = document.getElementById('stitching-badge');
+      
+      if (tau_v > tau_c_max) {
+        dCheck.innerText = "REDESIGN DEPTH (CRITICAL)";
+        dCheck.className = "text-red-500 font-bold";
+        stitchBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-red-600/20 text-red-400 uppercase";
+        stitchBadge.innerText = "CRUSHING";
+      } else if (state.sv <= sv_req) {
+        dCheck.innerText = "COMPLIANT & SAFE (PASSED)";
+        dCheck.className = "text-green-400 font-bold glow-cyan";
+        stitchBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-green-500/20 text-green-400 uppercase";
+        stitchBadge.innerText = "Compliant";
+        
+        if (state.currentStep === 4 && !spokenTriggers.stitchSuccess) {
+          speakText("Fantastic! The stirrups are tightly spaced and hold the crack together! The concrete beam is fully safe under load!");
+          spokenTriggers.stitchSuccess = true;
+          playChime();
+        }
+      } else {
+        dCheck.innerText = "SPACING TOO WIDE (FAILED)";
+        dCheck.className = "text-red-400 font-bold";
+        stitchBadge.className = "px-2 py-0.5 rounded text-[10px] font-mono bg-red-500/20 text-red-400 uppercase";
+        stitchBadge.innerText = "Deficient Spacing";
+      }
+
+      // Dynamic formula text values update
+      document.getElementById('formula-denominator').innerText = `${Vus > 0 ? Vus.toFixed(1) + ' kN' : 'V_us (0 kN)'}`;
+
+      // Call drawing updates
+      requestAnimationFrame(drawSimulation);
+      requestAnimationFrame(drawCrossSection);
+    }
+
+    // ==========================================
+    // DUAL CANVAS RETINA READY SYSTEM DRAWING
+    // ==========================================
+    const simCanvas = document.getElementById('simulation-canvas');
+    const simCtx = simCanvas.getContext('2d');
+    const crossCanvas = document.getElementById('cross-section-canvas');
+    const crossCtx = crossCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      const dpr = window.devicePixelRatio || 1;
+      document.getElementById('val-dpr').innerText = dpr.toFixed(1);
+
+      // Handle main canvas resize
+      const simRect = simCanvas.parentNode.getBoundingClientRect();
+      simCanvas.width = simRect.width * dpr;
+      simCanvas.height = simRect.height * dpr;
+      simCtx.scale(dpr, dpr);
+
+      // Handle cross canvas resize
+      const crossRect = crossCanvas.parentNode.getBoundingClientRect();
+      crossCanvas.width = crossRect.width * dpr;
+      crossCanvas.height = crossRect.height * dpr;
+      crossCtx.scale(dpr, dpr);
+
+      drawSimulation();
+      drawCrossSection();
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+
+    // DRAW MAIN LONGITUDINAL BEAM
+    function drawSimulation() {
+      if (!simCanvas.width) return;
+      const w = simCanvas.getBoundingClientRect().width;
+      const h = simCanvas.getBoundingClientRect().height;
+
+      // Clear Screen with deep tech theme color
+      simCtx.fillStyle = '#0a0b0f';
+      simCtx.fillRect(0, 0, w, h);
+
+      // Draw Grid backdrop
+      simCtx.strokeStyle = 'rgba(0, 240, 255, 0.05)';
+      simCtx.lineWidth = 1;
+      const gridSize = 25;
+      for (let x = 0; x < w; x += gridSize) {
+        simCtx.beginPath();
+        simCtx.moveTo(x, 0);
+        simCtx.lineTo(x, h);
+        simCtx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        simCtx.beginPath();
+        simCtx.moveTo(0, y);
+        simCtx.lineTo(w, y);
+        simCtx.stroke();
+      }
+
+      // Beam Physical Bounds
+      const bH = 150; // drawn height
+      const bW = w * 0.8;
+      const bX = (w - bW) / 2;
+      const bY = (h - bH) / 2;
+
+      // Dynamic shear crack split offsets
+      const tau_v = (state.Vu * 1000) / (state.b * state.d);
+      const crackWidth = Math.max(0, (state.Vu - 83.7) * 0.04); // width based on shear excess
+      const rightShift = Math.max(0, (state.Vu - 83.7) * 0.05);
+
+      // --- Draw Left Beam block ---
+      simCtx.save();
+      simCtx.fillStyle = 'rgba(20, 35, 30, 0.45)';
+      simCtx.strokeStyle = '#0ca678';
+      simCtx.lineWidth = 2.5;
+      
+      simCtx.beginPath();
+      simCtx.moveTo(bX, bY);
+      simCtx.lineTo(bX + bW * 0.4, bY);
+      simCtx.lineTo(bX + bW * 0.35, bY + bH);
+      simCtx.lineTo(bX, bY + bH);
+      simCtx.closePath();
+      simCtx.fill();
+      simCtx.stroke();
+      simCtx.restore();
+
+      // --- Draw Right Beam block (displaces under heavy shear load) ---
+      simCtx.save();
+      simCtx.translate(0, rightShift); // dynamic downward sliding on shear failure!
+      simCtx.fillStyle = 'rgba(20, 35, 30, 0.45)';
+      simCtx.strokeStyle = '#0ca678';
+      simCtx.lineWidth = 2.5;
+
+      simCtx.beginPath();
+      simCtx.moveTo(bX + bW * 0.4 + crackWidth, bY);
+      simCtx.lineTo(bX + bW, bY);
+      simCtx.lineTo(bX + bW, bY + bH);
+      simCtx.lineTo(bX + bW * 0.35 + crackWidth, bY + bH);
+      simCtx.closePath();
+      simCtx.fill();
+      simCtx.stroke();
+      simCtx.restore();
+
+      // Draw inside Concrete Aggregates (Scattered colorful pastel circles)
+      simCtx.fillStyle = 'rgba(178, 242, 187, 0.2)';
+      const randSeeds = [0.1, 0.25, 0.38, 0.54, 0.72, 0.85, 0.93];
+      randSeeds.forEach((s, idx) => {
+        simCtx.beginPath();
+        simCtx.arc(bX + bW * s, bY + bH * (0.3 + (idx % 3) * 0.2), 6 + (idx % 4), 0, Math.PI * 2);
+        simCtx.fill();
+      });
+
+      // --- Draw Main Longitudinal Tension Bar (Glowing Hot Pink) ---
+      simCtx.save();
+      simCtx.lineWidth = 6;
+      simCtx.strokeStyle = '#ff2a85';
+      simCtx.shadowBlur = 10;
+      simCtx.shadowColor = '#ff2a85';
+
+      // Left bar portion
+      simCtx.beginPath();
+      simCtx.moveTo(bX + 15, bY + bH - 20);
+      simCtx.lineTo(bX + bW * 0.35 + 2, bY + bH - 20);
+      simCtx.stroke();
+
+      // Right bar portion (Offset vertically aligned with right block displacement)
+      simCtx.beginPath();
+      simCtx.moveTo(bX + bW * 0.35 + crackWidth + 2, bY + bH - 20 + rightShift);
+      simCtx.lineTo(bX + bW - 15, bY + bH - 20 + rightShift);
+      simCtx.stroke();
+      simCtx.restore();
+
+      // --- Draw Vertical Steel Stirrup Loops ---
+      // We render them across the span.
+      // In Step 4, density depends directly on spacing state.sv
+      const mmToPx = bW / 1200; // rough scale mapping 1200mm span to pixels
+      const pxSpacing = state.sv * mmToPx;
+
+      let stirrupX = bX + 30;
+      simCtx.save();
+      simCtx.lineWidth = 3;
+      simCtx.strokeStyle = '#d0bfff';
+      simCtx.shadowBlur = 6;
+      simCtx.shadowColor = '#d0bfff';
+
+      while (stirrupX < bX + bW - 30) {
+        // Decide if stirrup crosses left block or displaced right block
+        const isRightOfCrack = (stirrupX > bX + bW * 0.4 + crackWidth);
+        const activeYShift = isRightOfCrack ? rightShift : 0;
+
+        simCtx.beginPath();
+        simCtx.moveTo(stirrupX, bY + 10 + activeYShift);
+        simCtx.lineTo(stirrupX, bY + bH - 10 + activeYShift);
+        simCtx.stroke();
+
+        stirrupX += pxSpacing;
+      }
+      simCtx.restore();
+
+      // --- Draw Diagonal Tension Shear Crack ---
+      simCtx.save();
+      simCtx.strokeStyle = '#ff8787';
+      simCtx.lineWidth = Math.max(1.5, crackWidth * 1.5);
+      simCtx.shadowBlur = 12;
+      simCtx.shadowColor = '#ff8787';
+      
+      simCtx.beginPath();
+      simCtx.moveTo(bX + bW * 0.4 + crackWidth/2, bY);
+      simCtx.bezierCurveTo(
+        bX + bW * 0.38 + crackWidth/2, bY + bH * 0.4,
+        bX + bW * 0.37 + crackWidth/2, bY + bH * 0.6,
+        bX + bW * 0.35 + crackWidth/2, bY + bH
+      );
+      simCtx.stroke();
+      simCtx.restore();
+
+      // Overlay Stress Vector Indicators (Step 2 and 4 highlight vectors)
+      if (state.currentStep === 2 || state.currentStep === 4) {
+        drawStressVectors(simCtx, bX, bY, bW, bH, rightShift);
+      }
+
+      // Render Step 4 Visual Gesture Interaction Trigger
+      if (state.currentStep === 4) {
+        simCtx.fillStyle = 'rgba(57, 255, 20, 0.04)';
+        simCtx.strokeStyle = 'rgba(57, 255, 20, 0.2)';
+        simCtx.setLineDash([5, 5]);
+        simCtx.fillRect(bX + bW * 0.2, bY, bW * 0.3, bH);
+        simCtx.strokeRect(bX + bW * 0.2, bY, bW * 0.3, bH);
+        simCtx.setLineDash([]);
+
+        // Interactive swipe indicator text
+        simCtx.fillStyle = '#39ff14';
+        simCtx.font = '10px Fira Code';
+        simCtx.fillText("SWEEP CURSOR HERE TO STITCH", bX + bW * 0.2 + 10, bY + 25);
+      }
+    }
+
+    function drawStressVectors(ctx, bX, bY, bW, bH, shiftY) {
+      // Draw standard diagonal compression & tensile vectors pulling apart
+      ctx.save();
+      ctx.lineWidth = 1.5;
+      
+      // Pull tension vector arrows across the crack
+      const cX = bX + bW * 0.37;
+      const cY = bY + bH * 0.5;
+
+      ctx.strokeStyle = '#ff2a85';
+      ctx.fillStyle = '#ff2a85';
+      
+      // Arrow 1 (down-left tension)
+      drawArrow(ctx, cX, cY, cX - 35, cY + 30, 6);
+      // Arrow 2 (up-right tension)
+      drawArrow(ctx, cX + 5, cY + shiftY, cX + 40, cY - 30 + shiftY, 6);
+
+      // Label
+      ctx.fillStyle = '#0a0b0f';
+      ctx.fillRect(cX - 45, cY - 20, 90, 15);
+      ctx.strokeStyle = '#ff2a85';
+      ctx.strokeRect(cX - 45, cY - 20, 90, 15);
+      ctx.fillStyle = '#ff2a85';
+      ctx.font = '9px Fira Code';
+      ctx.fillText("DIAGONAL TENSION", cX - 42, cY - 9);
+
+      ctx.restore();
+    }
+
+    function drawArrow(ctx, fromx, fromy, tox, toy, r) {
+      let x_center = tox;
+      let y_center = toy;
+      let angle = Math.atan2(toy - fromy, tox - fromx);
+
+      ctx.beginPath();
+      ctx.moveTo(fromx, fromy);
+      ctx.lineTo(tox, toy);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(x_center, y_center);
+      ctx.lineTo(x_center - r * Math.cos(angle - Math.PI/6), y_center - r * Math.sin(angle - Math.PI/6));
+      ctx.lineTo(x_center - r * Math.cos(angle + Math.PI/6), y_center - r * Math.sin(angle + Math.PI/6));
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // DRAW RECTANGULAR CROSS SECTION
+    function drawCrossSection() {
+      if (!crossCanvas.width) return;
+      const w = crossCanvas.getBoundingClientRect().width;
+      const h = crossCanvas.getBoundingClientRect().height;
+
+      crossCtx.fillStyle = '#0a0b0f';
+      crossCtx.fillRect(0, 0, w, h);
+
+      // Scaled dimensions
+      const sW = w * 0.65;
+      const sH = h * 0.75;
+      const sX = (w - sW) / 2;
+      const sY = (h - sH) / 2;
+
+      // Concrete rect
+      crossCtx.fillStyle = 'rgba(20, 35, 30, 0.4)';
+      crossCtx.strokeStyle = '#0ca678';
+      crossCtx.lineWidth = 3;
+      crossCtx.fillRect(sX, sY, sW, sH);
+      crossCtx.strokeRect(sX, sY, sW, sH);
+
+      // Draw standard inner stirrup loop offset
+      const cov = 15; // cover pixels scaled
+      crossCtx.strokeStyle = '#d0bfff';
+      crossCtx.lineWidth = 2.5;
+      crossCtx.strokeRect(sX + cov, sY + cov, sW - cov*2, sH - cov*2);
+
+      // Draw Main Tension Steel bars (4 dots near the bottom corners)
+      crossCtx.fillStyle = '#ff2a85';
+      const bRad = 6;
+      const bY_offset = sY + sH - cov - 12;
+
+      // Draw 4 circular bars beautifully aligned
+      const barPositions = [
+        sX + cov + 10,
+        sX + cov + (sW - cov*2)*0.33,
+        sX + cov + (sW - cov*2)*0.66,
+        sX + sW - cov - 10
+      ];
+
+      barPositions.forEach(bX_pos => {
+        crossCtx.beginPath();
+        crossCtx.arc(bX_pos, bY_offset, bRad, 0, Math.PI * 2);
+        crossCtx.fill();
+      });
+
+      // Simple labels
+      crossCtx.fillStyle = '#ffffff';
+      crossCtx.font = '8px Fira Code';
+      crossCtx.fillText("b = 300 mm", sX, sY - 8);
+      
+      crossCtx.save();
+      crossCtx.translate(sX - 8, sY + sH/2);
+      crossCtx.rotate(-Math.PI/2);
+      crossCtx.fillText("D = 500 mm", -25, 0);
+      crossCtx.restore();
+    }
+
+    // ==========================================
+    // INTERACTION MECHANICS & GESTURES
+    // ==========================================
+
+    // Step 1: Click keywords behavior
+    document.querySelectorAll('.clickable-var').forEach(element => {
+      element.addEventListener('click', () => {
+        const varName = element.getAttribute('data-var');
+        const valStr = element.getAttribute('data-val');
+
+        if (!state.identifiedVars.has(varName)) {
+          state.identifiedVars.add(varName);
+          element.classList.add('identified');
+          
+          // Audio feedback
+          playChime();
+
+          // Highlight corresponding ledger panel
+          const ledgerItem = document.getElementById(`ledger-${varName}`);
+          if (ledgerItem) {
+            ledgerItem.classList.remove('border-slate-800');
+            ledgerItem.classList.add('border-cyan-500/50', 'bg-cyan-500/10');
+            ledgerItem.querySelector('.status-dot').innerHTML = '<i class="fa-solid fa-circle-check text-cyan-400"></i>';
+            
+            // Set values readable
+            let formattedVal = valStr;
+            if (varName === 'Ast') formattedVal = '1256.6 mm² (4-T20)';
+            else if (varName === 'b') formattedVal = '300 mm';
+            else if (varName === 'D') formattedVal = '500 mm';
+            else if (varName === 'c') formattedVal = '30 mm';
+            else if (varName === 'fck') formattedVal = '20 N/mm² (M20)';
+            else if (varName === 'fyv') formattedVal = '250 N/mm² (Fe250)';
+            else if (varName === 'dv') formattedVal = '8 mm Stirrups';
+            else if (varName === 'Vu') formattedVal = 'Dynamic Load Mode';
+
+            document.getElementById(`val-${varName}`).innerText = formattedVal;
+          }
+
+          // Progress calculation
+          const count = state.identifiedVars.size;
+          document.getElementById('ledger-progress').innerText = `${count} / 7 Identified`;
+          
+          if (count === 7) {
+            speakText("All core parameters successfully extracted! We are ready to analyze the shear stress cracking behavior next.");
+            // Complete flashing
+            document.getElementById('next-btn').classList.add('animate-bounce');
+          }
+        }
+      });
+    });
+
+    // Step 2: Slider events
+    const vuSlider = document.getElementById('vu-range-slider');
+    if (vuSlider) {
+      vuSlider.addEventListener('input', (e) => {
+        state.Vu = parseFloat(e.target.value);
+        document.getElementById('vu-slider-val').innerText = `${state.Vu} kN`;
+        initAudio(); // safe trigger
+        updateAudioPitch();
+        recalculateShear();
+      });
+    }
+
+    // Step 4: Spacing Slider
+    const spacingSlider = document.getElementById('spacing-range-slider');
+    if (spacingSlider) {
+      spacingSlider.addEventListener('input', (e) => {
+        state.sv = parseInt(e.target.value);
+        document.getElementById('spacing-slider-val').innerText = `${state.sv} mm`;
+        recalculateShear();
+      });
+    }
+
+    // Step 3 Drag and Drop Logic
+    const draggables = document.querySelectorAll('.drag-chip');
+    const dropSlots = document.querySelectorAll('.drop-slot');
+
+    draggables.forEach(drv => {
+      drv.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', drv.getAttribute('data-var'));
+      });
+      // Fallback Click-to-Place support
+      drv.addEventListener('click', () => {
+        // Find empty slot that matches this variable
+        const varType = drv.getAttribute('data-var');
+        const targetSlot = document.querySelector(`.drop-slot[data-slot="${varType}"]`);
+        if (targetSlot) {
+          snapVariable(varType, targetSlot, drv);
+        } else {
+          playBoing();
+        }
+      });
+    });
+
+    dropSlots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('drag-over');
+      });
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('drag-over');
+      });
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('drag-over');
+        const draggedVar = e.dataTransfer.getData('text/plain');
+        const slotVarType = slot.getAttribute('data-slot');
+
+        if (draggedVar === slotVarType) {
+          snapVariable(draggedVar, slot, document.querySelector(`.drag-chip[data-var="${draggedVar}"]`));
+        } else {
+          playBoing();
+        }
+      });
+    });
+
+    function snapVariable(varName, slotEl, chipEl) {
+      slotEl.innerText = chipEl.innerText;
+      slotEl.classList.remove('border-dashed', 'border-purple-500/40');
+      slotEl.classList.add('border-solid', 'border-green-500', 'bg-green-500/20', 'glow-cyan');
+      chipEl.style.opacity = '0.4';
+      chipEl.setAttribute('draggable', 'false');
+
+      state.puzzleAnswers[varName] = true;
+      playChime();
+
+      // Check puzzle completeness
+      if (state.puzzleAnswers.fyv && state.puzzleAnswers.Asv && state.puzzleAnswers.d) {
+        state.puzzleCompleted = true;
+        speakText("Spectacular! You've successfully built the IS 456 formula. Now we can calculate the safe spacing and start stitching the diagonal shear crack.");
+        document.getElementById('next-btn').classList.add('animate-bounce');
+      }
+    }
+
+    // Swipe cursor stitching gesture trigger on Canvas
+    simCanvas.addEventListener('pointermove', (e) => {
+      if (state.currentStep !== 4) return;
+      const rect = simCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      
+      // Check if within center gesture zone
+      const leftLimit = rect.width * 0.2;
+      const rightLimit = rect.width * 0.5;
+
+      if (x > leftLimit && x < rightLimit) {
+        state.gestureTriggeredStitch = true;
+        // Decrease spacing visually as cursor wipes back and forth
+        if (state.sv > 120) {
+          state.sv -= 1;
+          document.getElementById('spacing-range-slider').value = state.sv;
+          document.getElementById('spacing-slider-val').innerText = `${state.sv} mm`;
+          recalculateShear();
+        }
+      }
+    });
+
+    // ==========================================
+    // STEPS FLOW ENGINE & NAVIGATION
+    // ==========================================
+    function jumpToStep(stepNum) {
+      // Step constraints
+      if (stepNum === 2 && state.identifiedVars.size < 7) {
+        alert("Please identify all 7 variables first by clicking the blue-underlined text inside the problem card.");
+        playBoing();
+        return;
+      }
+      if (stepNum === 4 && !state.puzzleCompleted) {
+        alert("Complete the Step 3 formula assembler drop puzzle before wrapping steel ties!");
+        playBoing();
+        return;
+      }
+
+      // Toggle screens
+      for (let i = 1; i <= 4; i++) {
+        const p = document.getElementById(`step-${i}-panel`);
+        const nav = document.getElementById(`nav-step-${i}`);
+        if (i === stepNum) {
+          p.classList.remove('step-hidden');
+          nav.className = "w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition glass-card border-green-500 text-green-400 font-bold";
+        } else {
+          p.classList.add('step-hidden');
+          nav.className = "w-8 h-8 rounded font-mono text-xs flex items-center justify-center border transition bg-slate-900 border-slate-800 text-slate-500";
+        }
+      }
+
+      state.currentStep = stepNum;
+      
+      // Disable control btns where appropriate
+      document.getElementById('prev-btn').disabled = (stepNum === 1);
+      
+      const nextBtn = document.getElementById('next-btn');
+      nextBtn.classList.remove('animate-bounce');
+      if (stepNum === 4) {
+        nextBtn.innerHTML = 'Complete Lab <i class="fa-solid fa-square-check ml-1"></i>';
+      } else {
+        nextBtn.innerHTML = 'Next <i class="fa-solid fa-arrow-right ml-1"></i>';
+      }
+
+      checkSpeechTriggers();
+      recalculateShear();
+    }
+
+    document.getElementById('prev-btn').addEventListener('click', () => {
+      if (state.currentStep > 1) {
+        jumpToStep(state.currentStep - 1);
+      }
+    });
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+      if (state.currentStep < 4) {
+        jumpToStep(state.currentStep + 1);
+      } else {
+        // Complete state trigger
+        speakText("Congratulations! You've engineered a completely safe, code-compliant reinforced concrete shear assembly. Class dismissed!");
+        alert("Success! RCC Shear Beam Design successfully calibrated and approved according to IS 456 standards.");
+      }
+    });
+
+    // Audio & Voice UI triggers
+    document.getElementById('toggle-sound-btn').addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      const sIcon = document.getElementById('sound-icon');
+      if (state.soundEnabled) {
+        sIcon.className = "fa-solid fa-volume-high text-sm";
+        if (shearGain) shearGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+      } else {
+        sIcon.className = "fa-solid fa-volume-xmark text-sm";
+        if (shearGain) shearGain.gain.setValueAtTime(0, audioCtx.currentTime);
+      }
+    });
+
+    document.getElementById('toggle-voice-btn').addEventListener('click', () => {
+      state.voiceEnabled = !state.voiceEnabled;
+      const vIcon = document.getElementById('voice-icon');
+      if (state.voiceEnabled) {
+        vIcon.className = "fa-solid fa-comment-dots text-sm text-cyan-400";
+      } else {
+        vIcon.className = "fa-solid fa-comment-slash text-sm text-slate-500";
+      }
+    });
+
+    // ELI5 Analogies Ledger
+    const eli5Texts = {
+      1: "Think of finding parameters like gathering ingredients before baking a cake. We need to measure the concrete mold size, and the amount of stretchy steel licorice string inside before we start calculating stress!",
+      2: "Imagine trying to snap a big sugar cookie in half. It resists if you push directly, but if you twist and slide (shear), it breaks easily along diagonal cracks. In concrete, diagonal tension is that cookie crack!",
+      3: "To know how many steel staples we need to hold our cracked cookie together, we solve the IS 456 formula puzzle. The formula relates the yield strength of the steel, depth, and overall shear force.",
+      4: "Now, stitch that crack up! Think of stirrups as vertical safety loops. When we wrap steel stirrups tightly across the diagonal fracture, we clamp the concrete halves together so they can never slide apart!"
+    };
+
+    document.getElementById('eli5-trigger-btn').addEventListener('click', () => {
+      const modal = document.getElementById('eli5-modal');
+      const modalBody = document.getElementById('eli5-modal-body');
+      modalBody.innerHTML = `<p>${eli5Texts[state.currentStep]}</p>`;
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      
+      speakText(eli5Texts[state.currentStep]);
+    });
+
+    function closeELI5Modal() {
+      const modal = document.getElementById('eli5-modal');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    // Initialize application viewport
+    window.onload = () => {
+      resizeCanvases();
+      checkSpeechTriggers();
+    };
+  </script>
+</body>
+</html>

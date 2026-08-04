@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Beam Analysis Studio: Ultimate Moment of Resistance (Mu)</title>
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --panel-bg: rgba(30, 41, 59, 0.45);
+            --panel-border: rgba(51, 65, 85, 0.6);
+            --accent-cyan: #06b6d4;
+            --accent-green: #10b981;
+            --accent-red: #ef4444;
+            --accent-yellow: #f59e0b;
+            --text-light: #f8fafc;
+            --text-muted: #94a3b8;
+            --neon-glow-cyan: 0 0 15px rgba(6, 182, 212, 0.6);
+            --neon-glow-green: 0 0 15px rgba(16, 185, 129, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* Ambient background grid */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(rgba(18, 24, 38, 0.8) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(18, 24, 38, 0.8) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        /* Header Bar */
+        header {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-logo .icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), #3b82f6);
+            border-radius: 6px;
+            display: grid;
+            place-items: center;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .header-logo h1 {
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--text-light), var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Audio / TTS System controls */
+        .controls-group {
+            display: flex;
+            gap: 12px;
+        }
+
+        .system-btn {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.25s ease;
+        }
+
+        .system-btn:hover, .system-btn.active {
+            color: var(--accent-cyan);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+            background: rgba(6, 182, 212, 0.05);
+        }
+
+        /* Progress Loop Tracker */
+        .progress-container {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 8px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .progress-steps {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+            position: relative;
+        }
+
+        .progress-line {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 90%;
+            height: 2px;
+            background: rgba(51, 65, 85, 0.6);
+            z-index: 1;
+            transform: translateY(-50%);
+        }
+
+        .progress-line-fill {
+            position: absolute;
+            top: 50%;
+            left: 5%;
+            width: 0%;
+            height: 2px;
+            background: var(--accent-cyan);
+            box-shadow: var(--neon-glow-cyan);
+            z-index: 1;
+            transform: translateY(-50%);
+            transition: width 0.4s ease;
+        }
+
+        .step-node {
+            position: relative;
+            z-index: 2;
+            background: #111827;
+            border: 2px solid var(--panel-border);
+            color: var(--text-muted);
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            font-size: 0.8rem;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .step-node.active {
+            border-color: var(--accent-cyan);
+            color: var(--text-light);
+            box-shadow: var(--neon-glow-cyan);
+        }
+
+        .step-node.completed {
+            border-color: var(--accent-green);
+            background: var(--accent-green);
+            color: #0f172a;
+        }
+
+        .step-label {
+            position: absolute;
+            top: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            transition: color 0.3s;
+        }
+
+        .step-node.active .step-label {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        /* Dashboard Layout */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 28% 44% 28%;
+            gap: 16px;
+            padding: 16px;
+            flex-grow: 1;
+            height: calc(100vh - 110px);
+            overflow: hidden;
+        }
+
+        /* Glassmorphism Panel styles */
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            transition: border-color 0.3s ease;
+        }
+
+        .panel-header {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--panel-border);
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-header .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent-red);
+            box-shadow: 0 0 8px var(--accent-red);
+        }
+
+        .panel-header.ready .status-indicator {
+            background: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+        }
+
+        .panel-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Panel A: Interactive Problem Manifest */
+        .manifest-brief {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-muted);
+        }
+
+        .manifest-brief strong {
+            color: var(--text-light);
+        }
+
+        .variable-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .variable-card {
+            background: rgba(15, 23, 42, 0.3);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            position: relative;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .variable-card::after {
+            content: 'LOCK';
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 0.6rem;
+            letter-spacing: 1px;
+            color: var(--accent-red);
+            font-weight: 800;
+            opacity: 0.6;
+        }
+
+        .variable-card.unlocked {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.05);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.1);
+        }
+
+        .variable-card.unlocked::after {
+            content: 'READY';
+            color: var(--accent-green);
+            opacity: 1;
+        }
+
+        .variable-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--accent-cyan);
+        }
+
+        .variable-card .var-name {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .variable-card .var-val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-light);
+            font-family: 'Courier New', Courier, monospace;
+            margin-top: 4px;
+        }
+
+        /* Panel B: The Canvas Workshop */
+        .canvas-container {
+            width: 100%;
+            height: 280px;
+            background: #0b0f19;
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #workshop-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .canvas-overlay-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--panel-border);
+            color: var(--text-light);
+            padding: 4px 10px;
+            font-size: 0.75rem;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .canvas-overlay-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Drag-and-Drop Arena styling */
+        .interactive-arena {
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px dashed var(--panel-border);
+            border-radius: 8px;
+            padding: 12px;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            position: relative;
+        }
+
+        .arena-title {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 4px;
+        }
+
+        .formula-construction {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: rgba(15, 23, 42, 0.6);
+            padding: 16px;
+            border-radius: 8px;
+            min-height: 70px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .formula-text {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: 'Courier New', Courier, monospace;
+        }
+
+        .drop-slot {
+            width: 120px;
+            height: 40px;
+            border: 2px dashed var(--panel-border);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            background: rgba(15, 23, 42, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .drop-slot.hovered {
+            border-color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+            box-shadow: var(--neon-glow-cyan);
+        }
+
+        .drop-slot.correct {
+            border-color: var(--accent-green);
+            background: rgba(16, 185, 129, 0.15);
+            border-style: solid;
+            color: var(--text-light);
+            box-shadow: var(--neon-glow-green);
+        }
+
+        .drag-pool {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+            padding: 8px;
+            background: rgba(15, 23, 42, 0.2);
+            border-radius: 6px;
+        }
+
+        .drag-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border: 1px solid var(--panel-border);
+            color: var(--text-light);
+            padding: 8px 12px;
+            border-radius: 6px;
+            cursor: grab;
+            font-size: 0.8rem;
+            font-weight: bold;
+            font-family: 'Courier New', Courier, monospace;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .drag-card:active {
+            cursor: grabbing;
+        }
+
+        .drag-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(6, 182, 212, 0.15);
+        }
+
+        /* Conversion Portal */
+        .conversion-portal {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: linear-gradient(90deg, rgba(15, 23, 42, 0.8), rgba(6, 182, 212, 0.05));
+            border: 1px solid var(--panel-border);
+            padding: 12px;
+            border-radius: 8px;
+            margin-top: auto;
+        }
+
+        .portal-label {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .portal-label .title {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+        }
+
+        .portal-label .subtitle {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+        }
+
+        .portal-slot {
+            width: 140px;
+            height: 38px;
+            border: 2px dashed var(--accent-cyan);
+            border-radius: 6px;
+            display: grid;
+            place-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            background: rgba(6, 182, 212, 0.03);
+            transition: all 0.3s;
+        }
+
+        /* Panel C: IS Codebook Portal */
+        .codebook-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            height: 100%;
+        }
+
+        .book-shell {
+            background: #1e293b;
+            border: 2px solid #475569;
+            border-radius: 8px;
+            height: 280px;
+            position: relative;
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .book-header {
+            background: #0f172a;
+            padding: 8px 12px;
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #94a3b8;
+            border-bottom: 2px solid #475569;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .book-page-content {
+            padding: 16px;
+            font-size: 0.72rem;
+            line-height: 1.4;
+            color: #cbd5e1;
+            flex-grow: 1;
+            overflow-y: auto;
+            position: relative;
+        }
+
+        .book-formula-box {
+            background: rgba(15, 23, 42, 0.8);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 8px;
+            margin: 8px 0;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.72rem;
+        }
+
+        .book-controls {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: #0f172a;
+            border-top: 1px solid #475569;
+        }
+
+        .book-btn {
+            background: #334155;
+            color: var(--text-light);
+            border: none;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .book-btn:hover {
+            background: var(--accent-cyan);
+            color: #0f172a;
+        }
+
+        /* Validation Status / Console logs */
+        .system-feedback {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.75rem;
+            height: 110px;
+            overflow-y: auto;
+        }
+
+        .feedback-line {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+        }
+
+        .feedback-line.info { color: var(--accent-cyan); }
+        .feedback-line.success { color: var(--accent-green); }
+        .feedback-line.error { color: var(--accent-red); }
+
+        /* Dynamic Stress-Strain Visualizer Graph */
+        .stress-strain-panel {
+            background: rgba(15, 23, 42, 0.5);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 12px;
+            height: 150px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        /* Modals & Popups (Shake animation for errors) */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        .shake-element {
+            animation: shake 0.4s ease-in-out;
+        }
+
+        /* Tooltip style */
+        .tooltip {
+            position: relative;
+        }
+
+        /* Footer */
+        footer {
+            background: #0b0f19;
+            padding: 8px 24px;
+            border-top: 1px solid var(--panel-border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                height: auto;
+            }
+            .panel {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header containing title and systems configurations -->
+    <header>
+        <div class="header-logo">
+            <div class="icon">M</div>
+            <h1>Beam Capacity Analysis: Step 5</h1>
+        </div>
+        <div class="controls-group">
+            <button id="voice-toggle-btn" class="system-btn active" onclick="toggleSpeech()">
+                🎤 Audio Guidance: ON
+            </button>
+            <button id="sound-toggle-btn" class="system-btn active" onclick="toggleSound()">
+                🔊 Audio FX: ON
+            </button>
+            <button class="system-btn" onclick="resetStudio()">
+                🔄 Reset Studio
+            </button>
+        </div>
+    </header>
+
+    <!-- Progress Tracker (6-step interaction loop) -->
+    <div class="progress-container">
+        <div class="progress-steps">
+            <div class="progress-line"></div>
+            <div id="progress-line-fill" class="progress-line-fill"></div>
+            
+            <div class="step-node active" id="node-0" onclick="jumpToStep(0)">1
+                <span class="step-label">Identify</span>
+            </div>
+            <div class="step-node" id="node-1" onclick="jumpToStep(1)">2
+                <span class="step-label">IS 456 Lookup</span>
+            </div>
+            <div class="step-node" id="node-2" onclick="jumpToStep(2)">3
+                <span class="step-label">Assemble Formula</span>
+            </div>
+            <div class="step-node" id="node-3" onclick="jumpToStep(3)">4
+                <span class="step-label">Calculate</span>
+            </div>
+            <div class="step-node" id="node-4" onclick="jumpToStep(4)">5
+                <span class="step-label">Ductility check</span>
+            </div>
+            <div class="step-node" id="node-5" onclick="jumpToStep(5)">6
+                <span class="step-label">Conversion</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Dashboard Workspace -->
+    <div class="dashboard-grid">
+        
+        <!-- PANEL A: Problem Manifest -->
+        <div id="panel-a" class="panel">
+            <div class="panel-header" id="panel-a-header">
+                <span>Problem Manifest & Parameters</span>
+                <span class="status-indicator"></span>
+            </div>
+            <div class="panel-body">
+                <div class="manifest-brief">
+                    <strong>Design Scenario:</strong> Verify capacity of a doubly-reinforced rectangular RCC section subjected to high bending moments. Determine the Ultimate Moment of Resistance (M<sub>u</sub>) using Limit State design criteria.
+                </div>
+                
+                <h4 style="font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent-cyan);">Click parameters to inspect and unlock:</h4>
+                <div class="variable-grid">
+                    <div class="variable-card" id="var-fck" onclick="unlockParameter('fck', 20, 'Concrete Compressive Strength')">
+                        <span class="var-name">f<sub>ck</sub> (Concrete)</span>
+                        <span class="var-val">20 N/mm²</span>
+                    </div>
+                    <div class="variable-card" id="var-fy" onclick="unlockParameter('fy', 415, 'Steel Yield Strength')">
+                        <span class="var-name">f<sub>y</sub> (Steel Grade)</span>
+                        <span class="var-val">415 N/mm²</span>
+                    </div>
+                    <div class="variable-card" id="var-b" onclick="unlockParameter('b', 300, 'Beam Width')">
+                        <span class="var-name">b (Width)</span>
+                        <span class="var-val">300 mm</span>
+                    </div>
+                    <div class="variable-card" id="var-d" onclick="unlockParameter('d', 500, 'Effective Depth')">
+                        <span class="var-name">d (Eff. Depth)</span>
+                        <span class="var-val">500 mm</span>
+                    </div>
+                    <div class="variable-card" id="var-dp" onclick="unlockParameter('dp', 50, 'Compression Cover')">
+                        <span class="var-name">d' (Comp. Cover)</span>
+                        <span class="var-val">50 mm</span>
+                    </div>
+                    <div class="variable-card" id="var-xu" onclick="unlockParameter('xu', 180, 'Neutral Axis')">
+                        <span class="var-name">x<sub>u</sub> (Neutral Axis)</span>
+                        <span class="var-val">180 mm</span>
+                    </div>
+                    <div class="variable-card" id="var-asc" onclick="unlockParameter('asc', 400, 'Compression Area')">
+                        <span class="var-name">A<sub>sc</sub> (Comp Steel)</span>
+                        <span class="var-val">400 mm²</span>
+                    </div>
+                    <div class="variable-card" id="var-ast" onclick="unlockParameter('ast', 1960, 'Tension Area')">
+                        <span class="var-name">A<sub>st</sub> (Tension Steel)</span>
+                        <span class="var-val">1960 mm²</span>
+                    </div>
+                </div>
+
+                <div class="system-feedback" id="manifest-console">
+                    <div class="feedback-line info">> Waiting for manifest parameters initialization.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL B: The Canvas Workshop & Interactive Solver -->
+        <div id="panel-b" class="panel">
+            <div class="panel-header ready">
+                <span>The Interactive Canvas & Workspace</span>
+                <span class="status-indicator"></span>
+            </div>
+            <div class="panel-body">
+                <!-- HTML5 Canvas for dynamic visual drawing -->
+                <div class="canvas-container">
+                    <canvas id="workshop-canvas"></canvas>
+                    <button class="canvas-overlay-btn" onclick="toggleCanvasZoom()">🔍 Toggle Zoom Focus</button>
+                </div>
+
+                <!-- Formula Assembly & Calculation Space -->
+                <div class="interactive-arena" id="workbench-arena">
+                    <div class="arena-title" id="arena-stage-title">Stage 1: Parameter Selection</div>
+                    
+                    <!-- Dynamic Work Desk changes contents dynamically per state step -->
+                    <div class="formula-construction" id="desk-assembly-zone">
+                        <span class="formula-text" id="formula-display-element" style="color: var(--text-muted); font-size: 0.9rem;">
+                            Initialize variables on Panel A to begin...
+                        </span>
+                    </div>
+
+                    <!-- Draggable Cards Stack -->
+                    <div class="drag-pool" id="desk-drag-pool">
+                        <!-- Cards are populated programmatically per step -->
+                    </div>
+
+                    <!-- Unit Conversion Portal -->
+                    <div class="conversion-portal">
+                        <div class="portal-label">
+                            <span class="title">UNIT CONVERSION PORTAL</span>
+                            <span class="subtitle">Scale Factor: × 10⁻⁶ (N-mm → kN-m)</span>
+                        </div>
+                        <div class="portal-slot" id="conversion-drop-slot" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="handlePortalDrop(event)">
+                            Drop ultimate N-mm value
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PANEL C: Codebook & Reference Portal -->
+        <div id="panel-c" class="panel">
+            <div class="panel-header" id="panel-c-header">
+                <span>IS 456:2000 Codebook Portal</span>
+                <span class="status-indicator"></span>
+            </div>
+            <div class="panel-body">
+                <div class="codebook-container">
+                    <div class="book-shell">
+                        <div class="book-header">
+                            <span>Bureau of Indian Standards</span>
+                            <span id="book-page-num">PAGE 1</span>
+                        </div>
+                        <div class="book-page-content" id="book-content-body">
+                            <strong>IS 456:2000 (Plain and Reinforced Concrete - Code of Practice)</strong><br><br>
+                            Use the navigational page buttons below to search for the ultimate limiting design guidelines. Locate <strong>Page 96 (Annex G)</strong> for flexural strength computations for doubly reinforced sections.
+                        </div>
+                        <div class="book-controls">
+                            <button class="book-btn" onclick="turnPage(-1)">◀ Previous</button>
+                            <button class="book-btn" onclick="turnPage(1)">Next ▶</button>
+                        </div>
+                    </div>
+
+                    <div class="stress-strain-panel">
+                        <span style="font-size: 0.75rem; text-transform: uppercase; color: var(--accent-cyan); font-weight: bold;">Realtime Stress Block Monitor</span>
+                        <div style="display: flex; justify-content: space-between; font-size: 0.7rem; color: var(--text-muted); margin-top: 4px;">
+                            <span>x<sub>u</sub>/d ratio: <strong id="xud-val" style="color:var(--text-light)">0.36</strong></span>
+                            <span>Limit x<sub>u,max</sub>/d: <strong style="color:var(--text-yellow)">0.48</strong></span>
+                        </div>
+                        <div style="flex-grow: 1; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.4); border-radius: 4px; margin-top: 6px; font-family: monospace; font-size: 0.8rem; color: var(--accent-green); border-left: 3px solid var(--accent-green);" id="safety-status-label">
+                            SECTION PROFILE: UNDER-REINFORCED (DUCTILE)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Footer copyright and engineering details -->
+    <footer>
+        <span>Engineering Analysis Engine: Ultimate Limit State Design (Annex G.1.2)</span>
+        <span>Interactive Civil-Studio Suite</span>
+    </footer>
+
+    <script>
+        // ----------------- STATE MANAGER -----------------
+        const state = {
+            currentStep: 0,
+            unlockedVariables: {
+                fck: false,
+                fy: false,
+                b: false,
+                d: false,
+                dp: false,
+                xu: false,
+                asc: false,
+                ast: false
+            },
+            variables: {
+                fck: 20,
+                fy: 415,
+                b: 300,
+                d: 500,
+                dp: 50,
+                xu: 180,
+                asc: 400,
+                ast: 1960
+            },
+            codebookPage: 1,
+            soundEnabled: true,
+            speechEnabled: true,
+            canvasZoom: false,
+            // Drag and drop tracking
+            currentFormulasAssigned: {},
+            calculatedValues: {
+                Mu1: 164.99, // 0.36 * 20 * 300 * 180 * (500 - 0.42 * 180) * 10^-6 = 164.99
+                Mu2: 61.93,  // (353 - 0.446*20) * 400 * (500 - 50) * 10^-6 = 61.93
+                MuTotal: 226.92
+            }
+        };
+
+        // ----------------- SOUND ENGINE -----------------
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!state.soundEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'success') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+                osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12); // A5
+                gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } else if (type === 'error') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(70, audioCtx.currentTime + 0.25);
+                gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } else if (type === 'click') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(650, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.08);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const btn = document.getElementById('sound-toggle-btn');
+            btn.textContent = `🔊 Audio FX: ${state.soundEnabled ? 'ON' : 'OFF'}`;
+            btn.classList.toggle('active', state.soundEnabled);
+            playSound('click');
+        }
+
+        // ----------------- SPEECH SYNTHESIS ENGINE -----------------
+        function speak(text) {
+            if (!state.speechEnabled) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.05;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleSpeech() {
+            state.speechEnabled = !state.speechEnabled;
+            const btn = document.getElementById('voice-toggle-btn');
+            btn.textContent = `🎤 Audio Guidance: ${state.speechEnabled ? 'ON' : 'OFF'}`;
+            btn.classList.toggle('active', state.speechEnabled);
+            playSound('click');
+            if (state.speechEnabled) {
+                speak("Voice guidance system activated. Explore the manifest parameters.");
+            }
+        }
+
+        // ----------------- NARRATIVE SCRIPT PER STEP -----------------
+        const narrations = [
+            "Step one, identify the core parameters. Click on each variable card on the left panel to populate our interactive workbench.",
+            "Step two, consult the Indian Standard Codebook. Flip to page 96 to locate Annexure G formulas for doubly reinforced sections.",
+            "Step three, drag and drop the moment formulas components to assemble our ultimate equation on the center workbench.",
+            "Step four, calculate the concrete compressive capacity Mu-one and the compression steel contribution Mu-two. Place them into their slots.",
+            "Step five, verify ductility criteria. Check if the neutral axis ratio exceeds the limiting value to ensure safety against brittle failure.",
+            "Step six, direct our final limit capacity value to the conversion portal to translate from Newton-millimeters to kilo-Newton meters."
+        ];
+
+        // ----------------- INITIALIZATION & NAVIGATION -----------------
+        window.addEventListener('load', () => {
+            initCanvas();
+            renderStep();
+            speak(narrations[0]);
+        });
+
+        function jumpToStep(stepIdx) {
+            // Verify forward movement requires current step completion
+            if (stepIdx > state.currentStep) {
+                playSound('error');
+                logConsole("manifest-console", "ERROR: Please complete current step tasks first!", "error");
+                return;
+            }
+            state.currentStep = stepIdx;
+            playSound('click');
+            renderStep();
+            speak(narrations[stepIdx]);
+        }
+
+        function advanceProgress() {
+            const nodes = document.querySelectorAll('.step-node');
+            nodes[state.currentStep].classList.remove('active');
+            nodes[state.currentStep].classList.add('completed');
+            
+            if (state.currentStep < 5) {
+                state.currentStep++;
+                nodes[state.currentStep].classList.add('active');
+                renderStep();
+                speak(narrations[state.currentStep]);
+                playSound('success');
+            } else {
+                playSound('success');
+                speak("Calculation finished successfully! The RCC doubly reinforced beam capacity is verified.");
+                logConsole("manifest-console", "CRITICAL ANALYSIS COMPLETED: All requirements matched IS 456.", "success");
+            }
+            updateProgressLine();
+        }
+
+        function updateProgressLine() {
+            const fill = document.getElementById('progress-line-fill');
+            const percent = (state.currentStep / 5) * 100;
+            fill.style.width = `${percent}%`;
+        }
+
+        function resetStudio() {
+            state.currentStep = 0;
+            state.codebookPage = 1;
+            Object.keys(state.unlockedVariables).forEach(k => state.unlockedVariables[k] = false);
+            
+            const nodes = document.querySelectorAll('.step-node');
+            nodes.forEach((n, i) => {
+                n.className = "step-node";
+                if(i === 0) n.classList.add('active');
+            });
+            document.getElementById('progress-line-fill').style.width = "0%";
+            
+            const cards = document.querySelectorAll('.variable-card');
+            cards.forEach(c => c.className = "variable-card");
+            
+            document.getElementById('panel-a-header').classList.remove('ready');
+            document.getElementById('panel-c-header').classList.remove('ready');
+            
+            logConsole("manifest-console", "STUDIO SYSTEM: Reset completed successfully.", "info");
+            playSound('click');
+            renderStep();
+            speak(narrations[0]);
+        }
+
+        // ----------------- CONSOLE LOGGER -----------------
+        function logConsole(consoleId, text, type = 'info') {
+            const consoleBox = document.getElementById(consoleId);
+            const line = document.createElement('div');
+            line.className = `feedback-line ${type}`;
+            line.innerHTML = `> [${new Date().toLocaleTimeString()}] ${text}`;
+            consoleBox.appendChild(line);
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        // ----------------- STEP RENDERING LOGIC -----------------
+        function renderStep() {
+            const title = document.getElementById('arena-stage-title');
+            const display = document.getElementById('formula-display-element');
+            const dragPool = document.getElementById('desk-drag-pool');
+            
+            // Default setup values clear
+            dragPool.innerHTML = '';
+            
+            if (state.currentStep === 0) {
+                title.textContent = "Step 1: Identify Parameters";
+                display.innerHTML = `<span style="color: var(--accent-yellow)">Please select all parameters in Panel A to populate state variables...</span>`;
+                
+                // Count unlocked
+                let count = 0;
+                Object.values(state.unlockedVariables).forEach(val => { if(val) count++; });
+                logConsole("manifest-console", `Selected parameters count: ${count}/8`, "info");
+                
+                if (count === 8) {
+                    document.getElementById('panel-a-header').classList.add('ready');
+                    advanceProgress();
+                }
+            }
+            else if (state.currentStep === 1) {
+                title.textContent = "Step 2: Codebook Search Reference";
+                display.innerHTML = `<span style="color: var(--accent-cyan)">Consult the IS 456 book. Find the page that lists Annexure G flexural calculations.</span>`;
+                
+                if (state.codebookPage === 96) {
+                    advanceProgress();
+                }
+            }
+            else if (state.currentStep === 2) {
+                title.textContent = "Step 3: Assemble Ultimate Moment Formula";
+                display.innerHTML = `
+                    <span style="font-size:1.15rem; font-weight:bold; color:var(--text-light); margin-right:10px;">M<sub>u</sub> =</span>
+                    <div class="drop-slot" id="slot-mu1" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="handleDrop(event, 'M_u1')">Drop Mu1 Component</div>
+                    <span style="font-size:1.4rem; color:var(--accent-cyan)">+</span>
+                    <div class="drop-slot" id="slot-mu2" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="handleDrop(event, 'M_u2')">Drop Mu2 Component</div>
+                `;
+
+                // Populating drag pool
+                createDragCard('M_u1', "Concrete Block Term (M_u1)");
+                createDragCard('M_u2', "Steel Compression Term (M_u2)");
+                createDragCard('V_u', "Shear Force Capacity (V_u)");
+                createDragCard('P_u', "Axial Compressive Capacity (P_u)");
+            }
+            else if (state.currentStep === 3) {
+                title.textContent = "Step 4: Ultimate Capacity Calculation";
+                display.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:8px; width:100%">
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span>M<sub>u1</sub> (Concrete) = </span>
+                            <div class="drop-slot" style="width:160px" id="calc-mu1" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="handleDrop(event, '164.99')">Drop Mu1 (N-mm)</div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            <span>M<sub>u2</sub> (Steel) = </span>
+                            <div class="drop-slot" style="width:160px" id="calc-mu2" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="handleDrop(event, '61.93')">Drop Mu2 (N-mm)</div>
+                        </div>
+                    </div>
+                `;
+
+                createDragCard('164.99', "164.99 × 10⁶ N-mm");
+                createDragCard('61.93', "61.93 × 10⁶ N-mm");
+                createDragCard('320.14', "320.14 × 10⁶ N-mm");
+                createDragCard('95.22', "95.22 × 10⁶ N-mm");
+            }
+            else if (state.currentStep === 4) {
+                title.textContent = "Step 5: Verify Ductility Criteria";
+                display.innerHTML = `
+                    <div style="display:flex; flex-direction:column; gap:10px; width:100%; text-align:center;">
+                        <span style="font-size:0.85rem">Actual ratio: (x<sub>u</sub> / d) = 0.36 | Limit: (x<sub>u,max</sub> / d) = 0.48</span>
+                        <div style="display:flex; justify-content:center; gap:16px; margin-top:6px;">
+                            <button class="system-btn" onclick="verifyDuctility(true)" style="background: rgba(16, 185, 129, 0.1); border-color: var(--accent-green); color: var(--accent-green);">Section Under-Reinforced (Ductile)</button>
+                            <button class="system-btn" onclick="verifyDuctility(false)" style="background: rgba(239, 68, 68, 0.1); border-color: var(--accent-red); color: var(--accent-red)">Section Over-Reinforced (Brittle)</button>
+                        </div>
+                    </div>
+                `;
+            }
+            else if (state.currentStep === 5) {
+                title.textContent = "Step 6: Unit Conversion";
+                display.innerHTML = `
+                    <span style="color: var(--accent-cyan)">Drag total resistance (226.92 × 10⁶ N-mm) to the conversion portal below.</span>
+                `;
+                createDragCard('226.92', "226.92 × 10⁶ N-mm");
+                createDragCard('112.50', "112.50 × 10⁶ N-mm");
+            }
+            
+            drawCanvas();
+        }
+
+        // Helper to produce Drag Cards
+        function createDragCard(id, text) {
+            const dragPool = document.getElementById('desk-drag-pool');
+            const card = document.createElement('div');
+            card.className = "drag-card";
+            card.draggable = true;
+            card.id = `card-${id}`;
+            card.textContent = text;
+            card.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text', id);
+                playSound('click');
+            });
+            dragPool.appendChild(card);
+        }
+
+        // ----------------- DRAG AND DROP HANDLERS -----------------
+        function allowDrop(ev) {
+            ev.preventDefault();
+            const slot = ev.currentTarget;
+            if (!slot.classList.contains('correct')) {
+                slot.classList.add('hovered');
+            }
+        }
+
+        function dragLeaveSlot(ev) {
+            ev.currentTarget.classList.remove('hovered');
+        }
+
+        function handleDrop(ev, expectedValue) {
+            ev.preventDefault();
+            const slot = ev.currentTarget;
+            slot.classList.remove('hovered');
+            
+            const draggedVal = ev.dataTransfer.getData('text');
+            
+            if (draggedVal === expectedValue) {
+                slot.classList.add('correct');
+                slot.textContent = draggedVal;
+                playSound('success');
+                logConsole("manifest-console", `SUCCESS: Target matched formula part: ${draggedVal}`, "success");
+                
+                // Audio Commentary for Moment terms
+                if (draggedVal === 'M_u1') {
+                    speak("Adding concrete compression contribution component.");
+                } else if (draggedVal === 'M_u2') {
+                    speak("Adding steel reinforcement contribution component.");
+                }
+                
+                checkStepProgress();
+            } else {
+                playSound('error');
+                slot.classList.add('shake-element');
+                setTimeout(() => slot.classList.remove('shake-element'), 400);
+                logConsole("manifest-console", `ERROR: Incorrect matching variable dropped.`, "error");
+            }
+        }
+
+        function handlePortalDrop(ev) {
+            ev.preventDefault();
+            const slot = ev.currentTarget;
+            slot.classList.remove('hovered');
+            
+            const draggedVal = ev.dataTransfer.getData('text');
+            if (draggedVal === '226.92') {
+                slot.classList.add('correct');
+                slot.style.borderStyle = 'solid';
+                slot.innerHTML = `<span style="color:var(--accent-green); font-weight:bold;">226.92 kN-m</span>`;
+                playSound('success');
+                speak("Scaling factor applied successfully. Moment resistance calculated as 226.92 kilo-Newton meters.");
+                logConsole("manifest-console", "FINAL DESIGN VERDICT: ultimate capacity calculated = 226.92 kN-m.", "success");
+                advanceProgress();
+            } else {
+                playSound('error');
+                slot.classList.add('shake-element');
+                setTimeout(() => slot.classList.remove('shake-element'), 400);
+                logConsole("manifest-console", "CONVERSION REJECTED: Choose the verified cumulative sum.", "error");
+            }
+        }
+
+        function checkStepProgress() {
+            if (state.currentStep === 2) {
+                const s1 = document.getElementById('slot-mu1').classList.contains('correct');
+                const s2 = document.getElementById('slot-mu2').classList.contains('correct');
+                if (s1 && s2) {
+                    setTimeout(() => advanceProgress(), 1000);
+                }
+            } else if (state.currentStep === 3) {
+                const c1 = document.getElementById('calc-mu1').classList.contains('correct');
+                const c2 = document.getElementById('calc-mu2').classList.contains('correct');
+                if (c1 && c2) {
+                    setTimeout(() => advanceProgress(), 1000);
+                }
+            }
+        }
+
+        // ----------------- PARAMETERS ACTIVATOR -----------------
+        function unlockParameter(id, val, desc) {
+            playSound('click');
+            state.unlockedVariables[id] = true;
+            document.getElementById(`var-${id}`).classList.add('unlocked');
+            logConsole("manifest-console", `Unlocked ${id.toUpperCase()}: ${val} (${desc})`, "info");
+            
+            // Speak parameter confirmation
+            speak(`${desc} registered as ${val}`);
+
+            // Zoom camera directly to specific dimension on canvas
+            animateCanvasCamera(id);
+
+            // Verify if all parameter unlocked to advance
+            let allUnlocked = true;
+            Object.values(state.unlockedVariables).forEach(u => { if(!u) allUnlocked = false; });
+            
+            if (allUnlocked && state.currentStep === 0) {
+                document.getElementById('panel-a-header').classList.add('ready');
+                logConsole("manifest-console", "All parameters resolved. Proceeding to Stage 2.", "success");
+                setTimeout(() => advanceProgress(), 800);
+            }
+        }
+
+        // ----------------- CODEBOOK INTERACTIVITY -----------------
+        const bookPages = [
+            { num: 1, text: "<strong>IS 456:2000 (Plain and Reinforced Concrete - Code of Practice)</strong><br><br>Navigate through the book pages using the controls to locate Annex G for Moment of Resistance equations." },
+            { num: 45, text: "<strong>SECTION 3: MATERIALS, DESIGN STRENGTHS</strong><br><br>Characteristic Compressive strength of concrete (fck). Yield strength of reinforcing steel (fy). Characteristic tensile properties specified for steel rebars." },
+            { num: 96, text: "<strong>ANNEX G (Clause 38.1) - FORMULA DEFINITIONS:</strong><br><br>Moment of resistance of a doubly reinforced section:<div class='book-formula-box'>M<sub>u</sub> = M<sub>u1</sub> + M<sub>u2</sub></div>Where:<br>M<sub>u1</sub> = 0.36 f<sub>ck</sub> b x<sub>u</sub> (d - 0.42 x<sub>u</sub>)<br>M<sub>u2</sub> = (f<sub>sc</sub> - 0.446 f<sub>ck</sub>) A<sub>sc</sub> (d - d')" },
+            { num: 102, text: "<strong>ANNEX H: CURVES FOR REBAR TENSION PROFILE</strong><br><br>Illustrates strain compatibility for structural tension parameters. Recommended stress values specified." }
+        ];
+
+        function turnPage(dir) {
+            playSound('click');
+            let currIdx = bookPages.findIndex(p => p.num === state.codebookPage);
+            currIdx += dir;
+            if (currIdx < 0) currIdx = 0;
+            if (currIdx >= bookPages.length) currIdx = bookPages.length - 1;
+
+            const newPage = bookPages[currIdx];
+            state.codebookPage = newPage.num;
+
+            document.getElementById('book-page-num').textContent = `PAGE ${newPage.num}`;
+            document.getElementById('book-content-body').innerHTML = newPage.text;
+
+            if (state.codebookPage === 96) {
+                document.getElementById('panel-c-header').classList.add('ready');
+                logConsole("manifest-console", "CODEBOOK ACCESS: Page 96 reference unlocked.", "success");
+                speak("Annex G located on Page 96. We have found the equations for moment calculation.");
+                
+                if (state.currentStep === 1) {
+                    setTimeout(() => advanceProgress(), 1500);
+                }
+            }
+        }
+
+        // ----------------- DUCTILITY CRITERIA CHECK -----------------
+        function verifyDuctility(isUnderReinforced) {
+            if (isUnderReinforced) {
+                playSound('success');
+                speak("Correct! The beam section is under-reinforced. This ensures a ductile bending failure preceded by warning cracking.");
+                logConsole("manifest-console", "VERIFICATION PASSED: x_u / d ratio (0.36) is less than x_u,max / d (0.48). Section is safe and ductile.", "success");
+                advanceProgress();
+            } else {
+                playSound('error');
+                const shakeBox = document.getElementById('desk-assembly-zone');
+                shakeBox.classList.add('shake-element');
+                setTimeout(() => shakeBox.classList.remove('shake-element'), 400);
+                speak("Incorrect. Because x_u is less than limit depth, tension steel yields first. This is ductile.");
+                logConsole("manifest-console", "VERIFICATION REJECTED: Verify ductility limits using strain compatibility.", "error");
+            }
+        }
+
+        // ----------------- CANVAS DRAWING WORKSHOP -----------------
+        let canvas, ctx;
+        function initCanvas() {
+            canvas = document.getElementById('workshop-canvas');
+            ctx = canvas.getContext('2d');
+            
+            // Handle DPI resolution scaling
+            const dpi = window.devicePixelRatio || 1;
+            canvas.width = canvas.getBoundingClientRect().width * dpi;
+            canvas.height = canvas.getBoundingClientRect().height * dpi;
+            ctx.scale(dpi, dpi);
+            
+            drawCanvas();
+        }
+
+        function drawCanvas() {
+            if (!ctx) return;
+            const w = canvas.width / (window.devicePixelRatio || 1);
+            const h = canvas.height / (window.devicePixelRatio || 1);
+            
+            ctx.clearRect(0, 0, w, h);
+            
+            // Dark Blueprint grid style
+            ctx.strokeStyle = "rgba(6, 182, 212, 0.05)";
+            ctx.lineWidth = 1;
+            for(let x=0; x<w; x+=15) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+            }
+            for(let y=0; y<h; y+=15) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+            }
+
+            // Camera layout positioning logic
+            let cx = w/2 - 120;
+            let cy = h/2 - 110;
+            let scale = 1;
+            
+            if (state.canvasZoom) {
+                scale = 1.35;
+                cx = w/2 - 180;
+                cy = h/2 - 140;
+            }
+
+            ctx.save();
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+
+            // DRAW BEAM OUTLINE
+            ctx.fillStyle = "rgba(30, 41, 59, 0.6)";
+            ctx.fillRect(0, 0, 100, 180);
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(0, 0, 100, 180);
+
+            // Compression Zone color highlighting if steps proceed
+            if (state.unlockedVariables.fck) {
+                ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+                ctx.fillRect(0, 0, 100, 60); // Comp block area
+            }
+
+            // DRAW REBARS TENSION (Bottom)
+            const tensionCount = 4;
+            const tensionY = 160;
+            const glowTension = state.unlockedVariables.ast;
+            
+            for (let i = 0; i < tensionCount; i++) {
+                const rebarX = 15 + i * 23;
+                // Rebar drawing
+                ctx.beginPath();
+                ctx.arc(rebarX, tensionY, 5, 0, Math.PI*2);
+                ctx.fillStyle = glowTension ? "var(--accent-cyan)" : "#64748b";
+                ctx.fill();
+                
+                if (glowTension) {
+                    ctx.shadowColor = "var(--accent-cyan)";
+                    ctx.shadowBlur = 10;
+                    ctx.arc(rebarX, tensionY, 5, 0, Math.PI*2);
+                    ctx.fillStyle = "var(--accent-cyan)";
+                    ctx.fill();
+                    ctx.shadowBlur = 0; // reset
+                }
+            }
+
+            // DRAW REBARS COMPRESSION (Top)
+            const compCount = 2;
+            const compY = 20;
+            const glowComp = state.unlockedVariables.asc;
+            
+            for (let i = 0; i < compCount; i++) {
+                const rebarX = 25 + i * 50;
+                ctx.beginPath();
+                ctx.arc(rebarX, compY, 4, 0, Math.PI*2);
+                ctx.fillStyle = glowComp ? "var(--accent-yellow)" : "#64748b";
+                ctx.fill();
+
+                if (glowComp) {
+                    ctx.shadowColor = "var(--accent-yellow)";
+                    ctx.shadowBlur = 8;
+                    ctx.arc(rebarX, compY, 4, 0, Math.PI*2);
+                    ctx.fillStyle = "var(--accent-yellow)";
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            // DRAW DIMENSION LINES
+            ctx.strokeStyle = "#94a3b8";
+            ctx.lineWidth = 1;
+            ctx.fillStyle = "#94a3b8";
+            ctx.font = "8px Courier New";
+
+            // Width 'b'
+            ctx.beginPath();
+            ctx.moveTo(0, -10); ctx.lineTo(100, -10); ctx.stroke();
+            ctx.fillText("b = 300", 30, -15);
+
+            // Effective depth 'd'
+            ctx.beginPath();
+            ctx.moveTo(110, 0); ctx.lineTo(110, 160); ctx.stroke();
+            ctx.fillText("d = 500", 115, 80);
+
+            // Cover 'd\''
+            ctx.beginPath();
+            ctx.moveTo(-10, 0); ctx.lineTo(-10, 20); ctx.stroke();
+            ctx.fillText("d' = 50", -50, 13);
+
+            // Neutral axis line (xu)
+            if (state.unlockedVariables.xu) {
+                ctx.strokeStyle = "rgba(239, 68, 68, 0.8)";
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath();
+                ctx.moveTo(-20, 64.8); ctx.lineTo(120, 64.8); ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = "var(--accent-red)";
+                ctx.fillText("x_u = 180", 125, 67);
+            }
+
+            // DRAW STRAIN DIAGRAM (Right side)
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(190, 0); ctx.lineTo(190, 160); ctx.stroke(); // reference line
+
+            // Strain drawing
+            ctx.strokeStyle = "var(--accent-cyan)";
+            ctx.beginPath();
+            ctx.moveTo(170, 0); ctx.lineTo(210, 160); ctx.stroke(); // slope
+
+            // Comp strain value text
+            ctx.fillStyle = "var(--text-muted)";
+            ctx.fillText("ε_cu = 0.0035", 130, 8);
+            ctx.fillText("ε_st", 215, 158);
+
+            // DRAW STRESS DIAGRAM (Extreme Right)
+            ctx.strokeStyle = "#475569";
+            ctx.beginPath();
+            ctx.moveTo(270, 0); ctx.lineTo(270, 160); ctx.stroke(); // reference line
+
+            // Comp block drawing (Parabolic-rectangular)
+            ctx.strokeStyle = "var(--accent-green)";
+            ctx.fillStyle = "rgba(16, 185, 129, 0.15)";
+            ctx.beginPath();
+            ctx.moveTo(270, 0);
+            ctx.lineTo(310, 0); // constant top stress
+            ctx.lineTo(310, 30); // rectangular part
+            ctx.quadraticCurveTo(310, 50, 270, 64.8); // parabolic curve down to N.A.
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = "var(--accent-green)";
+            ctx.fillText("0.36 f_ck", 315, 12);
+
+            ctx.restore();
+        }
+
+        function toggleCanvasZoom() {
+            playSound('click');
+            state.canvasZoom = !state.canvasZoom;
+            drawCanvas();
+        }
+
+        // Animated response targeting dimension click locks
+        function animateCanvasCamera(paramId) {
+            state.canvasZoom = true;
+            drawCanvas();
+            setTimeout(() => {
+                state.canvasZoom = false;
+                drawCanvas();
+            }, 1200);
+        }
+    </script>
+</body>
+</html>

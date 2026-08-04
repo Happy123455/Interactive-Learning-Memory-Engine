@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structural Tug-of-War Simulation</title>
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: rgba(20, 25, 35, 0.8);
+            --accent: #00f2ff;
+            --danger: #ff007a;
+            --text: #e0e6ed;
+        }
+        body, html {
+            margin: 0; padding: 0;
+            width: 100vw; height: 100vh;
+            overflow: hidden;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+        .control-btn {
+            background: transparent;
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 10px;
+            cursor: pointer;
+            border-radius: 5px;
+            text-transform: uppercase;
+            font-weight: bold;
+        }
+        .control-btn:hover { background: var(--accent); color: var(--bg); }
+        .draggable {
+            width: 60px; height: 40px; background: #333;
+            display: flex; align-items: center; justify-content: center;
+            border: 2px solid var(--accent); cursor: grab; margin-bottom: 10px;
+        }
+        h2 { margin: 0; color: var(--accent); font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="panel">
+        <h2>STRUCTURAL LAB</h2>
+        <div id="theory-box">
+            <h3>Mode: <span id="mode-text">WSM</span></h3>
+            <p id="theory-desc">The Cautious Turtle: Linear elastic design.</p>
+        </div>
+        <button class="control-btn" onclick="toggleMode()">Switch to LSM</button>
+        <div id="inventory">
+            <p>Drag Loads:</p>
+            <div class="draggable" draggable="true" ondragstart="handleDrag(event, 1.0)">1.0</div>
+            <div class="draggable" draggable="true" ondragstart="handleDrag(event, 1.5)">1.5</div>
+        </div>
+        <button class="control-btn" onclick="speakNarrative()">Hear Lesson</button>
+    </div>
+    <div class="panel">
+        <canvas id="simCanvas"></canvas>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let mode = 'WSM';
+    let loadFactor = 1.0;
+    let beamBend = 0;
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function playSound(freq, type = 'sine') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function toggleMode() {
+        mode = mode === 'WSM' ? 'LSM' : 'WSM';
+        document.getElementById('mode-text').innerText = mode;
+        document.getElementById('theory-desc').innerText = mode === 'WSM' ? 'WSM: The Cautious Turtle' : 'LSM: The Daring Adventurer';
+    }
+
+    function handleDrag(e, val) { e.dataTransfer.setData('val', val); }
+
+    canvas.addEventListener('dragover', e => e.preventDefault());
+    canvas.addEventListener('drop', e => {
+        const val = parseFloat(e.dataTransfer.getData('val'));
+        if (val === (mode === 'LSM' ? 1.5 : 1.0)) {
+            loadFactor += 0.5;
+            playSound(600);
+        } else {
+            playSound(150, 'square');
+        }
+    });
+
+    function speakNarrative() {
+        const msg = new SpeechSynthesisUtterance(mode === 'WSM' ? "WSM is like a cautious turtle; it stays well below the breaking point to keep us safe!" : "LSM is the daring adventurer! We push it to the very edge of safety.");
+        window.speechSynthesis.speak(msg);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        
+        // Draw Beam
+        ctx.beginPath();
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 10;
+        ctx.moveTo(50, h/2);
+        ctx.quadraticCurveTo(w/2, h/2 + (loadFactor * 50), w-50, h/2);
+        ctx.stroke();
+
+        // Stress Block
+        ctx.fillStyle = 'rgba(255,0,122,0.3)';
+        if(mode === 'WSM') {
+            ctx.beginPath();
+            ctx.moveTo(w/2 - 50, h/2 - 50);
+            ctx.lineTo(w/2 + 50, h/2 - 50);
+            ctx.lineTo(w/2, h/2);
+            ctx.fill();
+        } else {
+            ctx.fillRect(w/2 - 50, h/2 - 80, 100, 80);
+        }
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>
+</body>
+</html>

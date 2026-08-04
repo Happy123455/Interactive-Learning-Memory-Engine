@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIEV Theory & SSD Interactive Simulator</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a0c10;
+            --panel-bg: rgba(18, 22, 31, 0.85);
+            --panel-border: rgba(0, 240, 255, 0.2);
+            --neon-cyan: #00f0ff;
+            --neon-blue: #3b82f6;
+            --neon-amber: #f59e0b;
+            --neon-pink: #ec4899;
+            --neon-red: #ef4444;
+            --neon-green: #10b981;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            overflow-x: hidden;
+        }
+
+        .mono-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Glassmorphism Styling */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+        }
+
+        /* Custom Neon Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.12);
+            border-radius: 6px;
+            height: 6px;
+            outline: none;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 12px var(--neon-cyan);
+            transition: transform 0.1s ease, background-color 0.2s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+            background: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 12, 16, 0.8);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-100 selection:bg-cyan-500 selection:text-black">
+
+    <!-- Top Header Navigation -->
+    <header class="w-full glass-panel border-b border-cyan-500/20 px-4 py-3 sticky top-0 z-50 flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-black text-black text-lg shadow-lg shadow-cyan-500/30">
+                P
+            </div>
+            <div>
+                <h1 class="text-lg md:text-xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-blue-300 to-indigo-300 bg-clip-text text-transparent">
+                    PIEV Theory & Stopping Sight Distance
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">Transportation Engineering Interactive Physics Lab</p>
+            </div>
+        </div>
+
+        <!-- Quick Status & Top Action Controls -->
+        <div class="flex items-center space-x-2 md:space-x-3 flex-wrap gap-y-2">
+            <button id="explainBtn" class="px-3 py-1.5 rounded-lg bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-400/30 text-indigo-200 text-xs font-semibold flex items-center space-x-1.5 transition">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 100-6 3 3 0 000 6z"></path></svg>
+                <span>Explain PIEV (TTS)</span>
+            </button>
+            <button id="audioToggleBtn" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600/50 text-xs font-medium flex items-center space-x-1.5 transition">
+                <span id="audioIcon">🔊</span>
+                <span id="audioText">Audio: On</span>
+            </button>
+            <div class="h-5 w-[1px] bg-slate-700 hidden sm:block"></div>
+            <span id="overallSafetyBadge" class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                SAFE DISTANCE
+            </span>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-5 flex flex-col gap-4">
+
+        <!-- Top Row: Interactive Canvas Viewport with Overlay HUD -->
+        <div class="relative w-full glass-panel rounded-2xl overflow-hidden border border-cyan-500/20 flex flex-col">
+            
+            <!-- Dynamic Floating HUD Overlay (Real-time Math Equations & Speed Controls) -->
+            <div class="absolute top-3 left-3 right-3 z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-2 pointer-events-none">
+                <!-- Live Physics Readout Panel -->
+                <div class="glass-panel rounded-xl p-3 text-xs pointer-events-auto border border-cyan-500/30 max-w-full md:max-w-md w-full">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="font-bold text-cyan-400 uppercase tracking-wider text-[10px]">Real-Time Equation</span>
+                        <span class="text-[10px] text-slate-400">IRC Standard: t = 2.5s</span>
+                    </div>
+                    <div class="mono-font text-cyan-200 text-xs font-semibold mb-2 bg-slate-950/70 p-2 rounded-lg border border-slate-800">
+                        SSD = v · t<sub>r</sub> + [ v² / 2g(f ± G) ]
+                    </div>
+                    <div class="grid grid-cols-2 gap-x-3 gap-y-1 text-slate-300 text-[11px]">
+                        <div>Lag Distance (d<sub>lag</sub>): <span id="eqLagVal" class="font-bold text-cyan-300">0.0 m</span></div>
+                        <div>Braking Distance (d<sub>brk</sub>): <span id="eqBrakeVal" class="font-bold text-amber-300">0.0 m</span></div>
+                        <div>Total Calculated SSD: <span id="eqSSDVal" class="font-bold text-emerald-300">0.0 m</span></div>
+                        <div>Hazard Distance (D<sub>hzd</sub>): <span id="eqHazardVal" class="font-bold text-purple-300">0.0 m</span></div>
+                    </div>
+                </div>
+
+                <!-- Simulation Action Controls & Slo-Mo Pace Selector -->
+                <div class="flex items-center space-x-2 pointer-events-auto self-end md:self-auto flex-wrap gap-y-2">
+                    <!-- Slo-Mo Speed Pace Dropdown -->
+                    <div class="flex items-center bg-slate-900/90 border border-purple-500/40 rounded-xl px-2 py-1 space-x-1 text-xs">
+                        <span class="text-purple-300 text-[10px] font-bold uppercase">Slo-Mo Pace:</span>
+                        <select id="slomoPaceSelect" class="bg-slate-950 text-purple-200 font-semibold rounded px-1.5 py-1 outline-none text-xs border border-purple-500/30">
+                            <option value="1.0">1.0x (Standard)</option>
+                            <option value="1.5" selected>1.5x (Relaxed)</option>
+                            <option value="2.0">2.0x (Ultra Slow)</option>
+                        </select>
+                    </div>
+
+                    <button id="slomoToggleBtn" class="px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 border border-purple-400 text-white font-semibold text-xs transition active:scale-95 flex items-center space-x-1.5 shadow-lg shadow-purple-500/30">
+                        <span>🐢 Slo-Mo Mode</span>
+                        <span id="slomoBadge" class="px-1.5 py-0.5 rounded text-[10px] bg-purple-300 text-black font-bold">ON</span>
+                    </button>
+
+                    <button id="runBtn" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-bold text-sm shadow-lg shadow-cyan-500/25 transition active:scale-95 flex items-center space-x-2">
+                        <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <span id="runBtnText">START SIMULATION</span>
+                    </button>
+                    <button id="resetBtn" class="px-4 py-2.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 border border-slate-600 text-slate-200 font-semibold text-sm transition active:scale-95">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Canvas Viewport Container -->
+            <div id="canvasContainer" class="relative w-full h-[340px] sm:h-[400px] bg-slate-950">
+                <canvas id="simCanvas" class="w-full h-full cursor-crosshair"></canvas>
+
+                <!-- Drag Instruction Visual Hint -->
+                <div class="absolute bottom-3 right-4 pointer-events-none text-[11px] text-cyan-400/80 bg-slate-900/80 px-2.5 py-1 rounded-md border border-cyan-500/20 flex items-center space-x-1.5">
+                    <span>💡 Hint:</span>
+                    <span>Click and drag stalled vehicle on highway to test hazard distance</span>
+                </div>
+            </div>
+
+            <!-- PIEV Phase Progress Rail Bar -->
+            <div class="w-full bg-slate-900/90 border-t border-slate-800 p-3 sm:p-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2 flex-wrap">
+                        <span>PIEV Perception-Reaction Timeline</span>
+                        <span id="activePhaseBadge" class="normal-case px-2 py-0.5 rounded text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                            State: Ready
+                        </span>
+                        <span id="slomoActivePill" class="normal-case px-2 py-0.5 rounded text-[11px] bg-purple-500/20 text-purple-300 border border-purple-500/30 animate-pulse">
+                            🐢 Slo-Mo Voice Sync Active
+                        </span>
+                    </span>
+                    <span id="simTimeDisplay" class="mono-font text-xs text-cyan-400 font-bold">Elapsed: 0.00s</span>
+                </div>
+
+                <!-- 5 Phase Progress Bar Grid -->
+                <div class="relative w-full h-11 bg-slate-950 rounded-xl overflow-hidden p-1 border border-slate-800 flex gap-1">
+                    <!-- Progress Needle Line -->
+                    <div id="timelineNeedle" class="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_12px_#ffffff] z-20 transition-all duration-75" style="left: 0%;"></div>
+
+                    <!-- Phase 1: Perception -->
+                    <div id="phaseP" class="relative flex-1 rounded-lg bg-cyan-950/40 border border-cyan-500/30 flex flex-col justify-center items-center p-1 transition-all">
+                        <span class="text-[11px] font-extrabold text-cyan-400">P - Perception</span>
+                        <span id="timeP" class="text-[9px] text-slate-400 mono-font">0.50s</span>
+                    </div>
+                    <!-- Phase 2: Intellection -->
+                    <div id="phaseI" class="relative flex-[2] rounded-lg bg-blue-950/40 border border-blue-500/30 flex flex-col justify-center items-center p-1 transition-all">
+                        <span class="text-[11px] font-extrabold text-blue-400">I - Intellection</span>
+                        <span id="timeI" class="text-[9px] text-slate-400 mono-font">1.00s</span>
+                    </div>
+                    <!-- Phase 3: Emotion -->
+                    <div id="phaseE" class="relative flex-1 rounded-lg bg-amber-950/40 border border-amber-500/30 flex flex-col justify-center items-center p-1 transition-all">
+                        <span class="text-[11px] font-extrabold text-amber-400">E - Emotion</span>
+                        <span id="timeE" class="text-[9px] text-slate-400 mono-font">0.50s</span>
+                    </div>
+                    <!-- Phase 4: Volition -->
+                    <div id="phaseV" class="relative flex-1 rounded-lg bg-pink-950/40 border border-pink-500/30 flex flex-col justify-center items-center p-1 transition-all">
+                        <span class="text-[11px] font-extrabold text-pink-400">V - Volition</span>
+                        <span id="timeV" class="text-[9px] text-slate-400 mono-font">0.50s</span>
+                    </div>
+                    <!-- Phase 5: Mechanical Braking -->
+                    <div id="phaseBrake" class="relative flex-[2] rounded-lg bg-red-950/30 border border-red-500/30 flex flex-col justify-center items-center p-1 transition-all">
+                        <span class="text-[11px] font-extrabold text-red-400">Mechanical Braking</span>
+                        <span id="timeBrake" class="text-[9px] text-slate-400 mono-font">Active at Volition</span>
+                    </div>
+                </div>
+
+                <!-- Live Phase Explanation Description Box -->
+                <div id="phaseDescriptionBox" class="mt-2.5 p-2.5 rounded-lg bg-slate-950/80 border border-slate-800 text-xs text-slate-300 flex items-start space-x-2">
+                    <span class="text-cyan-400 text-base">ℹ️</span>
+                    <div id="phaseDescriptionText">
+                        <strong>Ready:</strong> Click <em>"START SIMULATION"</em> to observe the vehicle approaching the hazard through each distinct PIEV reaction phase.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls & Parameter Tuning Panel -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            
+            <!-- Velocity Control Card -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border border-cyan-500/20">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-200">Vehicle Speed (v)</label>
+                        <span id="speedVal" class="mono-font text-sm font-bold text-cyan-400">80 km/h</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Initial cruising velocity</p>
+                    <input type="range" id="speedSlider" min="30" max="130" value="80" step="5" class="w-full mb-3">
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="speedSlider" data-val="40">40 Urban</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="speedSlider" data-val="80">80 Highway</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="speedSlider" data-val="110">110 Express</button>
+                </div>
+            </div>
+
+            <!-- Reaction Time Control Card (PIEV Total) -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border border-cyan-500/20">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-200">Driver Alertness (t<sub>r</sub>)</label>
+                        <span id="reactionVal" class="mono-font text-sm font-bold text-cyan-400">2.50 s</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Total PIEV Reaction Duration</p>
+                    <input type="range" id="reactionSlider" min="1.0" max="3.5" value="2.5" step="0.1" class="w-full mb-3">
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="reactionSlider" data-val="1.2">1.2s Alert</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="reactionSlider" data-val="2.5">2.5s IRC</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="reactionSlider" data-val="3.2">3.2s Impaired</button>
+                </div>
+            </div>
+
+            <!-- Friction & Road Surface Card -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border border-cyan-500/20">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-200">Friction Coeff (f)</label>
+                        <span id="frictionVal" class="mono-font text-sm font-bold text-cyan-400">0.35</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">Longitudinal road friction</p>
+                    <input type="range" id="frictionSlider" min="0.15" max="0.55" value="0.35" step="0.01" class="w-full mb-3">
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="frictionSlider" data-val="0.20">0.20 Wet</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="frictionSlider" data-val="0.35">0.35 Standard</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="frictionSlider" data-val="0.50">0.50 Dry</button>
+                </div>
+            </div>
+
+            <!-- Road Slope / Gradient Card -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col justify-between border border-cyan-500/20">
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="text-xs font-bold text-slate-200">Road Grade (G)</label>
+                        <span id="slopeVal" class="mono-font text-sm font-bold text-cyan-400">0.0 %</span>
+                    </div>
+                    <p class="text-[11px] text-slate-400 mb-3">+ Upgrade / - Downgrade</p>
+                    <input type="range" id="slopeSlider" min="-10" max="10" value="0" step="1" class="w-full mb-3">
+                </div>
+                <div class="grid grid-cols-3 gap-1">
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="slopeSlider" data-val="-6">-6% Down</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="slopeSlider" data-val="0">0% Level</button>
+                    <button class="preset-btn px-2 py-1 text-[10px] rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700" data-target="slopeSlider" data-val="6">+6% Up</button>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full text-center py-3 text-[11px] text-slate-500 border-t border-slate-800/80 mt-4">
+        Interactive Transportation Engineering Course Module • PIEV Perception-Reaction Simulation Engine
+    </footer>
+
+    <script>
+        /**
+         * ====================================================================
+         * Native Web Audio Synthesizer Module
+         * ====================================================================
+         */
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.isMuted = false;
+                this.engineOsc = null;
+                this.engineGain = null;
+                this.brakeNoiseNode = null;
+                this.brakeGain = null;
+                this.masterGain = null;
+                this.isInitialized = false;
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    if (!AudioContextClass) return;
+                    this.ctx = new AudioContextClass();
+
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 1, this.ctx.currentTime);
+                    this.masterGain.connect(this.ctx.destination);
+
+                    // Engine Ambient Sound (Sawtooth wave lowpass filtered)
+                    this.engineOsc = this.ctx.createOscillator();
+                    this.engineGain = this.ctx.createGain();
+                    this.engineOsc.type = 'sawtooth';
+                    this.engineOsc.frequency.setValueAtTime(40, this.ctx.currentTime);
+                    this.engineGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    const filter = this.ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(180, this.ctx.currentTime);
+
+                    this.engineOsc.connect(filter);
+                    filter.connect(this.engineGain);
+                    this.engineGain.connect(this.masterGain);
+                    this.engineOsc.start();
+
+                    // Brake Screech Noise Generator
+                    const bufferSize = this.ctx.sampleRate * 2;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+
+                    this.brakeNoiseNode = this.ctx.createBufferSource();
+                    this.brakeNoiseNode.buffer = noiseBuffer;
+                    this.brakeNoiseNode.loop = true;
+
+                    const brakeFilter = this.ctx.createBiquadFilter();
+                    brakeFilter.type = 'bandpass';
+                    brakeFilter.frequency.setValueAtTime(2800, this.ctx.currentTime);
+                    brakeFilter.Q.setValueAtTime(6.0, this.ctx.currentTime);
+
+                    this.brakeGain = this.ctx.createGain();
+                    this.brakeGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    this.brakeNoiseNode.connect(brakeFilter);
+                    brakeFilter.connect(this.brakeGain);
+                    this.brakeGain.connect(this.masterGain);
+                    this.brakeNoiseNode.start();
+
+                    this.isInitialized = true;
+                } catch (e) {
+                    console.warn('Web Audio API initialized with restriction:', e);
+                }
+            }
+
+            setEngineSpeed(normalizedSpeed, isSloMo = false) {
+                if (!this.ctx || this.isMuted) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                if (this.engineGain) {
+                    const targetGain = normalizedSpeed > 0 ? (isSloMo ? 0.02 : 0.05) : 0;
+                    this.engineGain.gain.setTargetAtTime(targetGain, this.ctx.currentTime, 0.1);
+                }
+                if (this.engineOsc) {
+                    const baseFreq = isSloMo ? 28 : 40;
+                    const scaleFreq = isSloMo ? 30 : 70;
+                    const freq = baseFreq + normalizedSpeed * scaleFreq;
+                    this.engineOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.1);
+                }
+            }
+
+            playPhaseChime(phaseIndex) {
+                if (!this.ctx || this.isMuted) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const frequencies = [440, 554.37, 659.25, 880, 330];
+                const freq = frequencies[phaseIndex] || 440;
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.35);
+            }
+
+            playHazardAlert() {
+                if (!this.ctx || this.isMuted) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1600, this.ctx.currentTime + 0.25);
+
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.28);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            setBrakingScreech(active) {
+                if (!this.ctx || !this.brakeGain) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+                const targetVal = (active && !this.isMuted) ? 0.15 : 0;
+                this.brakeGain.gain.setTargetAtTime(targetVal, this.ctx.currentTime, 0.05);
+            }
+
+            playCrashSound() {
+                if (!this.ctx || this.isMuted) return;
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const osc = this.ctx.createOscillator();
+                const oscGain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.4);
+
+                oscGain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                oscGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+
+                osc.connect(oscGain);
+                oscGain.connect(this.masterGain);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+
+            toggleMute() {
+                this.isMuted = !this.isMuted;
+                if (this.masterGain && this.ctx) {
+                    this.masterGain.gain.setValueAtTime(this.isMuted ? 0 : 1, this.ctx.currentTime);
+                }
+                return this.isMuted;
+            }
+        }
+
+        /**
+         * ====================================================================
+         * Text-To-Speech Educational Narration Module with Utterance Isolation
+         * ====================================================================
+         */
+        class TTSNarrator {
+            constructor() {
+                this.synth = window.speechSynthesis || null;
+                this.currentUtteranceId = 0;
+                this.currentTimeout = null;
+                this.onSubtitleUpdate = null;
+                this.speechRateMultiplier = 1.0;
+            }
+
+            setSloMoPaceMultiplier(multiplier) {
+                this.speechRateMultiplier = parseFloat(multiplier) || 1.0;
+            }
+
+            speak(text, onEndCallback = null) {
+                this.stop();
+                this.currentUtteranceId++;
+                const activeUtteranceId = this.currentUtteranceId;
+
+                if (this.onSubtitleUpdate) {
+                    this.onSubtitleUpdate(text);
+                }
+
+                // Base speaking rate: slower for higher clarity in Slo-Mo
+                const baseSpeechRate = 0.85 / Math.sqrt(this.speechRateMultiplier);
+                const wordCount = text.trim().split(/\s+/).length;
+
+                // Duration in real-world seconds (extended based on pace)
+                const estimatedDuration = Math.max(3.5 * this.speechRateMultiplier, (wordCount * (0.42 / baseSpeechRate)) * this.speechRateMultiplier + 1.2);
+
+                if (!this.synth) {
+                    this.currentTimeout = setTimeout(() => {
+                        if (activeUtteranceId === this.currentUtteranceId && onEndCallback) {
+                            onEndCallback();
+                        }
+                    }, estimatedDuration * 1000);
+                    return estimatedDuration;
+                }
+
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = Math.max(0.65, Math.min(1.0, baseSpeechRate));
+                utterance.pitch = 1.0;
+
+                let callbackCalled = false;
+                const safeCallback = () => {
+                    // CRITICAL FIX: Only invoke callback if utterance ID matches active utterance!
+                    if (activeUtteranceId !== this.currentUtteranceId) return;
+                    if (!callbackCalled) {
+                        callbackCalled = true;
+                        if (this.currentTimeout) clearTimeout(this.currentTimeout);
+                        if (onEndCallback) onEndCallback();
+                    }
+                };
+
+                utterance.onend = safeCallback;
+                utterance.onerror = safeCallback;
+
+                // Guaranteed Safety Fallback Timer
+                this.currentTimeout = setTimeout(safeCallback, (estimatedDuration + 0.8) * 1000);
+
+                try {
+                    this.synth.speak(utterance);
+                } catch (e) {
+                    safeCallback();
+                }
+
+                return estimatedDuration;
+            }
+
+            explainPIEV() {
+                const text = "Perception: The eyes detect the hazard retinal signal. " +
+                    "Intellection: The brain processes and identifies the danger. " +
+                    "Emotion: Fear and impulse response trigger decision making. " +
+                    "Volition: The physical act of moving the foot to apply the brakes.";
+                this.speak(text);
+            }
+
+            stop() {
+                this.currentUtteranceId++;
+                if (this.currentTimeout) {
+                    clearTimeout(this.currentTimeout);
+                    this.currentTimeout = null;
+                }
+                if (this.synth && this.synth.speaking) {
+                    this.synth.cancel();
+                }
+            }
+        }
+
+        /**
+         * ====================================================================
+         * PIEV Physics & Simulation State Engine
+         * ====================================================================
+         */
+        class PIEVSimulation {
+            constructor() {
+                // Physics Parameters
+                this.vKmh = 80;            // Initial speed in km/h
+                this.tr = 2.5;             // Total PIEV Reaction Time (sec)
+                this.f = 0.35;             // Friction coefficient
+                this.grade = 0.0;          // Grade/Slope (-0.1 to +0.1)
+                this.hazardDist = 130;     // Distance to hazard in meters
+                this.g = 9.81;             // Gravity m/s^2
+
+                // Slo-Mo Sync & Pace Parameters
+                this.isSloMo = true;       // Slo-Mo mode enabled by default for clear dialogue
+                this.sloMoPaceMultiplier = 1.5;
+                this.currentPhaseTargetDuration = 0;
+                this.currentPhaseRealElapsed = 0;
+                this.speechCompletedForPhase = false;
+
+                // State Variables
+                this.state = 'IDLE';       // 'IDLE', 'RUNNING', 'FINISHED'
+                this.elapsedTime = 0;      // Simulation time (seconds)
+                this.carPos = 0;           // Car x position in meters
+                this.currentSpeed = 0;     // Speed in m/s
+                this.activePhaseIndex = -1; // 0:P, 1:I, 2:E, 3:V, 4:BRAKING
+                this.outcome = 'READY';    // 'SAFE', 'COLLISION'
+                this.finalStoppingDist = 0;
+
+                // Callbacks
+                this.onPhaseChange = null;
+                this.onFinish = null;
+                this.getSpeechDurationForPhase = null;
+            }
+
+            get vMs() {
+                return this.vKmh / 3.6;
+            }
+
+            get timeP() { return this.tr * 0.20; }
+            get timeI() { return this.tr * 0.40; }
+            get timeE() { return this.tr * 0.20; }
+            get timeV() { return this.tr * 0.20; }
+
+            get lagDistance() {
+                return this.vMs * this.tr;
+            }
+
+            get deceleration() {
+                const totalFriction = this.f + this.grade;
+                return Math.max(0.5, this.g * totalFriction);
+            }
+
+            get brakingDistance() {
+                return (this.vMs * this.vMs) / (2 * this.deceleration);
+            }
+
+            get totalSSD() {
+                return this.lagDistance + this.brakingDistance;
+            }
+
+            getPhaseNominalDuration(phaseIdx) {
+                if (phaseIdx === 0) return this.timeP;
+                if (phaseIdx === 1) return this.timeI;
+                if (phaseIdx === 2) return this.timeE;
+                if (phaseIdx === 3) return this.timeV;
+                if (phaseIdx === 4) return this.vMs / this.deceleration;
+                return 1.0;
+            }
+
+            reset() {
+                this.state = 'IDLE';
+                this.elapsedTime = 0;
+                this.carPos = 0;
+                this.currentSpeed = this.vMs;
+                this.activePhaseIndex = -1;
+                this.outcome = 'READY';
+                this.finalStoppingDist = 0;
+                this.currentPhaseTargetDuration = 0;
+                this.currentPhaseRealElapsed = 0;
+                this.speechCompletedForPhase = false;
+            }
+
+            start() {
+                this.reset();
+
+                // ENSURE SAFE RUNWAY IN SLO-MO MODE:
+                // Auto-adjust hazard runway in Slo-Mo if hazard distance is set too short
+                if (this.isSloMo) {
+                    const minRunwayNeeded = this.lagDistance + 25;
+                    if (this.hazardDist < minRunwayNeeded) {
+                        this.hazardDist = Math.min(220, Math.ceil(minRunwayNeeded));
+                    }
+                }
+
+                this.state = 'RUNNING';
+                this.currentSpeed = this.vMs;
+                this.triggerPhase(0);
+            }
+
+            triggerPhase(phaseIdx) {
+                this.activePhaseIndex = phaseIdx;
+                this.currentPhaseRealElapsed = 0;
+                this.speechCompletedForPhase = false;
+
+                let speechDur = 0;
+                if (this.getSpeechDurationForPhase) {
+                    speechDur = this.getSpeechDurationForPhase(phaseIdx);
+                }
+
+                if (this.isSloMo && speechDur > 0) {
+                    this.currentPhaseTargetDuration = speechDur;
+                } else {
+                    this.currentPhaseTargetDuration = 0;
+                }
+
+                if (this.onPhaseChange) {
+                    this.onPhaseChange(this.activePhaseIndex);
+                }
+            }
+
+            notifySpeechComplete() {
+                this.speechCompletedForPhase = true;
+            }
+
+            update(dt) {
+                if (this.state !== 'RUNNING') return;
+
+                let effectiveDt = dt;
+
+                // SLO-MO TIME STRETCH LOGIC:
+                if (this.isSloMo && this.currentPhaseTargetDuration > 0) {
+                    this.currentPhaseRealElapsed += dt;
+                    const nominalDur = this.getPhaseNominalDuration(this.activePhaseIndex);
+                    const timeScale = nominalDur / this.currentPhaseTargetDuration;
+                    effectiveDt = dt * timeScale;
+                }
+
+                this.elapsedTime += effectiveDt;
+
+                // PHASE TRANSITION CONTROL LOGIC
+                if (this.isSloMo) {
+                    const timeComplete = this.currentPhaseRealElapsed >= this.currentPhaseTargetDuration;
+                    
+                    // Transition to next phase ONLY when speech narration completes AND real time elapses
+                    if ((timeComplete || this.speechCompletedForPhase) && this.activePhaseIndex < 4) {
+                        let boundaryTime = 0;
+                        if (this.activePhaseIndex === 0) boundaryTime = this.timeP;
+                        else if (this.activePhaseIndex === 1) boundaryTime = this.timeP + this.timeI;
+                        else if (this.activePhaseIndex === 2) boundaryTime = this.timeP + this.timeI + this.timeE;
+                        else if (this.activePhaseIndex === 3) boundaryTime = this.tr;
+
+                        this.elapsedTime = Math.max(this.elapsedTime, boundaryTime);
+                        this.triggerPhase(this.activePhaseIndex + 1);
+                    }
+                } else {
+                    // Standard Real-Time Mode Transitions
+                    let newPhaseIndex = -1;
+                    if (this.elapsedTime < this.timeP) {
+                        newPhaseIndex = 0;
+                    } else if (this.elapsedTime < this.timeP + this.timeI) {
+                        newPhaseIndex = 1;
+                    } else if (this.elapsedTime < this.timeP + this.timeI + this.timeE) {
+                        newPhaseIndex = 2;
+                    } else if (this.elapsedTime < this.tr) {
+                        newPhaseIndex = 3;
+                    } else {
+                        newPhaseIndex = 4;
+                    }
+
+                    if (newPhaseIndex !== this.activePhaseIndex) {
+                        this.triggerPhase(newPhaseIndex);
+                    }
+                }
+
+                // Movement Logic
+                if (this.activePhaseIndex < 4) {
+                    this.carPos += this.vMs * effectiveDt;
+                } else {
+                    const decel = this.deceleration;
+                    this.currentSpeed = Math.max(0, this.currentSpeed - decel * effectiveDt);
+                    this.carPos += this.currentSpeed * effectiveDt;
+                }
+
+                // Check Collision or Safe Complete Stop
+                const carFrontPos = this.carPos;
+                if (carFrontPos >= this.hazardDist - 4.5) {
+                    this.state = 'FINISHED';
+                    this.outcome = 'COLLISION';
+                    this.currentSpeed = 0;
+                    if (this.onFinish) this.onFinish('COLLISION');
+                } else if (this.activePhaseIndex === 4 && this.currentSpeed <= 0.01) {
+                    this.state = 'FINISHED';
+                    this.outcome = 'SAFE';
+                    this.currentSpeed = 0;
+                    this.finalStoppingDist = this.carPos;
+                    if (this.onFinish) this.onFinish('SAFE');
+                }
+            }
+        }
+
+        /**
+         * ====================================================================
+         * Canvas Rendering & Visual Graphics Engine
+         * ====================================================================
+         */
+        class Renderer {
+            constructor(canvas, sim) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.sim = sim;
+
+                this.maxMeters = 240;
+                this.paddingX = 60;
+                this.roadY = 0;
+                this.roadHeight = 140;
+
+                this.isDraggingHazard = false;
+            }
+
+            resize() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.roadY = (this.canvas.height - this.roadHeight) / 2 + 10;
+            }
+
+            metersToPixels(meters) {
+                const usableWidth = this.canvas.width - this.paddingX * 2;
+                return this.paddingX + (meters / this.maxMeters) * usableWidth;
+            }
+
+            pixelsToMeters(px) {
+                const usableWidth = this.canvas.width - this.paddingX * 2;
+                const m = ((px - this.paddingX) / usableWidth) * this.maxMeters;
+                return Math.max(25, Math.min(220, m));
+            }
+
+            render() {
+                const ctx = this.ctx;
+                const w = this.canvas.width;
+                const h = this.canvas.height;
+
+                ctx.fillStyle = '#0a0c10';
+                ctx.fillRect(0, 0, w, h);
+
+                this.drawGridAndMarkers(ctx, w, h);
+                this.drawRoad(ctx, w);
+                this.drawZoneOverlays(ctx);
+                this.drawHazard(ctx);
+                this.drawVehicle(ctx);
+
+                if (this.sim.activePhaseIndex === 4 && this.sim.state === 'RUNNING') {
+                    this.drawSkidMarks(ctx);
+                }
+            }
+
+            drawGridAndMarkers(ctx, w, h) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+                ctx.lineWidth = 1;
+
+                for (let m = 0; m <= this.maxMeters; m += 20) {
+                    const x = this.metersToPixels(m);
+                    ctx.beginPath();
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                    ctx.stroke();
+
+                    ctx.fillStyle = 'rgba(148, 163, 184, 0.5)';
+                    ctx.font = '10px "JetBrains Mono", monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`${m}m`, x, this.roadY - 18);
+                }
+            }
+
+            drawRoad(ctx, w) {
+                const ry = this.roadY;
+                const rh = this.roadHeight;
+
+                ctx.fillStyle = '#141822';
+                ctx.fillRect(0, ry, w, rh);
+
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2;
+                ctx.shadowColor = '#00f0ff';
+                ctx.shadowBlur = 8;
+
+                ctx.beginPath();
+                ctx.moveTo(0, ry);
+                ctx.lineTo(w, ry);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(0, ry + rh);
+                ctx.lineTo(w, ry + rh);
+                ctx.stroke();
+
+                ctx.shadowBlur = 0;
+
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([15, 15]);
+                ctx.lineDashOffset = 0;
+
+                ctx.beginPath();
+                ctx.moveTo(0, ry + rh / 2);
+                ctx.lineTo(w, ry + rh / 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+
+            drawZoneOverlays(ctx) {
+                const startX = this.metersToPixels(0);
+                const lagX = this.metersToPixels(this.sim.lagDistance);
+                const ssdX = this.metersToPixels(this.sim.totalSSD);
+                const ry = this.roadY;
+                const rh = this.roadHeight;
+
+                // Translucent Lag Zone (P+I+E+V)
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+                ctx.fillRect(startX, ry, lagX - startX, rh);
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(startX, ry, lagX - startX, rh);
+
+                // Translucent Braking Zone
+                const brakeW = Math.max(0, ssdX - lagX);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.12)';
+                ctx.fillRect(lagX, ry, brakeW, rh);
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                ctx.strokeRect(lagX, ry, brakeW, rh);
+            }
+
+            drawVehicle(ctx) {
+                const carMeters = this.sim.carPos;
+                const x = this.metersToPixels(carMeters);
+                const y = this.roadY + this.roadHeight * 0.72;
+                const carLengthPx = 36;
+                const carWidthPx = 18;
+
+                let mainColor = '#00f0ff';
+                if (this.sim.activePhaseIndex === 1) mainColor = '#3b82f6';
+                if (this.sim.activePhaseIndex === 2) mainColor = '#f59e0b';
+                if (this.sim.activePhaseIndex === 3) mainColor = '#ec4899';
+                if (this.sim.activePhaseIndex === 4) mainColor = '#ef4444';
+
+                this.drawPerceptionCone(ctx, x + carLengthPx / 2, y, mainColor);
+
+                if (this.sim.activePhaseIndex === 4 && this.sim.currentSpeed > 0) {
+                    this.drawDecelVectorArrow(ctx, x, y - 22, this.sim.deceleration);
+                }
+
+                ctx.save();
+                ctx.translate(x, y);
+
+                ctx.shadowColor = mainColor;
+                ctx.shadowBlur = 12;
+
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = mainColor;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-carLengthPx / 2, -carWidthPx / 2, carLengthPx, carWidthPx, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = mainColor;
+                ctx.beginPath();
+                ctx.roundRect(-carLengthPx / 6, -carWidthPx / 3, carLengthPx / 3, carWidthPx / 1.5, 2);
+                ctx.fill();
+
+                ctx.fillStyle = this.sim.activePhaseIndex === 4 ? '#ff0000' : '#880000';
+                ctx.fillRect(-carLengthPx / 2 - 2, -carWidthPx / 2 + 2, 3, 4);
+                ctx.fillRect(-carLengthPx / 2 - 2, carWidthPx / 2 - 6, 3, 4);
+
+                ctx.restore();
+            }
+
+            drawPerceptionCone(ctx, x, y, color) {
+                const hazardX = this.metersToPixels(this.sim.hazardDist);
+                const rayAngle = Math.atan2(this.roadY + this.roadHeight * 0.28 - y, hazardX - x);
+
+                ctx.save();
+                const grad = ctx.createRadialGradient(x, y, 10, x + 180, y, 220);
+                grad.addColorStop(0, color);
+                grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+                ctx.fillStyle = grad;
+                ctx.globalAlpha = 0.25;
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.arc(x, y, 200, rayAngle - 0.25, rayAngle + 0.25);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            drawDecelVectorArrow(ctx, x, y, decelVal) {
+                ctx.save();
+                ctx.strokeStyle = '#ef4444';
+                ctx.fillStyle = '#ef4444';
+                ctx.lineWidth = 2.5;
+
+                const arrowLength = Math.min(60, decelVal * 8);
+
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - arrowLength, y);
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(x - arrowLength, y);
+                ctx.lineTo(x - arrowLength + 6, y - 4);
+                ctx.lineTo(x - arrowLength + 6, y + 4);
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.font = '10px "JetBrains Mono", monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Decel: -${decelVal.toFixed(1)} m/s²`, x - arrowLength / 2, y - 6);
+                ctx.restore();
+            }
+
+            drawSkidMarks(ctx) {
+                const x = this.metersToPixels(this.sim.carPos);
+                const y = this.roadY + this.roadHeight * 0.72;
+
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(x - 25, y - 6);
+                ctx.lineTo(x - 5, y - 6);
+                ctx.moveTo(x - 25, y + 6);
+                ctx.lineTo(x - 5, y + 6);
+                ctx.stroke();
+            }
+
+            drawHazard(ctx) {
+                const x = this.metersToPixels(this.sim.hazardDist);
+                const y = this.roadY + this.roadHeight * 0.28;
+                const w = 38;
+                const h = 22;
+
+                ctx.save();
+                ctx.translate(x, y);
+
+                ctx.shadowColor = '#f59e0b';
+                ctx.shadowBlur = this.isDraggingHazard ? 20 : 10;
+
+                ctx.fillStyle = '#331a00';
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.roundRect(-w / 2, -h / 2, w, h, 4);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(-10, -h / 2);
+                ctx.lineTo(-2, h / 2);
+                ctx.moveTo(0, -h / 2);
+                ctx.lineTo(8, h / 2);
+                ctx.stroke();
+
+                const flash = Math.floor(Date.now() / 250) % 2 === 0;
+                ctx.fillStyle = flash ? '#ff0000' : '#ffaa00';
+                ctx.beginPath();
+                ctx.arc(0, 0, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.9)';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText('↔ DRAG HAZARD', 0, -h / 2 - 8);
+
+                ctx.restore();
+            }
+
+            checkHazardHit(px, py) {
+                const hazardX = this.metersToPixels(this.sim.hazardDist);
+                const hazardY = this.roadY + this.roadHeight * 0.28;
+                const radius = 32;
+                const dx = px - hazardX;
+                const dy = py - hazardY;
+                return (dx * dx + dy * dy) <= radius * radius;
+            }
+        }
+
+        /**
+         * ====================================================================
+         * Main Application Orchestrator & UI Binding Controller
+         * ====================================================================
+         */
+        window.addEventListener('load', () => {
+            const canvas = document.getElementById('simCanvas');
+            const sim = new PIEVSimulation();
+            const renderer = new Renderer(canvas, sim);
+            const sound = new SoundEngine();
+            const tts = new TTSNarrator();
+
+            function resizeCanvas() {
+                renderer.resize();
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            // DOM Elements
+            const speedSlider = document.getElementById('speedSlider');
+            const reactionSlider = document.getElementById('reactionSlider');
+            const frictionSlider = document.getElementById('frictionSlider');
+            const slopeSlider = document.getElementById('slopeSlider');
+
+            const speedVal = document.getElementById('speedVal');
+            const reactionVal = document.getElementById('reactionVal');
+            const frictionVal = document.getElementById('frictionVal');
+            const slopeVal = document.getElementById('slopeVal');
+
+            const eqLagVal = document.getElementById('eqLagVal');
+            const eqBrakeVal = document.getElementById('eqBrakeVal');
+            const eqSSDVal = document.getElementById('eqSSDVal');
+            const eqHazardVal = document.getElementById('eqHazardVal');
+
+            const runBtn = document.getElementById('runBtn');
+            const runBtnText = document.getElementById('runBtnText');
+            const resetBtn = document.getElementById('resetBtn');
+            const explainBtn = document.getElementById('explainBtn');
+            const audioToggleBtn = document.getElementById('audioToggleBtn');
+            const audioText = document.getElementById('audioText');
+
+            const slomoToggleBtn = document.getElementById('slomoToggleBtn');
+            const slomoBadge = document.getElementById('slomoBadge');
+            const slomoActivePill = document.getElementById('slomoActivePill');
+            const slomoPaceSelect = document.getElementById('slomoPaceSelect');
+
+            const timelineNeedle = document.getElementById('timelineNeedle');
+            const simTimeDisplay = document.getElementById('simTimeDisplay');
+            const activePhaseBadge = document.getElementById('activePhaseBadge');
+            const phaseDescriptionText = document.getElementById('phaseDescriptionText');
+            const overallSafetyBadge = document.getElementById('overallSafetyBadge');
+
+            const phaseP = document.getElementById('phaseP');
+            const phaseI = document.getElementById('phaseI');
+            const phaseE = document.getElementById('phaseE');
+            const phaseV = document.getElementById('phaseV');
+            const phaseBrake = document.getElementById('phaseBrake');
+
+            // Detailed Clear Phase Narrations
+            const phaseNarrations = [
+                "Perception phase: The driver's eyes detect the visual stimulus of the hazard on the highway.",
+                "Intellection phase: The brain processes visual data, identifies danger, and evaluates spatial distance.",
+                "Emotion phase: Psychological fear response triggers the decision to initiate emergency evasive braking.",
+                "Volition phase: Neuromuscular signal travels down the spine, moving the foot onto the brake pedal.",
+                "Mechanical braking phase: Hydraulic brakes engage, tires lock, and road friction brings the vehicle to a complete stop."
+            ];
+
+            const phaseTitles = [
+                "PHASE 1: PERCEPTION (P)",
+                "PHASE 2: INTELLECTION (I)",
+                "PHASE 3: EMOTION (E)",
+                "PHASE 4: VOLITION (V)",
+                "MECHANICAL BRAKING ACTIVE"
+            ];
+
+            // Speech Duration Handler
+            sim.getSpeechDurationForPhase = (phaseIdx) => {
+                if (sim.isSloMo && phaseNarrations[phaseIdx]) {
+                    return tts.speak(phaseNarrations[phaseIdx], () => {
+                        sim.notifySpeechComplete();
+                    });
+                }
+                return 0;
+            };
+
+            // Slo-Mo Pace Selection Change
+            slomoPaceSelect.addEventListener('change', (e) => {
+                const multiplier = parseFloat(e.target.value);
+                sim.sloMoPaceMultiplier = multiplier;
+                tts.setSloMoPaceMultiplier(multiplier);
+            });
+
+            // Toggle Slo-Mo Mode Button
+            slomoToggleBtn.addEventListener('click', () => {
+                sim.isSloMo = !sim.isSloMo;
+                if (sim.isSloMo) {
+                    slomoBadge.textContent = "ON";
+                    slomoBadge.className = "px-1.5 py-0.5 rounded text-[10px] bg-purple-300 text-black font-bold";
+                    slomoToggleBtn.className = "px-3.5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 border border-purple-400 text-white font-semibold text-xs transition active:scale-95 flex items-center space-x-1.5 shadow-lg shadow-purple-500/30";
+                    slomoActivePill.classList.remove('hidden');
+                } else {
+                    slomoBadge.textContent = "OFF";
+                    slomoBadge.className = "px-1.5 py-0.5 rounded text-[10px] bg-slate-700 text-slate-300 font-bold";
+                    slomoToggleBtn.className = "px-3.5 py-2 rounded-xl bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/40 text-purple-200 font-semibold text-xs transition active:scale-95 flex items-center space-x-1.5 shadow-md";
+                    slomoActivePill.classList.add('hidden');
+                }
+            });
+
+            // Synchronize Equations & Readouts
+            function updateMathReadouts() {
+                sim.vKmh = parseFloat(speedSlider.value);
+                sim.tr = parseFloat(reactionSlider.value);
+                sim.f = parseFloat(frictionSlider.value);
+                sim.grade = parseFloat(slopeSlider.value) / 100.0;
+
+                speedVal.textContent = `${sim.vKmh} km/h`;
+                reactionVal.textContent = `${sim.tr.toFixed(2)} s`;
+                frictionVal.textContent = sim.f.toFixed(2);
+                slopeVal.textContent = `${slopeSlider.value > 0 ? '+' : ''}${slopeSlider.value} %`;
+
+                document.getElementById('timeP').textContent = `${sim.timeP.toFixed(2)}s`;
+                document.getElementById('timeI').textContent = `${sim.timeI.toFixed(2)}s`;
+                document.getElementById('timeE').textContent = `${sim.timeE.toFixed(2)}s`;
+                document.getElementById('timeV').textContent = `${sim.timeV.toFixed(2)}s`;
+
+                eqLagVal.textContent = `${sim.lagDistance.toFixed(1)} m`;
+                eqBrakeVal.textContent = `${sim.brakingDistance.toFixed(1)} m`;
+                eqSSDVal.textContent = `${sim.totalSSD.toFixed(1)} m`;
+                eqHazardVal.textContent = `${sim.hazardDist.toFixed(1)} m`;
+
+                const margin = sim.hazardDist - sim.totalSSD;
+                if (margin >= 0) {
+                    overallSafetyBadge.textContent = `SAFE (Buffer: +${margin.toFixed(1)}m)`;
+                    overallSafetyBadge.className = "px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                } else {
+                    overallSafetyBadge.textContent = `RISK: COLLISION (Short by ${Math.abs(margin).toFixed(1)}m)`;
+                    overallSafetyBadge.className = "px-3 py-1 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30";
+                }
+            }
+
+            [speedSlider, reactionSlider, frictionSlider, slopeSlider].forEach(slider => {
+                slider.addEventListener('input', () => {
+                    updateMathReadouts();
+                    if (sim.state !== 'RUNNING') sim.reset();
+                });
+            });
+
+            document.querySelectorAll('.preset-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetId = e.target.getAttribute('data-target');
+                    const val = e.target.getAttribute('data-val');
+                    const slider = document.getElementById(targetId);
+                    if (slider) {
+                        slider.value = val;
+                        updateMathReadouts();
+                        if (sim.state !== 'RUNNING') sim.reset();
+                    }
+                });
+            });
+
+            // Dragging Hazard Object
+            function getEventCanvasPos(e) {
+                const rect = canvas.getBoundingClientRect();
+                const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return {
+                    x: clientX - rect.left,
+                    y: clientY - rect.top
+                };
+            }
+
+            function handlePointerDown(e) {
+                const pos = getEventCanvasPos(e);
+                if (renderer.checkHazardHit(pos.x, pos.y)) {
+                    renderer.isDraggingHazard = true;
+                    canvas.style.cursor = 'grabbing';
+                }
+            }
+
+            function handlePointerMove(e) {
+                const pos = getEventCanvasPos(e);
+                if (renderer.isDraggingHazard) {
+                    sim.hazardDist = renderer.pixelsToMeters(pos.x);
+                    updateMathReadouts();
+                } else {
+                    if (renderer.checkHazardHit(pos.x, pos.y)) {
+                        canvas.style.cursor = 'grab';
+                    } else {
+                        canvas.style.cursor = 'crosshair';
+                    }
+                }
+            }
+
+            function handlePointerUp() {
+                renderer.isDraggingHazard = false;
+                canvas.style.cursor = 'crosshair';
+            }
+
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            window.addEventListener('mouseup', handlePointerUp);
+
+            canvas.addEventListener('touchstart', handlePointerDown);
+            canvas.addEventListener('touchmove', handlePointerMove);
+            window.addEventListener('touchend', handlePointerUp);
+
+            // Phase Change Event Listener
+            sim.onPhaseChange = (phaseIndex) => {
+                sound.playPhaseChime(phaseIndex);
+
+                [phaseP, phaseI, phaseE, phaseV, phaseBrake].forEach((el, idx) => {
+                    if (idx === phaseIndex) {
+                        el.classList.add('ring-2', 'ring-cyan-400', 'bg-cyan-500/20');
+                    } else {
+                        el.classList.remove('ring-2', 'ring-cyan-400', 'bg-cyan-500/20');
+                    }
+                });
+
+                if (phaseIndex === 0) {
+                    activePhaseBadge.textContent = "Phase 1: Perception (P)";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-cyan-500/30 text-cyan-300 border border-cyan-400";
+                    phaseDescriptionText.innerHTML = "<strong>Perception:</strong> Retinal stimulus detects the visual outline of the hazard ahead on the road.";
+                } else if (phaseIndex === 1) {
+                    activePhaseBadge.textContent = "Phase 2: Intellection (I)";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-blue-500/30 text-blue-300 border border-blue-400";
+                    phaseDescriptionText.innerHTML = "<strong>Intellection:</strong> Cognitive processing. Brain identifies hazard and computes spatial gap.";
+                    sound.playHazardAlert();
+                } else if (phaseIndex === 2) {
+                    activePhaseBadge.textContent = "Phase 3: Emotion (E)";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-amber-500/30 text-amber-300 border border-amber-400";
+                    phaseDescriptionText.innerHTML = "<strong>Emotion:</strong> Psychological fear response triggers driver's decision to execute emergency braking.";
+                } else if (phaseIndex === 3) {
+                    activePhaseBadge.textContent = "Phase 4: Volition (V)";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-pink-500/30 text-pink-300 border border-pink-400";
+                    phaseDescriptionText.innerHTML = "<strong>Volition:</strong> Neuromuscular execution. Spinal motor signal moves foot to depress the brake pedal.";
+                } else if (phaseIndex === 4) {
+                    activePhaseBadge.textContent = "State: Mechanical Braking Active";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-red-500/30 text-red-300 border border-red-400";
+                    phaseDescriptionText.innerHTML = "<strong>Braking Engaged:</strong> Hydraulic brakes lock. Vehicle decelerates according to road friction f.";
+                    sound.setBrakingScreech(true);
+                }
+            };
+
+            // Simulation Completion Handler
+            sim.onFinish = (outcome) => {
+                sound.setBrakingScreech(false);
+                sound.setEngineSpeed(0);
+
+                if (outcome === 'COLLISION') {
+                    sound.playCrashSound();
+                    activePhaseBadge.textContent = "CRASH / COLLISION OCCURRED";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-red-600 text-white font-bold animate-bounce";
+                    phaseDescriptionText.innerHTML = `<span class="text-red-400 font-bold">⚠️ COLLISION AT HIGH SPEED!</span> The reaction lag distance (d<sub>lag</sub>) left insufficient room for braking. Increase hazard distance or decrease speed.`;
+                    
+                    tts.speak("Collision occurred! Reaction lag distance consumed too much space before mechanical braking could take effect.");
+                } else {
+                    activePhaseBadge.textContent = "VEHICLE STOPPED SAFELY";
+                    activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-emerald-500 text-black font-bold";
+                    phaseDescriptionText.innerHTML = `<span class="text-emerald-400 font-bold">✅ SAFE STOP ACHIEVED!</span> Vehicle stopped with ${(sim.hazardDist - sim.carPos - 4.5).toFixed(1)}m buffer distance remaining before hazard.`;
+                    
+                    tts.speak("Vehicle came to a complete safe stop before reaching the hazard object.");
+                }
+
+                runBtnText.textContent = "RE-RUN SIMULATION";
+            };
+
+            // Controls Binding
+            runBtn.addEventListener('click', () => {
+                sound.init();
+                tts.stop();
+
+                if (sim.state === 'RUNNING') {
+                    sim.reset();
+                    sound.setBrakingScreech(false);
+                    sound.setEngineSpeed(0);
+                    runBtnText.textContent = "START SIMULATION";
+                } else {
+                    sim.start();
+                    sound.setEngineSpeed(1.0);
+                    runBtnText.textContent = "PAUSE / RESET";
+                }
+            });
+
+            resetBtn.addEventListener('click', () => {
+                tts.stop();
+                sim.reset();
+                sound.setBrakingScreech(false);
+                sound.setEngineSpeed(0);
+                runBtnText.textContent = "START SIMULATION";
+                activePhaseBadge.textContent = "State: Ready";
+                activePhaseBadge.className = "normal-case px-2 py-0.5 rounded text-[11px] bg-cyan-500/20 text-cyan-300 border border-cyan-500/30";
+                phaseDescriptionText.innerHTML = `<strong>Ready:</strong> Click <em>"START SIMULATION"</em> to observe the vehicle approaching the hazard through each distinct PIEV reaction phase.`;
+            });
+
+            explainBtn.addEventListener('click', () => {
+                sound.init();
+                tts.explainPIEV();
+            });
+
+            audioToggleBtn.addEventListener('click', () => {
+                sound.init();
+                const muted = sound.toggleMute();
+                audioText.textContent = muted ? "Audio: Muted" : "Audio: On";
+            });
+
+            updateMathReadouts();
+
+            let lastTime = performance.now();
+
+            function animate(currentTime) {
+                const dt = Math.min(0.05, (currentTime - lastTime) / 1000);
+                lastTime = currentTime;
+
+                if (sim.state === 'RUNNING') {
+                    sim.update(dt);
+                    sound.setEngineSpeed(sim.currentSpeed / sim.vMs, sim.isSloMo);
+
+                    const progressRatio = Math.min(1.0, sim.elapsedTime / (sim.tr * 1.5));
+                    timelineNeedle.style.left = `${progressRatio * 100}%`;
+                    simTimeDisplay.textContent = `Elapsed: ${sim.elapsedTime.toFixed(2)}s ${sim.isSloMo ? '(Slo-Mo)' : ''}`;
+                }
+
+                renderer.render();
+                requestAnimationFrame(animate);
+            }
+
+            requestAnimationFrame(animate);
+        });
+    </script>
+</body>
+</html>

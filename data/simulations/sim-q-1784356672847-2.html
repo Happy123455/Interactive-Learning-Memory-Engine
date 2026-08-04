@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Reinforcement Detailing Studio</title>
+    <style>
+        /* General Reset & Base Styles */
+        :root {
+            --bg-dark: #1a1a2e;
+            --cyber-blue: #00FFFF; /* Electric Cyan */
+            --cyber-green: #7FFF00; /* Acid Green */
+            --cyber-orange: #FF4500; /* Safety Orange */
+            --text-light: #e0e0e0;
+            --glass-bg: rgba(40, 40, 60, 0.3);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --glow-filter: drop-shadow(0 0 5px var(--cyber-blue)) drop-shadow(0 0 10px var(--cyber-blue));
+            --glow-filter-green: drop-shadow(0 0 5px var(--cyber-green)) drop-shadow(0 0 10px var(--cyber-green));
+            --glow-filter-orange: drop-shadow(0 0 5px var(--cyber-orange)) drop-shadow(0 0 10px var(--cyber-orange));
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            height: 100%;
+            overflow: hidden; /* CRITICAL: No body scrollbars */
+            font-family: 'Segoe UI', Arial, sans-serif;
+            color: var(--text-light);
+            background-color: var(--bg-dark);
+            display: flex; /* Ensure full viewport usage for #app */
+        }
+
+        /* Main Grid Layout */
+        #app {
+            display: grid;
+            grid-template-columns: 250px 1fr 250px; /* Left Sidebar | Canvas | Right Sidebar */
+            grid-template-rows: 1fr;
+            height: 100vh; /* CRITICAL: Full viewport height */
+            width: 100vw; /* Full viewport width */
+            gap: 10px;
+            padding: 10px;
+        }
+
+        /* Glassmorphism Panel Styling */
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Hide scrollbars for panels, let inner content scroll if needed */
+        }
+
+        .panel-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--cyber-blue);
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px var(--cyber-blue);
+            text-align: center;
+        }
+
+        /* Inventory Sidebar */
+        #inventory-panel {
+            grid-column: 1;
+            overflow-y: auto; /* Allow scrolling for inventory items */
+            -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+            scrollbar-width: thin;
+            scrollbar-color: var(--cyber-blue) var(--glass-bg);
+        }
+        #inventory-panel::-webkit-scrollbar { width: 8px; }
+        #inventory-panel::-webkit-scrollbar-track { background: var(--glass-bg); border-radius: 10px; }
+        #inventory-panel::-webkit-scrollbar-thumb { background-color: var(--cyber-blue); border-radius: 10px; border: 2px solid var(--glass-bg); }
+
+        .inventory-items {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .inventory-card {
+            background-color: rgba(60, 60, 80, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.2s ease-in-out;
+            width: 100px; /* Fixed width for inventory cards */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            filter: var(--glow-filter); /* Initial subtle glow */
+            color: var(--text-light);
+            font-size: 0.9em;
+            position: relative;
+        }
+        .inventory-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            border-color: var(--cyber-blue);
+        }
+        .inventory-card:active {
+            cursor: grabbing;
+            transform: translateY(0);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+        }
+        .inventory-card.selected {
+            border: 2px solid var(--cyber-green);
+            box-shadow: 0 0 20px rgba(127, 255, 0, 0.8);
+            filter: var(--glow-filter-green);
+        }
+
+        .inventory-card img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+            margin-bottom: 5px;
+            filter: var(--glow-filter);
+        }
+
+        /* Canvas Panel */
+        #canvas-panel {
+            grid-column: 2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 0; /* Canvas will fill this */
+            position: relative; /* For live feedback positioning */
+        }
+
+        #rccCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 8px; /* Match panel border radius */
+            background-color: #2b2b40; /* Slightly lighter dark background for canvas */
+            /* filter: saturate(1.2) contrast(1.1); Add a subtle visual enhancement to canvas */
+        }
+
+        /* Codebook Panel */
+        #codebook-panel {
+            grid-column: 3;
+            overflow-y: auto; /* Allow scrolling for codebook content */
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: var(--cyber-blue) var(--glass-bg);
+        }
+        #codebook-panel::-webkit-scrollbar { width: 8px; }
+        #codebook-panel::-webkit-scrollbar-track { background: var(--glass-bg); border-radius: 10px; }
+        #codebook-panel::-webkit-scrollbar-thumb { background-color: var(--cyber-blue); border-radius: 10px; border: 2px solid var(--glass-bg); }
+
+        .code-reference-card {
+            background-color: rgba(60, 60, 80, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            transition: all 0.2s ease-in-out;
+            color: var(--text-light);
+            font-size: 0.85em;
+            filter: var(--glow-filter);
+        }
+        .code-reference-card h3 {
+            color: var(--cyber-green);
+            margin-bottom: 5px;
+            font-size: 1em;
+            text-shadow: 0 0 5px var(--cyber-green);
+        }
+        .code-reference-card p {
+            line-height: 1.4;
+        }
+
+        /* Control Buttons */
+        .controls-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px dashed var(--glass-border);
+        }
+
+        .cyber-button {
+            background-color: rgba(0, 255, 255, 0.2);
+            border: 1px solid var(--cyber-blue);
+            color: var(--cyber-blue);
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: bold;
+            text-transform: uppercase;
+            transition: all 0.2s ease-in-out;
+            text-shadow: 0 0 5px var(--cyber-blue);
+            filter: var(--glow-filter);
+        }
+        .cyber-button:hover {
+            background-color: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.8);
+            transform: translateY(-2px);
+        }
+        .cyber-button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+        }
+        .cyber-button.active {
+            background-color: rgba(127, 255, 0, 0.4);
+            border-color: var(--cyber-green);
+            color: var(--cyber-green);
+            box-shadow: 0 0 20px rgba(127, 255, 0, 0.8);
+            filter: var(--glow-filter-green);
+        }
+        .cyber-button.warning {
+             background-color: rgba(255, 69, 0, 0.2);
+             border-color: var(--cyber-orange);
+             color: var(--cyber-orange);
+             text-shadow: 0 0 5px var(--cyber-orange);
+             filter: var(--glow-filter-orange);
+        }
+        .cyber-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            box-shadow: none;
+            filter: none;
+        }
+
+        .slider-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .slider-group label {
+            white-space: nowrap;
+            color: var(--cyber-blue);
+            text-shadow: 0 0 3px var(--cyber-blue);
+        }
+        .cyber-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: rgba(0, 255, 255, 0.2);
+            outline: none;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+            filter: var(--glow-filter);
+        }
+        .cyber-slider:hover {
+            opacity: 1;
+        }
+        .cyber-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--cyber-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--cyber-blue);
+            border: 2px solid var(--text-light);
+        }
+        .cyber-slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--cyber-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--cyber-blue);
+            border: 2px solid var(--text-light);
+        }
+        .slider-value {
+            min-width: 30px;
+            text-align: right;
+            color: var(--cyber-green);
+        }
+
+        /* Dashboard Data Chips */
+        .data-chip {
+            background: rgba(0, 255, 255, 0.15);
+            border: 1px solid var(--cyber-blue);
+            border-radius: 20px;
+            padding: 5px 12px;
+            font-size: 0.8em;
+            color: var(--cyber-blue);
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            margin: 5px 0; /* Adjust margin for stacked chips */
+            filter: var(--glow-filter);
+            transition: all 0.2s ease-in-out;
+        }
+        .data-chip.green {
+            background: rgba(127, 255, 0, 0.15);
+            border-color: var(--cyber-green);
+            color: var(--cyber-green);
+            filter: var(--glow-filter-green);
+        }
+        .data-chip.orange {
+            background: rgba(255, 69, 0, 0.15);
+            border-color: var(--cyber-orange);
+            color: var(--cyber-orange);
+            filter: var(--glow-filter-orange);
+        }
+        .code-references .data-chip { /* Ensure chips stack within code-references */
+            display: flex;
+            width: fit-content;
+        }
+
+        /* Modal Popup for Explanations */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: var(--glass-bg);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.4);
+            position: relative;
+            transform: translateY(-20px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .modal-title {
+            color: var(--cyber-green);
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px var(--cyber-green);
+        }
+        .modal-body {
+            color: var(--text-light);
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: var(--cyber-blue);
+            cursor: pointer;
+            padding: 5px;
+            transition: all 0.2s ease-in-out;
+            filter: var(--glow-filter);
+        }
+        .modal-close:hover {
+            color: var(--cyber-orange);
+            transform: scale(1.1);
+            filter: var(--glow-filter-orange);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            #app {
+                grid-template-columns: 200px 1fr 200px;
+            }
+        }
+
+        @media (max-width: 900px) {
+            #app {
+                grid-template-columns: 1fr;
+                grid-template-rows: 200px 1fr 200px; /* Stacked: Inventory | Canvas | Codebook */
+            }
+            #inventory-panel { grid-column: 1; grid-row: 1; }
+            #canvas-panel { grid-column: 1; grid-row: 2; }
+            #codebook-panel { grid-column: 1; grid-row: 3; }
+
+            .inventory-items {
+                flex-wrap: nowrap; /* Horizontal scroll for small screens */
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                justify-content: flex-start;
+                padding-bottom: 10px; /* Space for scrollbar */
+            }
+            .inventory-items::-webkit-scrollbar { height: 8px; }
+            .inventory-items::-webkit-scrollbar-track { background: var(--glass-bg); border-radius: 10px; }
+            .inventory-items::-webkit-scrollbar-thumb { background-color: var(--cyber-blue); border-radius: 10px; border: 2px solid var(--glass-bg); }
+
+            .inventory-card {
+                flex-shrink: 0; /* Prevent cards from shrinking */
+                width: 90px;
+            }
+        }
+
+        /* Animated Dashboard Data Chips (for live feedback) */
+        .live-feedback-container {
+            position: absolute; /* Position relative to canvas-panel */
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            z-index: 500;
+        }
+        .live-feedback-chip {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(5px);
+            border: 1px solid var(--cyber-green);
+            color: var(--cyber-green);
+            padding: 8px 15px;
+            border-radius: 25px;
+            font-size: 1em;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeAndRise 3s forwards;
+            filter: var(--glow-filter-green);
+        }
+        .live-feedback-chip.warning {
+             border-color: var(--cyber-orange);
+             color: var(--cyber-orange);
+             filter: var(--glow-filter-orange);
+        }
+
+        @keyframes fadeAndRise {
+            0% { opacity: 0; transform: translateY(20px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-20px); }
+        }
+
+        /* Specific styles for "Effective Depth vs. Concrete Cover" overlay */
+        #stress-strain-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            z-index: 50; /* Above canvas, below modals */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        #stress-strain-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #stressStrainCanvas {
+            width: 80%;
+            height: 80%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            box-shadow: 0 0 30px var(--cyber-blue);
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="app">
+        <aside id="inventory-panel" class="panel">
+            <h2 class="panel-header">Reinforcement Inventory</h2>
+            <div class="inventory-items">
+                <!-- Inventory Cards will be dynamically loaded or static placeholders -->
+                <div class="inventory-card" data-type="rebar" data-label="Main Rebar" data-description="Longitudinal steel bars providing tensile strength.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHJlY3QgeD0iMTAiIHk9IjIwIiB3aWR0aD0iMzAiIGhlaWdodD0iMTAiIHJ4PSI1IiByeT0iNSIgZmlsbD0iI0EwQTBBMCIgc3Ryb2tlPSIjNUM1QzVDIiBzdHJva2Utd2lkdGg9IjIiLz48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSI1IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC4xIi8+PC9zdmc+" alt="Rebar Icon">
+                    <span>Main Rebar</span>
+                </div>
+                <div class="inventory-card" data-type="stirrup" data-label="Stirrup" data-description="Closed loops of rebar, primarily resisting shear forces.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHJlY3QgeD0iMTUiIHk9IjE1IiB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHJ4PSIzIiByeT0iMyIgZmlsbD0iI0EwQTBBMCIgc3Ryb2tlPSIjNUM1QzVDIiBzdHJva2Utd2lkdGg9IjIiLz48Y2lyY2xlIGN4PSIyNSIgY3k9IjI1IiByPSI0IiBmaWxsPSJ3aGl0ZSIgb3BhY2l0eT0iMC4xIi8+PC9zdmc+" alt="Stirrup Icon">
+                    <span>Stirrup</span>
+                </div>
+                <div class="inventory-card" data-type="spacer" data-label="Spacer Block" data-description="Ensures correct concrete cover for corrosion protection and fire resistance.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHJlY3QgeD0iMTgiIHk9IjM1IiB3aWR0aD0iMTQiIGhlaWdodD0iNyIgZmlsbD0iI0NDQ0NDQyIgc3Ryb2tlPSIjOTk5OTk5IiBzdHJva2Utd2lkdGg9IjEiLz48cGF0aCBkPSJNMjUgMThWMzUiIHN0cm9rZT0iI0EwQTBBMCIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48cGF0aCBkPSJNMjEgMjlIMzEiIHN0cm9rZT0iI0EwQTBBMCIgc3Ryb2tlLXdpZHRoPSIzIiBzdHJva2UtbGluZWNhcD0icm91bmQiLz48L3N2Zz4=" alt="Spacer Icon">
+                    <span>Spacer</span>
+                </div>
+                <div class="inventory-card" data-type="chair" data-label="Chair Bar" data-description="Supports top reinforcement layers, maintaining their position during concrete placement.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHBhdGggZD0iTTIwIDMwIDMwIDMwTTIyIDMwVjIzTTI4IDMwVjIzTTIyIDIzQzIyIDE1IDMwIDE1IDMwIDIzIiBzdHJva2U9IiNBMDdBMEEiIHN0cm9rZS13aWR0aD0iMyIgZmlsbD0ibm9uZSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIi8+PGNpcmNsZSBjeD0iMjUiIGN5PSIyNSIgcj0iNSIgZmlsbD0id2hpdGUiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==" alt="Chair Icon">
+                    <span>Chair</span>
+                </div>
+                <div class="inventory-card" data-type="bindingwire" data-label="Binding Wire" data-description="Secures rebar intersections to form a stable reinforcement cage.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHBhdGggZD0iTTIgMjVMNDggMjUiIHN0cm9rZT0iI0Q0RDRENCQ2IiBzdHJva2Utd2lkdGg9IjgiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0yNSA0TDQ0IDIzTDI1IDQ2TDYgMjciWiIgc3Ryb2tlPSIjQzBDMEMwIiBzdHJva2Utd2lkdGg9IjMiIGZpbGw9Im5vbmUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMyAxNmwtNiA2bDYgNiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNUM1QzVDIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjwvc3ZnPg==" alt="Binding Wire Icon">
+                    <span>Binding Wire</span>
+                </div>
+                <div class="inventory-card" data-type="dowel" data-label="Dowel Bar" data-description="Connects new concrete elements to existing ones, transferring load and ensuring continuity.">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MCA1MCI+PHJlY3QgeD0iNSIgeT0iMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxMCIgcng9IjUiIHJ5PSI1IiBmaWxsPSIjQTBBMEEwIiBzdHJva2U9IiM1QzVDNUMiIHN0cm9rZS13aWR0aD0iMiIvPjxjaXJjbGUgY3g9IjQ1IiBjeT0iMjUiIHI9IjUiIGZpbGw9IiNBMDdBMEEiLz48Y2lyY2xlIGN4PSI1IiBjeT0iMjUiIHI9IjUiIGZpbGw9IiNBMDdBMEEiLz48L3N2Zz4=" alt="Dowel Icon">
+                    <span>Dowel Bar</span>
+                </div>
+            </div>
+            <div class="controls-section">
+                <button id="xray-toggle" class="cyber-button">Toggle X-Ray View</button>
+                <button id="stress-strain-toggle" class="cyber-button">Stress-Strain Overlay</button>
+                <div class="slider-group">
+                    <label for="spacer-width-slider">Cover (mm):</label>
+                    <input type="range" id="spacer-width-slider" class="cyber-slider" min="20" max="75" value="40">
+                    <span id="spacer-width-value" class="slider-value">40</span>
+                </div>
+                <button id="pour-concrete-button" class="cyber-button warning">Pour Concrete!</button>
+            </div>
+        </aside>
+
+        <main id="canvas-panel" class="panel">
+            <canvas id="rccCanvas"></canvas>
+            <div id="live-feedback-container" class="live-feedback-container"></div>
+        </main>
+
+        <aside id="codebook-panel" class="panel">
+            <h2 class="panel-header">IS 456 Codebook Insights</h2>
+            <div class="code-references">
+                <div class="code-reference-card">
+                    <h3>Concrete Cover (Cl. 26.4)</h3>
+                    <p>Minimum clear cover required for durability and fire resistance. Varies based on exposure conditions (mild, moderate, severe, etc.) and bar diameter. Usually 20mm to 50mm for beams.</p>
+                </div>
+                <div class="code-reference-card">
+                    <h3>Shear Reinforcement (Cl. 26.5.1)</h3>
+                    <p>Stirrups (or links) resist shear forces. Spacing and diameter are critical. Minimum shear reinforcement required even if not needed by calculation.</p>
+                </div>
+                <div class="code-reference-card">
+                    <h3>Longitudinal Reinforcement (Cl. 26.5.3)</h3>
+                    <p>Minimum and maximum areas of tension and compression steel. Spacing of bars to ensure proper concrete flow and bond. Bar curtailment rules.</p>
+                </div>
+                <div class="code-reference-card">
+                    <h3>Development Length (Cl. 26.2)</h3>
+                    <p>The length of embedment required to develop the full design strength of a bar. Critical at beam-column junctions for proper load transfer (e.g., dowels).</p>
+                </div>
+                <div class="code-reference-card">
+                    <h3>Binding Wire Practices</h3>
+                    <p>While not explicitly in IS 456 for calculation, proper tying (binding) of bars is standard practice to maintain cage integrity during concrete pouring and vibration.</p>
+                </div>
+                <!-- Data chips for live values -->
+                <div class="data-chip">
+                    Concrete Cover: <span id="display-concrete-cover">0 mm</span>
+                </div>
+                <div class="data-chip">
+                    Effective Depth: <span id="display-effective-depth">0 mm</span>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Modal for component explanations -->
+    <div id="explanation-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close">&times;</button>
+            <h3 class="modal-title" id="modal-component-title"></h3>
+            <p class="modal-body" id="modal-component-description"></p>
+        </div>
+    </div>
+
+    <!-- Stress-Strain Overlay -->
+    <div id="stress-strain-overlay">
+        <canvas id="stressStrainCanvas"></canvas>
+    </div>
+
+    <script>
+        // --- Global Constants and Configuration ---
+        const DPR = window.devicePixelRatio || 1;
+        const BEAM_DEFAULT_WIDTH_MM = 600; // Conceptual real-world width for calculations (mm)
+        const BEAM_DEFAULT_HEIGHT_MM = 400; // Conceptual real-world height for calculations (mm)
+        const BEAM_SCALE_FACTOR_CANVAS = 0.8; // How much of the canvas width/height the beam occupies
+
+        const COLORS = {
+            BACKGROUND_DARK: '#1a1a2e',
+            CANVAS_BG: '#2b2b40',
+            CONCRETE_NORMAL: 'rgba(100, 100, 120, 0.8)',
+            CONCRETE_POURING: 'rgba(80, 80, 100, 0.8)',
+            CONCRETE_XRAY: 'rgba(100, 100, 120, 0.2)',
+            REBAR_NORMAL: '#A0A0A0',
+            REBAR_GLOW: '#00FFFF', // Electric Cyan
+            HIGHLIGHT_SNAP: '#7FFF00', // Acid Green
+            HIGHLIGHT_ERROR: '#FF4500', // Safety Orange
+            TEXT_PRIMARY: '#E0E0E0',
+            TEXT_ACCENT: '#00FFFF',
+            TEXT_WARNING: '#FF4500',
+            CALLOUT_BG: 'rgba(40, 40, 60, 0.7)',
+            LEADER_LINE: '#00FFFF',
+            BINDING_GLOW: 'rgba(0, 255, 255, 0.7)',
+        };
+
+        const COMPONENT_LABELS = {
+            rebar: "Main Rebar",
+            stirrup: "Stirrup",
+            spacer: "Spacer Block",
+            chair: "Chair Bar",
+            bindingwire: "Binding Wire",
+            dowel: "Dowel Bar",
+            bindingIndicator: "Bound Joint" // For the visual representation of binding
+        };
+        const COMPONENT_DESCRIPTIONS = {
+            rebar: "Main longitudinal steel bars provide tensile strength to the beam, resisting bending moments. Essential for structural integrity.",
+            stirrup: "Closed loops of rebar, also known as links, resist shear forces and confine the concrete core, improving ductility. Crucial for preventing diagonal cracking.",
+            spacer: "Small blocks placed between reinforcement and formwork to maintain the specified concrete cover. This protects rebar from corrosion and ensures fire resistance.",
+            chair: "Support bars used to hold upper layers of reinforcement in place, ensuring correct spacing and preventing displacement during concrete pouring.",
+            bindingwire: "Thin, annealed steel wire used to tie intersections of rebar, creating a stable reinforcement cage that maintains its shape during construction activities.",
+            dowel: "Short reinforcing bars used to connect new concrete elements to existing ones, allowing for load transfer and structural continuity across construction joints.",
+            bindingIndicator: "This indicator shows where binding wire has been applied to secure rebar intersections, maintaining the cage's structural integrity."
+        };
+
+        // --- DOM Elements ---
+        const rccCanvas = document.getElementById('rccCanvas');
+        const ctx = rccCanvas.getContext('2d');
+        const inventoryPanel = document.getElementById('inventory-panel');
+        const inventoryItems = document.querySelector('.inventory-items');
+        const xrayToggleBtn = document.getElementById('xray-toggle');
+        const stressStrainToggleBtn = document.getElementById('stress-strain-toggle');
+        const spacerWidthSlider = document.getElementById('spacer-width-slider');
+        const spacerWidthValueDisplay = document.getElementById('spacer-width-value');
+        const pourConcreteBtn = document.getElementById('pour-concrete-button');
+        const explanationModal = document.getElementById('explanation-modal');
+        const modalTitle = document.getElementById('modal-component-title');
+        const modalDescription = document.getElementById('modal-component-description');
+        const modalCloseBtn = explanationModal.querySelector('.modal-close');
+        const displayConcreteCover = document.getElementById('display-concrete-cover');
+        const displayEffectiveDepth = document.getElementById('display-effective-depth');
+        const liveFeedbackContainer = document.getElementById('live-feedback-container');
+
+        const stressStrainOverlay = document.getElementById('stress-strain-overlay');
+        const stressStrainCanvas = document.getElementById('stressStrainCanvas');
+        const ssCtx = stressStrainCanvas.getContext('2d');
+
+        // --- Simulation State ---
+        let components = []; // Array of placed components on canvas
+        let selectedInventoryType = null;
+        let draggedComponent = null; // The component currently being dragged on canvas
+        let offsetX, offsetY; // Offset for drag calculation
+        let isXRayMode = false;
+        let isStressStrainOverlayVisible = false;
+        let concretePoured = false;
+        let concreteParticles = [];
+        let animationFrameId = null; // For requestAnimationFrame cleanup
+        let concretePourProgress = 0; // 0 to 1 for pour animation
+        let speaker = window.speechSynthesis;
+        let speaking = false;
+        let speechQueue = [];
+
+        // --- Audio Context ---
+        let audioContext;
+        let gainNode;
+
+        async function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                gainNode = audioContext.createGain();
+                gainNode.gain.value = 0.3; // Reduce volume
+                gainNode.connect(audioContext.destination);
+            }
+        }
+
+        function playSound(type) {
+            initAudio(); // Ensure audio context is initialized on user interaction
+            if (!audioContext) return;
+
+            let oscillator;
+            switch (type) {
+                case 'click': // Component placement
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.05);
+                    break;
+                case 'chime': // Success/Snap
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.setValueAtTime(660, audioContext.currentTime); // E5
+                    oscillator.frequency.linearRampToValueAtTime(880, audioContext.currentTime + 0.1); // A5
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.2);
+                    break;
+                case 'hum': // Concrete Pour (loopable)
+                    if (window.humSource) {
+                        window.humSource.stop();
+                        window.humSource = null;
+                    }
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(80, audioContext.currentTime); // Low Freq
+                    window.humSource = oscillator; // Store to stop later
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                    break;
+                case 'warning': // Incorrect placement
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(220, audioContext.currentTime); // A3
+                    oscillator.frequency.linearRampToValueAtTime(110, audioContext.currentTime + 0.1); // A2
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.2);
+                    break;
+                case 'snip': // Binding Wire
+                    oscillator = audioContext.createOscillator();
+                    oscillator.type = 'square';
+                    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                    oscillator.frequency.exponentialRampToValueAtTime(100, audioContext.currentTime + 0.1);
+                    oscillator.connect(gainNode);
+                    oscillator.start();
+                    oscillator.stop(audioContext.currentTime + 0.15);
+                    break;
+            }
+        }
+
+        function stopHum() {
+            if (window.humSource) {
+                window.humSource.stop();
+                window.humSource = null;
+            }
+        }
+
+        function speak(text) {
+            if (!speaker) return;
+            speechQueue.push(text);
+            if (!speaking) processSpeechQueue();
+        }
+
+        function processSpeechQueue() {
+            if (speechQueue.length === 0) {
+                speaking = false;
+                return;
+            }
+            speaking = true;
+            const text = speechQueue.shift();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.lang = 'en-US';
+            utterance.onend = () => processSpeechQueue();
+            speaker.speak(utterance);
+        }
+
+        function showLiveFeedback(message, type = 'success') {
+            const chip = document.createElement('div');
+            chip.className = `live-feedback-chip ${type}`;
+            chip.textContent = message;
+            liveFeedbackContainer.appendChild(chip);
+
+            // Remove after animation
+            chip.addEventListener('animationend', () => {
+                chip.remove();
+            });
+        }
+
+
+        // --- Canvas & Resizing Logic ---
+        function resizeCanvas() {
+            const rect = rccCanvas.getBoundingClientRect();
+            rccCanvas.width = rect.width * DPR;
+            rccCanvas.height = rect.height * DPR;
+            ctx.scale(DPR, DPR);
+
+            const ssRect = stressStrainCanvas.getBoundingClientRect();
+            stressStrainCanvas.width = ssRect.width * DPR;
+            stressStrainCanvas.height = ssRect.height * DPR;
+            ssCtx.scale(DPR, DPR);
+
+            drawSimulation();
+            if (isStressStrainOverlayVisible) {
+                drawStressStrainDiagram();
+            }
+        }
+
+        // --- Component Classes (Simplified for brevity, but follows OOD) ---
+        class Component {
+            constructor(type, x, y, width, height, label, description, image, rotation = 0) {
+                this.type = type;
+                this.x = x; // logical X on canvas
+                this.y = y; // logical Y on canvas
+                this.width = width;
+                this.height = height;
+                this.label = label;
+                this.description = description;
+                this.image = image; // Base64 SVG or URL, not used for drawing now but useful
+                this.rotation = rotation; // degrees
+                this.isDragged = false;
+                this.isSnapped = false;
+                this.glowStrength = 0; // For glowing animation
+                this.pulsing = false; // For binding wire animation
+
+                this.calloutVisible = false;
+            }
+
+            draw(context, isXRay) {
+                context.save();
+                // Apply glow filter if active
+                if (this.glowStrength > 0) {
+                    context.shadowBlur = this.glowStrength * 10;
+                    context.shadowColor = COLORS.REBAR_GLOW;
+                }
+                if (this.pulsing) {
+                    context.shadowBlur = 15;
+                    context.shadowColor = COLORS.BINDING_GLOW;
+                }
+
+                context.translate(this.x + this.width / 2, this.y + this.height / 2);
+                context.rotate(this.rotation * Math.PI / 180);
+
+                context.fillStyle = isXRay ? 'rgba(160, 160, 160, 0.4)' : COLORS.REBAR_NORMAL;
+                context.strokeStyle = isXRay ? 'rgba(160, 160, 160, 0.6)' : COLORS.REBAR_NORMAL;
+                context.lineWidth = 2;
+                if (this.isSnapped) {
+                    context.strokeStyle = COLORS.HIGHLIGHT_SNAP;
+                    context.shadowColor = COLORS.HIGHLIGHT_SNAP;
+                    context.shadowBlur = 5;
+                }
+
+
+                if (this.type === 'rebar') {
+                    context.beginPath();
+                    context.arc(0, 0, this.width / 2, 0, Math.PI * 2);
+                    context.fill();
+                    context.stroke();
+                } else if (this.type === 'stirrup') {
+                    context.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                } else if (this.type === 'spacer') {
+                    context.fillStyle = isXRay ? 'rgba(200, 200, 200, 0.4)' : COLORS.CONCRETE_NORMAL;
+                    context.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                    context.strokeStyle = COLORS.TEXT_PRIMARY;
+                    context.strokeRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                } else if (this.type === 'chair') {
+                    // Draw chair as a simplified U-shape
+                    context.strokeStyle = isXRay ? 'rgba(160, 160, 160, 0.6)' : COLORS.REBAR_NORMAL;
+                    context.lineWidth = 3;
+                    context.beginPath();
+                    context.moveTo(-this.width / 2, this.height / 2);
+                    context.lineTo(-this.width / 2, -this.height / 2 + this.height / 4);
+                    context.arcTo(-this.width / 2, -this.height / 2, 0, -this.height / 2, this.width / 4);
+                    context.arcTo(this.width / 2, -this.height / 2, this.width / 2, -this.height / 2 + this.height / 4, this.width / 4);
+                    context.lineTo(this.width / 2, this.height / 2);
+                    context.stroke();
+                } else if (this.type === 'dowel') {
+                    context.fillStyle = isXRay ? 'rgba(160, 160, 160, 0.4)' : COLORS.REBAR_NORMAL;
+                    context.fillRect(-this.width / 2, -this.height / 2, this.width, this.height);
+                } else if (this.type === 'bindingIndicator') {
+                    context.strokeStyle = COLORS.BINDING_GLOW;
+                    context.shadowColor = COLORS.BINDING_GLOW;
+                    context.shadowBlur = this.pulsing ? (5 + Math.sin(performance.now() / 100) * 5) : 5;
+                    context.lineWidth = 2;
+                    context.beginPath();
+                    context.moveTo(-this.width / 2, -this.height / 2);
+                    context.lineTo(this.width / 2, this.height / 2);
+                    context.moveTo(this.width / 2, -this.height / 2);
+                    context.lineTo(-this.width / 2, this.height / 2);
+                    context.stroke();
+                }
+
+                context.restore();
+
+                // Draw Callout if visible
+                if (this.calloutVisible) {
+                    this.drawCallout(context);
+                }
+            }
+
+            drawCallout(context) {
+                const padding = 5;
+                const arrowLength = 20;
+                const textX = this.x + this.width / 2;
+                const textY = this.y - arrowLength - 10;
+
+                context.save();
+                context.shadowBlur = 0; // Disable component glow for text
+                context.strokeStyle = COLORS.LEADER_LINE;
+                context.lineWidth = 1;
+                context.fillStyle = COLORS.CALLOUT_BG;
+                context.font = `bold ${10 / DPR}px Arial`;
+                context.textAlign = 'center';
+                context.textBaseline = 'middle';
+
+                const textWidth = context.measureText(this.label).width + padding * 2;
+                const textHeight = 20 + padding * 2; // Fixed height for consistency
+
+                // Draw text background
+                context.fillRect(textX - textWidth / 2, textY - textHeight / 2, textWidth, textHeight);
+
+                // Draw text
+                context.fillStyle = COLORS.TEXT_ACCENT;
+                context.fillText(this.label, textX, textY);
+
+                // Draw leader line
+                context.beginPath();
+                context.moveTo(this.x + this.width / 2, this.y + this.height / 2);
+                context.lineTo(textX, textY + textHeight / 2); // Connect to bottom of text box
+                context.stroke();
+                context.restore();
+            }
+
+            isHit(mouseX, mouseY) {
+                // Check if mouse is within component bounds (simplified AABB for now)
+                const realX = this.x;
+                const realY = this.y;
+                return mouseX >= realX && mouseX <= realX + this.width &&
+                       mouseY >= realY && mouseY <= realY + this.height;
+            }
+
+            updateGlow(deltaTime) {
+                if (this.pulsing) {
+                    this.glowStrength = 5 + Math.sin(performance.now() / 100) * 5;
+                } else if (this.isSnapped) {
+                    this.glowStrength = Math.min(this.glowStrength + deltaTime * 50, 10);
+                } else {
+                    this.glowStrength = Math.max(this.glowStrength - deltaTime * 50, 0);
+                }
+            }
+        }
+
+        // --- Core Simulation Logic ---
+        let beamRect = { x: 0, y: 0, width: 0, height: 0 };
+        let concreteCoverLogical = 40; // Logical units on canvas
+        const MAIN_BAR_DIAMETER_MM = 16;
+        const STIRRUP_DIAMETER_MM = 8;
+        const COLUMN_JOINT_RATIO = 0.25; // Dowel placement zone (left 25% of beam)
+
+
+        function getCanvasLogicalScale() {
+            return rccCanvas.getBoundingClientRect().height / BEAM_DEFAULT_HEIGHT_MM; // logical pixels per mm
+        }
+
+        function calculateBeamDimensions() {
+            const canvasRect = rccCanvas.getBoundingClientRect();
+            const logicalWidth = canvasRect.width;
+            const logicalHeight = canvasRect.height;
+
+            beamRect.width = logicalWidth * BEAM_SCALE_FACTOR_CANVAS;
+            beamRect.height = logicalHeight * BEAM_SCALE_FACTOR_CANVAS;
+            beamRect.x = (logicalWidth - beamRect.width) / 2;
+            beamRect.y = (logicalHeight - beamRect.height) / 2;
+
+            updateInfoChips();
+        }
+
+        function updateInfoChips() {
+            const currentLogicalScale = getCanvasLogicalScale();
+            const displayedCoverMM = Math.round(concreteCoverLogical / currentLogicalScale);
+            
+            // Calculate effective depth based on current logical cover, stirrup, and main bar
+            const barCenterToBottomLogical = concreteCoverLogical + (STIRRUP_DIAMETER_MM * currentLogicalScale) + (MAIN_BAR_DIAMETER_MM / 2 * currentLogicalScale);
+            const effectiveDepthLogical = beamRect.height - barCenterToBottomLogical;
+            const displayedEffectiveDepthMM = Math.round(effectiveDepthLogical / currentLogicalScale);
+
+            displayConcreteCover.textContent = `${displayedCoverMM} mm`;
+            displayEffectiveDepth.textContent = `${displayedEffectiveDepthMM} mm`;
+        }
+
+
+        function drawSimulation(timestamp) {
+            if (!ctx) return;
+            const canvasRect = rccCanvas.getBoundingClientRect();
+            const logicalWidth = canvasRect.width;
+            const logicalHeight = canvasRect.height;
+
+            ctx.clearRect(0, 0, logicalWidth, logicalHeight);
+            ctx.fillStyle = COLORS.CANVAS_BG;
+            ctx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+            calculateBeamDimensions(); // Update beamRect before drawing
+
+            // Draw concrete beam outline
+            ctx.save();
+            ctx.strokeStyle = '#666';
+            ctx.lineWidth = 3;
+            ctx.fillStyle = isXRayMode ? COLORS.CONCRETE_XRAY : COLORS.CONCRETE_NORMAL;
+            ctx.fillRect(beamRect.x, beamRect.y, beamRect.width, beamRect.height);
+            ctx.strokeRect(beamRect.x, beamRect.y, beamRect.width, beamRect.height);
+            ctx.restore();
+
+            // Draw components
+            components.forEach(comp => comp.draw(ctx, isXRayMode));
+            if (draggedComponent) {
+                draggedComponent.draw(ctx, isXRayMode);
+            }
+            // Draw binding wire highlight
+            if (bindingHighlightPosition && selectedInventoryType === 'bindingwire') {
+                ctx.save();
+                ctx.strokeStyle = COLORS.BINDING_GLOW;
+                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = COLORS.BINDING_GLOW;
+                ctx.beginPath();
+                ctx.arc(bindingHighlightPosition.x, bindingHighlightPosition.y, 10, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+
+            // Draw concrete pour animation
+            if (concretePoured && concretePourProgress < 1) {
+                // Draw a rectangle that covers the beam progressively
+                const fillHeight = beamRect.height * concretePourProgress;
+                const fillY = beamRect.y + beamRect.height - fillHeight;
+
+                ctx.save();
+                ctx.globalAlpha = 0.9;
+                ctx.fillStyle = COLORS.CONCRETE_POURING;
+                ctx.fillRect(beamRect.x, fillY, beamRect.width, fillHeight);
+                ctx.restore();
+
+                // Draw flowing particles
+                concreteParticles.forEach(p => {
+                    ctx.fillStyle = `rgba(120, 120, 140, ${p.alpha})`;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                });
+            } else if (concretePoured && concretePourProgress >= 1) {
+                // Once fully poured, draw solid concrete over all elements except for x-ray
+                ctx.save();
+                if (!isXRayMode) {
+                    ctx.fillStyle = COLORS.CONCRETE_NORMAL;
+                    ctx.fillRect(beamRect.x, beamRect.y, beamRect.width, beamRect.height);
+                }
+                ctx.restore();
+            }
+
+            // Update component glows
+            const deltaTime = (timestamp - (window.lastFrameTime || timestamp)) / 1000;
+            components.forEach(comp => comp.updateGlow(deltaTime));
+            window.lastFrameTime = timestamp;
+
+            if (!concretePoured || concretePourProgress < 1) {
+                animationFrameId = requestAnimationFrame(drawSimulation);
+            }
+        }
+
+        function createConcreteParticle(beamX, beamY, beamWidth, beamHeight) {
+            return {
+                x: beamX + Math.random() * beamWidth,
+                y: beamY - 10 - Math.random() * 50, // Start above the beam
+                vx: (Math.random() - 0.5) * 0.5,
+                vy: Math.random() * 0.5 + 0.1,
+                size: Math.random() * 3 + 2,
+                alpha: 1,
+            };
+        }
+
+        function animateConcretePour() {
+            concretePoured = true;
+            concretePourProgress = 0;
+            concreteParticles = [];
+            speak("Concrete pouring initiated! Ensuring full embedment of the reinforcement.");
+            playSound('hum'); // Start hum sound
+
+            // Generate initial particles
+            for (let i = 0; i < 50; i++) {
+                concreteParticles.push(createConcreteParticle(beamRect.x, beamRect.y, beamRect.width, beamRect.height));
+            }
+
+            function pourFrame(timestamp) {
+                concretePourProgress += 0.005; // Adjust speed as needed
+                concretePourProgress = Math.min(concretePourProgress, 1);
+
+                // Update and draw particles
+                for (let i = concreteParticles.length - 1; i >= 0; i--) {
+                    const p = concreteParticles[i];
+                    p.x += p.vx;
+                    p.y += p.vy;
+                    p.vy += 0.01; // Gravity effect
+                    p.alpha -= 0.01; // Fade out as they settle
+
+                    // Remove if out of bounds or faded
+                    if (p.y > beamRect.y + beamRect.height || p.alpha <= 0) {
+                        concreteParticles.splice(i, 1);
+                        // Add new particles to maintain flow if still pouring
+                        if (concretePourProgress < 1) {
+                            concreteParticles.push(createConcreteParticle(beamRect.x, beamRect.y, beamRect.width, beamRect.height));
+                        }
+                    }
+                }
+
+                drawSimulation(timestamp);
+
+                if (concretePourProgress < 1 || concreteParticles.length > 0) {
+                    animationFrameId = requestAnimationFrame(pourFrame);
+                } else {
+                    stopHum();
+                    speak("Concrete pour complete! The reinforcement cage is fully embedded, forming a strong composite section.");
+                    pourConcreteBtn.disabled = true;
+                    pourConcreteBtn.textContent = "Concrete Poured";
+                    pourConcreteBtn.classList.remove('warning');
+                    pourConcreteBtn.classList.add('active');
+                }
+            }
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            animationFrameId = requestAnimationFrame(pourFrame);
+        }
+
+
+        // --- Event Handlers ---
+        inventoryItems.addEventListener('mousedown', (e) => {
+            const card = e.target.closest('.inventory-card');
+            if (!card) return;
+
+            // Deselect previous card
+            document.querySelectorAll('.inventory-card.selected').forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+
+            selectedInventoryType = card.dataset.type;
+            speak(COMPONENT_DESCRIPTIONS[selectedInventoryType]);
+            playSound('click'); // Play click sound when selecting inventory item
+
+            // If it's binding wire, it's a tool, not a draggable component in the usual sense
+            if (selectedInventoryType === 'bindingwire') {
+                rccCanvas.style.cursor = 'crosshair';
+                draggedComponent = null; // No physical component to drag initially
+            } else {
+                rccCanvas.style.cursor = 'grab';
+            }
+        });
+
+        rccCanvas.addEventListener('mousedown', (e) => {
+            const rect = rccCanvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / DPR;
+            const mouseY = (e.clientY - rect.top) / DPR;
+
+            // Allow dragging existing components first
+            for (let i = components.length - 1; i >= 0; i--) {
+                const comp = components[i];
+                if (comp.isHit(mouseX, mouseY)) {
+                    draggedComponent = comp;
+                    offsetX = mouseX - comp.x;
+                    offsetY = mouseY - comp.y;
+                    comp.isDragged = true;
+                    rccCanvas.style.cursor = 'grabbing';
+                    return;
+                }
+            }
+
+            // If no existing component clicked and a type is selected from inventory
+            if (selectedInventoryType && selectedInventoryType !== 'bindingwire') {
+                const img = new Image();
+                img.src = inventoryItems.querySelector(`.inventory-card[data-type="${selectedInventoryType}"] img`).src;
+
+                // Create new component at mouse position
+                let newWidth, newHeight;
+                if (selectedInventoryType === 'rebar') { newWidth = 20; newHeight = 20; } // Diameter
+                else if (selectedInventoryType === 'stirrup') { newWidth = 100; newHeight = 100; }
+                else if (selectedInventoryType === 'spacer') { newWidth = 50; newHeight = 20; }
+                else if (selectedInventoryType === 'chair') { newWidth = 40; newHeight = 60; }
+                else if (selectedInventoryType === 'dowel') { newWidth = 80; newHeight = 16; } // Length, diameter
+
+                draggedComponent = new Component(
+                    selectedInventoryType,
+                    mouseX - newWidth / 2,
+                    mouseY - newHeight / 2,
+                    newWidth,
+                    newHeight,
+                    COMPONENT_LABELS[selectedInventoryType],
+                    COMPONENT_DESCRIPTIONS[selectedInventoryType],
+                    img.src
+                );
+                draggedComponent.isDragged = true;
+                offsetX = mouseX - draggedComponent.x;
+                offsetY = mouseY - draggedComponent.y;
+                components.push(draggedComponent); // Add to components array immediately
+                playSound('click');
+            } else if (selectedInventoryType === 'bindingwire') {
+                // Binding wire logic on click/drag
+                handleBindingWireAction(mouseX, mouseY);
+            }
+        });
+
+        rccCanvas.addEventListener('mousemove', (e) => {
+            const rect = rccCanvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / DPR;
+            const mouseY = (e.clientY - rect.top) / DPR;
+
+            if (draggedComponent) {
+                draggedComponent.x = mouseX - offsetX;
+                draggedComponent.y = mouseY - offsetY;
+                
+                // Snapping logic preview
+                applySnapping(draggedComponent);
+                drawSimulation();
+            } else if (selectedInventoryType === 'bindingwire') {
+                // Allow binding wire to highlight rebar intersections
+                highlightRebarIntersections(mouseX, mouseY);
+            }
+        });
+
+        rccCanvas.addEventListener('mouseup', () => {
+            if (draggedComponent) {
+                draggedComponent.isDragged = false;
+                
+                // Final snapping check and feedback
+                if (applySnapping(draggedComponent, true)) { // Pass true for final snap
+                    draggedComponent.isSnapped = true;
+                    speak(`Placed ${draggedComponent.label}. ` + COMPONENT_DESCRIPTIONS[draggedComponent.type]);
+                    playSound('chime');
+                    showLiveFeedback(`${draggedComponent.label} Placed!`);
+
+                    // Specific logic feedback
+                    if (draggedComponent.type === 'spacer') {
+                        const currentLogicalScale = getCanvasLogicalScale();
+                        showLiveFeedback(`Concrete Cover: ${Math.round(concreteCoverLogical / currentLogicalScale)}mm`);
+                    } else if (draggedComponent.type === 'chair') {
+                        showLiveFeedback('Top Bar Stability Locked!');
+                    } else if (draggedComponent.type === 'dowel') {
+                        // Check if dowel is placed correctly
+                        const dowelPlacedCorrectly = (draggedComponent.x > beamRect.x && draggedComponent.x + draggedComponent.width < beamRect.x + beamRect.width * COLUMN_JOINT_RATIO) ||
+                                                     (draggedComponent.x > beamRect.x + beamRect.width * (1 - COLUMN_JOINT_RATIO) && draggedComponent.x + draggedComponent.width < beamRect.x + beamRect.width); // Arbitrary left/right quarter for joint
+                        if (dowelPlacedCorrectly) {
+                            showLiveFeedback('Dowel securely positioned at joint!');
+                        } else {
+                            speak("Careful! Dowels should be placed at the beam-column joint boundary for proper load transfer.");
+                            playSound('warning');
+                            showLiveFeedback('Dowel placement warning!', 'warning');
+                        }
+                    }
+
+                    // For now, toggle callout on successful placement
+                    draggedComponent.calloutVisible = true;
+                    // Auto-hide callout after a few seconds
+                    setTimeout(() => {
+                        draggedComponent.calloutVisible = false;
+                        drawSimulation();
+                    }, 5000);
+
+                    // Deselect inventory card after successful placement
+                    document.querySelectorAll('.inventory-card.selected').forEach(c => c.classList.remove('selected'));
+                    selectedInventoryType = null;
+                } else {
+                    // If not snapped, remove it if it's a new component
+                    if (!draggedComponent.isSnapped) { // Only remove if it was never snapped before
+                        components = components.filter(comp => comp !== draggedComponent);
+                    }
+                    playSound('warning');
+                }
+                draggedComponent = null;
+                rccCanvas.style.cursor = 'default';
+                drawSimulation();
+            }
+            stopBindingWireHighlight(); // Clear any binding wire highlights
+        });
+
+        rccCanvas.addEventListener('click', (e) => {
+            const rect = rccCanvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / DPR;
+            const mouseY = (e.clientY - rect.top) / DPR;
+
+            // Check for clicking on a placed component to show modal
+            for (const comp of components) {
+                if (comp.isHit(mouseX, mouseY) && comp.isSnapped) {
+                    showExplanationModal(comp.label, comp.description);
+                    // Toggle callout visibility on click
+                    comp.calloutVisible = !comp.calloutVisible;
+                    drawSimulation();
+                    return;
+                }
+            }
+        });
+
+
+        function applySnapping(comp, finalSnap = false) {
+            let snapped = false;
+            const snapThreshold = 20; // Pixels
+            const currentLogicalScale = getCanvasLogicalScale();
+
+            // Convert MM to logical units for calculations
+            const mainBarDiameterLogical = MAIN_BAR_DIAMETER_MM * currentLogicalScale;
+            const stirrupDiameterLogical = STIRRUP_DIAMETER_MM * currentLogicalScale;
+            const sliderCoverMM = parseFloat(spacerWidthSlider.value);
+            const sliderCoverLogical = sliderCoverMM * currentLogicalScale;
+
+
+            if (comp.type === 'spacer') {
+                const targetY = beamRect.y + beamRect.height - comp.height; // Spacer sits on the bottom edge
+                if (Math.abs(comp.y - targetY) < snapThreshold) {
+                    comp.y = targetY; // Snap to bottom
+                    comp.width = sliderCoverLogical; // Match spacer width to cover value for visual representation
+                    if (finalSnap) {
+                        concreteCoverLogical = sliderCoverLogical;
+                        showLiveFeedback(`Cover Maintained: ${sliderCoverMM}mm`);
+                    }
+                    snapped = true;
+                }
+            } else if (comp.type === 'rebar') {
+                const bottomRebarY = beamRect.y + beamRect.height - concreteCoverLogical - stirrupDiameterLogical - mainBarDiameterLogical / 2;
+                const topRebarY = beamRect.y + concreteCoverLogical + stirrupDiameterLogical + mainBarDiameterLogical / 2;
+
+                if (Math.abs(comp.y + comp.height / 2 - bottomRebarY) < snapThreshold) {
+                    comp.y = bottomRebarY - comp.height / 2;
+                    snapped = true;
+                } else if (Math.abs(comp.y + comp.height / 2 - topRebarY) < snapThreshold) {
+                    comp.y = topRebarY - comp.height / 2;
+                    snapped = true;
+                }
+
+                // Horizontal snapping (e.g., to 1/4 points)
+                const quarterWidth = beamRect.width / 4;
+                const snapX1 = beamRect.x + quarterWidth;
+                const snapX2 = beamRect.x + beamRect.width - quarterWidth;
+
+                if (Math.abs(comp.x + comp.width / 2 - snapX1) < snapThreshold) {
+                    comp.x = snapX1 - comp.width / 2;
+                    snapped = true;
+                } else if (Math.abs(comp.x + comp.width / 2 - snapX2) < snapThreshold) {
+                    comp.x = snapX2 - comp.width / 2;
+                    snapped = true;
+                }
+
+            } else if (comp.type === 'stirrup') {
+                // Stirrup dimensions are derived from beam size minus cover
+                const targetY = beamRect.y + concreteCoverLogical;
+                const targetHeight = beamRect.height - 2 * concreteCoverLogical;
+                const targetX = beamRect.x + concreteCoverLogical;
+                const targetWidth = beamRect.width - 2 * concreteCoverLogical;
+
+                if (Math.abs(comp.y - targetY) < snapThreshold) {
+                    comp.y = targetY;
+                    comp.height = targetHeight;
+                    comp.x = targetX;
+                    comp.width = targetWidth;
+                    snapped = true;
+                }
+            } else if (comp.type === 'chair') {
+                const topRebars = components.filter(c => c.type === 'rebar' && c.y < beamRect.y + beamRect.height / 2);
+                if (topRebars.length >= 2) {
+                    const sortedRebars = topRebars.sort((a, b) => a.x - b.x);
+                    
+                    // Chair sits on top of two rebars. For simplicity, we assume two rebar positions.
+                    const rebar1 = sortedRebars[0];
+                    const rebar2 = sortedRebars[1];
+
+                    const chairBottomY = rebar1.y - comp.height + (rebar1.height / 2); // Chair sits on top bar
+                    const chairCenterX = rebar1.x + (rebar2.x - rebar1.x) / 2;
+
+                    if (Math.abs(comp.x + comp.width / 2 - chairCenterX) < snapThreshold && Math.abs(comp.y - chairBottomY) < snapThreshold) {
+                        comp.x = chairCenterX - comp.width / 2;
+                        comp.y = chairBottomY;
+                        snapped = true;
+                    }
+                }
+            } else if (comp.type === 'dowel') {
+                // Dowels should be at the beam-column joint, let's say left/right 1/4 of the beam's width
+                const jointZoneLeftXEnd = beamRect.x + beamRect.width * COLUMN_JOINT_RATIO;
+                const jointZoneRightXStart = beamRect.x + beamRect.width * (1 - COLUMN_JOINT_RATIO);
+                
+                const targetY = beamRect.y + (beamRect.height / 2) - comp.height / 2; // Roughly center vertically
+                if (Math.abs(comp.y - targetY) < snapThreshold) {
+                    comp.y = targetY; // Snap vertically
+                    if (comp.x < jointZoneLeftXEnd || comp.x > jointZoneRightXStart - comp.width) {
+                        // Snap horizontally to nearest joint edge if within zone
+                        if (Math.abs(comp.x - beamRect.x) < snapThreshold) comp.x = beamRect.x;
+                        else if (Math.abs(comp.x + comp.width - jointZoneLeftXEnd) < snapThreshold) comp.x = jointZoneLeftXEnd - comp.width;
+                        else if (Math.abs(comp.x - jointZoneRightXStart) < snapThreshold) comp.x = jointZoneRightXStart;
+                        else if (Math.abs(comp.x + comp.width - beamRect.x - beamRect.width) < snapThreshold) comp.x = beamRect.x + beamRect.width - comp.width;
+                        snapped = true;
+                    }
+                }
+            }
+
+            return snapped;
+        }
+
+        // --- Binding Wire Logic ---
+        let bindingHighlightPosition = null;
+        function getRebarIntersections() {
+            const rebars = components.filter(c => c.type === 'rebar');
+            const stirrups = components.filter(c => c.type === 'stirrup');
+            const intersections = [];
+            const hitRadius = 15; // Threshold for considering intersection
+
+            // Rebar-Stirrup intersections (main points where rebar is held by stirrup)
+            rebars.forEach(rebar => {
+                stirrups.forEach(stirrup => {
+                    const rebarCenterX = rebar.x + rebar.width / 2;
+                    const rebarCenterY = rebar.y + rebar.height / 2;
+
+                    // Check if rebar center is close to any of the stirrup's four corners
+                    // Or if it's within the stirrup's horizontal/vertical segments
+                    const stirrupCorners = [
+                        { x: stirrup.x, y: stirrup.y },
+                        { x: stirrup.x + stirrup.width, y: stirrup.y },
+                        { x: stirrup.x, y: stirrup.y + stirrup.height },
+                        { x: stirrup.x + stirrup.width, y: stirrup.y + stirrup.height }
+                    ];
+
+                    let foundIntersection = false;
+                    // Check near corners
+                    for(const corner of stirrupCorners) {
+                        if (Math.sqrt(Math.pow(rebarCenterX - corner.x, 2) + Math.pow(rebarCenterY - corner.y, 2)) < hitRadius) {
+                            intersections.push({ x: rebarCenterX, y: rebarCenterY });
+                            foundIntersection = true;
+                            break;
+                        }
+                    }
+
+                    // If not near a corner, check if rebar is within stirrup and not already added
+                    if (!foundIntersection &&
+                        rebarCenterX > stirrup.x && rebarCenterX < stirrup.x + stirrup.width &&
+                        rebarCenterY > stirrup.y && rebarCenterY < stirrup.y + stirrup.height) {
+                        intersections.push({ x: rebarCenterX, y: rebarCenterY });
+                    }
+                });
+            });
+
+            // Filter for unique intersections
+            const uniqueIntersections = [];
+            intersections.forEach(int => {
+                if (!uniqueIntersections.some(u => Math.abs(u.x - int.x) < 5 && Math.abs(u.y - int.y) < 5)) {
+                    uniqueIntersections.push(int);
+                }
+            });
+
+            return uniqueIntersections;
+        }
+
+        function highlightRebarIntersections(mouseX, mouseY) {
+            if (selectedInventoryType !== 'bindingwire') return;
+
+            const intersections = getRebarIntersections();
+            const hitRadius = 15; // Hit radius for binding wire tool
+
+            bindingHighlightPosition = null; // Clear previous highlight
+            for (const intersection of intersections) {
+                const dist = Math.sqrt(Math.pow(mouseX - intersection.x, 2) + Math.pow(mouseY - intersection.y, 2));
+                if (dist < hitRadius) {
+                    bindingHighlightPosition = intersection;
+                    break;
+                }
+            }
+            drawSimulation(); // Redraw to show/hide highlight
+        }
+
+        function stopBindingWireHighlight() {
+            bindingHighlightPosition = null;
+            drawSimulation();
+        }
+
+        function handleBindingWireAction(mouseX, mouseY) {
+            const intersections = getRebarIntersections();
+            const hitRadius = 15;
+
+            for (const intersection of intersections) {
+                const dist = Math.sqrt(Math.pow(mouseX - intersection.x, 2) + Math.pow(mouseY - intersection.y, 2));
+                if (dist < hitRadius) {
+                    // Check if an indicator already exists at this exact spot
+                    const existingIndicator = components.find(c => c.type === 'bindingIndicator' && Math.abs(c.x + c.width/2 - intersection.x) < 5 && Math.abs(c.y + c.height/2 - intersection.y) < 5);
+                    if (existingIndicator) {
+                        showLiveFeedback('Already bound!', 'warning');
+                        playSound('warning');
+                        return;
+                    }
+
+                    // Trigger binding animation and sound
+                    playSound('snip');
+                    showLiveFeedback('Rebar Intersection Bound!', 'success');
+                    speak("Binding wire applied, securing the reinforcement cage at this intersection.");
+
+                    // Add a visual indicator (e.g., small cross or circle)
+                    const indicatorSize = 10;
+                    const bindingIndicator = new Component('bindingIndicator', intersection.x - indicatorSize/2, intersection.y - indicatorSize/2, indicatorSize, indicatorSize, COMPONENT_LABELS['bindingIndicator'], COMPONENT_DESCRIPTIONS['bindingIndicator'], '');
+                    bindingIndicator.pulsing = true;
+                    bindingIndicator.isSnapped = true; // Consider it 'snapped' in place
+                    components.push(bindingIndicator);
+                    setTimeout(() => {
+                        bindingIndicator.pulsing = false; // Stop pulsing
+                        drawSimulation();
+                    }, 1500); // Pulse for 1.5 seconds
+
+                    // Optionally, remove binding wire from selected inventory
+                    document.querySelectorAll('.inventory-card.selected').forEach(c => c.classList.remove('selected'));
+                    selectedInventoryType = null;
+                    rccCanvas.style.cursor = 'default';
+                    return;
+                }
+            }
+            if (selectedInventoryType === 'bindingwire' && !bindingHighlightPosition) { // If binding wire is selected but clicked nowhere relevant
+                playSound('warning');
+                speak("No rebar intersection found. Drag the binding wire over an intersection to tie the bars.");
+            }
+        }
+
+
+        // --- UI Interactions ---
+        xrayToggleBtn.addEventListener('click', () => {
+            isXRayMode = !isXRayMode;
+            xrayToggleBtn.classList.toggle('active', isXRayMode);
+            drawSimulation();
+            speak(isXRayMode ? "X-Ray View Activated. Concrete is now transparent, revealing the internal reinforcement structure." : "X-Ray View Deactivated. Concrete opacity restored.");
+        });
+
+        stressStrainToggleBtn.addEventListener('click', () => {
+            isStressStrainOverlayVisible = !isStressStrainOverlayVisible;
+            stressStrainOverlay.classList.toggle('active', isStressStrainOverlayVisible);
+            stressStrainToggleBtn.classList.toggle('active', isStressStrainOverlayVisible);
+            if (isStressStrainOverlayVisible) {
+                drawStressStrainDiagram();
+                speak("Stress-Strain Diagram Overlay activated. Visualize effective depth and concrete cover.");
+            } else {
+                speak("Stress-Strain Diagram Overlay deactivated.");
+            }
+        });
+
+        spacerWidthSlider.addEventListener('input', (e) => {
+            const newCoverMM = parseInt(e.target.value);
+            const currentLogicalScale = getCanvasLogicalScale();
+            concreteCoverLogical = newCoverMM * currentLogicalScale; // Convert mm to logical units
+            spacerWidthValueDisplay.textContent = newCoverMM;
+            updateInfoChips();
+            drawSimulation(); // Redraw main canvas (spacers will adjust if any are placed)
+            if (isStressStrainOverlayVisible) {
+                drawStressStrainDiagram();
+            }
+        });
+
+        pourConcreteBtn.addEventListener('click', () => {
+            if (concretePoured) return; // Prevent multiple pours
+            animateConcretePour();
+        });
+
+
+        // --- Modal Logic ---
+        function showExplanationModal(title, description) {
+            modalTitle.textContent = title;
+            modalDescription.textContent = description;
+            explanationModal.classList.add('active');
+        }
+
+        function hideExplanationModal() {
+            explanationModal.classList.remove('active');
+        }
+
+        modalCloseBtn.addEventListener('click', hideExplanationModal);
+        explanationModal.addEventListener('click', (e) => {
+            if (e.target === explanationModal) { // Clicked outside modal content
+                hideExplanationModal();
+            }
+        });
+
+        // --- Stress-Strain Diagram Logic ---
+        function drawStressStrainDiagram() {
+            if (!ssCtx) return;
+            const ssRect = stressStrainCanvas.getBoundingClientRect();
+            const logicalWidth = ssRect.width;
+            const logicalHeight = ssRect.height;
+            ssCtx.clearRect(0, 0, logicalWidth, logicalHeight);
+            ssCtx.fillStyle = 'rgba(20, 20, 30, 0.8)';
+            ssCtx.fillRect(0, 0, logicalWidth, logicalHeight);
+
+            // Coordinates for the simplified beam cross-section in the diagram
+            const beamDiagramWidth = logicalWidth * 0.4;
+            const beamDiagramHeight = logicalHeight * 0.6;
+            const beamDiagramX = (logicalWidth - beamDiagramWidth) / 2;
+            const beamDiagramY = (logicalHeight - beamDiagramHeight) / 2;
+
+            // Draw beam outline
+            ssCtx.strokeStyle = COLORS.TEXT_PRIMARY;
+            ssCtx.lineWidth = 2;
+            ssCtx.strokeRect(beamDiagramX, beamDiagramY, beamDiagramWidth, beamDiagramHeight);
+            ssCtx.fillStyle = COLORS.CONCRETE_NORMAL;
+            ssCtx.fillRect(beamDiagramX, beamDiagramY, beamDiagramWidth, beamDiagramHeight);
+
+            // Convert logical concreteCover (from main canvas) to diagram scale
+            const diagramScaleFactor = beamDiagramHeight / BEAM_DEFAULT_HEIGHT_MM; // Scale based on conceptual real height
+            const displayedCoverMM = parseFloat(spacerWidthSlider.value);
+            const diagramConcreteCover = displayedCoverMM * diagramScaleFactor; // Convert displayed MM to diagram logical units
+
+            const rebarDiameterDiagram = MAIN_BAR_DIAMETER_MM * diagramScaleFactor; // Example rebar diameter in diagram units
+            const stirrupDiameterDiagram = STIRRUP_DIAMETER_MM * diagramScaleFactor; // Example stirrup diameter in diagram units
+
+            // Position of the main rebar layer
+            const rebarYDiagram = beamDiagramY + beamDiagramHeight - diagramConcreteCover - stirrupDiameterDiagram - rebarDiameterDiagram / 2;
+
+            // Draw rebar (circles)
+            ssCtx.fillStyle = COLORS.REBAR_GLOW;
+            ssCtx.shadowColor = COLORS.REBAR_GLOW;
+            ssCtx.shadowBlur = 10;
+            ssCtx.beginPath();
+            ssCtx.arc(beamDiagramX + beamDiagramWidth * 0.25, rebarYDiagram, rebarDiameterDiagram / 2, 0, Math.PI * 2);
+            ssCtx.arc(beamDiagramX + beamDiagramWidth * 0.75, rebarYDiagram, rebarDiameterDiagram / 2, 0, Math.PI * 2);
+            ssCtx.fill();
+            ssCtx.shadowBlur = 0; // Reset shadow for other drawings
+
+            // Draw Concrete Cover dimension line
+            drawDimensionLine(ssCtx,
+                beamDiagramX + beamDiagramWidth + 10,
+                beamDiagramY + beamDiagramHeight,
+                beamDiagramX + beamDiagramWidth + 10,
+                rebarYDiagram + rebarDiameterDiagram / 2,
+                `Cover = ${displayedCoverMM} mm`,
+                COLORS.CYBER_GREEN
+            );
+
+            // Draw Effective Depth dimension line
+            const effectiveDepthValueMM = BEAM_DEFAULT_HEIGHT_MM - (displayedCoverMM + STIRRUP_DIAMETER_MM + MAIN_BAR_DIAMETER_MM/2);
+            drawDimensionLine(ssCtx,
+                beamDiagramX - 10,
+                beamDiagramY,
+                beamDiagramX - 10,
+                rebarYDiagram + rebarDiameterDiagram / 2,
+                `d = ${Math.round(effectiveDepthValueMM)} mm`,
+                COLORS.CYBER_BLUE
+            );
+
+            // Draw overall beam height
+            drawDimensionLine(ssCtx,
+                beamDiagramX + beamDiagramWidth + 40,
+                beamDiagramY,
+                beamDiagramX + beamDiagramWidth + 40,
+                beamDiagramY + beamDiagramHeight,
+                `H = ${BEAM_DEFAULT_HEIGHT_MM} mm`, // Assuming 400 logical units = 400mm
+                COLORS.TEXT_PRIMARY
+            );
+
+            // Add stress/strain labels (conceptual)
+            ssCtx.fillStyle = COLORS.TEXT_PRIMARY;
+            ssCtx.font = `bold ${14 / DPR}px Arial`;
+            ssCtx.textAlign = 'center';
+            ssCtx.fillText('Compression Zone (Concrete)', beamDiagramX + beamDiagramWidth / 2, beamDiagramY + beamDiagramHeight * 0.2);
+            ssCtx.fillText('Tension Zone (Steel)', beamDiagramX + beamDiagramWidth / 2, beamDiagramY + beamDiagramHeight * 0.8);
+            ssCtx.strokeStyle = COLORS.TEXT_PRIMARY;
+            ssCtx.lineWidth = 1;
+            ssCtx.beginPath();
+            ssCtx.moveTo(beamDiagramX, beamDiagramY + beamDiagramHeight / 2);
+            ssCtx.lineTo(beamDiagramX + beamDiagramWidth, beamDiagramY + beamDiagramHeight / 2);
+            ssCtx.stroke();
+            ssCtx.fillText('Neutral Axis (approx)', beamDiagramX + beamDiagramWidth + 60, beamDiagramY + beamDiagramHeight / 2);
+        }
+
+        function drawDimensionLine(context, x1, y1, x2, y2, text, color) {
+            context.save();
+            context.strokeStyle = color;
+            context.fillStyle = color;
+            context.lineWidth = 1;
+            context.font = `${12 / DPR}px Arial`;
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+
+            // Draw line
+            context.beginPath();
+            context.moveTo(x1, y1);
+            context.lineTo(x2, y2);
+            context.stroke();
+
+            // Draw arrows (simplified)
+            const arrowSize = 5;
+            context.beginPath();
+            context.moveTo(x1, y1);
+            context.lineTo(x1 - arrowSize, y1 + arrowSize);
+            context.moveTo(x1, y1);
+            context.lineTo(x1 + arrowSize, y1 + arrowSize);
+            context.moveTo(x2, y2);
+            context.lineTo(x2 - arrowSize, y2 - arrowSize);
+            context.moveTo(x2, y2);
+            context.lineTo(x2 + arrowSize, y2 - arrowSize);
+            context.stroke();
+
+            // Draw text with background
+            const textX = (x1 + x2) / 2 + (x1 === x2 ? (y1 < y2 ? arrowSize * 2 : -arrowSize * 2) : 0);
+            const textY = (y1 + y2) / 2 + (y1 === y2 ? (x1 < x2 ? arrowSize * 2 : -arrowSize * 2) : 0);
+            const textWidth = context.measureText(text).width + 10;
+            const textHeight = 20;
+
+            context.fillStyle = COLORS.CALLOUT_BG;
+            context.fillRect(textX - textWidth / 2, textY - textHeight / 2, textWidth, textHeight);
+            context.fillStyle = color;
+            context.fillText(text, textX, textY);
+            context.restore();
+        }
+
+        // --- Initialization ---
+        function init() {
+            // Initial components for a basic beam setup
+            // Place some components already snapped for a starting point
+            const currentLogicalScale = getCanvasLogicalScale();
+            concreteCoverLogical = parseFloat(spacerWidthSlider.value) * currentLogicalScale; // Initialize cover
+
+            const mainBarDiameterLogical = MAIN_BAR_DIAMETER_MM * currentLogicalScale;
+            const stirrupDiameterLogical = STIRRUP_DIAMETER_MM * currentLogicalScale;
+
+            calculateBeamDimensions(); // Ensure beamRect is updated before placing
+
+            const initialStirrup = new Component('stirrup', 0, 0, 100, 100, COMPONENT_LABELS['stirrup'], COMPONENT_DESCRIPTIONS['stirrup'], '');
+            initialStirrup.x = beamRect.x + concreteCoverLogical;
+            initialStirrup.y = beamRect.y + concreteCoverLogical;
+            initialStirrup.width = beamRect.width - 2 * concreteCoverLogical;
+            initialStirrup.height = beamRect.height - 2 * concreteCoverLogical;
+            initialStirrup.isSnapped = true;
+            components.push(initialStirrup);
+
+            const bottomRebarY = beamRect.y + beamRect.height - concreteCoverLogical - stirrupDiameterLogical - mainBarDiameterLogical / 2;
+            const topRebarY = beamRect.y + concreteCoverLogical + stirrupDiameterLogical + mainBarDiameterLogical / 2;
+
+            const initialRebar1 = new Component('rebar', beamRect.x + beamRect.width * 0.25 - mainBarDiameterLogical / 2, bottomRebarY - mainBarDiameterLogical / 2, mainBarDiameterLogical, mainBarDiameterLogical, COMPONENT_LABELS['rebar'], COMPONENT_DESCRIPTIONS['rebar'], '');
+            initialRebar1.isSnapped = true;
+            components.push(initialRebar1);
+
+            const initialRebar2 = new Component('rebar', beamRect.x + beamRect.width * 0.75 - mainBarDiameterLogical / 2, bottomRebarY - mainBarDiameterLogical / 2, mainBarDiameterLogical, mainBarDiameterLogical, COMPONENT_LABELS['rebar'], COMPONENT_DESCRIPTIONS['rebar'], '');
+            initialRebar2.isSnapped = true;
+            components.push(initialRebar2);
+
+            const initialRebar3 = new Component('rebar', beamRect.x + beamRect.width * 0.25 - mainBarDiameterLogical / 2, topRebarY - mainBarDiameterLogical / 2, mainBarDiameterLogical, mainBarDiameterLogical, COMPONENT_LABELS['rebar'], COMPONENT_DESCRIPTIONS['rebar'], '');
+            initialRebar3.isSnapped = true;
+            components.push(initialRebar3);
+
+            const initialRebar4 = new Component('rebar', beamRect.x + beamRect.width * 0.75 - mainBarDiameterLogical / 2, topRebarY - mainBarDiameterLogical / 2, mainBarDiameterLogical, mainBarDiameterLogical, COMPONENT_LABELS['rebar'], COMPONENT_DESCRIPTIONS['rebar'], '');
+            initialRebar4.isSnapped = true;
+            components.push(initialRebar4);
+
+            resizeCanvas(); // Initial resize and draw
+            window.addEventListener('resize', resizeCanvas);
+
+            // Initialize audio context on first user interaction
+            document.body.addEventListener('click', initAudio, { once: true });
+            document.body.addEventListener('mousedown', initAudio, { once: true });
+
+            // Initial value update
+            spacerWidthSlider.value = 40; // Default logical value
+            spacerWidthValueDisplay.textContent = spacerWidthSlider.value;
+            updateInfoChips();
+            requestAnimationFrame(drawSimulation); // Start animation loop
+        }
+
+        init();
+    </script>
+</body>
+</html>

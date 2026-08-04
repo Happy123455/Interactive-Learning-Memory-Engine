@@ -1,0 +1,1283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bolted Lap Joint Playground - IS 800:2007</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- GSAP Animation Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Google Fonts: Orbitron & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Orbitron:wght@500;700;900&family=JetBrains+Mono:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            cyber: ['Orbitron', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              black: '#070a12',
+              card: 'rgba(15, 23, 42, 0.75)',
+              border: 'rgba(56, 189, 248, 0.25)',
+              cyan: '#00f3ff',
+              purple: '#bc13fe',
+              green: '#00ff66',
+              magenta: '#ff0055',
+              yellow: '#ffd700',
+            }
+          },
+          boxShadow: {
+            'glow-cyan': '0 0 20px rgba(0, 243, 255, 0.4)',
+            'glow-purple': '0 0 20px rgba(188, 19, 254, 0.4)',
+            'glow-green': '0 0 20px rgba(0, 255, 102, 0.4)',
+            'glow-red': '0 0 25px rgba(255, 0, 85, 0.6)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      background-color: #050811;
+      color: #e2e8f0;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Custom Glassmorphism */
+    .glass-panel {
+      background: rgba(13, 20, 36, 0.7);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 243, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    .glass-card {
+      background: rgba(21, 32, 54, 0.6);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      transition: all 0.25s ease;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(0, 243, 255, 0.4);
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.2);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 5px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 15, 30, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 243, 255, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 243, 255, 0.6);
+    }
+
+    /* Dropzones and Draggable */
+    .drop-slot {
+      border: 2px dashed rgba(0, 243, 255, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .drop-slot.drag-over {
+      border-color: #00ff66;
+      background: rgba(0, 255, 102, 0.15);
+      box-shadow: 0 0 20px rgba(0, 255, 102, 0.4);
+    }
+
+    .drop-slot.filled {
+      border: 2px solid #00ff66;
+      background: rgba(0, 255, 102, 0.1);
+    }
+
+    .draggable-card {
+      cursor: grab;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .draggable-card:active {
+      cursor: grabbing;
+      transform: scale(1.05);
+    }
+
+    /* Pulse Highlight Animation */
+    @keyframes pulseGlow {
+      0%, 100% { opacity: 0.3; transform: scale(1); }
+      50% { opacity: 0.8; transform: scale(1.08); }
+    }
+    .pulse-glow {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+
+    /* Canvas Container cursor */
+    .canvas-pulling {
+      cursor: ew-resize !important;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans overflow-hidden">
+
+  <!-- TOP HEADER / NAVBAR -->
+  <header class="h-16 px-6 bg-cyber-black/90 border-b border-cyber-border/40 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="p-2 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/40 shadow-glow-cyan">
+        <i data-lucide="layers" class="w-6 h-6 text-cyber-cyan"></i>
+      </div>
+      <div>
+        <h1 class="font-cyber text-lg font-bold tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyber-cyan via-purple-400 to-cyber-magenta">
+          BOLTED LAP JOINT <span class="text-xs px-2 py-0.5 rounded border border-cyber-green/50 text-cyber-green font-mono">IS 800:2007</span>
+        </h1>
+        <p class="text-xs text-slate-400 font-mono">Structural Engineering Interactive Playground</p>
+      </div>
+    </div>
+
+    <!-- PRESETS & ACTION BUTTONS -->
+    <div class="flex items-center space-x-3">
+      <!-- Preset Selector -->
+      <div class="flex items-center bg-slate-900/80 p-1 rounded-lg border border-slate-700/60 text-xs font-mono">
+        <span class="text-slate-400 px-2">Presets:</span>
+        <button onclick="loadPreset('C3')" class="px-2.5 py-1 rounded bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40 hover:bg-cyber-cyan/30 transition-all font-semibold">
+          Group C-3 (Exam)
+        </button>
+        <button onclick="loadPreset('C1')" class="px-2.5 py-1 text-slate-300 hover:text-cyber-cyan transition-all">C-1</button>
+        <button onclick="loadPreset('C2')" class="px-2.5 py-1 text-slate-300 hover:text-cyber-cyan transition-all">C-2</button>
+        <button onclick="loadPreset('C4')" class="px-2.5 py-1 text-slate-300 hover:text-cyber-cyan transition-all">C-4</button>
+      </div>
+
+      <!-- ELI5 Voice Narration Button -->
+      <button id="voiceBtn" onclick="toggleVoiceNarration()" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg bg-purple-900/40 border border-purple-500/40 text-purple-300 hover:bg-purple-800/50 hover:border-purple-400 text-xs font-mono transition-all">
+        <i data-lucide="volume-2" class="w-4 h-4 text-purple-400"></i>
+        <span>ELI5 Voice</span>
+      </button>
+
+      <!-- SFX Toggle -->
+      <button id="audioBtn" onclick="toggleAudio()" class="p-2 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 hover:text-cyber-cyan transition-all" title="Toggle Sound SFX">
+        <i data-lucide="volume-x" id="audioIcon" class="w-4 h-4"></i>
+      </button>
+
+      <!-- IS 800 Codebook Button -->
+      <button onclick="openCodebookModal()" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/50 text-cyber-cyan hover:bg-cyber-cyan/20 hover:shadow-glow-cyan text-xs font-mono font-bold transition-all">
+        <i data-lucide="book-open" class="w-4 h-4"></i>
+        <span>IS 800 Codebook</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SPLIT VIEWPORT CONTAINER -->
+  <main id="appContainer" class="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+
+    <!-- LEFT PANEL: CANVAS WORKBOARD (60% Width) -->
+    <section class="flex-1 lg:w-3/5 h-1/2 lg:h-full relative flex flex-col bg-slate-950 border-r border-cyber-border/30 overflow-hidden">
+      
+      <!-- WORKSPACE TOOLBAR OVERLAY -->
+      <div class="absolute top-4 left-4 right-4 z-10 flex items-center justify-between pointer-events-none">
+        <!-- Interactive Tip Badge -->
+        <div class="pointer-events-auto glass-panel px-3 py-1.5 rounded-lg border border-cyber-cyan/30 flex items-center space-x-2 text-xs font-mono text-slate-300">
+          <span class="w-2 h-2 rounded-full bg-cyber-green animate-pulse"></span>
+          <span><strong class="text-cyber-cyan">Drag Plate Right</strong> or adjust load slider to test stress!</span>
+        </div>
+
+        <!-- Joint Status Banner -->
+        <div id="statusBanner" class="pointer-events-auto glass-panel px-4 py-1.5 rounded-lg border border-cyber-green/50 text-cyber-green font-mono text-xs font-bold tracking-wider flex items-center space-x-2">
+          <i data-lucide="shield-check" class="w-4 h-4"></i>
+          <span id="statusText">JOINT STATUS: SAFE</span>
+        </div>
+      </div>
+
+      <!-- MAIN CANVAS -->
+      <div class="flex-1 relative w-full h-full cursor-grab active:cursor-grabbing" id="canvasWrapper">
+        <canvas id="simCanvas" class="w-full h-full block"></canvas>
+      </div>
+
+      <!-- BOTTOM WORKBOARD CONTROLS -->
+      <div class="p-3 bg-cyber-black/80 border-t border-slate-800/80 flex items-center justify-between z-10 font-mono text-xs">
+        <div class="flex items-center space-x-4">
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400">Bolts in Joint:</span>
+            <button onclick="changeBoltCount(-1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center font-bold text-sm">-</button>
+            <span id="boltCountDisplay" class="font-bold text-cyber-cyan text-sm w-5 text-center">7</span>
+            <button onclick="changeBoltCount(1)" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-600 flex items-center justify-center font-bold text-sm">+</button>
+          </div>
+
+          <div class="h-4 w-px bg-slate-800"></div>
+
+          <!-- Drag Bolt Tool Rack -->
+          <div class="flex items-center space-x-2">
+            <span class="text-slate-400">Tool Rack:</span>
+            <div id="draggableBoltTool" class="px-2.5 py-1 rounded bg-slate-800/90 border border-cyber-cyan/50 text-cyber-cyan flex items-center space-x-1.5 cursor-grab hover:bg-cyber-cyan/20 transition-all" draggable="true">
+              <i data-lucide="disc" class="w-3.5 h-3.5"></i>
+              <span>+ Drag Bolt</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+          <button onclick="resetDisplacement()" class="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-300 hover:text-white transition-all flex items-center space-x-1">
+            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+            <span>Reset Stretch</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: DASHBOARD & CONTROLS (40% Width) -->
+    <section class="lg:w-2/5 h-1/2 lg:h-full glass-panel flex flex-col border-l border-cyber-border/30 overflow-hidden">
+      
+      <!-- DASHBOARD TABS -->
+      <div class="flex border-b border-slate-800/80 bg-slate-950/60 font-mono text-xs">
+        <button id="tabBtn1" onclick="switchTab(1)" class="flex-1 py-2.5 px-3 border-b-2 border-cyber-cyan text-cyber-cyan font-bold flex items-center justify-center space-x-1.5 transition-all">
+          <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+          <span>Parameters & Design</span>
+        </button>
+        <button id="tabBtn2" onclick="switchTab(2)" class="flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1.5 transition-all">
+          <i data-lucide="puzzle" class="w-3.5 h-3.5"></i>
+          <span>Formula Challenge</span>
+        </button>
+        <button id="tabBtn3" onclick="switchTab(3)" class="flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1.5 transition-all">
+          <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+          <span>ELI5 Insights</span>
+        </button>
+      </div>
+
+      <!-- TAB CONTENT CONTAINER -->
+      <div class="flex-1 overflow-y-auto p-4 space-y-4">
+
+        <!-- TAB 1: PARAMETERS & CALCULATIONS -->
+        <div id="tabContent1" class="space-y-4">
+          
+          <!-- CONTROLS SLIDERS BLOCK -->
+          <div class="glass-card p-3.5 rounded-xl space-y-3">
+            <h3 class="text-xs font-mono font-bold text-cyber-cyan tracking-wider flex items-center justify-between">
+              <span>JOINT INPUT VARIABLES</span>
+              <span class="text-[10px] text-slate-400">IS 800:2007 Compliant</span>
+            </h3>
+
+            <!-- Load P Slider -->
+            <div class="space-y-1">
+              <div class="flex justify-between text-xs font-mono">
+                <label class="text-slate-300">Tension Load ($P$ / $T_{ud}$)</label>
+                <span id="loadValDisplay" class="text-cyber-magenta font-bold">225.0 kN</span>
+              </div>
+              <input type="range" id="sliderLoad" min="10" max="500" step="5" value="225" oninput="onParameterChange()" 
+                class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyber-magenta">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <!-- Plate 1 Thickness t1 -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono">
+                  <label class="text-slate-300">Plate $t_1$</label>
+                  <span id="t1ValDisplay" class="text-cyber-cyan font-bold">8 mm</span>
+                </div>
+                <input type="range" id="sliderT1" min="6" max="25" step="1" value="8" oninput="onParameterChange()"
+                  class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyber-cyan">
+              </div>
+
+              <!-- Plate 2 Thickness t2 -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono">
+                  <label class="text-slate-300">Plate $t_2$</label>
+                  <span id="t2ValDisplay" class="text-cyber-cyan font-bold">12 mm</span>
+                </div>
+                <input type="range" id="sliderT2" min="6" max="25" step="1" value="12" oninput="onParameterChange()"
+                  class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyber-cyan">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <!-- Bolt Diameter d -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono">
+                  <label class="text-slate-300">Bolt Dia ($d$)</label>
+                  <span id="dValDisplay" class="text-cyber-purple font-bold">18 mm</span>
+                </div>
+                <select id="selectD" onchange="onParameterChange()" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs font-mono text-slate-200">
+                  <option value="12">12 mm (M12)</option>
+                  <option value="16">16 mm (M16)</option>
+                  <option value="18" selected>18 mm (M18)</option>
+                  <option value="20">20 mm (M20)</option>
+                  <option value="22">22 mm (M22)</option>
+                  <option value="24">24 mm (M24)</option>
+                </select>
+              </div>
+
+              <!-- Bolt Grade -->
+              <div class="space-y-1">
+                <div class="flex justify-between text-xs font-mono">
+                  <label class="text-slate-300">Bolt Grade</label>
+                  <span id="gradeValDisplay" class="text-cyber-yellow font-bold">4.6</span>
+                </div>
+                <select id="selectGrade" onchange="onParameterChange()" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-xs font-mono text-slate-200">
+                  <option value="4.6" selected>Grade 4.6 (f_ub=400 MPa)</option>
+                  <option value="8.8">Grade 8.8 HSFG (f_ub=800 MPa)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- LIVE CALCULATIONS CARDS -->
+          <div class="space-y-2">
+            <h3 class="text-xs font-mono font-bold text-slate-400 tracking-wider">IS 800:2007 CAPACITY BREAKDOWN</h3>
+            
+            <div class="grid grid-cols-2 gap-2.5 font-mono text-xs">
+              <!-- Single Bolt Shear Capacity -->
+              <div class="glass-card p-2.5 rounded-lg border-l-2 border-cyber-cyan">
+                <div class="text-slate-400 text-[10px]">Shear Capacity / Bolt ($V_{dsb}$)</div>
+                <div id="vdsbDisplay" class="text-sm font-bold text-cyber-cyan">36.68 kN</div>
+                <div class="text-[9px] text-slate-500">Single shear plane</div>
+              </div>
+
+              <!-- Single Bolt Bearing Capacity -->
+              <div class="glass-card p-2.5 rounded-lg border-l-2 border-cyber-purple">
+                <div class="text-slate-400 text-[10px]">Bearing Capacity / Bolt ($V_{dpb}$)</div>
+                <div id="vdpbDisplay" class="text-sm font-bold text-cyber-purple">58.96 kN</div>
+                <div class="text-[9px] text-slate-500">Crushing check ($t=8\text{mm}$)</div>
+              </div>
+
+              <!-- Governing Bolt Value -->
+              <div class="glass-card p-2.5 rounded-lg border-l-2 border-cyber-green">
+                <div class="text-slate-400 text-[10px]">Governing Bolt Value ($V_{db}$)</div>
+                <div id="vdbDisplay" class="text-sm font-bold text-cyber-green">36.68 kN</div>
+                <div class="text-[9px] text-slate-500">$\min(V_{dsb}, V_{dpb})$</div>
+              </div>
+
+              <!-- Required Bolts Count -->
+              <div class="glass-card p-2.5 rounded-lg border-l-2 border-cyber-yellow">
+                <div class="text-slate-400 text-[10px]">Min. Bolts Required ($n_{req}$)</div>
+                <div id="nreqDisplay" class="text-sm font-bold text-cyber-yellow">7 Bolts</div>
+                <div class="text-[9px] text-slate-500">$P / V_{db} = 225 / 36.68$</div>
+              </div>
+            </div>
+
+            <!-- EFFICIENCY GAUGE CARD -->
+            <div class="glass-card p-3 rounded-xl space-y-2">
+              <div class="flex justify-between items-center font-mono text-xs">
+                <span class="text-slate-300 font-bold">Joint Efficiency ($\eta$)</span>
+                <span id="efficiencyDisplay" class="text-sm font-bold text-cyber-green">40.35 %</span>
+              </div>
+              
+              <!-- Efficiency Progress Bar -->
+              <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                <div id="efficiencyBar" class="h-full bg-gradient-to-r from-cyber-cyan via-cyber-green to-cyber-yellow rounded-full transition-all duration-500" style="width: 40.35%"></div>
+              </div>
+
+              <div class="flex justify-between text-[10px] font-mono text-slate-500">
+                <span>Joint Capacity: <strong id="totalJointCapDisplay" class="text-slate-300">256.76 kN</strong></span>
+                <span>Solid Plate Yield ($T_{dG}$): <strong id="tdgDisplay" class="text-slate-300">90.91 kN/strip</strong></span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 2: GAMIFIED FORMULA SNAP CHALLENGE -->
+        <div id="tabContent2" class="space-y-4 hidden">
+          <div class="glass-card p-3.5 rounded-xl space-y-3 font-mono">
+            <div class="flex items-center justify-between">
+              <h3 class="text-xs font-bold text-cyber-green tracking-wider flex items-center space-x-1.5">
+                <i data-lucide="award" class="w-4 h-4 text-cyber-green"></i>
+                <span>FORMULA BUILDING CHALLENGE</span>
+              </h3>
+              <span id="scoreBadge" class="px-2 py-0.5 rounded bg-cyber-green/20 text-cyber-green text-[10px] font-bold">0 / 4 Snapped</span>
+            </div>
+            
+            <p class="text-xs text-slate-300 leading-relaxed">
+              Drag the correct formula variables into the glowing target slots to build the IS 800 Shear Capacity equation!
+            </p>
+
+            <!-- FORMULA SLOT CONTAINER -->
+            <div class="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-2 text-center">
+              <div class="text-xs text-cyber-cyan font-bold">Shear Capacity Formula ($V_{dsb}$):</div>
+              <div class="flex items-center justify-center space-x-1 text-sm font-bold text-slate-300 flex-wrap gap-y-2">
+                <span>$V_{dsb} = ($</span>
+                
+                <!-- Target Slot 1: fub -->
+                <div id="slot1" data-target="fub" class="drop-slot w-14 h-8 rounded-lg flex items-center justify-center text-xs text-slate-500">f_ub</div>
+                
+                <span>$/ \sqrt{3}) \times ($</span>
+                
+                <!-- Target Slot 2: Anb -->
+                <div id="slot2" data-target="Anb" class="drop-slot w-14 h-8 rounded-lg flex items-center justify-center text-xs text-slate-500">A_nb</div>
+                
+                <span>$/$</span>
+                
+                <!-- Target Slot 3: gamma_mb -->
+                <div id="slot3" data-target="gammamb" class="drop-slot w-14 h-8 rounded-lg flex items-center justify-center text-xs text-slate-500">γ_mb</div>
+                
+                <span>$)$</span>
+              </div>
+            </div>
+
+            <!-- DRAGGABLE CARDS RACK -->
+            <div class="space-y-2">
+              <div class="text-[11px] text-slate-400">Available Variable Cards (Drag to Slot):</div>
+              <div class="grid grid-cols-2 gap-2 text-xs">
+                <div id="card_fub" draggable="true" ondragstart="onCardDragStart(event, 'fub')" class="draggable-card glass-card p-2 rounded-lg border border-cyber-cyan/40 text-cyber-cyan flex items-center space-x-2">
+                  <i data-lucide="grip-vertical" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>$f_{ub} = 400\text{ MPa}$</span>
+                </div>
+
+                <div id="card_Anb" draggable="true" ondragstart="onCardDragStart(event, 'Anb')" class="draggable-card glass-card p-2 rounded-lg border border-cyber-purple/40 text-cyber-purple flex items-center space-x-2">
+                  <i data-lucide="grip-vertical" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>$A_{nb} = 198.6\text{ mm}^2$</span>
+                </div>
+
+                <div id="card_gammamb" draggable="true" ondragstart="onCardDragStart(event, 'gammamb')" class="draggable-card glass-card p-2 rounded-lg border border-cyber-green/40 text-cyber-green flex items-center space-x-2">
+                  <i data-lucide="grip-vertical" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>$\gamma_{mb} = 1.25$</span>
+                </div>
+
+                <div id="card_dummy" draggable="true" ondragstart="onCardDragStart(event, 'dummy')" class="draggable-card glass-card p-2 rounded-lg border border-slate-700 text-slate-400 flex items-center space-x-2">
+                  <i data-lucide="grip-vertical" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span>$\gamma_{m0} = 1.10$</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- SUCCESS MESSAGE -->
+            <div id="challengeSuccess" class="hidden p-3 bg-cyber-green/10 border border-cyber-green/40 rounded-lg text-cyber-green text-xs font-mono space-y-1">
+              <div class="font-bold flex items-center space-x-1">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                <span>Formula Completed Successfully!</span>
+              </div>
+              <p class="text-[11px] text-slate-300">You unlocked the exact shear calculation! $V_{dsb} = (400 / 1.732) \times 198.56 / 1.25 = \mathbf{36.68\text{ kN}}$.</p>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- TAB 3: ELI5 INSIGHTS & EXPLANATION -->
+        <div id="tabContent3" class="space-y-4 hidden">
+          <div class="glass-card p-4 rounded-xl space-y-3 font-mono">
+            <h3 class="text-xs font-bold text-purple-400 tracking-wider flex items-center space-x-1.5">
+              <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
+              <span>EXPLAIN LIKE I'M 5 (ELI5)</span>
+            </h3>
+
+            <div class="p-3 bg-purple-950/30 rounded-lg border border-purple-500/30 text-xs text-purple-200 leading-relaxed space-y-2">
+              <p>
+                Imagine two kids playing tug-of-war with two plastic rulers linked together by small metal pins (bolts)!
+              </p>
+              <p id="eli5DynamicText">
+                Right now, under <strong class="text-cyber-magenta">225 kN of pull</strong>, the 7 bolts share the load like a team. Each bolt carries <strong class="text-cyber-green">32.1 kN</strong>, which is comfortably under their single limit of <strong class="text-cyber-cyan">36.68 kN</strong>!
+              </p>
+            </div>
+
+            <div class="space-y-2 text-xs text-slate-300">
+              <div class="font-bold text-cyber-cyan">3 Ways This Joint Can Break:</div>
+              
+              <div class="p-2 bg-slate-900/80 rounded border border-slate-800 space-y-1">
+                <div class="font-bold text-cyber-magenta flex items-center justify-between">
+                  <span>1. Bolt Slicing (Shear)</span>
+                  <span id="badgeShear" class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-green/20 text-cyber-green">SAFE</span>
+                </div>
+                <p class="text-[11px] text-slate-400">The two plates act like scissors and try to cut the bolt sideways in half!</p>
+              </div>
+
+              <div class="p-2 bg-slate-900/80 rounded border border-slate-800 space-y-1">
+                <div class="font-bold text-cyber-purple flex items-center justify-between">
+                  <span>2. Hole Crushing (Bearing)</span>
+                  <span id="badgeBearing" class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-green/20 text-cyber-green">SAFE</span>
+                </div>
+                <p class="text-[11px] text-slate-400">The hard bolt pushes into the softer plate hole wall and crushes it out of shape!</p>
+              </div>
+
+              <div class="p-2 bg-slate-900/80 rounded border border-slate-800 space-y-1">
+                <div class="font-bold text-cyber-yellow flex items-center justify-between">
+                  <span>3. Plate Tearing (Rupture)</span>
+                  <span id="badgeRupture" class="text-[10px] px-1.5 py-0.5 rounded bg-cyber-green/20 text-cyber-green">SAFE</span>
+                </div>
+                <p class="text-[11px] text-slate-400">The plate rips apart right across the line where holes were drilled out!</p>
+              </div>
+            </div>
+
+            <!-- Speak Audio Button -->
+            <button onclick="readELI5OutLoud()" class="w-full py-2 rounded-lg bg-purple-600/30 border border-purple-500/50 text-purple-200 hover:bg-purple-600/50 font-bold text-xs flex items-center justify-center space-x-2 transition-all">
+              <i data-lucide="volume-2" class="w-4 h-4"></i>
+              <span>Read ELI5 Explanation Out Loud</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- IS 800 CODEBOOK MODAL -->
+  <div id="codebookModal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-panel w-full max-w-2xl max-h-[85vh] rounded-2xl border border-cyber-cyan/40 p-6 flex flex-col space-y-4 overflow-hidden shadow-glow-cyan">
+      
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 font-mono">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="book-open" class="w-5 h-5 text-cyber-cyan"></i>
+          <h2 class="text-sm font-bold text-cyber-cyan">IS 800:2007 CODEBOOK CLAUSES REFERENCE</h2>
+        </div>
+        <button onclick="closeCodebookModal()" class="text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex-1 overflow-y-auto space-y-4 font-mono text-xs text-slate-300 pr-2">
+        
+        <!-- Clause 10.3.3 Shear Capacity -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-1.5">
+          <div class="font-bold text-cyber-cyan flex justify-between">
+            <span>Clause 10.3.3 — Shear Capacity of Bolt ($V_{dsb}$)</span>
+            <span class="text-[10px] text-slate-400">Page 75</span>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            The nominal shear capacity of a bolt $V_{nsb}$ is given by:
+          </p>
+          <div class="p-2 bg-slate-950 rounded text-cyber-green font-mono">
+            $V_{nsb} = \frac{f_{ub}}{\sqrt{3}} \cdot (n_n \cdot A_{nb} + n_s \cdot A_{sb})$
+          </div>
+          <p class="text-[11px] text-slate-300">
+            Design shear strength: $V_{dsb} = \frac{V_{nsb}}{\gamma_{mb}}$ where $\gamma_{mb} = 1.25$.
+          </p>
+          <div class="p-2 bg-cyber-cyan/10 rounded text-[11px] text-cyber-cyan font-bold pulse-glow">
+            Active Live Calculation: $V_{dsb} = \frac{<span id="cbFub">400</span>}{\sqrt{3} \times 1.25} \times <span id="cbAnb">198.56</span> = \mathbf{<span id="cbVdsb">36.68</span>\text{ kN}}$
+          </div>
+        </div>
+
+        <!-- Clause 10.3.4 Bearing Capacity -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-1.5">
+          <div class="font-bold text-cyber-purple flex justify-between">
+            <span>Clause 10.3.4 — Bearing Capacity of Bolt ($V_{dpb}$)</span>
+            <span class="text-[10px] text-slate-400">Page 75</span>
+          </div>
+          <p class="text-[11px] text-slate-400">
+            The design bearing strength of bolt $V_{dpb} = \frac{V_{npb}}{\gamma_{mb}}$, where:
+          </p>
+          <div class="p-2 bg-slate-950 rounded text-cyber-purple font-mono">
+            $V_{npb} = 2.5 \cdot k_b \cdot d \cdot t \cdot f_u$
+          </div>
+          <p class="text-[11px] text-slate-300">
+            where $k_b = \min\left( \frac{e}{3 d_0}, \frac{p}{3 d_0} - 0.25, \frac{f_{ub}}{f_u}, 1.0 \right)$.
+          </p>
+          <div class="p-2 bg-cyber-purple/10 rounded text-[11px] text-cyber-purple font-bold">
+            Active Live Calculation: $V_{dpb} = \frac{2.5 \times 0.50 \times <span id="cbD">18</span> \times <span id="cbT">8</span> \times 410}{1.25} = \mathbf{<span id="cbVdpb">58.96</span>\text{ kN}}$
+          </div>
+        </div>
+
+        <!-- Clause 6.3.1 Rupture of Net Section -->
+        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-700/80 space-y-1.5">
+          <div class="font-bold text-cyber-yellow flex justify-between">
+            <span>Clause 6.3.1 — Tensile Strength due to Rupture ($T_{dn}$)</span>
+            <span class="text-[10px] text-slate-400">Page 32</span>
+          </div>
+          <div class="p-2 bg-slate-950 rounded text-cyber-yellow font-mono">
+            $T_{dn} = \frac{0.9 \cdot A_n \cdot f_u}{\gamma_{m1}}$
+          </div>
+          <p class="text-[11px] text-slate-300">
+            $A_n$ is the net cross-sectional area after deducting bolt holes: $(p - d_0) \cdot t$.
+          </p>
+        </div>
+
+      </div>
+
+      <div class="pt-2 border-t border-slate-800 flex justify-end font-mono">
+        <button onclick="closeCodebookModal()" class="px-4 py-1.5 rounded-lg bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan font-bold hover:bg-cyber-cyan/30 text-xs">
+          Close Codebook
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- JAVASCRIPT ENGINE -->
+  <script>
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // APP STATE VARIABLES
+    const state = {
+      // Inputs
+      loadP: 225,            // kN
+      t1: 8,                 // mm
+      t2: 12,                // mm
+      d: 18,                 // mm
+      grade: 4.6,            // Grade
+      fub: 400,              // MPa
+      fyb: 240,              // MPa
+      fu: 410,               // MPa
+      fy: 250,               // MPa
+      pitch: 50,             // mm
+      edge: 30,              // mm
+      plateWidth: 150,       // mm
+      boltCount: 7,          // number of bolts
+
+      // Computed Results
+      d0: 20,                // Hole diameter
+      Anb: 198.56,           // Net shear area mm2
+      Vdsb: 36.68,           // kN
+      kb: 0.50,              // Bearing factor
+      Vdpb: 58.96,           // kN
+      Vdb: 36.68,            // kN
+      nReq: 7,               // Required bolts
+      Tdn: 70.85,            // kN per pitch
+      TdG: 90.91,            // kN per pitch
+      efficiency: 40.35,     // %
+
+      // Simulation & Gesture State
+      displacement: 0,       // mm stretch offset
+      isPulling: false,
+      pullStartX: 0,
+      sfxMuted: true,
+      voiceEnabled: true,
+      challengeScore: 0,
+      snappedSlots: { slot1: false, slot2: false, slot3: false }
+    };
+
+    // WEB AUDIO API SYNTHESIZER
+    let audioCtx = null;
+    let strainOsc = null;
+    let strainGain = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function toggleAudio() {
+      initAudio();
+      state.sfxMuted = !state.sfxMuted;
+      const icon = document.getElementById('audioIcon');
+      if (state.sfxMuted) {
+        icon.setAttribute('data-lucide', 'volume-x');
+        stopStrainHum();
+      } else {
+        icon.setAttribute('data-lucide', 'volume-2');
+        playChime();
+      }
+      lucide.createIcons();
+    }
+
+    function playChime() {
+      if (state.sfxMuted) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, audioCtx.currentTime); // C5
+      osc.frequency.exponentialRampToValueAtTime(783.99, audioCtx.currentTime + 0.15); // G5
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.3);
+    }
+
+    function playSnapSFX() {
+      if (state.sfxMuted) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(180, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.1);
+      gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function triggerSiren() {
+      if (state.sfxMuted) return;
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+      osc.frequency.linearRampToValueAtTime(700, audioCtx.currentTime + 0.25);
+      osc.frequency.linearRampToValueAtTime(300, audioCtx.currentTime + 0.5);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function updateStrainHum(ratio) {
+      if (state.sfxMuted) return;
+      initAudio();
+      if (!strainOsc) {
+        strainOsc = audioCtx.createOscillator();
+        strainGain = audioCtx.createGain();
+        strainOsc.type = 'sine';
+        strainGain.gain.setValueAtTime(0.01, audioCtx.currentTime);
+        strainOsc.connect(strainGain);
+        strainGain.connect(audioCtx.destination);
+        strainOsc.start();
+      }
+      const freq = 80 + ratio * 320; // 80Hz to 400Hz
+      strainOsc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.05);
+      strainGain.gain.setTargetAtTime(Math.min(0.1, ratio * 0.1), audioCtx.currentTime, 0.05);
+    }
+
+    function stopStrainHum() {
+      if (strainOsc) {
+        strainGain.gain.setTargetAtTime(0.001, audioCtx.currentTime, 0.1);
+      }
+    }
+
+    // SPEECH SYNTHESIS
+    function toggleVoiceNarration() {
+      state.voiceEnabled = !state.voiceEnabled;
+      const btn = document.getElementById('voiceBtn');
+      if (state.voiceEnabled) {
+        btn.classList.add('bg-purple-900/40', 'border-purple-500/40');
+        speakELI5("Voice narration activated!");
+      } else {
+        btn.classList.remove('bg-purple-900/40', 'border-purple-500/40');
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function speakELI5(text) {
+      if (!state.voiceEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.0;
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function readELI5OutLoud() {
+      const text = `In this joint, under ${state.loadP} kilonewtons of tension, your ${state.boltCount} bolts carry the load like gatekeepers. Each bolt takes about ${(state.loadP / state.boltCount).toFixed(1)} kilonewtons. Since single bolt capacity is ${state.Vdb.toFixed(1)} kilonewtons, the joint status is ${state.loadP > (state.boltCount * state.Vdb) ? 'failing!' : 'completely safe!'}`;
+      speakELI5(text);
+    }
+
+    // IS 800:2007 MATH ENGINE
+    function calculateJoint() {
+      // Inputs
+      const tMin = Math.min(state.t1, state.t2);
+      state.d0 = state.d <= 24 ? state.d + 2 : state.d + 3;
+
+      // Grade properties
+      if (state.grade === 4.6) {
+        state.fub = 400;
+        state.fyb = 240;
+      } else {
+        state.fub = 800;
+        state.fyb = 640;
+      }
+
+      // 1. Single Shear Capacity (Vdsb)
+      state.Anb = 0.78 * (Math.PI / 4) * Math.pow(state.d, 2);
+      const Vnsb = (state.fub / Math.sqrt(3)) * state.Anb; // N
+      state.Vdsb = (Vnsb / 1.25) / 1000; // kN
+
+      // 2. Bearing Capacity (Vdpb)
+      state.kb = 0.50; // Standard assumptions e >= 1.5d0, p >= 2.5d
+      const Vnpb = 2.5 * state.kb * state.d * tMin * state.fu; // N
+      state.Vdpb = (Vnpb / 1.25) / 1000; // kN
+
+      // 3. Bolt Value (Vdb)
+      state.Vdb = Math.min(state.Vdsb, state.Vdpb);
+
+      // 4. Min Required Bolts
+      state.nReq = Math.ceil(state.loadP / state.Vdb);
+
+      // 5. Solid Plate Yield Strength per Pitch
+      state.TdG = (state.fy * state.pitch * tMin / 1.10) / 1000; // kN
+
+      // 6. Efficiency
+      state.efficiency = (state.Vdb / state.TdG) * 100;
+
+      updateUI();
+    }
+
+    function updateUI() {
+      // Text Updates
+      document.getElementById('loadValDisplay').innerText = `${state.loadP.toFixed(1)} kN`;
+      document.getElementById('t1ValDisplay').innerText = `${state.t1} mm`;
+      document.getElementById('t2ValDisplay').innerText = `${state.t2} mm`;
+      document.getElementById('dValDisplay').innerText = `${state.d} mm`;
+      document.getElementById('gradeValDisplay').innerText = `${state.grade}`;
+      document.getElementById('boltCountDisplay').innerText = state.boltCount;
+
+      document.getElementById('vdsbDisplay').innerText = `${state.Vdsb.toFixed(2)} kN`;
+      document.getElementById('vdpbDisplay').innerText = `${state.Vdpb.toFixed(2)} kN`;
+      document.getElementById('vdbDisplay').innerText = `${state.Vdb.toFixed(2)} kN`;
+      document.getElementById('nreqDisplay').innerText = `${state.nReq} Bolts`;
+
+      document.getElementById('efficiencyDisplay').innerText = `${state.efficiency.toFixed(2)} %`;
+      document.getElementById('efficiencyBar').style.width = `${Math.min(100, state.efficiency)}%`;
+
+      const totalCap = state.boltCount * state.Vdb;
+      document.getElementById('totalJointCapDisplay').innerText = `${totalCap.toFixed(2)} kN`;
+      document.getElementById('tdgDisplay').innerText = `${state.TdG.toFixed(2)} kN`;
+
+      // Codebook Live Sync
+      document.getElementById('cbFub').innerText = state.fub;
+      document.getElementById('cbAnb').innerText = state.Anb.toFixed(2);
+      document.getElementById('cbVdsb').innerText = state.Vdsb.toFixed(2);
+      document.getElementById('cbD').innerText = state.d;
+      document.getElementById('cbT').innerText = Math.min(state.t1, state.t2);
+      document.getElementById('cbVdpb').innerText = state.Vdpb.toFixed(2);
+
+      // Status Check
+      const statusBanner = document.getElementById('statusBanner');
+      const statusText = document.getElementById('statusText');
+      
+      const totalLoad = state.loadP + (state.displacement * 2); // Dynamic stretch load
+      if (totalLoad > totalCap) {
+        statusBanner.className = "pointer-events-auto glass-panel px-4 py-1.5 rounded-lg border border-cyber-magenta/80 text-cyber-magenta font-mono text-xs font-bold tracking-wider flex items-center space-x-2 animate-pulse shadow-glow-red";
+        statusText.innerText = "JOINT STATUS: OVERLOAD / SHEAR FAILURE!";
+        triggerSiren();
+        shakeUI();
+      } else {
+        statusBanner.className = "pointer-events-auto glass-panel px-4 py-1.5 rounded-lg border border-cyber-green/50 text-cyber-green font-mono text-xs font-bold tracking-wider flex items-center space-x-2";
+        statusText.innerText = "JOINT STATUS: SAFE";
+      }
+
+      // ELI5 Text
+      const eli5Text = document.getElementById('eli5DynamicText');
+      if (eli5Text) {
+        eli5Text.innerHTML = `Right now, under <strong class="text-cyber-magenta">${totalLoad.toFixed(1)} kN of pull</strong>, your ${state.boltCount} bolts share the load. Each bolt takes <strong class="text-cyber-green">${(totalLoad / state.boltCount).toFixed(1)} kN</strong>, compared to a max limit of <strong class="text-cyber-cyan">${state.Vdb.toFixed(1)} kN</strong>!`;
+      }
+    }
+
+    function shakeUI() {
+      const wrapper = document.getElementById('appContainer');
+      if (window.gsap) {
+        gsap.to(wrapper, { duration: 0.05, x: () => Math.random() * 12 - 6, y: () => Math.random() * 12 - 6, repeat: 5, yoyo: true, clearProps: "x,y" });
+      }
+    }
+
+    function onParameterChange() {
+      state.loadP = parseFloat(document.getElementById('sliderLoad').value);
+      state.t1 = parseFloat(document.getElementById('sliderT1').value);
+      state.t2 = parseFloat(document.getElementById('sliderT2').value);
+      state.d = parseFloat(document.getElementById('selectD').value);
+      state.grade = parseFloat(document.getElementById('selectGrade').value);
+
+      calculateJoint();
+    }
+
+    function changeBoltCount(delta) {
+      state.boltCount = Math.max(1, Math.min(16, state.boltCount + delta));
+      playSnapSFX();
+      calculateJoint();
+    }
+
+    function loadPreset(presetKey) {
+      playChime();
+      if (presetKey === 'C3') {
+        // Exam Group C-3
+        state.t1 = 8;
+        state.t2 = 12;
+        state.d = 18;
+        state.loadP = 225;
+        state.grade = 4.6;
+        state.boltCount = 7;
+      } else if (presetKey === 'C1') {
+        state.t1 = 10;
+        state.t2 = 12;
+        state.d = 20;
+        state.loadP = 230;
+        state.grade = 4.6;
+        state.boltCount = 7;
+      } else if (presetKey === 'C2') {
+        state.t1 = 8;
+        state.t2 = 10;
+        state.d = 22;
+        state.loadP = 250;
+        state.grade = 4.6;
+        state.boltCount = 7;
+      } else if (presetKey === 'C4') {
+        state.t1 = 10;
+        state.t2 = 14;
+        state.d = 20;
+        state.loadP = 240;
+        state.grade = 4.6;
+        state.boltCount = 7;
+      }
+
+      document.getElementById('sliderLoad').value = state.loadP;
+      document.getElementById('sliderT1').value = state.t1;
+      document.getElementById('sliderT2').value = state.t2;
+      document.getElementById('selectD').value = state.d;
+      document.getElementById('selectGrade').value = state.grade;
+
+      calculateJoint();
+      if (state.voiceEnabled) {
+        speakELI5(`Loaded Preset ${presetKey}! Joint parameters updated.`);
+      }
+    }
+
+    function switchTab(tabIdx) {
+      playSnapSFX();
+      for (let i = 1; i <= 3; i++) {
+        const btn = document.getElementById(`tabBtn${i}`);
+        const content = document.getElementById(`tabContent${i}`);
+        if (i === tabIdx) {
+          btn.className = "flex-1 py-2.5 px-3 border-b-2 border-cyber-cyan text-cyber-cyan font-bold flex items-center justify-center space-x-1.5 transition-all";
+          content.classList.remove('hidden');
+        } else {
+          btn.className = "flex-1 py-2.5 px-3 border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center space-x-1.5 transition-all";
+          content.classList.add('hidden');
+        }
+      }
+    }
+
+    function resetDisplacement() {
+      playSnapSFX();
+      state.displacement = 0;
+      stopStrainHum();
+      calculateJoint();
+    }
+
+    // FORMULA DRAG & DROP MINI-GAME
+    function onCardDragStart(e, targetId) {
+      e.dataTransfer.setData("text/plain", targetId);
+    }
+
+    function setupDragAndDrop() {
+      const slots = ['slot1', 'slot2', 'slot3'];
+      slots.forEach(slotId => {
+        const slotEl = document.getElementById(slotId);
+        slotEl.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          slotEl.classList.add('drag-over');
+        });
+        slotEl.addEventListener('dragleave', () => {
+          slotEl.classList.remove('drag-over');
+        });
+        slotEl.addEventListener('drop', (e) => {
+          e.preventDefault();
+          slotEl.classList.remove('drag-over');
+          const draggedTarget = e.dataTransfer.getData("text/plain");
+          const expectedTarget = slotEl.getAttribute('data-target');
+
+          if (draggedTarget === expectedTarget) {
+            playChime();
+            slotEl.classList.add('filled');
+            slotEl.innerText = draggedTarget;
+            state.snappedSlots[slotId] = true;
+            
+            // Hide snapped card
+            const cardEl = document.getElementById(`card_${draggedTarget}`);
+            if (cardEl) cardEl.style.display = 'none';
+
+            checkChallengeComplete();
+          } else {
+            triggerSiren();
+          }
+        });
+      });
+    }
+
+    function checkChallengeComplete() {
+      if (state.snappedSlots.slot1 && state.snappedSlots.slot2 && state.snappedSlots.slot3) {
+        document.getElementById('scoreBadge').innerText = "3 / 3 Completed!";
+        document.getElementById('challengeSuccess').classList.remove('hidden');
+        if (state.voiceEnabled) {
+          speakELI5("Awesome job! You successfully built the IS 800 bolt shear capacity formula!");
+        }
+      }
+    }
+
+    // MODAL CONTROLS
+    function openCodebookModal() {
+      playChime();
+      const modal = document.getElementById('codebookModal');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+    }
+
+    function closeCodebookModal() {
+      playSnapSFX();
+      const modal = document.getElementById('codebookModal');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+    }
+
+    // HTML5 CANVAS SIMULATION RENDER ENGINE
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const wrapper = document.getElementById('canvasWrapper');
+      canvas.width = wrapper.clientWidth;
+      canvas.height = wrapper.clientHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // MOUSE & TOUCH GESTURE CONTROL ON CANVAS
+    canvas.addEventListener('mousedown', (e) => {
+      initAudio();
+      state.isPulling = true;
+      state.pullStartX = e.clientX;
+      canvas.classList.add('canvas-pulling');
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!state.isPulling) return;
+      const dx = e.clientX - state.pullStartX;
+      state.displacement = Math.max(0, Math.min(80, state.displacement + dx * 0.15));
+      state.pullStartX = e.clientX;
+
+      const totalCap = state.boltCount * state.Vdb;
+      const totalLoad = state.loadP + (state.displacement * 2);
+      updateStrainHum(totalLoad / totalCap);
+      calculateJoint();
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (state.isPulling) {
+        state.isPulling = false;
+        canvas.classList.remove('canvas-pulling');
+        stopStrainHum();
+      }
+    });
+
+    // RENDER LOOP (60 FPS)
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const W = canvas.width;
+      const H = canvas.height;
+      const centerY = H / 2;
+      const centerX = W / 2;
+
+      // Draw Grid Lines (Cyber Aesthetic)
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.05)';
+      ctx.lineWidth = 1;
+      const gridSize = 30;
+      for (let x = 0; x < W; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, H);
+        ctx.stroke();
+      }
+      for (let y = 0; y < H; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(W, y);
+        ctx.stroke();
+      }
+
+      // Plate Dimensions & Positions
+      const plateWidth = 240;
+      const plateHeight = 110;
+      const overlapX = 100;
+      
+      const plate1X = centerX - plateWidth + (overlapX / 2);
+      const plate1Y = centerY - (plateHeight / 2) - 10;
+
+      const plate2X = centerX - (overlapX / 2) + state.displacement;
+      const plate2Y = centerY - (plateHeight / 2) + 10;
+
+      // 1. DRAW LEFT STEEL PLATE (Plate 1 - cyan tint)
+      const grad1 = ctx.createLinearGradient(plate1X, plate1Y, plate1X + plateWidth, plate1Y + plateHeight);
+      grad1.addColorStop(0, '#0f172a');
+      grad1.addColorStop(0.5, '#1e293b');
+      grad1.addColorStop(1, '#0284c7');
+
+      ctx.save();
+      ctx.fillStyle = grad1;
+      ctx.strokeStyle = '#38bdf8';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(56, 189, 248, 0.3)';
+      ctx.shadowBlur = 12;
+
+      ctx.beginPath();
+      ctx.roundRect(plate1X, plate1Y, plateWidth, plateHeight, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // Plate 1 Fixed Support Grip Lines
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+      ctx.lineWidth = 3;
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(plate1X + 15 + i * 10, plate1Y + 10);
+        ctx.lineTo(plate1X + 5 + i * 10, plate1Y + plateHeight - 10);
+        ctx.stroke();
+      }
+
+      // 2. DRAW RIGHT STEEL PLATE (Plate 2 - magenta/purple tint)
+      const grad2 = ctx.createLinearGradient(plate2X, plate2Y, plate2X + plateWidth, plate2Y + plateHeight);
+      grad2.addColorStop(0, '#7e22ce');
+      grad2.addColorStop(0.5, '#3b0764');
+      grad2.addColorStop(1, '#0f172a');
+
+      ctx.save();
+      ctx.fillStyle = grad2;
+      ctx.strokeStyle = '#bc13fe';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(188, 19, 254, 0.3)';
+      ctx.shadowBlur = 12;
+
+      ctx.beginPath();
+      ctx.roundRect(plate2X, plate2Y, plateWidth, plateHeight, 6);
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+
+      // 3. DRAW OVERLAP HIGHLIGHT REGION
+      const currentOverlap = Math.max(10, overlapX - state.displacement);
+      ctx.fillStyle = 'rgba(0, 243, 255, 0.08)';
+      ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+      ctx.setLineDash([4, 4]);
+      ctx.strokeRect(plate2X, plate1Y, currentOverlap, plateHeight + 20);
+      ctx.fillRect(plate2X, plate1Y, currentOverlap, plateHeight + 20);
+      ctx.setLineDash([]);
+
+      // 4. DRAW BOLTS IN GRID PATTERN
+      const cols = Math.min(4, Math.ceil(state.boltCount / 2));
+      const rows = Math.ceil(state.boltCount / cols);
+      const totalCap = state.boltCount * state.Vdb;
+      const totalLoad = state.loadP + (state.displacement * 2);
+      const stressRatio = totalLoad / totalCap;
+
+      let boltIndex = 0;
+      const startX = plate2X + 25;
+      const startY = plate1Y + 25;
+      const pitchX = (currentOverlap - 40) / Math.max(1, cols - 1);
+      const pitchY = (plateHeight - 50) / Math.max(1, rows - 1);
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (boltIndex >= state.boltCount) break;
+
+          const bx = startX + (cols > 1 ? c * pitchX : (currentOverlap / 2) - 25);
+          const by = startY + (rows > 1 ? r * pitchY : (plateHeight / 2) - 25);
+
+          // Bolt Stress Heat Color
+          let boltColor = '#00ff66'; // Green
+          if (stressRatio > 0.75 && stressRatio <= 1.0) boltColor = '#ffd700'; // Yellow
+          if (stressRatio > 1.0) boltColor = '#ff0055'; // Red/Magenta
+
+          // Draw Bolt Hole
+          ctx.beginPath();
+          ctx.arc(bx, by, state.d * 0.55, 0, Math.PI * 2);
+          ctx.fillStyle = '#050811';
+          ctx.fill();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+          ctx.stroke();
+
+          // Draw Bolt Head
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(bx, by, state.d * 0.45, 0, Math.PI * 2);
+          ctx.fillStyle = boltColor;
+          ctx.shadowColor = boltColor;
+          ctx.shadowBlur = stressRatio > 1.0 ? 20 : 8;
+          ctx.fill();
+
+          // Bolt Center Pin
+          ctx.beginPath();
+          ctx.arc(bx, by, state.d * 0.2, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.restore();
+
+          // FORCE VECTOR ARROWS THROUGH BOLT
+          const vectorLen = 15 + stressRatio * 25;
+          ctx.save();
+          ctx.strokeStyle = boltColor;
+          ctx.fillStyle = boltColor;
+          ctx.lineWidth = 2;
+
+          // Arrow pointing right
+          ctx.beginPath();
+          ctx.moveTo(bx, by);
+          ctx.lineTo(bx + vectorLen, by);
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.moveTo(bx + vectorLen, by - 4);
+          ctx.lineTo(bx + vectorLen + 6, by);
+          ctx.lineTo(bx + vectorLen, by + 4);
+          ctx.fill();
+          ctx.restore();
+
+          boltIndex++;
+        }
+      }
+
+      // 5. DRAW DRAFTING DIMENSION LEADER LINES & TEXT
+      ctx.save();
+      ctx.font = '10px JetBrains Mono';
+      ctx.fillStyle = '#38bdf8';
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+      ctx.lineWidth = 1;
+
+      // Thickness Callout t1
+      ctx.beginPath();
+      ctx.moveTo(plate1X - 20, plate1Y);
+      ctx.lineTo(plate1X - 5, plate1Y);
+      ctx.stroke();
+      ctx.fillText(`t1 = ${state.t1}mm`, plate1X - 65, plate1Y + 12);
+
+      // Thickness Callout t2
+      ctx.beginPath();
+      ctx.moveTo(plate2X + plateWidth + 5, plate2Y + plateHeight);
+      ctx.lineTo(plate2X + plateWidth + 20, plate2Y + plateHeight);
+      ctx.stroke();
+      ctx.fillText(`t2 = ${state.t2}mm`, plate2X + plateWidth + 25, plate2Y + plateHeight);
+
+      // Tension Force P Pull Arrow
+      const pullX = plate2X + plateWidth - 30;
+      ctx.strokeStyle = '#ff0055';
+      ctx.fillStyle = '#ff0055';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(pullX, centerY);
+      ctx.lineTo(pullX + 50, centerY);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(pullX + 50, centerY - 6);
+      ctx.lineTo(pullX + 62, centerY);
+      ctx.lineTo(pullX + 50, centerY + 6);
+      ctx.fill();
+
+      ctx.font = 'bold 12px Orbitron';
+      ctx.fillText(`P = ${totalLoad.toFixed(1)} kN`, pullX - 10, centerY - 15);
+      ctx.restore();
+
+      requestAnimationFrame(render);
+    }
+
+    // INITIALIZE APP ON LOAD
+    window.onload = function() {
+      resizeCanvas();
+      calculateJoint();
+      setupDragAndDrop();
+      requestAnimationFrame(render);
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,2108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ELI5 Steel Tension Member Simulator (IS 800:2007)</title>
+  <style>
+    :root {
+      --primary: #00f0ff;
+      --primary-glow: rgba(0, 240, 255, 0.4);
+      --accent: #ff9f43;
+      --accent-glow: rgba(255, 159, 67, 0.4);
+      --danger: #ff4d4d;
+      --danger-glow: rgba(255, 77, 77, 0.4);
+      --success: #2ecc71;
+      --success-glow: rgba(46, 204, 113, 0.4);
+      --bg-dark: #0d0e15;
+      --bg-card: rgba(255, 255, 255, 0.03);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+    }
+
+    body, html {
+      margin: 0;
+      padding: 0;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      color: #e0e6ed;
+      font-family: var(--font-family);
+    }
+
+    /* Outer layout */
+    .app-container {
+      display: grid;
+      grid-template-rows: 60px 1fr;
+      height: 100vh;
+      width: 100vw;
+      box-sizing: border-box;
+    }
+
+    /* Header Styling */
+    header {
+      background: rgba(13, 14, 21, 0.85);
+      border-bottom: 1px solid var(--border-color);
+      backdrop-filter: blur(10px);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 24px;
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 28px;
+      height: 28px;
+      background: linear-gradient(135deg, var(--primary), var(--accent));
+      border-radius: 6px;
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .logo-text {
+      font-weight: 800;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #fff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge-is800 {
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    /* Audio Controls */
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .audio-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .audio-btn:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--primary);
+    }
+
+    .audio-btn.muted {
+      color: #ff4d4d;
+      border-color: rgba(255, 77, 77, 0.3);
+    }
+
+    /* Main Content Layout Grid */
+    .main-grid {
+      display: grid;
+      grid-template-columns: 480px 1fr;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* Left panel scrollable container */
+    .left-panel {
+      border-right: 1px solid var(--border-color);
+      background: rgba(13, 14, 21, 0.6);
+      backdrop-filter: blur(8px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Tab bar for 6 steps */
+    .steps-tabs {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: none;
+      border: none;
+      color: #8892b0;
+      padding: 12px 0;
+      font-size: 0.8rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-align: center;
+      border-bottom: 2px solid transparent;
+    }
+
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: rgba(0, 240, 255, 0.03);
+    }
+
+    .tab-btn.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Dynamic Step Screen content wrapper */
+    .step-content-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Glowing Glassmorphism Cards */
+    .glass-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 18px;
+      backdrop-filter: blur(12px);
+      transition: border-color 0.3s ease;
+    }
+
+    .glass-card:hover {
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-top: 0;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title .icon-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--primary);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--primary);
+    }
+
+    /* Interactive highlights in Step 1 */
+    .text-interactive {
+      line-height: 1.6;
+      font-size: 0.95rem;
+      color: #a5b4fc;
+    }
+
+    .term-highlight {
+      background: rgba(0, 240, 255, 0.1);
+      border-bottom: 2px dotted var(--primary);
+      color: #fff;
+      padding: 2px 6px;
+      cursor: pointer;
+      border-radius: 4px;
+      font-weight: 700;
+      transition: all 0.2s ease;
+    }
+
+    .term-highlight:hover {
+      background: rgba(0, 240, 255, 0.25);
+      box-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .term-highlight.collected {
+      background: rgba(46, 204, 113, 0.2);
+      border-bottom-color: var(--success);
+      color: var(--success);
+    }
+
+    /* Floating/draggable cards container */
+    .pocket-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 50px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px dashed var(--border-color);
+      padding: 10px;
+    }
+
+    .value-card {
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.02));
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: grab;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .value-card:active {
+      cursor: grabbing;
+      transform: scale(0.98);
+    }
+
+    .value-card.highlighted {
+      border-color: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+    }
+
+    /* Step 2 Codebook Bookmarks */
+    .bookmark-slot-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .codebook-bookmark {
+      background: rgba(255, 159, 67, 0.08);
+      border: 1px solid rgba(255, 159, 67, 0.3);
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      cursor: grab;
+      font-weight: 600;
+    }
+
+    .codebook-bookmark:hover {
+      border-color: var(--accent);
+      background: rgba(255, 159, 67, 0.15);
+    }
+
+    .target-dropzone {
+      border: 2px dashed rgba(255, 159, 67, 0.3);
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 12px;
+      min-height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      color: #8892b0;
+      transition: all 0.3s ease;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .target-dropzone.drag-over {
+      border-color: var(--primary);
+      background: rgba(0, 240, 255, 0.05);
+      color: #fff;
+    }
+
+    .target-dropzone.success-drop {
+      border-color: var(--success);
+      background: rgba(46, 204, 113, 0.05);
+      color: #fff;
+    }
+
+    /* Equation templates and math layout */
+    .equation-builder {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .equation-display {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .equation-slot {
+      display: inline-flex;
+      width: 70px;
+      height: 36px;
+      border: 2px dashed var(--primary);
+      border-radius: 6px;
+      background: rgba(0, 240, 255, 0.02);
+      align-items: center;
+      justify-content: center;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--primary);
+      transition: all 0.2s ease;
+    }
+
+    .equation-slot.filled {
+      border-style: solid;
+      background: rgba(255, 255, 255, 0.08);
+      color: #fff;
+    }
+
+    /* Dynamic control sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .control-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-label-wrapper {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .control-label {
+      color: #8892b0;
+    }
+
+    .control-value {
+      color: var(--primary);
+    }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary-glow);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Right visual playground */
+    .right-panel {
+      display: grid;
+      grid-template-rows: 1fr 220px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Canvas Frame */
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at 70% 30%, #1a1c28, #0d0e15);
+      border-bottom: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Interactive controller at bottom-right */
+    .tension-lever-dock {
+      background: rgba(13, 14, 21, 0.9);
+      border-top: 1px solid var(--border-color);
+      backdrop-filter: blur(15px);
+      padding: 16px 24px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      align-items: center;
+      gap: 24px;
+    }
+
+    .lever-control-card {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .lever-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .gauge-display-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .gauge-card {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 10px;
+      text-align: center;
+    }
+
+    .gauge-num {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--primary);
+      text-shadow: 0 0 10px var(--primary-glow);
+    }
+
+    .gauge-label {
+      font-size: 0.7rem;
+      color: #8892b0;
+      text-transform: uppercase;
+      margin-top: 4px;
+    }
+
+    /* Step Navigation / Action Button styles */
+    .navigation-row {
+      display: flex;
+      justify-content: space-between;
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .nav-btn {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 8px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .nav-btn:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--primary);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    .nav-btn.primary-action {
+      background: linear-gradient(90deg, var(--primary), #0099ff);
+      border: none;
+      color: #0d0e15;
+      box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .nav-btn.primary-action:hover {
+      box-shadow: 0 0 25px var(--primary-glow);
+      transform: translateY(-1px);
+    }
+
+    /* ELI5 helper bubble */
+    .eli5-speech-bubble {
+      background: rgba(165, 180, 252, 0.08);
+      border: 1px solid rgba(165, 180, 252, 0.2);
+      border-left: 4px solid var(--primary);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: #cfd7f3;
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .eli5-speech-bubble .gummy-avatar {
+      font-size: 1.8rem;
+    }
+
+    .eli5-speech-bubble strong {
+      color: #fff;
+    }
+
+    /* Floating Draggable Wrapper helper layer */
+    .dragging-avatar {
+      position: absolute;
+      pointer-events: none;
+      z-index: 1000;
+      opacity: 0.85;
+      transform: scale(1.05);
+      cursor: grabbing;
+    }
+
+    /* Toast Notification system */
+    .toast-manager {
+      position: absolute;
+      top: 80px;
+      right: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 999;
+    }
+
+    .toast {
+      background: rgba(13, 14, 21, 0.9);
+      border: 1px solid var(--border-color);
+      padding: 12px 18px;
+      border-radius: 8px;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      animation: slideIn 0.3s cubic-bezier(0.1, 0.8, 0.3, 1) forwards;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(100px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    .toast.success { border-left: 4px solid var(--success); }
+    .toast.info { border-left: 4px solid var(--primary); }
+    .toast.warn { border-left: 4px solid var(--accent); }
+
+    /* Showdown Bars for Step 6 */
+    .showdown-chart-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .chart-bar-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bar-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .bar-track {
+      background: rgba(255, 255, 255, 0.05);
+      height: 16px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      width: 0%;
+      transition: width 0.8s cubic-bezier(0.1, 0.8, 0.3, 1);
+    }
+
+    .bar-fill.yielding { background: linear-gradient(90deg, #00f0ff, #0099ff); }
+    .bar-fill.rupture { background: linear-gradient(90deg, #ff9f43, #ff6b6b); }
+    .bar-fill.blockshear { background: linear-gradient(90deg, #ff4d4d, #c0392b); }
+
+    .crown-marker {
+      display: inline-block;
+      margin-left: 4px;
+      color: #ffd700;
+      animation: bounce 1s infinite alternate;
+    }
+
+    @keyframes bounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-4px); }
+    }
+
+    /* Modal dialog overrides */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(13, 14, 21, 0.8);
+      backdrop-filter: blur(15px);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #151724;
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 32px;
+      width: 450px;
+      max-width: 90vw;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+
+    .modal-title {
+      font-size: 1.4rem;
+      font-weight: 800;
+      margin-bottom: 12px;
+      background: linear-gradient(90deg, #00f0ff, #ff9f43);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    /* Step checklist feedback indicators */
+    .step-checklist {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: #8892b0;
+    }
+
+    .checklist-item.done {
+      color: #fff;
+    }
+
+    .checklist-item.done .chk-icon {
+      color: var(--success);
+    }
+
+    /* Failure alert box style */
+    .failure-flash-alert {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255, 77, 77, 0.15);
+      border: 1px solid var(--danger);
+      padding: 10px 20px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: var(--danger);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      backdrop-filter: blur(10px);
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      z-index: 15;
+    }
+    
+    .failure-flash-alert.active {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    <!-- Header Command Line -->
+    <header>
+      <div class="logo-container">
+        <div class="logo-icon"></div>
+        <div class="logo-text">ELI5 Steel Tension Members</div>
+        <div class="badge-is800">IS 800:2007</div>
+      </div>
+      <div class="audio-controls">
+        <button class="audio-btn" id="voiceToggle" onclick="toggleVoice()">
+          🔊 Narrator On
+        </button>
+        <button class="audio-btn" id="soundToggle" onclick="toggleSynth()">
+          🎵 Sound FX On
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Grid Workspace -->
+    <main class="main-grid">
+      
+      <!-- Left sidebar controller & dashboard content -->
+      <section class="left-panel">
+        <nav class="steps-tabs" id="stepsTabs">
+          <button class="tab-btn active" onclick="jumpToStep(1)">1</button>
+          <button class="tab-btn" onclick="jumpToStep(2)">2</button>
+          <button class="tab-btn" onclick="jumpToStep(3)">3</button>
+          <button class="tab-btn" onclick="jumpToStep(4)">4</button>
+          <button class="tab-btn" onclick="jumpToStep(5)">5</button>
+          <button class="tab-btn" onclick="jumpToStep(6)">6</button>
+        </nav>
+
+        <div class="step-content-container" id="stepView">
+          <!-- Step 1 content is injected dynamically by JS -->
+        </div>
+      </section>
+
+      <!-- Right dynamic playground visual panel -->
+      <section class="right-panel">
+        <div class="canvas-container">
+          <!-- Visual alert layer if structural limit exceeded -->
+          <div class="failure-flash-alert" id="failureAlert">
+            ⚠️ CORE STRUCTURAL FAILURE: MEMBER HAS FAILED IN TENSION!
+          </div>
+          <canvas id="playgroundCanvas"></canvas>
+        </div>
+
+        <!-- Lever puller dynamic load dashboard docking frame -->
+        <div class="tension-lever-dock">
+          <div class="lever-control-card">
+            <div class="lever-title-bar">
+              <span style="font-size: 0.85rem; font-weight: 700; text-transform: uppercase;">
+                🚨 Master Tension Tensioning Lever (Tension Load Roller)
+              </span>
+              <span class="control-value" id="leverValueText" style="font-size: 1rem; font-weight: 800;">0 kN</span>
+            </div>
+            <!-- Interactive live force pull lever slider -->
+            <input type="range" id="tensionForceSlider" min="0" max="600" value="0" step="1" oninput="updateTensionForce(this.value)">
+            <p style="margin: 0; font-size: 0.75rem; color: #8892b0; line-height: 1.4;">
+              Drag the lever to pull the Steel Gummy member. Experience structural stretching, heat gradients, bolt tilting, and ultimate physical failure alerts.
+            </p>
+          </div>
+
+          <!-- Live dynamic display dashboard telemetry -->
+          <div class="gauge-display-grid">
+            <div class="gauge-card">
+              <div class="gauge-num" id="telemetryFy">250</div>
+              <div class="gauge-label">Fy (Yield) MPa</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-num" id="telemetryAg">1900</div>
+              <div class="gauge-label">Ag mm²</div>
+            </div>
+            <div class="gauge-card">
+              <div class="gauge-num" id="telemetryLimit">431.8</div>
+              <div class="gauge-label">Limit Td (kN)</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast system wrapper layer -->
+  <div class="toast-manager" id="toastManager"></div>
+
+  <!-- Unmute Interactive Welcome Dialog modal overlay -->
+  <div class="modal-overlay open" id="welcomeModal">
+    <div class="modal-card">
+      <div class="modal-title">Gummy Steel Tension Member Arena</div>
+      <p style="font-size: 0.9rem; color: #8892b0; line-height: 1.6; margin-bottom: 24px;">
+        Welcome to the premium interactive laboratory representing **IS 800:2007** design philosophies! Learn how steel shapes stretch like gummy bands, how connection bolts tilt, and how lazy leg parts lag behind inside our cyber-stress lab.
+      </p>
+      <button class="nav-btn primary-action" style="margin: 0 auto; width: 100%; justify-content: center;" onclick="closeWelcomeModal()">
+        🚀 Unmute Engine & Start Simulation
+      </button>
+    </div>
+  </div>
+
+  <script>
+    /* =========================================================================
+       AUDIO & VOICE SYNTH ENGINE IMPLEMENTATION
+       ========================================================================= */
+    let audioCtx = null;
+    let synthMuted = false;
+    let narratorMuted = false;
+    let mainGainNode = null;
+    let activeCreakOsc = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        mainGainNode = audioCtx.createGain();
+        mainGainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+        mainGainNode.connect(audioCtx.destination);
+      } catch (e) {
+        console.warn("Web Audio API not supported", e);
+      }
+    }
+
+    function playSound(type) {
+      if (!audioCtx || synthMuted) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+
+      const time = audioCtx.currentTime;
+      if (type === 'click') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, time);
+        gain.gain.setValueAtTime(0.1, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
+        osc.connect(gain);
+        gain.connect(mainGainNode);
+        osc.start(time);
+        osc.stop(time + 0.1);
+      } else if (type === 'snap') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(330, time);
+        osc.frequency.exponentialRampToValueAtTime(880, time + 0.15);
+        gain.gain.setValueAtTime(0.2, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.25);
+        osc.connect(gain);
+        gain.connect(mainGainNode);
+        osc.start(time);
+        osc.stop(time + 0.3);
+      } else if (type === 'fail') {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, time);
+        osc.frequency.linearRampToValueAtTime(100, time + 0.3);
+        gain.gain.setValueAtTime(0.15, time);
+        gain.gain.exponentialRampToValueAtTime(0.01, time + 0.35);
+        osc.connect(gain);
+        gain.connect(mainGainNode);
+        osc.start(time);
+        osc.stop(time + 0.4);
+      } else if (type === 'success') {
+        const baseFreqs = [261.6, 329.6, 392.0, 523.3]; // C chord chime
+        baseFreqs.forEach((freq, index) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(freq, time + index * 0.05);
+          gain.gain.setValueAtTime(0.12, time + index * 0.05);
+          gain.gain.exponentialRampToValueAtTime(0.005, time + 0.5 + index * 0.05);
+          osc.connect(gain);
+          gain.connect(mainGainNode);
+          osc.start(time + index * 0.05);
+          osc.stop(time + 0.6 + index * 0.05);
+        });
+      }
+    }
+
+    function startCreaking() {
+      if (!audioCtx || synthMuted || activeCreakOsc) return;
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      
+      const time = audioCtx.currentTime;
+      activeCreakOsc = audioCtx.createOscillator();
+      activeCreakOsc.type = 'sawtooth';
+      activeCreakOsc.frequency.setValueAtTime(100, time);
+      
+      // Pitch filter
+      const biquad = audioCtx.createBiquadFilter();
+      biquad.type = 'lowpass';
+      biquad.frequency.setValueAtTime(200, time);
+
+      const creakGain = audioCtx.createGain();
+      creakGain.gain.setValueAtTime(0.0, time);
+
+      activeCreakOsc.connect(biquad);
+      biquad.connect(creakGain);
+      creakGain.connect(mainGainNode);
+      activeCreakOsc.start(time);
+      
+      activeCreakOsc.gainNode = creakGain;
+      activeCreakOsc.filterNode = biquad;
+    }
+
+    function updateCreakingPitch(force, limit) {
+      if (!activeCreakOsc) return;
+      const progress = Math.min(force / limit, 1.2);
+      const targetFreq = 100 + (progress * 350); // frequency shifts higher with force
+      const targetGain = progress > 0.05 ? (progress * 0.04) : 0.0;
+      
+      const time = audioCtx.currentTime;
+      activeCreakOsc.frequency.setTargetAtTime(targetFreq, time, 0.1);
+      activeCreakOsc.filterNode.frequency.setTargetAtTime(targetFreq + 100, time, 0.1);
+      activeCreakOsc.gainNode.gain.setTargetAtTime(targetGain, time, 0.1);
+    }
+
+    function stopCreaking() {
+      if (!activeCreakOsc) return;
+      try {
+        activeCreakOsc.stop();
+      } catch (e) {}
+      activeCreakOsc = null;
+    }
+
+    function toggleSynth() {
+      synthMuted = !synthMuted;
+      document.getElementById('soundToggle').innerText = synthMuted ? '🎵 Sound FX Off' : '🎵 Sound FX On';
+      document.getElementById('soundToggle').classList.toggle('muted', synthMuted);
+    }
+
+    function toggleVoice() {
+      narratorMuted = !narratorMuted;
+      document.getElementById('voiceToggle').innerText = narratorMuted ? '🔊 Narrator Off' : '🔊 Narrator On';
+      document.getElementById('voiceToggle').classList.toggle('muted', narratorMuted);
+      if (narratorMuted) {
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function speakNarrator(text) {
+      if (narratorMuted) return;
+      window.speechSynthesis.cancel(); // Cancel any ongoing speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    /* =========================================================================
+       CALCULATOR MATHEMATICAL ENGINE (IS 800:2007)
+       ========================================================================= */
+    const steelProperties = {
+      b1: 100,      // connected leg depth (mm)
+      b2: 100,      // outstanding leg depth (mm)
+      t: 10,        // thickness (mm)
+      fy: 250,      // yield stress (MPa)
+      fu: 410,      // ultimate tensile stress (MPa)
+      gammaM0: 1.1, // partial safety factor yield
+      gammaM1: 1.25,// partial safety factor rupture
+      d: 20,        // bolt diameter (mm)
+      d0: 22,       // hole diameter (mm - standard IS 800 clearance is 2mm)
+      g: 60,        // gauge distance (mm)
+      n: 3,         // number of bolts (default)
+      p: 50,        // pitch distance (mm)
+      e: 40         // end distance (mm)
+    };
+
+    let calculatedData = {};
+
+    function runIS800Calculations() {
+      const p = steelProperties;
+      
+      // Area of outstanding leg
+      const Ago = (p.b2 - p.t / 2) * p.t; // 950 mm2
+      
+      // Area of connected leg (deducting a single bolt hole slot projection)
+      const Anc = (p.b1 - p.d0 - p.t / 2) * p.t; // 730 mm2
+
+      // Gross total cross-sectional area (ISA 100x100x10 is 1900 mm2)
+      const Ag = (p.b1 + p.b2 - p.t) * p.t; 
+
+      // 1. Yielding Capacity (Clause 6.2)
+      const Tdg = (Ag * p.fy) / p.gammaM0 / 1000.0; // kN
+
+      // 2. Rupture Section Strength (Clause 6.3)
+      const Lc = (p.n - 1) * p.p; // Length of connection
+      const bs = p.b2 + p.g - p.t; // Shear lag distance
+
+      // Shear lag factor beta
+      let betaRaw = 1.4 - 0.076 * (p.b2 / p.t) * (p.fy / p.Fu || p.fy / p.fu) * (bs / Lc);
+      
+      // Limit restrictions on beta (Clause 6.3.3)
+      const betaMin = 0.7;
+      const betaMax = (p.fu * p.gammaM0) / (p.fy * p.gammaM1);
+      const beta = Math.max(betaMin, Math.min(betaRaw, betaMax));
+
+      const Tdn = (0.9 * Anc * p.fu / p.gammaM1 + beta * Ago * p.fy / p.gammaM0) / 1000.0;
+
+      // 3. Block Shear Capacity (Clause 6.4)
+      const Avg = (Lc + p.e) * p.t;
+      const Avn = (Lc + p.e - (p.n - 0.5) * p.d0) * p.t;
+      const Atg = (p.b1 - p.g) * p.t;
+      const Atn = (p.b1 - p.g - 0.5 * p.d0) * p.t;
+
+      const Tdb1 = (Avg * p.fy / (Math.sqrt(3) * p.gammaM0) + 0.9 * Atn * p.fu / p.gammaM1) / 1000.0;
+      const Tdb2 = (0.9 * Avn * p.fu / (Math.sqrt(3) * p.gammaM1) + Atg * p.fy / p.gammaM0) / 1000.0;
+      const Tdb = Math.min(Tdb1, Tdb2);
+
+      // Ultimate governing design capacity Td
+      const Td = Math.min(Tdg, Tdn, Tdb);
+
+      calculatedData = {
+        Ag, Anc, Ago, Lc, bs, betaRaw, beta, Tdg, Tdn, Tdb1, Tdb2, Tdb, Td
+      };
+
+      // Update basic bottom telemetry values
+      document.getElementById('telemetryAg').innerText = Math.round(Ag);
+      document.getElementById('telemetryLimit').innerText = Td.toFixed(1);
+    }
+
+    /* =========================================================================
+       DYNAMIC PROGRESSIVE STEP CONFIGURATION
+       ========================================================================= */
+    let currentStep = 1;
+    let unlockedMaxStep = 1;
+
+    // Sandbox tracking configurations
+    const sandboxStatus = {
+      collectedCards: [], // for Step 1
+      bookmarksPlaced: false, // for Step 2
+      equationSolverCorrect: false, // Step 3
+      shearLagAdjusted: false, // Step 4
+      blockShearSlipped: false, // Step 5 swipe
+      ultimateLoaded: false // Step 6
+    };
+
+    // Card structures representing parameters
+    const parameterCards = [
+      { id: 'size', text: 'ISA 100x100x10', value: '1900 mm²', label: 'Gross Area (Ag)' },
+      { id: 'plate', text: '10 mm thick gusset', value: '10 mm', label: 'Gusset Plate' },
+      { id: 'bolts', text: '20 mm diameter', value: '22 mm', label: 'Bolt Hole (d₀)' }
+    ];
+
+    function showToast(message, type = 'info') {
+      const parent = document.getElementById('toastManager');
+      const toast = document.createElement('div');
+      toast.className = `toast ${type}`;
+      toast.innerHTML = `<span>⚡</span> <span>${message}</span>`;
+      parent.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 400);
+      }, 3500);
+    }
+
+    function jumpToStep(num) {
+      if (num > unlockedMaxStep) {
+        playSound('fail');
+        showToast("Solve the interactive challenge before unlocking next step!", "warn");
+        return;
+      }
+      currentStep = num;
+      playSound('click');
+      renderActiveStep();
+      updateTabHighlights();
+      triggerNarratorVoiceForStep(num);
+    }
+
+    function unlockStep(num) {
+      if (num > unlockedMaxStep) {
+        unlockedMaxStep = num;
+        updateTabHighlights();
+        showToast(`Unlocked Chapter ${num}!`, 'success');
+        playSound('success');
+      }
+    }
+
+    function updateTabHighlights() {
+      const tabs = document.querySelectorAll('#stepsTabs .tab-btn');
+      tabs.forEach((tab, index) => {
+        const stepNum = index + 1;
+        tab.className = 'tab-btn';
+        if (stepNum === currentStep) tab.classList.add('active');
+        if (stepNum > unlockedMaxStep) tab.classList.add('locked');
+      });
+    }
+
+    function triggerNarratorVoiceForStep(num) {
+      let speechText = "";
+      switch (num) {
+        case 1:
+          speechText = "Let's find the numbers hidden inside our problem text. Click the blue words inside the text to extract parameters for our steel angle.";
+          break;
+        case 2:
+          speechText = "Awesome! Now we need to align the IS 800 standards. Drag the design bookmark on the left and snap it into the formula engine.";
+          break;
+        case 3:
+          speechText = "Great work. Now drag the pocket parameters from below and drop them directly into the Gross Yield Equation. Put area, yield strength, and the factor of safety in their slots.";
+          break;
+        case 4:
+          speechText = "The outstanding leg of our steel is a lazy leg! It lags behind the connection causing shear lag. Use the sliders below to adjust your connection and watch the lag factor update in real-time.";
+          break;
+        case 5:
+          speechText = "Block Shear is super cool! Imagine pulling so hard that the bolts slice the steel member like a hot wire slicing through cheese! Swipe your mouse along the bolt line to trigger the block tear!";
+          break;
+        case 6:
+          speechText = "Ultimate Showdown time! Look at our capacity comparisons. Yielding, Rupture, and Block Shear are flexing. The smallest capacity becomes our safety guard!";
+          break;
+      }
+      speakNarrator(speechText);
+    }
+
+    function closeWelcomeModal() {
+      document.getElementById('welcomeModal').classList.remove('open');
+      initAudio();
+      runIS800Calculations();
+      renderActiveStep();
+      triggerNarratorVoiceForStep(1);
+    }
+
+    /* =========================================================================
+       CUSTOM MOUSE/POINTER DRAGGING SYSTEM (BULLETPROOF, TOUCH-FRIENDLY)
+       ========================================================================= */
+    let dragItem = null;
+    let dragOffset = { x: 0, y: 0 };
+    let dragClone = null;
+
+    function initDraggableElement(el, dragData) {
+      el.addEventListener('pointerdown', (e) => {
+        e.preventDefault();
+        initAudio();
+        
+        const rect = el.getBoundingClientRect();
+        dragOffset.x = e.clientX - rect.left;
+        dragOffset.y = e.clientY - rect.top;
+        
+        dragItem = {
+          element: el,
+          data: dragData,
+          startX: rect.left,
+          startY: rect.top
+        };
+
+        // Create absolute flying drag icon container
+        dragClone = el.cloneNode(true);
+        dragClone.className += ' dragging-avatar';
+        dragClone.style.width = `${rect.width}px`;
+        dragClone.style.height = `${rect.height}px`;
+        dragClone.style.left = `${e.clientX - dragOffset.x}px`;
+        dragClone.style.top = `${e.clientY - dragOffset.y}px`;
+        document.body.appendChild(dragClone);
+        
+        el.style.opacity = '0.3';
+        playSound('click');
+      });
+    }
+
+    document.addEventListener('pointermove', (e) => {
+      if (!dragClone) return;
+      dragClone.style.left = `${e.clientX - dragOffset.x}px`;
+      dragClone.style.top = `${e.clientY - dragOffset.y}px`;
+
+      // Visual helper highlight for dropzones
+      const slots = document.querySelectorAll('.target-dropzone, .equation-slot');
+      slots.forEach(slot => {
+        const r = slot.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+          slot.classList.add('drag-over');
+        } else {
+          slot.classList.remove('drag-over');
+        }
+      });
+    });
+
+    document.addEventListener('pointerup', (e) => {
+      if (!dragClone) return;
+      
+      const releasedX = e.clientX;
+      const releasedY = e.clientY;
+      
+      let matchedSlot = null;
+      const slots = document.querySelectorAll('.target-dropzone, .equation-slot');
+      
+      slots.forEach(slot => {
+        const r = slot.getBoundingClientRect();
+        if (releasedX >= r.left && releasedX <= r.right && releasedY >= r.top && releasedY <= r.bottom) {
+          matchedSlot = slot;
+        }
+        slot.classList.remove('drag-over');
+      });
+
+      // Cleanup flying element clone
+      dragClone.remove();
+      dragClone = null;
+      dragItem.element.style.opacity = '1';
+
+      if (matchedSlot) {
+        handleElementDrop(dragItem.data, matchedSlot);
+      } else {
+        playSound('fail');
+      }
+      
+      dragItem = null;
+    });
+
+    function handleElementDrop(data, slot) {
+      // Logic for step-specific drops
+      if (currentStep === 2 && slot.id === 'clauseDropzone') {
+        if (data.id === 'clause62') {
+          slot.classList.add('success-drop');
+          slot.innerHTML = `<span style="color: var(--success); font-weight:700;">✅ Locked in: Clause 6.2 (Yielding of Gross Section)</span>`;
+          sandboxStatus.bookmarksPlaced = true;
+          playSound('success');
+          showToast("Formula template unlocked! Proceed to Equation Solver.", "success");
+          unlockStep(3);
+          renderActiveStep();
+        } else {
+          playSound('fail');
+          showToast("Oops! Use Clause 6.2 for calculating Yielding of Gross Section.", "warn");
+          speakNarrator("Oh, that's not Clause 6.2. The Yielding of the full section belongs to Clause 6.2!");
+        }
+      } 
+      else if (currentStep === 3 && slot.classList.contains('equation-slot')) {
+        const expectedId = slot.dataset.expected;
+        if (data.id === expectedId) {
+          slot.classList.add('filled');
+          slot.innerText = data.text.split(' ')[0]; // short display
+          playSound('snap');
+          checkEquationCompletion();
+        } else {
+          playSound('fail');
+          showToast("Wait! That variable doesn't belong in that slot.", "warn");
+        }
+      }
+    }
+
+    function checkEquationCompletion() {
+      const slots = document.querySelectorAll('.equation-slot');
+      let allFilled = true;
+      slots.forEach(slot => {
+        if (!slot.classList.contains('filled')) allFilled = false;
+      });
+
+      if (allFilled) {
+        sandboxStatus.equationSolverCorrect = true;
+        playSound('success');
+        showToast("Fantastic! Yield capacity computed: Tdg = 431.8 kN", "success");
+        speakNarrator("Yum! Yielding equation complete. This steel band can hold 431.8 kilonewtons before stretching out of shape!");
+        unlockStep(4);
+        renderActiveStep();
+      }
+    }
+
+    /* =========================================================================
+       DYNAMIC SIDEBAR TEMPLATE RENDERING
+       ========================================================================= */
+    function renderActiveStep() {
+      const container = document.getElementById('stepView');
+      container.innerHTML = ''; // wipe former step content
+
+      switch (currentStep) {
+        case 1:
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 1: Active Extract</h3>
+              <p style="margin: 0 0 12px 0; font-size: 0.8rem; color:#8892b0;">
+                Our challenge scenario is shown below. Click on highlighted critical properties inside the question to collect them into your tool pouch pocket.
+              </p>
+              <div class="text-interactive">
+                "Design a steel angle member consisting of an unequal profile 
+                <span class="term-highlight" id="term_size" onclick="collectTerm('size')">ISA 100x100x10</span> 
+                connected to a 
+                <span class="term-highlight" id="term_plate" onclick="collectTerm('plate')">10 mm thick gusset</span> 
+                using 
+                <span class="term-highlight" id="term_bolts" onclick="collectTerm('bolts')">20 mm diameter</span> 
+                anchor bolts to safely carry tension loads."
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Your Tool Pouch Pocket</h3>
+              <div class="pocket-container" id="pocketContainer">
+                <span style="font-size:0.8rem; color:#8892b0;" id="emptyPocketLabel">Empty. Click the interactive words above to grab variables!</span>
+              </div>
+            </div>
+
+            <div class="eli5-speech-bubble">
+              <span class="gummy-avatar">😋</span>
+              <div>
+                <strong>The Gummy Band Analogy:</strong> Think of this structural steel angle as a giant super-strong gummy band. Before pulling it, we must catalog its size, steel thickness, and connections!
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" disabled>Back</button>
+              <button class="nav-btn primary-action" id="nextBtn1" disabled onclick="jumpToStep(2)">Proceed</button>
+            </div>
+          `;
+          updatePocketUI();
+          break;
+
+        case 2:
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 2: IS 800 Spells Codebook</h3>
+              <p style="font-size: 0.8rem; color: #8892b0; margin-top:0;">
+                Which spell from the Standard IS 800 Indian Codebook lets us calculate the <strong>Yielding of the Gross Area</strong>? Drag the correct codebook bookmark into the target engine slot!
+              </p>
+              
+              <div class="bookmark-slot-container">
+                <div class="codebook-bookmark" id="bm_62">📖 Clause 6.2: Yielding of Gross Section</div>
+                <div class="codebook-bookmark" id="bm_63">📖 Clause 6.3: Rupture of Critical Section</div>
+                <div class="codebook-bookmark" id="bm_64">📖 Clause 6.4: Block Shear Failure</div>
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <div class="target-dropzone" id="clauseDropzone">
+                🫳 Drop correct bookmark here...
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" onclick="jumpToStep(1)">Back</button>
+              <button class="nav-btn primary-action" id="nextBtn2" ${sandboxStatus.bookmarksPlaced ? '' : 'disabled'} onclick="jumpToStep(3)">Proceed</button>
+            </div>
+          `;
+          
+          // Wire up drag events
+          if (!sandboxStatus.bookmarksPlaced) {
+            initDraggableElement(document.getElementById('bm_62'), { id: 'clause62', text: 'Clause 6.2' });
+            initDraggableElement(document.getElementById('bm_63'), { id: 'clause63', text: 'Clause 6.3' });
+            initDraggableElement(document.getElementById('bm_64'), { id: 'clause64', text: 'Clause 6.4' });
+          } else {
+            const slot = document.getElementById('clauseDropzone');
+            slot.classList.add('success-drop');
+            slot.innerHTML = `<span style="color: var(--success); font-weight:700;">✅ Locked in: Clause 6.2 (Yielding of Gross Section)</span>`;
+          }
+          break;
+
+        case 3:
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 3: Drag & Drop Equation Solver</h3>
+              <p style="font-size: 0.8rem; color: #8892b0; margin-top:0;">
+                Let's construct our formula for Gross Yielding ($T_{dg}$)! Drag value cards from your pocket below into their correct equation slot positions.
+              </p>
+              
+              <div class="equation-builder">
+                <div class="equation-display">
+                  <span>T<sub>dg</sub> = </span>
+                  <div class="equation-slot" id="slot_Ag" data-expected="card_size">Area</div>
+                  <span>×</span>
+                  <div class="equation-slot" id="slot_Fy" data-expected="card_fy">f<sub>y</sub></div>
+                  <span>/</span>
+                  <div class="equation-slot" id="slot_gamma" data-expected="card_gamma">γ<sub>m0</sub></div>
+                </div>
+                
+                ${sandboxStatus.equationSolverCorrect ? `<p style="color: var(--success); font-size: 0.85rem; font-weight:700;">Solved! Tdg = (1900 × 250) / (1.1 × 1000) = 431.8 kN</p>` : ''}
+              </div>
+            </div>
+
+            <div class="glass-card">
+              <h3 class="card-title">Pocket Variables Shelf</h3>
+              <div class="pocket-container" id="eqPocketContainer" style="min-height: 60px;">
+                <!-- Cards injected here -->
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" onclick="jumpToStep(2)">Back</button>
+              <button class="nav-btn primary-action" id="nextBtn3" ${sandboxStatus.equationSolverCorrect ? '' : 'disabled'} onclick="jumpToStep(4)">Proceed</button>
+            </div>
+          `;
+
+          // Generate numeric drag cards for equation slot mapping
+          const eqPocket = document.getElementById('eqPocketContainer');
+          eqPocket.innerHTML = '';
+          const dragCardsData = [
+            { id: 'card_size', text: 'Ag = 1900 mm²' },
+            { id: 'card_fy', text: 'fy = 250 MPa' },
+            { id: 'card_gamma', text: 'γm0 = 1.1' }
+          ];
+
+          dragCardsData.forEach(data => {
+            const card = document.createElement('div');
+            card.className = 'value-card';
+            card.id = data.id;
+            card.innerText = data.text;
+            eqPocket.appendChild(card);
+            initDraggableElement(card, data);
+          });
+
+          // Pre-fill slots if already solved successfully
+          if (sandboxStatus.equationSolverCorrect) {
+            document.getElementById('slot_Ag').className = 'equation-slot filled';
+            document.getElementById('slot_Ag').innerText = '1900';
+            document.getElementById('slot_Fy').className = 'equation-slot filled';
+            document.getElementById('slot_Fy').innerText = '250';
+            document.getElementById('slot_gamma').className = 'equation-slot filled';
+            document.getElementById('slot_gamma').innerText = '1.1';
+          }
+          break;
+
+        case 4:
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 4: The Lazy Leg (Shear Lag β)</h3>
+              <div class="eli5-speech-bubble" style="margin-bottom: 12px;">
+                <span class="gummy-avatar">🥱</span>
+                <div>
+                  The leg connected to the plate does all the hard pulling! The outer outstanding leg is <strong>"lazy"</strong> and lags behind. This uneven stretching is called <strong>Shear Lag</strong>.
+                </div>
+              </div>
+              <p style="font-size: 0.8rem; color:#8892b0;">
+                The length of connection ($L_c$) dictates this lagging. Adjust the pitch and count sliders below and watch the <strong>Lag Factor ($\beta$)</strong> alter dynamically!
+              </p>
+            </div>
+
+            <div class="glass-card slider-group">
+              <div class="control-row">
+                <div class="control-label-wrapper">
+                  <span class="control-label">Connection Bolt Count (n)</span>
+                  <span class="control-value" id="val_n">${steelProperties.n} bolts</span>
+                </div>
+                <input type="range" id="slide_n" min="2" max="5" value="${steelProperties.n}" oninput="adjustConnectionParam('n', this.value)">
+              </div>
+
+              <div class="control-row">
+                <div class="control-label-wrapper">
+                  <span class="control-label">Bolt Pitch (p)</span>
+                  <span class="control-value" id="val_p">${steelProperties.p} mm</span>
+                </div>
+                <input type="range" id="slide_p" min="50" max="80" value="${steelProperties.p}" step="5" oninput="adjustConnectionParam('p', this.value)">
+              </div>
+
+              <div class="control-row">
+                <div class="control-label-wrapper">
+                  <span class="control-label">End Edge distance (e)</span>
+                  <span class="control-value" id="val_e">${steelProperties.e} mm</span>
+                </div>
+                <input type="range" id="slide_e" min="30" max="50" value="${steelProperties.e}" step="5" oninput="adjustConnectionParam('e', this.value)">
+              </div>
+            </div>
+
+            <div class="glass-card" style="background: rgba(255, 159, 67, 0.05);">
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Length of Connection (Lc):</span>
+                <strong id="liveLcVal">${calculatedData.Lc} mm</strong>
+              </div>
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Computed Lag Factor (β):</span>
+                <strong style="color: var(--accent);" id="liveBetaVal">${calculatedData.beta.toFixed(3)}</strong>
+              </div>
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between;">
+                <span>Net Rupture Capacity (Tdn):</span>
+                <strong style="color: var(--primary);" id="liveTdnVal">${calculatedData.Tdn.toFixed(1)} kN</strong>
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" onclick="jumpToStep(3)">Back</button>
+              <button class="nav-btn primary-action" onclick="unlockStep(5); jumpToStep(5);">Proceed</button>
+            </div>
+          `;
+          break;
+
+        case 5:
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 5: Cheese Slice Block Failure</h3>
+              <div class="eli5-speech-bubble" style="margin-bottom: 12px;">
+                <span class="gummy-avatar">🧀</span>
+                <div>
+                  <strong>Block Shear:</strong> If bolts grip the gummy band too tight, pulling forces will literally tear the block slice right out of the steel, just like a metal wire slicing cheese!
+                </div>
+              </div>
+              <p style="font-size:0.8rem; color:#8892b0; margin-bottom:12px;">
+                <strong>Swipe Action Needed:</strong> Click and drag your mouse on the canvas over the glowing failure line (the dashed path) to slice the block shear path and unlock capacities!
+              </p>
+              
+              <div class="step-checklist">
+                <div class="checklist-item ${sandboxStatus.blockShearSlipped ? 'done' : ''}" id="chk_block">
+                  <span class="chk-icon">⚡</span>
+                  <span>Swipe to tear block along shear/tension failure planes</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card" style="background: rgba(255,77,77,0.05); border-color: rgba(255,77,77,0.2);">
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tdb1 (Shear Yield + Tens Rupture):</span>
+                <strong id="liveTdb1Val">${calculatedData.Tdb1.toFixed(1)} kN</strong>
+              </div>
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tdb2 (Shear Rupture + Tens Yield):</span>
+                <strong id="liveTdb2Val">${calculatedData.Tdb2.toFixed(1)} kN</strong>
+              </div>
+              <div style="font-size: 0.8rem; display:flex; justify-content:space-between; font-weight:700; border-top:1px solid rgba(255,255,255,0.1); padding-top:4px; margin-top:4px;">
+                <span>Governing Block Shear Tdb:</span>
+                <strong style="color: var(--danger);" id="liveTdbVal">${calculatedData.Tdb.toFixed(1)} kN</strong>
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" onclick="jumpToStep(4)">Back</button>
+              <button class="nav-btn primary-action" id="nextBtn5" ${sandboxStatus.blockShearSlipped ? '' : 'disabled'} onclick="unlockStep(6); jumpToStep(6)">Proceed</button>
+            </div>
+          `;
+          break;
+
+        case 6:
+          // Find out which governs (is smallest)
+          const data = calculatedData;
+          const minCap = Math.min(data.Tdg, data.Tdn, data.Tdb);
+          let govName = "";
+          if (minCap === data.Tdg) govName = "Yielding of Gross Section (Clause 6.2)";
+          else if (minCap === data.Tdn) govName = "Rupture of Critical Section (Clause 6.3)";
+          else govName = "Block Shear Rupture (Clause 6.4)";
+
+          container.innerHTML = `
+            <div class="glass-card">
+              <h3 class="card-title"><span class="icon-dot"></span>Step 6: Ultimate Showdown</h3>
+              <p style="font-size: 0.8rem; color:#8892b0; margin-top:0;">
+                All three limits have been calculated. The absolute <strong>Design Tensile Capacity ($T_d$)</strong> of our member is governed by the <strong>smallest</strong> value!
+              </p>
+
+              <div class="showdown-chart-wrapper">
+                <div class="chart-bar-row">
+                  <div class="bar-header">
+                    <span>1. Yield Strength (Tdg)</span>
+                    <span>${data.Tdg.toFixed(1)} kN ${minCap === data.Tdg ? '<span class="crown-marker">👑</span>' : ''}</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill yielding" style="width: ${ (data.Tdg / 600) * 100 }%"></div>
+                  </div>
+                </div>
+
+                <div class="chart-bar-row">
+                  <div class="bar-header">
+                    <span>2. Rupture Strength (Tdn)</span>
+                    <span>${data.Tdn.toFixed(1)} kN ${minCap === data.Tdn ? '<span class="crown-marker">👑</span>' : ''}</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill rupture" style="width: ${ (data.Tdn / 600) * 100 }%"></div>
+                  </div>
+                </div>
+
+                <div class="chart-bar-row">
+                  <div class="bar-header">
+                    <span>3. Block Shear Strength (Tdb)</span>
+                    <span>${data.Tdb.toFixed(1)} kN ${minCap === data.Tdb ? '<span class="crown-marker">👑</span>' : ''}</span>
+                  </div>
+                  <div class="bar-track">
+                    <div class="bar-fill blockshear" style="width: ${ (data.Tdb / 600) * 100 }%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="glass-card" style="background: rgba(46, 204, 113, 0.08); border-color: var(--success);">
+              <h4 style="margin:0 0 6px 0; color: var(--success); font-size:0.9rem;">🏆 Governing Tensile Capacity</h4>
+              <p style="margin:0; font-size:1.15rem; font-weight:800; color:#fff;">
+                Td = ${minCap.toFixed(1)} kN
+              </p>
+              <p style="margin:4px 0 0 0; font-size:0.75rem; color:#8892b0; line-height:1.4;">
+                Governed by: <strong>${govName}</strong>
+              </p>
+            </div>
+
+            <div class="eli5-speech-bubble">
+              <span class="gummy-avatar">🥳</span>
+              <div>
+                <strong>Champion Gummy Band!</strong> We discovered that under tension load, the member can safely withstand up to <strong>${minCap.toFixed(1)} kilonewtons</strong> of pull before ripping apart!
+              </div>
+            </div>
+
+            <div class="navigation-row">
+              <button class="nav-btn" onclick="jumpToStep(5)">Back</button>
+              <button class="nav-btn primary-action" onclick="triggerCelebrationConfetti()">🎉 Celebrate Chime</button>
+            </div>
+          `;
+          break;
+      }
+    }
+
+    /* =========================================================================
+       STEP-SPECIFIC GAME INTERACTION EVENTS
+       ========================================================================= */
+    function collectTerm(id) {
+      if (sandboxStatus.collectedCards.includes(id)) return;
+      
+      const termEl = document.getElementById(`term_${id}`);
+      termEl.classList.add('collected');
+      
+      sandboxStatus.collectedCards.push(id);
+      playSound('snap');
+      showToast(`Collected parameter card: ${parameterCards.find(c => c.id === id).text}`, 'info');
+
+      updatePocketUI();
+
+      // Check if all parameters are extracted
+      if (sandboxStatus.collectedCards.length === 3) {
+        speakNarrator("Awesome! All parameters collected in your tools pocket. Let's head over to Step 2 to find the correct IS 800 spell formula!");
+        document.getElementById('nextBtn1').disabled = false;
+        unlockStep(2);
+      }
+    }
+
+    function updatePocketUI() {
+      const pocket = document.getElementById('pocketContainer');
+      if (!pocket) return;
+
+      pocket.innerHTML = '';
+      if (sandboxStatus.collectedCards.length === 0) {
+        pocket.innerHTML = `<span style="font-size:0.8rem; color:#8892b0;">Empty. Click the interactive words above to grab variables!</span>`;
+        return;
+      }
+
+      sandboxStatus.collectedCards.forEach(cardId => {
+        const data = parameterCards.find(c => c.id === cardId);
+        const cardNode = document.createElement('div');
+        cardNode.className = 'value-card highlighted';
+        cardNode.innerHTML = `<span>🏷️</span> <div><strong>${data.text}</strong><div style="font-size:0.7rem; color:#8892b0;">${data.label}</div></div>`;
+        pocket.appendChild(cardNode);
+      });
+    }
+
+    function adjustConnectionParam(param, value) {
+      steelProperties[param] = parseFloat(value);
+      
+      // Update sidebar texts
+      if (param === 'n') document.getElementById('val_n').innerText = `${value} bolts`;
+      if (param === 'p') document.getElementById('val_p').innerText = `${value} mm`;
+      if (param === 'e') document.getElementById('val_e').innerText = `${value} mm`;
+
+      runIS800Calculations();
+
+      // Update calculations visual panel
+      document.getElementById('liveLcVal').innerText = `${calculatedData.Lc} mm`;
+      document.getElementById('liveBetaVal').innerText = calculatedData.beta.toFixed(3);
+      document.getElementById('liveTdnVal').innerText = `${calculatedData.Tdn.toFixed(1)} kN`;
+
+      playSound('click');
+    }
+
+    /* =========================================================================
+       HIGH-DPI (RETINA) INTERACTIVE CANVAS DRAWING PANEL
+       ========================================================================= */
+    const canvas = document.getElementById('playgroundCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Drag-pull status
+    let currentTensionForce = 0;
+    const forceLimits = { yield: 431.8, rupture: 450, blockshear: 410 };
+    
+    // Confetti array for Step 6 celebration
+    let confettiList = [];
+
+    // Slice gesture tracking for Step 5
+    let isSwiping = false;
+    let swipeProgress = 0; // 0 to 1
+    let lastMouseX = 0;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    // Initial scaling run
+    setTimeout(resizeCanvas, 50);
+
+    // Canvas click down tracking
+    canvas.addEventListener('pointerdown', (e) => {
+      initAudio();
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (currentStep === 5 && !sandboxStatus.blockShearSlipped) {
+        // Only active swipe over the tear lines zone
+        if (mouseX > 120 && mouseX < 320 && mouseY > 110 && mouseY < 170) {
+          isSwiping = true;
+          lastMouseX = mouseX;
+          playSound('click');
+        }
+      } else {
+        // Default dragging gesture anywhere to simulate physical pull
+        isSwiping = false;
+        canvas.classList.add('pulling');
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (isSwiping && currentStep === 5) {
+        const dx = mouseX - lastMouseX;
+        if (dx > 0) {
+          swipeProgress += dx / 150; // swipe right to slash
+          if (swipeProgress >= 1) {
+            swipeProgress = 1;
+            isSwiping = false;
+            sandboxStatus.blockShearSlipped = true;
+            playSound('success');
+            showToast("Swipe Block Shear Slash Complete!", "success");
+            speakNarrator("Wow! Look at that block slice sliding away. The tearing capacity is calculated at " + calculatedData.Tdb.toFixed(1) + " kilonewtons.");
+            document.getElementById('nextBtn5').disabled = false;
+            renderActiveStep();
+          }
+          lastMouseX = mouseX;
+        }
+      }
+    });
+
+    canvas.addEventListener('pointerup', () => {
+      isSwiping = false;
+    });
+
+    function updateTensionForce(val) {
+      currentTensionForce = parseFloat(val);
+      document.getElementById('leverValueText').innerText = `${val} kN`;
+
+      // Live warning indicator if limit capacity breached
+      const failureAlert = document.getElementById('failureAlert');
+      const limit = calculatedData.Td;
+      if (currentTensionForce > limit) {
+        failureAlert.classList.add('active');
+        playSound('fail');
+      } else {
+        failureAlert.classList.remove('active');
+      }
+
+      // Audio engine frequency pitch shifting
+      if (currentTensionForce > 5) {
+        startCreaking();
+        updateCreakingPitch(currentTensionForce, limit);
+      } else {
+        stopCreaking();
+      }
+    }
+
+    function triggerCelebrationConfetti() {
+      playSound('success');
+      confettiList = [];
+      for (let i = 0; i < 80; i++) {
+        confettiList.push({
+          x: Math.random() * canvas.width / (window.devicePixelRatio || 1),
+          y: -10 - Math.random() * 50,
+          vx: (Math.random() - 0.5) * 6,
+          vy: Math.random() * 5 + 4,
+          color: `hsl(${Math.random() * 360}, 90%, 60%)`,
+          size: Math.random() * 6 + 4
+        });
+      }
+    }
+
+    // Core high performance rendering cycle (60 FPS redraw loop)
+    function drawPlayground() {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      
+      if (w === 0 || h === 0) {
+        requestAnimationFrame(drawPlayground);
+        return;
+      }
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Grid backdrop cyber lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.02)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Calculate relative stress level based on current force puller slider
+      const limit = calculatedData.Td || 431.8;
+      const stressRatio = Math.min(currentTensionForce / limit, 1.3);
+      const deformation = stressRatio * 18; // physical stretch in pixels
+
+      // Draw Gusset Anchor Brick Plate (solid static gray element on the left)
+      ctx.fillStyle = '#2d323f';
+      ctx.beginPath();
+      ctx.moveTo(20, 60);
+      ctx.lineTo(160, 60);
+      ctx.lineTo(160, 220);
+      ctx.lineTo(20, 220);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = '#475166';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Label behind texts for visual contrast
+      drawLabelBox(30, 80, "GUSSET ANCHOR PLATE (10mm)", "#1d212b", "#8892b0");
+
+      // Draw Steel Tension member angle (connected leg + outstanding overlay)
+      // Base coordinates
+      const angleStartX = 100;
+      const angleStartY = 110;
+      const angleWidth = 260 + deformation;
+      const angleHeight = 80;
+
+      // Draw Heat Gradient (Shear Lag Representation) on connected steel region
+      // Gradient represents connected leg heat glowing orange vs outstanding blue
+      const grad = ctx.createLinearGradient(angleStartX + deformation, angleStartY, angleStartX + angleWidth, angleStartY);
+      
+      // Interpolate colors based on actual stress ratio loading status
+      const colorHot = `rgba(255, ${Math.floor(240 - stressRatio * 150)}, ${Math.floor(67 - stressRatio * 67)}, ${0.1 + stressRatio * 0.75})`;
+      const colorCold = `rgba(0, 240, 255, 0.3)`;
+      
+      grad.addColorStop(0, colorHot);
+      grad.addColorStop(0.6, 'rgba(0, 240, 255, 0.2)');
+      grad.addColorStop(1, 'rgba(0, 240, 255, 0.05)');
+
+      ctx.fillStyle = grad;
+      ctx.fillRect(angleStartX + deformation, angleStartY, angleWidth, angleHeight);
+
+      // Draw steel outer outline border
+      ctx.strokeStyle = stressRatio > 1.0 ? '#ff4d4d' : '#00f0ff';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(angleStartX + deformation, angleStartY, angleWidth, angleHeight);
+
+      // Label overlay for lazy outstanding leg lagging
+      drawLabelBox(220 + deformation/2, 130, "CONNECTED LEG", "rgba(0,0,0,0.7)", "#00f0ff");
+
+      // Outstanding leg visual block offset projection (representing the perpendicular leg)
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.1)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(angleStartX + deformation, angleStartY);
+      ctx.lineTo(angleStartX + deformation + 20, angleStartY - 30);
+      ctx.lineTo(angleStartX + angleWidth + 20, angleStartY - 30);
+      ctx.lineTo(angleStartX + angleWidth, angleStartY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      drawLabelBox(240 + deformation/2, 72, "LAZY LEG (OUTSTANDING)", "rgba(13,14,21,0.85)", "#ff9f43");
+
+      // Draw Connection Bolt pins with adjustable pitch/distances
+      const n = steelProperties.n;
+      const p = steelProperties.p;
+      const e = steelProperties.e;
+
+      // Relative coordinates of bolts
+      const boltY = angleStartY + 40;
+      const startBoltX = angleStartX + e; // Bolt spacing starts relative to the angle end
+
+      ctx.lineWidth = 2;
+      for (let i = 0; i < n; i++) {
+        const bX = startBoltX + i * p;
+        
+        // Show bolts tilting if shear forces are large
+        const tiltX = stressRatio * 2.5;
+
+        // Draw bolt hole clearance circle
+        ctx.strokeStyle = 'rgba(255, 159, 67, 0.4)';
+        ctx.beginPath();
+        ctx.arc(bX, boltY, 11, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Draw solid glowing bolt pin representation
+        ctx.fillStyle = stressRatio > 1.0 ? '#ff4d4d' : '#ff9f43';
+        ctx.beginPath();
+        ctx.arc(bX + tiltX, boltY, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+      }
+
+      // Step 5: Draw visual block shear failing plane if on step 5
+      if (currentStep === 5) {
+        const tearStartX = startBoltX;
+        const tearEndX = startBoltX + (n - 1) * p;
+        const tearY = boltY;
+
+        // Shear Fail Path line (parallel to pull force along bolt center lines)
+        ctx.strokeStyle = sandboxStatus.blockShearSlipped ? 'rgba(255, 77, 77, 0.2)' : 'rgba(255, 77, 77, 0.8)';
+        ctx.setLineDash([5, 4]);
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(tearStartX, tearY);
+        ctx.lineTo(tearEndX, tearY);
+        ctx.stroke();
+
+        // Perpendicular failure plane (Tension Path from bolt line to edge of connected angle)
+        ctx.beginPath();
+        ctx.moveTo(tearEndX, tearY);
+        ctx.lineTo(tearEndX, angleStartY + angleHeight);
+        ctx.stroke();
+        ctx.setLineDash([]); // reset
+
+        // Draw dynamic swipe interactive cutter icon
+        if (!sandboxStatus.blockShearSlipped) {
+          const progressX = tearStartX + swipeProgress * (tearEndX - tearStartX);
+          
+          // Outer glow pulsing halo
+          ctx.fillStyle = 'rgba(255, 77, 77, 0.25)';
+          ctx.beginPath();
+          ctx.arc(progressX, tearY, 20 + Math.sin(Date.now() / 150) * 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Slice target circle indicator
+          ctx.fillStyle = 'var(--danger)';
+          ctx.beginPath();
+          ctx.arc(progressX, tearY, 10, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 10px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText("SWIPE", progressX, tearY - 14);
+        } else {
+          // Draw sheared off slice chunk sliding away representing cheese cut
+          ctx.fillStyle = 'rgba(255, 77, 77, 0.12)';
+          ctx.strokeStyle = 'var(--danger)';
+          ctx.beginPath();
+          ctx.moveTo(tearStartX, tearY);
+          ctx.lineTo(tearEndX, tearY);
+          ctx.lineTo(tearEndX, angleStartY + angleHeight);
+          ctx.lineTo(tearStartX, angleStartY + angleHeight);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+      }
+
+      // Handle Confetti Particles falling physics (Step 6 Celebration chime effect)
+      if (confettiList.length > 0) {
+        confettiList.forEach((c, index) => {
+          c.y += c.vy;
+          c.x += c.vx;
+          ctx.fillStyle = c.color;
+          ctx.fillRect(c.x, c.y, c.size, c.size);
+
+          // Purge confetti that fall past screen frame limits
+          if (c.y > h) confettiList.splice(index, 1);
+        });
+      }
+
+      // Live Load Vector physical pulling arrow
+      if (currentTensionForce > 0) {
+        const arrowStartX = angleStartX + angleWidth + 20;
+        const arrowEndX = arrowStartX + 45;
+        const arrowY = angleStartY + angleHeight / 2;
+
+        ctx.strokeStyle = 'var(--danger)';
+        ctx.lineWidth = 4 + stressRatio * 3;
+        ctx.beginPath();
+        ctx.moveTo(arrowStartX, arrowY);
+        ctx.lineTo(arrowEndX, arrowY);
+        ctx.stroke();
+
+        // Arrow tip head
+        ctx.fillStyle = 'var(--danger)';
+        ctx.beginPath();
+        ctx.moveTo(arrowEndX, arrowY - 8);
+        ctx.lineTo(arrowEndX + 12, arrowY);
+        ctx.lineTo(arrowEndX, arrowY + 8);
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Cross section secondary static illustration drawing helper on the bottom left corner
+      drawCrossSectionBox(w - 140, 50);
+
+      requestAnimationFrame(drawPlayground);
+    }
+
+    // Helper to draw text box labels with high dynamic background contrast overlay prevent overlapping
+    function drawLabelBox(x, y, text, bgColor, textColor) {
+      ctx.font = 'bold 10px sans-serif';
+      const textWidth = ctx.measureText(text).width;
+      
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(x - 5, y - 10, textWidth + 10, 15);
+      
+      ctx.strokeStyle = textColor;
+      ctx.lineWidth = 0.5;
+      ctx.strokeRect(x - 5, y - 10, textWidth + 10, 15);
+
+      ctx.fillStyle = textColor;
+      ctx.textAlign = 'left';
+      ctx.fillText(text, x, y + 1);
+    }
+
+    // Drawing a mini L-shaped cross section view
+    function drawCrossSectionBox(cx, cy) {
+      ctx.strokeStyle = '#8892b0';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(cx - 5, cy - 5, 120, 120);
+
+      // Draw L shape representation (ISA 100x100x10)
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.strokeStyle = '#00f0ff';
+      ctx.lineWidth = 2.5;
+      
+      ctx.beginPath();
+      ctx.moveTo(cx + 20, cy + 20);
+      ctx.lineTo(cx + 35, cy + 20);
+      ctx.lineTo(cx + 35, cy + 85);
+      ctx.lineTo(cx + 100, cy + 85);
+      ctx.lineTo(cx + 100, cy + 100);
+      ctx.lineTo(cx + 20, cy + 100);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Connected bolt passing through connected vertical leg
+      ctx.fillStyle = '#ff9f43';
+      ctx.fillRect(cx + 10, cy + 55, 35, 12);
+      
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 8px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText("BOLT", cx + 27, cy + 64);
+
+      // Label
+      ctx.fillStyle = '#8892b0';
+      ctx.font = '900 8px sans-serif';
+      ctx.fillText("L-CROSS SECTION", cx + 55, cy + 112);
+    }
+
+    // Start frame render cycle loops
+    drawPlayground();
+
+  </script>
+</body>
+</html>

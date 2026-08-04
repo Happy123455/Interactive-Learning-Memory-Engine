@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>HSFG Bolt Cyber-Lab - High-Fidelity Interactive Simulator</title>
+  <style>
+    :root {
+      --bg-dark: #080911;
+      --panel-bg: rgba(18, 22, 38, 0.7);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --glow-cyan: #00f3ff;
+      --glow-purple: #bc34fa;
+      --glow-green: #39ff14;
+      --glow-red: #ff3131;
+      --text-main: #f0f4f9;
+      --text-muted: #8b9bb4;
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(188, 52, 250, 0.15) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(0, 243, 255, 0.12) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Main Grid Layout */
+    .dashboard {
+      display: grid;
+      grid-template-rows: 60px 1fr 80px;
+      height: 100vh;
+      width: 100vw;
+      padding: 12px;
+      gap: 12px;
+      box-sizing: border-box;
+    }
+
+    /* Header */
+    header {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-shadow: var(--glass-shadow);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .logo-glow {
+      width: 12px;
+      height: 12px;
+      background: var(--glow-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--glow-cyan);
+      animation: pulse 2s infinite alternate;
+    }
+
+    header h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, #00f3ff, #bc34fa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .control-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      transition: all 0.2s ease;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--glow-cyan);
+      box-shadow: 0 0 8px rgba(0, 243, 255, 0.3);
+    }
+
+    .control-btn.active {
+      border-color: var(--glow-green);
+      color: var(--glow-green);
+      box-shadow: 0 0 8px rgba(57, 255, 20, 0.2);
+    }
+
+    /* Main Workspace Split */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.3fr 0.9fr;
+      gap: 12px;
+      min-height: 0; /* Important to keep nested scrolls contained */
+    }
+
+    /* Visualizer Panel (Left) */
+    .visualizer-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .card-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .card-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 12px;
+      background: var(--glow-purple);
+      border-radius: 2px;
+    }
+
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      background: #06070a;
+      cursor: grab;
+    }
+
+    .canvas-wrapper:active {
+      cursor: grabbing;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Control Panel (Right) */
+    .control-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--panel-border);
+      border-radius: 16px;
+      box-shadow: var(--glass-shadow);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 16px;
+      gap: 16px;
+    }
+
+    /* Custom Scrollbar for Controls */
+    .control-card::-webkit-scrollbar {
+      width: 6px;
+    }
+    .control-card::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .control-card::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    .control-card::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Sliders & Parameter Selectors */
+    .section-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--glow-cyan);
+      margin-bottom: 10px;
+      font-weight: 700;
+    }
+
+    .param-group {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .slider-container {
+      margin-top: 8px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      margin-bottom: 6px;
+    }
+
+    .slider-val {
+      color: var(--glow-purple);
+      font-weight: bold;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--glow-cyan);
+      box-shadow: 0 0 8px var(--glow-cyan);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Drag & Drop Equation Interface */
+    .formula-zone {
+      background: rgba(18, 14, 30, 0.6);
+      border: 1px dashed rgba(188, 52, 250, 0.3);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+    }
+
+    .formula-slots {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+      margin: 12px 0;
+    }
+
+    .formula-label {
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+
+    .slot {
+      width: 60px;
+      height: 40px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    .slot.highlight {
+      border-color: var(--glow-cyan);
+      background: rgba(0, 243, 255, 0.08);
+    }
+
+    .slot.correct {
+      border-color: var(--glow-green);
+      background: rgba(57, 255, 20, 0.1);
+      color: var(--glow-green);
+    }
+
+    .deck {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .card {
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: grab;
+      transition: all 0.2s ease;
+    }
+
+    .card:hover {
+      background: rgba(255, 255, 255, 0.15);
+      border-color: var(--glow-purple);
+      transform: translateY(-2px);
+    }
+
+    .card:active {
+      cursor: grabbing;
+    }
+
+    /* Challenge Mode Widget */
+    .challenge-widget {
+      background: linear-gradient(135deg, rgba(188, 52, 250, 0.05) 0%, rgba(0, 243, 255, 0.05) 100%);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 12px;
+      text-align: center;
+      position: relative;
+    }
+
+    .success-meter {
+      height: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 5px;
+      margin: 10px 0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .success-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, var(--glow-purple), var(--glow-cyan));
+      transition: width 0.3s cubic-bezier(0.1, 0.8, 0.3, 1);
+    }
+
+    /* Live Captions Bottom Bar */
+    .captions-bar {
+      background: rgba(10, 11, 20, 0.85);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      box-shadow: var(--glass-shadow);
+      position: relative;
+    }
+
+    .mascot-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--glow-purple) 0%, rgba(13,14,21,1) 80%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      border: 2px solid var(--glow-cyan);
+      box-shadow: 0 0 10px rgba(0, 243, 255, 0.3);
+      flex-shrink: 0;
+    }
+
+    .caption-text-box {
+      flex: 1;
+    }
+
+    .caption-title {
+      font-size: 0.75rem;
+      color: var(--glow-cyan);
+      text-transform: uppercase;
+      font-weight: 800;
+      margin-bottom: 2px;
+    }
+
+    .caption-body {
+      font-size: 0.95rem;
+      color: var(--text-main);
+      line-height: 1.4;
+    }
+
+    /* Interactive UI markers */
+    .status-badge {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    .status-badge.safe {
+      background: rgba(57, 255, 20, 0.15);
+      border: 1px solid var(--glow-green);
+      color: var(--glow-green);
+    }
+
+    .status-badge.slipping {
+      background: rgba(255, 49, 49, 0.15);
+      border: 1px solid var(--glow-red);
+      color: var(--glow-red);
+      animation: alert-blink 1s infinite alternate;
+    }
+
+    .view-selectors {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Micro animations */
+    @keyframes pulse {
+      from { transform: scale(1); opacity: 0.8; }
+      to { transform: scale(1.2); opacity: 1; }
+    }
+
+    @keyframes alert-blink {
+      from { opacity: 1; }
+      to { opacity: 0.4; }
+    }
+
+    /* Surface selector styling */
+    .btn-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .grid-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      padding: 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: all 0.2s ease;
+    }
+
+    .grid-btn.active {
+      background: rgba(0, 243, 255, 0.08);
+      border-color: var(--glow-cyan);
+      color: var(--glow-cyan);
+      box-shadow: 0 0 6px rgba(0, 243, 255, 0.15);
+    }
+
+    /* Floating bubble/anatomy callout styling in Canvas coordinates is handled manually */
+    
+  </style>
+</head>
+<body>
+
+<div class="dashboard">
+  
+  <!-- Header Block -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-glow"></div>
+      <h1>HSFG Bolt Cyber-Lab</h1>
+    </div>
+    
+    <div class="audio-controls">
+      <button class="control-btn" id="voice-btn" onclick="toggleVoice()">
+        🗣️ Voice Narration: <span style="font-weight: bold; color: var(--glow-cyan);" id="voice-status">OFF</span>
+      </button>
+      <button class="control-btn" id="synth-btn" onclick="toggleSynth()">
+        🔊 Sound Synth: <span style="font-weight: bold; color: var(--glow-cyan);" id="synth-status">ON</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Interactive Sandbox Workspace -->
+  <main class="workspace">
+    
+    <!-- Canvas Area (60% width) -->
+    <section class="visualizer-card">
+      <div class="card-header">
+        <div class="card-title">Real-Time Joint Simulator</div>
+        <div class="view-selectors">
+          <button class="control-btn active" id="btn-normal-view" onclick="setViewMode('normal')">Wide View</button>
+          <button class="control-btn" id="btn-zoom-view" onclick="setViewMode('zoom')">Bolt Micro-Anatomy</button>
+        </div>
+      </div>
+      <div class="canvas-wrapper" id="canvas-holder">
+        <canvas id="physics-canvas"></canvas>
+      </div>
+    </section>
+
+    <!-- Controls Panel (40% width) -->
+    <section class="control-card">
+      
+      <!-- Module 1: Dynamic Pretension Control -->
+      <div>
+        <div class="section-title">Module 1: Bolt Pretension (Tightening)</div>
+        <div class="param-group">
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+            In HSFG assemblies, the bolt is NOT just a pin. Tightening creates massive clamping pressure to squeeze plates together!
+          </p>
+          <div class="slider-container">
+            <div class="slider-header">
+              <span>Bolt Torque / Pretension (P)</span>
+              <span class="slider-val" id="pretension-val">100 kN</span>
+            </div>
+            <input type="range" id="slider-pretension" min="10" max="350" value="100" oninput="handlePretensionChange(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 2: Interface Surface Factor -->
+      <div>
+        <div class="section-title">Module 2: Friction Surface Condition</div>
+        <div class="param-group">
+          <p style="font-size: 0.8rem; color: var(--text-muted);">
+            Higher rough roughness = stronger grip! Select the plate preparation profile:
+          </p>
+          <div class="btn-grid">
+            <button class="grid-btn active" id="surf-0" onclick="setSurface(0.33, 'Clean Mill Scale', 0)">Clean Mill Scale (μ = 0.33)</button>
+            <button class="grid-btn" id="surf-1" onclick="setSurface(0.5, 'Sand-Blasted Steel', 1)">Sand-Blasted (μ = 0.50)</button>
+            <button class="grid-btn" id="surf-2" onclick="setSurface(0.2, 'Painted/Oily Steel', 2)">Oily/Slick (μ = 0.20)</button>
+            <button class="grid-btn" id="surf-3" onclick="setSurface(0.6, 'Grit Blasted Profile', 3)">Grit Blasted (μ = 0.60)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Module 3: External Load & Formula Matcher -->
+      <div>
+        <div class="section-title">Module 3: Slip Capacity Formula</div>
+        <div class="formula-zone">
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 8px;">
+            Match the formula cards to unlock accurate joint calculations!
+          </p>
+          <div style="font-size: 0.85rem; font-weight: bold; color: var(--glow-cyan); margin-bottom: 6px;">
+            Slip Resistance (F<sub>s</sub>) = Slot A &times; Slot B
+          </div>
+          <div class="formula-slots">
+            <div class="slot" id="slot-1" ondragover="allowDrop(event)" ondrop="handleDrop(event, 'mu')">Slot A</div>
+            <div class="formula-label">&times;</div>
+            <div class="slot" id="slot-2" ondragover="allowDrop(event)" ondrop="handleDrop(event, 'P')">Slot B</div>
+          </div>
+          <div class="deck" id="drag-deck">
+            <div class="card" draggable="true" ondragstart="handleDragStart(event, 'mu', 'μ (Friction Coefficient)')" id="card-mu">μ (Friction)</div>
+            <div class="card" draggable="true" ondragstart="handleDragStart(event, 'P', 'P (Pretension)')" id="card-p">P (Pretension)</div>
+            <div class="card" draggable="true" ondragstart="handleDragStart(event, 'd', 'd (Bolt Diameter)')" id="card-d">d (Diameter)</div>
+            <div class="card" draggable="true" ondragstart="handleDragStart(event, 'A', 'A (Shear Area)')" id="card-a">A (Area)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Dynamic Game Mode Interface -->
+      <div class="challenge-widget">
+        <div class="slider-header" style="margin-bottom: 4px;">
+          <span style="font-size: 0.85rem; font-weight: bold; color: var(--glow-cyan);">Slip-Critical Challenge Arena</span>
+          <span class="status-badge safe" id="joint-status">STABLE</span>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: left; margin-bottom: 8px;">
+          Adjust pretension to prevent the moving tension force from causing plate slippage! Keep the success bar filled.
+        </p>
+        
+        <div class="slider-container" style="background: rgba(0,0,0,0.2); padding: 8px; border-radius: 6px;">
+          <div class="slider-header" style="font-size: 0.75rem;">
+            <span>External Drag Force (F<sub>v</sub>)</span>
+            <span class="slider-val" id="load-val" style="color: var(--glow-red);">50 kN</span>
+          </div>
+          <input type="range" id="slider-load" min="0" max="250" value="50" oninput="handleLoadChange(this.value)">
+        </div>
+
+        <div class="success-meter">
+          <div class="success-bar" id="success-bar"></div>
+        </div>
+        <div style="font-size: 0.75rem; text-align: right; color: var(--glow-cyan);" id="score-text">Stable Time: 0s / Target: 10s</div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- Bottom Captions & Narrative -->
+  <footer class="captions-bar">
+    <div class="mascot-avatar" id="avatar">⚙️</div>
+    <div class="caption-text-box">
+      <div class="caption-title">Professor Bolt-O (ELI5 Instructor)</div>
+      <div class="caption-body" id="caption-box">
+        Hi there! Welcome to the HSFG cyber-lab. Watch the neon-colored components above! Drag the "Pretension Slider" to see how tightening grips the metal plates like a powerful bear hug!
+      </div>
+    </div>
+  </footer>
+
+</div>
+
+<script>
+  // ==========================================
+  // Global Simulation State
+  // ==========================================
+  const state = {
+    pretension: 100, // P (kN)
+    slipFactor: 0.33, // mu
+    surfaceName: 'Clean Mill Scale',
+    externalLoad: 50, // F (kN)
+    viewMode: 'normal', // normal, zoom
+    slipOffset: 0,
+    isSlipped: false,
+    formulaMatched: { mu: false, P: false },
+    score: 0,
+    challengeActive: true,
+    lastTime: 0,
+    voiceActive: false,
+    synthActive: true
+  };
+
+  // Canvas elements
+  const canvas = document.getElementById('physics-canvas');
+  const ctx = canvas.getContext('2d');
+  const canvasHolder = document.getElementById('canvas-holder');
+
+  // Spark and Particle generation for slip events
+  let sparks = [];
+
+  // ==========================================
+  // Web Audio Synth & Sound Generator
+  // ==========================================
+  let audioCtx = null;
+
+  function initAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+  }
+
+  function playTone(freq, duration, type = 'sine') {
+    if (!state.synthActive) return;
+    try {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    } catch (e) {
+      console.warn("Audio unavailable/blocked by browser policies");
+    }
+  }
+
+  function playChime() {
+    playTone(523.25, 0.15, 'triangle'); // C5
+    setTimeout(() => playTone(659.25, 0.15, 'triangle'), 80); // E5
+    setTimeout(() => playTone(783.99, 0.25, 'triangle'), 160); // G5
+  }
+
+  function playBoing() {
+    if (!state.synthActive) return;
+    try {
+      initAudio();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.frequency.setValueAtTime(350, audioCtx.currentTime);
+      osc.frequency.quadraticRampToValueAtTime(100, audioCtx.currentTime + 0.6);
+      
+      gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.6);
+    } catch(e) {}
+  }
+
+  function playBeep() {
+    playTone(180, 0.35, 'sawtooth');
+  }
+
+  // Speech Narrative Engine
+  const narratives = {
+    welcome: "Imagine two giant metal plates held together by a magic squishy bolt. If we pull them apart, we want them to stay locked strictly because of friction clamping!",
+    clamping: "Awesome! Watch the green friction shield grow brighter as we crank up the pre-tension force. Now the plates are clamped down tight!",
+    slipped: "Whoops! The external pull became way stronger than our friction grip can handle. The plates slipped! Crank up the bolt's tightening force to hold them tight!",
+    formulaSuccess: "Bingo! You mapped out the magic physics formula: Slip resistance equals the surface grip factor (mu) multiplied by the clamping squeeze (P)!",
+    challengePassed: "Mission accomplished! You successfully balanced structural forces in real-time. Professor Bolt-O is proud!"
+  };
+
+  function speakELI5(msgKey) {
+    const text = narratives[msgKey];
+    document.getElementById('caption-box').textContent = text;
+    
+    if (!state.voiceActive) return;
+    
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.25;
+      utterance.rate = 1.05;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.warn("Speech Synthesis interface not ready/supported");
+    }
+  }
+
+  function toggleVoice() {
+    state.voiceActive = !state.voiceActive;
+    const status = document.getElementById('voice-status');
+    status.textContent = state.voiceActive ? "ON" : "OFF";
+    status.style.color = state.voiceActive ? "var(--glow-green)" : "var(--glow-cyan)";
+    if (state.voiceActive) {
+      initAudio();
+      speakELI5('welcome');
+    }
+  }
+
+  function toggleSynth() {
+    state.synthActive = !state.synthActive;
+    const status = document.getElementById('synth-status');
+    status.textContent = state.synthActive ? "ON" : "OFF";
+    status.style.color = state.synthActive ? "var(--glow-green)" : "var(--glow-cyan)";
+  }
+
+
+  // ==========================================
+  // Resize Canvas to handle High-DPI Displays
+  // ==========================================
+  function resizeCanvas() {
+    const rect = canvasHolder.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.resetTransform();
+    ctx.scale(dpr, dpr);
+    // Track responsive bounds
+    state.width = rect.width;
+    state.height = rect.height;
+  }
+  
+  window.addEventListener('resize', () => {
+    resizeCanvas();
+    drawAll();
+  });
+
+
+  // ==========================================
+  // Core Engineering Calculations
+  // ==========================================
+  function calculateJoint() {
+    // Friction Capacity calculation Fs = mu * P
+    const capacity = state.slipFactor * state.pretension;
+    
+    if (state.externalLoad > capacity) {
+      if (!state.isSlipped) {
+        state.isSlipped = true;
+        state.slipOffset = 18; // visually displace plates
+        createSparks();
+        playBoing();
+        speakELI5('slipped');
+      }
+    } else {
+      if (state.isSlipped) {
+        // Automatically returns to locked once force allows
+        state.isSlipped = false;
+        state.slipOffset = 0;
+        playTone(400, 0.1, 'sine');
+      }
+    }
+    return capacity;
+  }
+
+
+  // ==========================================
+  // Interactions & Input Handling
+  // ==========================================
+  function handlePretensionChange(val) {
+    state.pretension = parseFloat(val);
+    document.getElementById('pretension-val').textContent = `${val} kN`;
+    
+    // Pitch shift pitch according to tightening amount
+    const pitch = 200 + (state.pretension * 2);
+    playTone(pitch, 0.05, 'sine');
+    
+    calculateJoint();
+  }
+
+  function handleLoadChange(val) {
+    state.externalLoad = parseFloat(val);
+    document.getElementById('load-val').textContent = `${val} kN`;
+    calculateJoint();
+  }
+
+  function setSurface(factor, name, btnIdx) {
+    state.slipFactor = factor;
+    state.surfaceName = name;
+    
+    // Update dynamic buttons
+    document.querySelectorAll('.grid-btn').forEach((btn, idx) => {
+      if (idx === btnIdx) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
+
+    playTone(300 + (factor * 300), 0.15, 'triangle');
+    calculateJoint();
+  }
+
+  function setViewMode(mode) {
+    state.viewMode = mode;
+    document.getElementById('btn-normal-view').classList.toggle('active', mode === 'normal');
+    document.getElementById('btn-zoom-view').classList.toggle('active', mode === 'zoom');
+    playTone(500, 0.1, 'sine');
+  }
+
+
+  // ==========================================
+  // Drag and Drop Logic (Formula Module)
+  // ==========================================
+  let draggedType = null;
+  let draggedText = '';
+
+  function handleDragStart(e, type, text) {
+    draggedType = type;
+    draggedText = text;
+    e.dataTransfer.setData('text/plain', type);
+  }
+
+  function allowDrop(e) {
+    e.preventDefault();
+    e.currentTarget.classList.add('highlight');
+  }
+
+  // Remove highlight on leave
+  document.querySelectorAll('.slot').forEach(slot => {
+    slot.addEventListener('dragleave', (e) => {
+      e.currentTarget.classList.remove('highlight');
+    });
+  });
+
+  function handleDrop(e, expected) {
+    e.preventDefault();
+    const slot = e.currentTarget;
+    slot.classList.remove('highlight');
+    
+    if (draggedType === expected) {
+      slot.classList.add('correct');
+      slot.textContent = draggedType === 'mu' ? 'μ' : 'P';
+      state.formulaMatched[draggedType] = true;
+      
+      playChime();
+      
+      // Remove visual card from deck
+      const cardEl = document.getElementById(draggedType === 'mu' ? 'card-mu' : 'card-p');
+      if (cardEl) cardEl.style.display = 'none';
+
+      // Check if complete
+      if (state.formulaMatched.mu && state.formulaMatched.P) {
+        speakELI5('formulaSuccess');
+      }
+    } else {
+      playBeep();
+      slot.style.borderColor = 'var(--glow-red)';
+      setTimeout(() => {
+        slot.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+      }, 500);
+    }
+  }
+
+
+  // ==========================================
+  // Real-time Sparks/Particles System
+  // ==========================================
+  function createSparks() {
+    sparks = [];
+    const numSparks = 25;
+    const centerX = state.width / 2;
+    const centerY = state.height / 2;
+    for (let i = 0; i < numSparks; i++) {
+      sparks.push({
+        x: centerX + (Math.random() - 0.5) * 80,
+        y: centerY + (Math.random() - 0.5) * 10,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8 - 4,
+        alpha: 1,
+        color: i % 2 === 0 ? 'var(--glow-red)' : 'var(--glow-cyan)'
+      });
+    }
+  }
+
+  function updateSparks() {
+    for (let i = sparks.length - 1; i >= 0; i--) {
+      const s = sparks[i];
+      s.x += s.vx;
+      s.y += s.vy;
+      s.vy += 0.2; // gravity effect on sparks
+      s.alpha -= 0.02;
+      if (s.alpha <= 0) {
+        sparks.splice(i, 1);
+      }
+    }
+  }
+
+
+  // ==========================================
+  // Premium Canvas Drawings & Render Logic
+  // ==========================================
+  function drawAll() {
+    ctx.clearRect(0, 0, state.width, state.height);
+    
+    // Draw sci-fi grid overlay
+    drawGrid();
+
+    // Decide which view function to call
+    if (state.viewMode === 'normal') {
+      drawWideView();
+    } else {
+      drawZoomView();
+    }
+
+    // Render interactive sparks
+    drawSparks();
+  }
+
+  function drawGrid() {
+    ctx.strokeStyle = 'rgba(188, 52, 250, 0.04)';
+    ctx.lineWidth = 1;
+    const gridSize = 30;
+    
+    for (let x = 0; x < state.width; x += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, state.height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < state.height; y += gridSize) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(state.width, y);
+      ctx.stroke();
+    }
+  }
+
+  function drawWideView() {
+    const cx = state.width / 2;
+    const cy = state.height / 2;
+
+    const capacity = state.slipFactor * state.pretension;
+    const slipFactorColor = state.isSlipped ? 'rgba(255, 49, 49, 0.9)' : 'rgba(0, 243, 255, 0.8)';
+
+    // Dynamic Plate Movement calculation
+    const topPlateX = cx - 180 + state.slipOffset;
+    const btmPlateX = cx - 180 - state.slipOffset;
+
+    // --- STEP 1: DRAW STEEL PLATES ---
+    // Top Plate
+    ctx.fillStyle = '#262938';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, topPlateX, cy - 40, 360, 40, 6, true, true);
+
+    // Bottom Plate
+    ctx.fillStyle = '#171a26';
+    roundRect(ctx, btmPlateX, cy, 360, 40, 6, true, true);
+
+    // --- STEP 2: HIGHLIGHT CLAMPING INTERFACE ZONE ---
+    const clampWidth = 130;
+    const frictionGlowAlpha = Math.min(state.pretension / 300, 0.95);
+    
+    // Draw friction/shear interface plane
+    ctx.strokeStyle = state.isSlipped ? 'var(--glow-red)' : 'var(--glow-green)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(cx - clampWidth / 2, cy);
+    ctx.lineTo(cx + clampWidth / 2, cy);
+    ctx.stroke();
+
+    // Glow highlight on the clamped area between plates
+    const gradient = ctx.createRadialGradient(cx, cy, 5, cx, cy, clampWidth / 2);
+    gradient.addColorStop(0, state.isSlipped ? `rgba(255, 49, 49, ${frictionGlowAlpha})` : `rgba(57, 255, 20, ${frictionGlowAlpha})`);
+    gradient.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(cx - clampWidth / 2, cy - 8, clampWidth, 16);
+
+    // --- STEP 3: DRAW AN HSFG BOLT ---
+    // Shank
+    ctx.fillStyle = '#565f73';
+    ctx.fillRect(cx - 20, cy - 65, 40, 130);
+
+    // Glow energy core inside HSFG bolt (neon purple/pink) based on torque
+    const coreGlow = Math.min(state.pretension / 350, 1.0);
+    ctx.fillStyle = `rgba(188, 52, 250, ${coreGlow})`;
+    ctx.shadowBlur = 15;
+    ctx.shadowColor = 'var(--glow-purple)';
+    ctx.fillRect(cx - 6, cy - 60, 12, 120);
+    ctx.shadowBlur = 0; // reset shadow
+
+    // Bolt Head (Top)
+    ctx.fillStyle = '#3c4354';
+    roundRect(ctx, cx - 35, cy - 85, 70, 20, 4, true, true);
+
+    // Washers
+    ctx.fillStyle = '#6e7991';
+    ctx.fillRect(cx - 30, cy - 43, 60, 4);
+    ctx.fillRect(cx - 30, cy + 39, 60, 4);
+
+    // Bolt Nut (Bottom)
+    ctx.fillStyle = '#2d3340';
+    roundRect(ctx, cx - 32, cy + 43, 64, 25, 4, true, true);
+
+    // Bolt Thread protrusion (Bottom-most)
+    ctx.fillStyle = '#565f73';
+    ctx.fillRect(cx - 15, cy + 68, 30, 15);
+    ctx.fillStyle = '#202430';
+    for(let th = 70; th < 82; th += 3) {
+      ctx.fillRect(cx - 15, cy + th, 30, 1.5);
+    }
+
+    // --- STEP 4: DIAGRAM FORCES & LABELS ---
+    // Arrow for External Pull Force (Right & Left)
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = 'var(--glow-cyan)';
+    
+    // Top Plate External Load Arrow (pulling right)
+    drawVectorArrow(ctx, cx + 140 + state.slipOffset, cy - 20, cx + 220 + state.slipOffset, cy - 20, 8, 'var(--glow-cyan)');
+    // Bottom Plate Anchorage/Pull Arrow (pulling left)
+    drawVectorArrow(ctx, cx - 140 - state.slipOffset, cy + 20, cx - 220 - state.slipOffset, cy + 20, 8, 'var(--glow-cyan)');
+
+    // Clamping Force Vectors (Vertical crushing action)
+    const clampOffset = 25;
+    ctx.strokeStyle = 'var(--glow-green)';
+    ctx.lineWidth = 3;
+    drawVectorArrow(ctx, cx - clampOffset, cy - 110, cx - clampOffset, cy - 45, 6, 'var(--glow-green)');
+    drawVectorArrow(ctx, cx + clampOffset, cy - 110, cx + clampOffset, cy - 45, 6, 'var(--glow-green)');
+    drawVectorArrow(ctx, cx - clampOffset, cy + 110, cx - clampOffset, cy + 45, 6, 'var(--glow-green)');
+    drawVectorArrow(ctx, cx + clampOffset, cy + 110, cx + clampOffset, cy + 45, 6, 'var(--glow-green)');
+
+    // Text Overlay Labels (High-contrast background styling)
+    ctx.font = 'bold 11px monospace';
+    drawLabel(ctx, "Applied Load (F)", cx + 210 + state.slipOffset, cy - 35, 'var(--glow-cyan)');
+    drawLabel(ctx, `Clamping Force P = ${state.pretension}kN`, cx + 65, cy - 100, 'var(--glow-green)');
+    
+    // Display realtime dynamic friction value
+    const fResText = `Slip Resistance Fs = μ × P = ${capacity.toFixed(1)} kN`;
+    drawLabel(ctx, fResText, cx, cy - 130, 'var(--glow-purple)', true);
+
+    // Slippage alert overlay
+    if (state.isSlipped) {
+      drawLabel(ctx, "CRITICAL SLIPPAGE!", cx, cy, 'var(--glow-red)', true, 16);
+    }
+  }
+
+  function drawZoomView() {
+    const cx = state.width / 2;
+    const cy = state.height / 2;
+
+    // Zoomed in at the interface gap to display microscopic valleys of friction interface
+    ctx.fillStyle = '#171a26';
+    ctx.fillRect(0, 0, state.width, state.height);
+
+    // Draw microscopic interlocking ridges of the steel surfaces
+    ctx.lineWidth = 3;
+    
+    // Top surface line
+    ctx.strokeStyle = '#32ff52';
+    ctx.beginPath();
+    let xOffset = state.slipOffset * 4;
+    for (let x = 0; x < state.width; x += 15) {
+      const yVal = cy - 10 + Math.sin((x - xOffset) * 0.1) * 8;
+      if (x === 0) ctx.moveTo(x, yVal);
+      else ctx.lineTo(x, yVal);
+    }
+    ctx.lineTo(state.width, 0);
+    ctx.lineTo(0, 0);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(38, 41, 56, 0.9)';
+    ctx.fill();
+    ctx.stroke();
+
+    // Bottom surface line
+    ctx.strokeStyle = '#00f3ff';
+    ctx.beginPath();
+    for (let x = 0; x < state.width; x += 15) {
+      const yVal = cy + 10 + Math.sin(x * 0.1) * 8;
+      if (x === 0) ctx.moveTo(x, yVal);
+      else ctx.lineTo(x, yVal);
+    }
+    ctx.lineTo(state.width, state.height);
+    ctx.lineTo(0, state.height);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(23, 26, 38, 0.95)';
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw micro clamp particles squishing together
+    const pressureAmount = Math.floor(state.pretension / 15);
+    ctx.fillStyle = 'rgba(57, 255, 20, 0.4)';
+    for(let p = 0; p < pressureAmount; p++) {
+      const px = Math.random() * state.width;
+      const py = cy + (Math.random() - 0.5) * 20;
+      ctx.beginPath();
+      ctx.arc(px, py, 3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Micro Anatomy Floating Legend
+    drawLabel(ctx, "MICROSCOPIC SURFACE FRICTION (ELI5 VIEW)", cx, 30, 'var(--glow-cyan)', true, 13);
+    drawLabel(ctx, `Surface Profiling: ${state.surfaceName} (μ = ${state.slipFactor})`, cx, 60, '#fff', true);
+    drawLabel(ctx, "Under high pre-tension, these micro-teeth interlock and block slippage completely!", cx, state.height - 35, 'var(--glow-purple)', true);
+  }
+
+  function drawSparks() {
+    updateSparks();
+    sparks.forEach(s => {
+      ctx.save();
+      ctx.globalAlpha = s.alpha;
+      ctx.fillStyle = s.color;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = s.color;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, 3, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+  }
+
+  // Visual Utility Helpers
+  function drawVectorArrow(context, fromx, fromy, tox, toy, headlen = 10, color = '#000') {
+    context.save();
+    context.strokeStyle = color;
+    context.fillStyle = color;
+    
+    // Draw line
+    context.beginPath();
+    context.moveTo(fromx, fromy);
+    context.lineTo(tox, toy);
+    context.stroke();
+
+    // Draw head
+    const angle = Math.atan2(toy - fromy, tox - fromx);
+    context.beginPath();
+    context.moveTo(tox, toy);
+    context.lineTo(tox - headlen * Math.cos(angle - Math.PI / 6), toy - headlen * Math.sin(angle - Math.PI / 6));
+    context.lineTo(tox - headlen * Math.cos(angle + Math.PI / 6), toy - headlen * Math.sin(angle + Math.PI / 6));
+    context.closePath();
+    context.fill();
+    context.restore();
+  }
+
+  function drawLabel(context, text, x, y, color, center = false, size = 11) {
+    context.save();
+    context.font = `bold ${size}px 'Segoe UI', Arial, sans-serif`;
+    const textWidth = context.measureText(text).width;
+    
+    // Draw background translucent box for ultimate contrast over visual elements
+    context.fillStyle = 'rgba(8, 9, 17, 0.85)';
+    context.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+    context.lineWidth = 1;
+    
+    const bx = center ? x - textWidth / 2 - 8 : x - 8;
+    const by = y - size - 4;
+    roundRect(context, bx, by, textWidth + 16, size + 10, 4, true, true);
+
+    // Draw label text
+    context.fillStyle = color;
+    context.textAlign = center ? 'center' : 'left';
+    context.fillText(text, x, y);
+    context.restore();
+  }
+
+  function roundRect(ctx, x, y, width, height, radius = 5, fill = false, stroke = true) {
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + width - radius, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+    ctx.lineTo(x + width, y + height - radius);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    ctx.lineTo(x + radius, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+    if (fill) ctx.fill();
+    if (stroke) ctx.stroke();
+  }
+
+
+  // ==========================================
+  // Gamified Slip-Critical Arena Loop
+  // ==========================================
+  let challengeTimeElapsed = 0;
+  let successStateRatio = 0;
+  let cycleTimer = 0;
+
+  function runArenaPhysics(timestamp) {
+    if (!state.lastTime) state.lastTime = timestamp;
+    const dt = (timestamp - state.lastTime) / 1000;
+    state.lastTime = timestamp;
+
+    // Slowly dynamic applied load cycle to challenge player dynamically if they activate it
+    cycleTimer += dt;
+    if (state.challengeActive) {
+      // Simulate random load fluctuation every 2 seconds
+      const waveForce = 90 + Math.sin(cycleTimer * 1.5) * 65 + Math.cos(cycleTimer * 0.5) * 45;
+      const targetLoad = Math.max(20, Math.min(waveForce, 230));
+      
+      // Interpolate real load towards wave target
+      state.externalLoad += (targetLoad - state.externalLoad) * 0.1;
+      document.getElementById('slider-load').value = state.externalLoad;
+      document.getElementById('load-val').textContent = `${state.externalLoad.toFixed(0)} kN`;
+    }
+
+    // Slip and metric balancing
+    const currentCapacity = calculateJoint();
+    const isSafe = currentCapacity >= state.externalLoad;
+
+    // UI Updates
+    const statusBadge = document.getElementById('joint-status');
+    if (isSafe) {
+      statusBadge.textContent = "STABLE";
+      statusBadge.className = "status-badge safe";
+      challengeTimeElapsed += dt;
+    } else {
+      statusBadge.textContent = "SLIPPING!";
+      statusBadge.className = "status-badge slipping";
+      challengeTimeElapsed = Math.max(0, challengeTimeElapsed - dt * 1.5); // decrease penalty faster
+    }
+
+    // Success bar metric update
+    const targetChallengeTime = 10; // seconds
+    const progressPercent = Math.min((challengeTimeElapsed / targetChallengeTime) * 100, 100);
+    document.getElementById('success-bar').style.width = `${progressPercent}%`;
+    document.getElementById('score-text').textContent = `Stable Time: ${challengeTimeElapsed.toFixed(1)}s / Target: ${targetChallengeTime}s`;
+
+    if (challengeTimeElapsed >= targetChallengeTime && state.challengeActive) {
+      state.challengeActive = false; // complete
+      playChime();
+      speakELI5('challengePassed');
+      alert("Congratulations! You passed the HSFG Slip Critical Arena Challenge!");
+    }
+
+    // Continuous rendering call
+    drawAll();
+    requestAnimationFrame(runArenaPhysics);
+  }
+
+
+  // ==========================================
+  // Initialization
+  // ==========================================
+  window.onload = () => {
+    resizeCanvas();
+    calculateJoint();
+    // Start loop
+    requestAnimationFrame(runArenaPhysics);
+  };
+
+</script>
+</body>
+</html>

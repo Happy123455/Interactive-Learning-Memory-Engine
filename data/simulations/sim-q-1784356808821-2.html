@@ -1,0 +1,1405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doubly Reinforced RCC Beam Design - Interactive Simulator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0c0e12;
+            --panel-bg: rgba(20, 24, 33, 0.75);
+            --panel-border: rgba(0, 240, 255, 0.15);
+            --accent-cyan: #00f0ff;
+            --accent-amber: #ffb700;
+            --accent-crimson: #ff0055;
+            --accent-green: #00ff88;
+            --text-primary: #f0f4f8;
+            --text-secondary: #8a99ad;
+            --font-display: 'Orbitron', sans-serif;
+            --font-sans: 'Inter', sans-serif;
+            --glow-cyan: 0 0 15px rgba(0, 240, 255, 0.4);
+            --glow-amber: 0 0 15px rgba(ff, b7, 0, 0.4);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(0, 240, 255, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(255, 0, 85, 0.03) 0%, transparent 40%),
+                linear-gradient(rgba(18, 18, 18, 0.4) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(18, 18, 18, 0.4) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 20px 20px, 20px 20px;
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding: 20px;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 30px;
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            margin-bottom: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .header-title h1 {
+            font-family: var(--font-display);
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            background: linear-gradient(90deg, #00f0ff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-transform: uppercase;
+        }
+
+        .header-title p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--accent-green);
+            box-shadow: 0 0 8px var(--accent-green);
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: var(--accent-cyan);
+            color: #000;
+            box-shadow: var(--glow-cyan);
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+
+        .btn-explain {
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+        }
+
+        .btn-explain:hover {
+            background: var(--accent-amber);
+            color: #000;
+            box-shadow: var(--glow-amber);
+            border-color: var(--accent-amber);
+        }
+
+        /* Workstation Layout */
+        .workstation-grid {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 20px;
+            height: calc(100vh - 140px);
+            min-height: 680px;
+        }
+
+        @media (max-width: 1200px) {
+            .workstation-grid {
+                grid-template-columns: 320px 1fr;
+                height: auto;
+            }
+            .hud-column {
+                grid-column: span 2;
+            }
+        }
+
+        @media (max-width: 900px) {
+            .workstation-grid {
+                grid-template-columns: 1fr;
+            }
+            .hud-column {
+                grid-column: span 1;
+            }
+        }
+
+        /* Glass Panel Styling */
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            border-radius: 12px;
+            backdrop-filter: blur(12px);
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            font-family: var(--font-display);
+            font-size: 0.9rem;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            color: var(--accent-cyan);
+            margin-bottom: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 8px;
+        }
+
+        /* Inputs Module */
+        .controls-group {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 5px;
+        }
+
+        .control-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .control-val {
+            font-family: var(--font-display);
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        /* Range input styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+            outline: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Selector options */
+        .selector-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+
+        .selector-btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: var(--text-secondary);
+            padding: 8px 4px;
+            font-family: var(--font-display);
+            font-size: 0.8rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+        }
+
+        .selector-btn.active {
+            background: rgba(0, 240, 255, 0.1);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: inset 0 0 8px rgba(0, 240, 255, 0.1);
+        }
+
+        /* Visualizer Panels */
+        .visualizer-column {
+            display: grid;
+            grid-template-rows: 1fr;
+            position: relative;
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            gap: 20px;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            background: rgba(5, 7, 10, 0.5);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD & Output Module */
+        .hud-column {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .hud-block {
+            background: rgba(10, 14, 20, 0.8);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 15px;
+        }
+
+        .hud-title {
+            font-family: var(--font-display);
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .hud-value-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
+        .hud-metric {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.04);
+            padding: 10px;
+            border-radius: 6px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hud-metric-label {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+        }
+
+        .hud-metric-val {
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--text-primary);
+            margin-top: 4px;
+        }
+
+        .hud-metric-val.cyan { color: var(--accent-cyan); }
+        .hud-metric-val.amber { color: var(--accent-amber); }
+        .hud-metric-val.crimson { color: var(--accent-crimson); }
+        .hud-metric-val.green { color: var(--accent-green); }
+
+        /* Dynamic Calculations HUD */
+        .equations-container {
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            padding-right: 5px;
+            font-size: 0.8rem;
+        }
+
+        .equation-step {
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            padding: 12px;
+            transition: all 0.3s ease;
+        }
+
+        .equation-step.active {
+            background: rgba(0, 240, 255, 0.03);
+            border-color: rgba(0, 240, 255, 0.25);
+        }
+
+        .equation-step.inactive {
+            opacity: 0.4;
+        }
+
+        .eq-title {
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .eq-math {
+            font-family: 'Times New Roman', Times, serif;
+            font-style: italic;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 6px;
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .eq-math span.highlight {
+            color: var(--accent-cyan);
+            font-family: var(--font-display);
+            font-size: 0.85rem;
+            font-style: normal;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.6; box-shadow: 0 0 4px var(--accent-green); }
+            100% { opacity: 1; box-shadow: 0 0 12px var(--accent-green); }
+        }
+
+        /* Sound controls */
+        .sound-badge {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .sound-badge.active {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        .canvas-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--panel-border);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: var(--font-display);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            pointer-events: none;
+            z-index: 5;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="header-title">
+            <h1>RCC Beam Core Design</h1>
+            <p>Interactive Limit State Design (LSD) Sandbox - Doubly Reinforced Beams</p>
+        </div>
+        <div class="system-status">
+            <div class="sound-badge active" id="audioToggle">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                AUDIO ON
+            </div>
+            <button class="btn btn-explain" id="btnExplain">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                Explain Physics
+            </button>
+            <div class="status-indicator">
+                <span class="status-dot" id="statusDot"></span>
+                <span id="statusText">SINGLY REINFORCED</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="workstation-grid">
+        <!-- Controls Panel -->
+        <div class="glass-panel">
+            <div class="panel-header">Beam Dimensions</div>
+            <div class="controls-group">
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Width (b)</span>
+                        <span><span class="control-val" id="valB">250</span> mm</span>
+                    </div>
+                    <input type="range" id="inputB" min="200" max="400" step="10" value="250">
+                </div>
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Overall Depth (D)</span>
+                        <span><span class="control-val" id="valD">600</span> mm</span>
+                    </div>
+                    <input type="range" id="inputD" min="400" max="750" step="10" value="600">
+                </div>
+
+                <div class="panel-header" style="margin-top: 15px;">Materials</div>
+                
+                <div class="control-item">
+                    <div class="control-label">Concrete Grade (f<sub>ck</sub>)</div>
+                    <div class="selector-row" id="fckSelector">
+                        <button class="selector-btn active" data-val="20">M20</button>
+                        <button class="selector-btn" data-val="25">M25</button>
+                        <button class="selector-btn" data-val="30">M30</button>
+                    </div>
+                </div>
+
+                <div class="control-item">
+                    <div class="control-label">Steel Grade (f<sub>y</sub>)</div>
+                    <div class="selector-row" id="fySelector">
+                        <button class="selector-btn" data-val="250">Fe250</button>
+                        <button class="selector-btn active" data-val="415">Fe415</button>
+                        <button class="selector-btn" data-val="500">Fe500</button>
+                    </div>
+                </div>
+
+                <div class="panel-header" style="margin-top: 15px;">Loading Capacity</div>
+
+                <div class="control-item">
+                    <div class="control-label">
+                        <span>Factored Bending Moment (M<sub>u</sub>)</span>
+                        <span><span class="control-val" id="valMu">180</span> kNm</span>
+                    </div>
+                    <input type="range" id="inputMu" min="50" max="450" step="5" value="180">
+                </div>
+                
+                <div style="font-size: 0.75rem; color: var(--text-secondary); background: rgba(0,0,0,0.2); padding: 10px; border-radius: 6px; border-left: 2px solid var(--accent-cyan);">
+                    💡 Drag the handles on the beam visualization to change depth parameters d and d' dynamically.
+                </div>
+            </div>
+        </div>
+
+        <!-- Dynamic Visualization Panel -->
+        <div class="glass-panel visualizer-column">
+            <div class="canvas-container">
+                <div class="canvas-wrapper">
+                    <div class="canvas-label">Cross Section Profile (Interactive)</div>
+                    <canvas id="beamCanvas"></canvas>
+                </div>
+                <div class="canvas-wrapper">
+                    <div class="canvas-label">Stress-Strain Profiles & Forces</div>
+                    <canvas id="diagramCanvas"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- HUD & Calculations Panel -->
+        <div class="glass-panel hud-column">
+            <div class="panel-header">Structural HUD</div>
+            
+            <div class="hud-block">
+                <div class="hud-title">Required Reinforcement</div>
+                <div class="hud-value-grid">
+                    <div class="hud-metric">
+                        <span class="hud-metric-label">Tension Steel A<sub>st</sub></span>
+                        <span class="hud-metric-val cyan" id="hudAst">954 mm²</span>
+                    </div>
+                    <div class="hud-metric">
+                        <span class="hud-metric-label">Compression Steel A<sub>sc</sub></span>
+                        <span class="hud-metric-val amber" id="hudAsc">0 mm²</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-header" style="margin-top: 10px;">Calculation Log</div>
+            
+            <div class="equations-container">
+                <div class="equation-step" id="step1">
+                    <div class="eq-title">
+                        <span>1. Limiting NA Depth</span>
+                        <span class="highlight" id="step1Val">x<sub>u,max</sub> = 264 mm</span>
+                    </div>
+                    <div class="eq-math">x<sub>u,max</sub> = (x<sub>u,max</sub>/d) × d</div>
+                </div>
+
+                <div class="equation-step" id="step2">
+                    <div class="eq-title">
+                        <span>2. Limiting Moment</span>
+                        <span class="highlight" id="step2Val">M<sub>u,lim</sub> = 210.4 kNm</span>
+                    </div>
+                    <div class="eq-math">M<sub>u,lim</sub> = 0.36 f<sub>ck</sub> b x<sub>u,max</sub>(d - 0.42 x<sub>u,max</sub>)</div>
+                </div>
+
+                <div class="equation-step" id="step3">
+                    <div class="eq-title">
+                        <span>3. Compression Steel Status</span>
+                        <span id="step3Status" class="highlight" style="color: var(--accent-green);">NOT REQUIRED</span>
+                    </div>
+                    <div class="eq-math">M<sub>u</sub> (<span id="eqMuVal">180</span>) <span id="eqCompSymbol">≤</span> M<sub>u,lim</sub> (<span id="eqMulimVal">210</span>)</div>
+                </div>
+
+                <div class="equation-step" id="step4">
+                    <div class="eq-title">
+                        <span>4. Design Outputs</span>
+                        <span id="step4Ast" class="highlight" style="color: var(--accent-cyan);">A<sub>st</sub> = 954 mm²</span>
+                    </div>
+                    <div class="eq-math" id="eqA_st_formula">
+                        A<sub>st</sub> = 0.5(f<sub>ck</sub>/f<sub>y</sub>)[1 - √(1 - 4.6M<sub>u</sub>/(f<sub>ck</sub>bd²))]bd
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * Web Audio Synthesizer Engine
+         */
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.activeOsc = null;
+                this.activeGain = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                if (AudioCtx) {
+                    this.ctx = new AudioCtx();
+                }
+            }
+
+            playClick() {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                
+                gainNode.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+
+            startThrum(freq = 110) {
+                if (this.muted || !this.ctx) return;
+                this.init();
+                if (this.activeOsc) return;
+
+                this.activeOsc = this.ctx.createOscillator();
+                this.activeGain = this.ctx.createGain();
+                
+                this.activeOsc.type = 'triangle';
+                this.activeOsc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                
+                // Low pass filter to make it warmer/subtle
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(150, this.ctx.currentTime);
+                
+                this.activeGain.gain.setValueAtTime(0.0, this.ctx.currentTime);
+                this.activeGain.gain.linearRampToValueAtTime(0.12, this.ctx.currentTime + 0.1);
+                
+                this.activeOsc.connect(filter);
+                filter.connect(this.activeGain);
+                this.activeGain.connect(this.ctx.destination);
+                
+                this.activeOsc.start();
+            }
+
+            updateThrum(freq) {
+                if (!this.ctx || !this.activeOsc) return;
+                this.activeOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.05);
+            }
+
+            stopThrum() {
+                if (!this.activeGain) return;
+                const currentGain = this.activeGain;
+                const currentOsc = this.activeOsc;
+                
+                currentGain.gain.cancelScheduledValues(this.ctx.currentTime);
+                currentGain.gain.setValueAtTime(currentGain.gain.value, this.ctx.currentTime);
+                currentGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.2);
+                
+                setTimeout(() => {
+                    try {
+                        currentOsc.stop();
+                        currentOsc.disconnect();
+                        currentGain.disconnect();
+                    } catch(e) {}
+                }, 210);
+
+                this.activeOsc = null;
+                this.activeGain = null;
+            }
+
+            playSweep(upward = true) {
+                if (this.muted || !this.ctx) return;
+                this.init();
+
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                const startFreq = upward ? 200 : 600;
+                const endFreq = upward ? 600 : 200;
+                
+                osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + 0.4);
+                
+                gainNode.gain.setValueAtTime(0.001, this.ctx.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + 0.1);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.4);
+                
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+        }
+
+        /**
+         * Text-to-Speech Explainer Module
+         */
+        class Narrator {
+            constructor() {
+                this.synth = window.speechSynthesis;
+            }
+
+            speak(text) {
+                if (!this.synth) return;
+                this.synth.cancel(); // Stop active voices
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.pitch = 1.0;
+                utterance.rate = 1.05;
+                this.synth.speak(utterance);
+            }
+
+            generateExplanation(state) {
+                let msg = "";
+                if (state.isDoubly) {
+                    msg = `The applied bending moment of ${state.Mu} kilonewton meters exceeds the limiting moment of ${Math.round(state.Mulim)} kilonewton meters. ` +
+                          `Therefore, concrete crushing limits are exceeded. To prevent structural failure, we must add ${Math.round(state.Asc)} square millimeters of compression steel at the top, balanced by addition of tension steel. ` +
+                          `This makes the beam a highly efficient doubly reinforced section.`;
+                } else {
+                    msg = `The applied bending moment of ${state.Mu} kilonewton meters is below the capacity limit of ${Math.round(state.Mulim)} kilonewton meters. ` +
+                          `A singly reinforced concrete structural configuration is sufficient. Compression reinforcement is not active except for minor nominal holding hanger bars.`;
+                }
+                return msg;
+            }
+        }
+
+        // Initialize Engine Globals
+        const audio = new AudioEngine();
+        const narrator = new Narrator();
+
+        // Design State Object
+        const state = {
+            b: 250,      // mm
+            D: 600,      // mm
+            d_prime: 50, // mm (Compression cover depth, dynamic)
+            d: 540,      // mm (Effective depth, dynamic)
+            fck: 20,     // MPa (N/mm²)
+            fy: 415,     // MPa (N/mm²)
+            Mu: 180,     // kNm
+            
+            // Output calculated variables
+            xumax: 0,
+            Mulim: 0,
+            Ast1: 0,
+            Ast2: 0,
+            Ast: 0,
+            Asc: 0,
+            xu: 0,
+            isDoubly: false,
+            
+            // Interaction tracking
+            activeDrag: null // 'd' or 'd_prime'
+        };
+
+        // UI Selectors & DOM links
+        const dom = {
+            inputB: document.getElementById('inputB'),
+            inputD: document.getElementById('inputD'),
+            inputMu: document.getElementById('inputMu'),
+            valB: document.getElementById('valB'),
+            valD: document.getElementById('valD'),
+            valMu: document.getElementById('valMu'),
+            hudAst: document.getElementById('hudAst'),
+            hudAsc: document.getElementById('hudAsc'),
+            statusDot: document.getElementById('statusDot'),
+            statusText: document.getElementById('statusText'),
+            audioToggle: document.getElementById('audioToggle'),
+            btnExplain: document.getElementById('btnExplain'),
+            fckSelector: document.getElementById('fckSelector'),
+            fySelector: document.getElementById('fySelector'),
+            
+            // HUD Step equations
+            step1: document.getElementById('step1'),
+            step1Val: document.getElementById('step1Val'),
+            step2: document.getElementById('step2'),
+            step2Val: document.getElementById('step2Val'),
+            step3: document.getElementById('step3'),
+            step3Status: document.getElementById('step3Status'),
+            step4: document.getElementById('step4'),
+            step4Ast: document.getElementById('step4Ast'),
+            eqMuVal: document.getElementById('eqMuVal'),
+            eqMulimVal: document.getElementById('eqMulimVal'),
+            eqCompSymbol: document.getElementById('eqCompSymbol'),
+            eqA_st_formula: document.getElementById('eqA_st_formula'),
+            
+            beamCanvas: document.getElementById('beamCanvas'),
+            diagramCanvas: document.getElementById('diagramCanvas')
+        };
+
+        // Setup HD Canvas drawing contexts
+        const ctxBeam = dom.beamCanvas.getContext('2d');
+        const ctxDiag = dom.diagramCanvas.getContext('2d');
+
+        function resizeCanvases() {
+            const dpr = window.devicePixelRatio || 1;
+            
+            const pBeam = dom.beamCanvas.parentElement;
+            dom.beamCanvas.width = pBeam.clientWidth * dpr;
+            dom.beamCanvas.height = pBeam.clientHeight * dpr;
+            dom.beamCanvas.style.width = pBeam.clientWidth + 'px';
+            dom.beamCanvas.style.height = pBeam.clientHeight + 'px';
+            ctxBeam.scale(dpr, dpr);
+
+            const pDiag = dom.diagramCanvas.parentElement;
+            dom.diagramCanvas.width = pDiag.clientWidth * dpr;
+            dom.diagramCanvas.height = pDiag.clientHeight * dpr;
+            dom.diagramCanvas.style.width = pDiag.clientWidth + 'px';
+            dom.diagramCanvas.style.height = pDiag.clientHeight + 'px';
+            ctxDiag.scale(dpr, dpr);
+            
+            draw();
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+
+        /**
+         * Structural Limits & Reinforcement Computation Engine (IS 456 Guidelines)
+         */
+        function solvePhysics() {
+            // 1. Compute limiting neutral axis parameter based on yield strength of reinforcement
+            let ratio_xumax = 0.53;
+            if (state.fy === 415) ratio_xumax = 0.48;
+            else if (state.fy === 500) ratio_xumax = 0.46;
+
+            state.xumax = ratio_xumax * state.d;
+
+            // 2. Limiting Moment of resistance (as singly reinforced concrete design)
+            state.Mulim = (0.36 * ratio_xumax * (1 - 0.42 * ratio_xumax) * state.fck * state.b * state.d * state.d) / 1e6; // to kNm
+
+            const Mu_Nmm = state.Mu * 1e6;
+            const Mulim_Nmm = state.Mulim * 1e6;
+
+            if (state.Mu <= state.Mu) {
+                // Determine raw physical NA depth under actual loading conditions
+                const term = 1 - (4.6 * Mu_Nmm) / (state.fck * state.b * state.d * state.d);
+                if (term >= 0) {
+                    state.xu = (state.d / 0.42) * (1 - Math.sqrt(term));
+                } else {
+                    state.xu = state.xumax;
+                }
+            }
+
+            let wasDoubly = state.isDoubly;
+
+            if (state.Mu <= state.Mulim) {
+                // SINGLY REINFORCED
+                state.isDoubly = false;
+                
+                // Area of steel
+                const term = 1 - (4.6 * Mu_Nmm) / (state.fck * state.b * state.d * state.d);
+                if (term >= 0) {
+                    state.Ast1 = 0.5 * (state.fck / state.fy) * (1 - Math.sqrt(term)) * state.b * state.d;
+                } else {
+                    // Force complete capacity exhaustion
+                    state.Ast1 = 0.5 * (state.fck / state.fy) * (1 - 0.0) * state.b * state.d;
+                }
+                state.Ast2 = 0;
+                state.Ast = state.Ast1;
+                state.Asc = 0;
+            } else {
+                // DOUBLY REINFORCED
+                state.isDoubly = true;
+                
+                // Primary balanced limit tension reinforcement
+                state.Ast1 = 0.5 * (state.fck / state.fy) * (1 - Math.sqrt(1 - (4.6 * Mulim_Nmm) / (state.fck * state.b * state.d * state.d))) * state.b * state.d;
+                
+                // Additional moment to be carried by steel couples
+                const Mu2 = Mu_Nmm - Mulim_Nmm;
+
+                // Evaluate design stress in compression steel (f_sc)
+                const strain_sc = 0.0035 * (1 - state.d_prime / state.xumax);
+                let fsc = 0;
+                const Es = 2.0e5; // Modulus of elasticity of steel, MPa
+                const fyd = 0.87 * state.fy;
+
+                if (state.fy === 250) {
+                    // Hot rolled mild steel behavior
+                    fsc = Math.min(strain_sc * Es, fyd);
+                } else {
+                    // Cold-worked elasto-plastic hook approximation curves
+                    const eps_yd = fyd / Es;
+                    if (strain_sc < 0.8 * eps_yd) {
+                        fsc = strain_sc * Es;
+                    } else {
+                        // High stress non-linear yield curves interpolation typical of IS 456 tables
+                        const ratio = Math.min((strain_sc - 0.8 * eps_yd) / (0.2 * eps_yd), 1.0);
+                        fsc = 0.8 * fyd + ratio * (0.2 * fyd);
+                    }
+                }
+
+                // Correct for concrete displaced by compression reinforcement
+                const fcc = 0.446 * state.fck;
+                state.Asc = Mu2 / ((fsc - fcc) * (state.d - state.d_prime));
+                state.Ast2 = (state.Asc * (fsc - fcc)) / (0.87 * state.fy);
+                state.Ast = state.Ast1 + state.Ast2;
+            }
+
+            // UI Alerts for structural configuration boundaries
+            if (wasDoubly !== state.isDoubly) {
+                audio.playSweep(state.isDoubly);
+            }
+        }
+
+        /**
+         * Update the Structural dashboard values and calculation formula logic
+         */
+        function updateHUD() {
+            dom.valB.textContent = state.b;
+            dom.valD.textContent = state.D;
+            dom.valMu.textContent = state.Mu;
+            
+            dom.hudAst.textContent = `${Math.round(state.Ast)} mm²`;
+            dom.hudAsc.textContent = `${Math.round(state.Asc)} mm²`;
+
+            // Step 1: Max depth calculation
+            dom.step1Val.innerHTML = `x<sub>u,max</sub> = ${Math.round(state.xumax)} mm`;
+            
+            // Step 2: Limiting capacity
+            dom.step2Val.innerHTML = `M<sub>u,lim</sub> = ${state.Mulim.toFixed(1)} kNm`;
+
+            // Display dynamic variable steps within math block formulas
+            dom.eqMuVal.textContent = state.Mu;
+            dom.eqMulimVal.textContent = Math.round(state.Mulim);
+
+            if (state.isDoubly) {
+                dom.statusText.textContent = "DOUBLY REINFORCED";
+                dom.statusText.style.color = "var(--accent-amber)";
+                dom.statusDot.style.backgroundColor = "var(--accent-amber)";
+                dom.statusDot.style.boxShadow = "var(--glow-amber)";
+
+                dom.step3Status.textContent = "REQUIRED";
+                dom.step3Status.style.color = "var(--accent-amber)";
+                dom.eqCompSymbol.innerHTML = "&gt;";
+                
+                dom.step4Ast.innerHTML = `A<sub>st</sub> = ${Math.round(state.Ast)} mm²`;
+                dom.eqA_st_formula.innerHTML = `A<sub>st1</sub> + A<sub>st2</sub> = ${Math.round(state.Ast1)} + ${Math.round(state.Ast2)} = ${Math.round(state.Ast)} mm²`;
+
+                dom.step1.className = "equation-step active";
+                dom.step2.className = "equation-step active";
+                dom.step3.className = "equation-step active";
+                dom.step4.className = "equation-step active";
+            } else {
+                dom.statusText.textContent = "SINGLY REINFORCED";
+                dom.statusText.style.color = "var(--accent-green)";
+                dom.statusDot.style.backgroundColor = "var(--accent-green)";
+                dom.statusDot.style.boxShadow = "0 0 12px var(--accent-green)";
+
+                dom.step3Status.textContent = "NOT REQUIRED";
+                dom.step3Status.style.color = "var(--accent-green)";
+                dom.eqCompSymbol.innerHTML = "≤";
+
+                dom.step4Ast.innerHTML = `A<sub>st</sub> = ${Math.round(state.Ast)} mm²`;
+                dom.eqA_st_formula.innerHTML = `A<sub>st</sub> = 0.5(f<sub>ck</sub>/f<sub>y</sub>)[1 - √(1 - 4.6M<sub>u</sub>/(f<sub>ck</sub>bd²))]bd`;
+
+                dom.step1.className = "equation-step active";
+                dom.step2.className = "equation-step active";
+                dom.step3.className = "equation-step active";
+                dom.step4.className = "equation-step active";
+            }
+        }
+
+        /**
+         * Canvas Rendering Loops
+         */
+        function draw() {
+            const widthB = dom.beamCanvas.parentElement.clientWidth;
+            const heightB = dom.beamCanvas.parentElement.clientHeight;
+            
+            ctxBeam.clearRect(0, 0, widthB, heightB);
+            ctxDiag.clearRect(0, 0, widthB, heightB);
+
+            // Compute coordinate map systems based on concrete section scaling limits
+            const beamLeft = 50;
+            const beamWidth = 140; // mapped to state.b (200-400mm)
+            const beamTop = 40;
+            const beamHeight = 350; // mapped to state.D (400-750mm)
+
+            // Scale calculations (pixels per mm)
+            const scaleY = beamHeight / state.D;
+
+            // Compute visual dynamic positions
+            const y_d_prime = beamTop + state.d_prime * scaleY;
+            const y_d = beamTop + state.d * scaleY;
+
+            // DRAW PANEL 1: Interactive Concrete beam cross-section
+            // 1. Concrete Area Fill
+            ctxBeam.fillStyle = "#1b212c";
+            ctxBeam.fillRect(beamLeft, beamTop, beamWidth, beamHeight);
+            
+            // Concrete Hatch/Aggregates decoration
+            ctxBeam.fillStyle = "rgba(255, 255, 255, 0.05)";
+            for (let i = 0; i < 20; i++) {
+                ctxBeam.beginPath();
+                const rx = beamLeft + Math.random() * beamWidth;
+                const ry = beamTop + Math.random() * beamHeight;
+                ctxBeam.arc(rx, ry, 2 + Math.random() * 3, 0, Math.PI * 2);
+                ctxBeam.fill();
+            }
+
+            ctxBeam.strokeStyle = "rgba(0, 240, 255, 0.4)";
+            ctxBeam.lineWidth = 2;
+            ctxBeam.strokeRect(beamLeft, beamTop, beamWidth, beamHeight);
+
+            // 2. Concrete Dimension markings
+            ctxBeam.fillStyle = "var(--text-secondary)";
+            ctxBeam.font = "10px Orbitron";
+            ctxBeam.textAlign = "center";
+            ctxBeam.fillText(`b = ${state.b}mm`, beamLeft + beamWidth / 2, beamTop - 12);
+            ctxBeam.fillText(`D = ${state.D}mm`, beamLeft + beamWidth / 2, beamTop + beamHeight + 20);
+
+            // Compression steel circles (Top)
+            const countAsc = state.isDoubly ? 3 : 2;
+            ctxBeam.fillStyle = state.isDoubly ? "var(--accent-amber)" : "rgba(255, 255, 255, 0.15)";
+            for (let i = 0; i < countAsc; i++) {
+                const cx = beamLeft + 25 + (i * (beamWidth - 50)) / (countAsc - 1 || 1);
+                ctxBeam.beginPath();
+                ctxBeam.arc(cx, y_d_prime, state.isDoubly ? 8 : 4, 0, Math.PI * 2);
+                ctxBeam.fill();
+                ctxBeam.strokeStyle = "#fff";
+                ctxBeam.lineWidth = 1;
+                ctxBeam.stroke();
+            }
+
+            // Tension steel circles (Bottom)
+            const countAst = 4;
+            ctxBeam.fillStyle = "var(--accent-cyan)";
+            for (let i = 0; i < countAst; i++) {
+                const cx = beamLeft + 25 + (i * (beamWidth - 50)) / (countAst - 1);
+                ctxBeam.beginPath();
+                ctxBeam.arc(cx, y_d, 10, 0, Math.PI * 2);
+                ctxBeam.fill();
+                ctxBeam.strokeStyle = "#fff";
+                ctxBeam.lineWidth = 1;
+                ctxBeam.stroke();
+            }
+
+            // Draggable anchors pointers (Tension & Compression limits)
+            drawDragHandle(ctxBeam, beamLeft + beamWidth + 15, y_d_prime, "d'", state.d_prime, "var(--accent-amber)");
+            drawDragHandle(ctxBeam, beamLeft + beamWidth + 15, y_d, "d", state.d, "var(--accent-cyan)");
+
+            // Neutral axis depth marker
+            const y_xu = beamTop + state.xu * scaleY;
+            ctxBeam.beginPath();
+            ctxBeam.setLineDash([5, 5]);
+            ctxBeam.strokeStyle = "rgba(255, 0, 85, 0.7)";
+            ctxBeam.lineWidth = 1.5;
+            ctxBeam.moveTo(beamLeft - 10, y_xu);
+            ctxBeam.lineTo(beamLeft + beamWidth + 10, y_xu);
+            ctxBeam.stroke();
+            ctxBeam.setLineDash([]); // Reset
+            
+            ctxBeam.fillStyle = "var(--accent-crimson)";
+            ctxBeam.font = "9px Orbitron";
+            ctxBeam.textAlign = "left";
+            ctxBeam.fillText(`N.A. (xu = ${Math.round(state.xu)}mm)`, beamLeft - 40, y_xu - 6);
+
+
+            // DRAW PANEL 2: Stress-Strain profile graphs
+            const diagLeft = 50;
+            const diagWidth = 100;
+            const midX = diagLeft + diagWidth / 2;
+            const stressStartLeft = diagLeft + 160;
+
+            // Central base grid lines
+            ctxDiag.beginPath();
+            ctxDiag.strokeStyle = "rgba(255, 255, 255, 0.1)";
+            ctxDiag.lineWidth = 1;
+            ctxDiag.moveTo(midX, beamTop - 10);
+            ctxDiag.lineTo(midX, beamTop + beamHeight + 10);
+            ctxDiag.stroke();
+
+            // Strain Plot
+            ctxDiag.beginPath();
+            ctxDiag.strokeStyle = "var(--accent-cyan)";
+            ctxDiag.lineWidth = 2.5;
+            
+            // Top strain vector left (Compression)
+            ctxDiag.moveTo(midX - 45, beamTop);
+            ctxDiag.lineTo(midX, y_xu); // cross at neutral axis
+            // Bottom tension strain vector right (Tension)
+            const y_strain_tension_lim = 0.0035 * (1 - state.d / state.xu);
+            ctxDiag.lineTo(midX + 55, y_d);
+            ctxDiag.stroke();
+
+            // Strain Labels
+            ctxDiag.fillStyle = "#fff";
+            ctxDiag.font = "9px Orbitron";
+            ctxDiag.textAlign = "right";
+            ctxDiag.fillText("ε_cu = 0.0035", midX - 50, beamTop + 10);
+            ctxDiag.textAlign = "left";
+            ctxDiag.fillText("ε_st", midX + 60, y_d + 3);
+
+            // Neutral Axis Line extension from beam section to profiles
+            ctxDiag.beginPath();
+            ctxDiag.strokeStyle = "rgba(255, 0, 85, 0.2)";
+            ctxDiag.setLineDash([3, 3]);
+            ctxDiag.moveTo(0, y_xu);
+            ctxDiag.lineTo(widthB, y_xu);
+            ctxDiag.stroke();
+            ctxDiag.setLineDash([]);
+
+            // Stress Plot
+            // Parabolic-rectangular stress block boundary calculation
+            ctxDiag.beginPath();
+            ctxDiag.strokeStyle = "var(--accent-green)";
+            ctxDiag.fillStyle = "rgba(0, 255, 136, 0.15)";
+            ctxDiag.lineWidth = 2;
+
+            ctxDiag.moveTo(stressStartLeft, y_xu); // Start stress block from Neutral Axis
+            
+            // Build parabolic segment (3/7 to 7/7 transition zone)
+            const parabolicHeight = (4/7) * state.xu * scaleY;
+            const rectHeight = (3/7) * state.xu * scaleY;
+
+            // Draw parabola curve
+            for (let currY = 0; currY <= parabolicHeight; currY++) {
+                const normVal = currY / parabolicHeight;
+                // Parabola equation: stress = 0.446fck * (2*eta - eta^2)
+                const relativeStressWidth = 70 * (2 * normVal - normVal * normVal);
+                ctxDiag.lineTo(stressStartLeft + relativeStressWidth, y_xu - currY);
+            }
+            
+            // Draw constant rectangular stress block up to top limit
+            ctxDiag.lineTo(stressStartLeft + 70, beamTop);
+            ctxDiag.lineTo(stressStartLeft, beamTop);
+            ctxDiag.closePath();
+            ctxDiag.fill();
+            ctxDiag.stroke();
+
+            // Stress Labels
+            ctxDiag.fillStyle = "#fff";
+            ctxDiag.font = "9px Orbitron";
+            ctxDiag.textAlign = "left";
+            ctxDiag.fillText("0.446 f_ck", stressStartLeft + 75, beamTop + 12);
+
+            // Show Resultant Compression Force Vector (C_u)
+            const cy_comp = beamTop + 0.42 * state.xu * scaleY;
+            drawVector(ctxDiag, stressStartLeft + 120, cy_comp, -50, "C_u", "var(--accent-green)");
+
+            // Show Tension force vector (T_u)
+            drawVector(ctxDiag, stressStartLeft + 120, y_d, -50, "T_u", "var(--accent-cyan)");
+        }
+
+        function drawDragHandle(ctx, x, y, label, val, color) {
+            // Anchor Pin
+            ctx.beginPath();
+            ctx.fillStyle = color;
+            ctx.arc(x, y, 7, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Line pointer to internal steel core position
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 1;
+            ctx.moveTo(x - 7, y);
+            ctx.lineTo(x - 30, y);
+            ctx.stroke();
+
+            // Parameter text labels
+            ctx.fillStyle = color;
+            ctx.font = "bold 10px Orbitron";
+            ctx.textAlign = "left";
+            ctx.fillText(`${label} = ${val}mm`, x + 15, y + 4);
+        }
+
+        function drawVector(ctx, startX, startY, lenX, label, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2;
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(startX + lenX, startY);
+            // arrowhead
+            ctx.lineTo(startX + lenX + (lenX > 0 ? -6 : 6), startY - 4);
+            ctx.moveTo(startX + lenX, startY);
+            ctx.lineTo(startX + lenX + (lenX > 0 ? -6 : 6), startY + 4);
+            ctx.stroke();
+
+            ctx.fillStyle = color;
+            ctx.font = "9px Orbitron";
+            ctx.textAlign = "left";
+            ctx.fillText(label, startX + (lenX > 0 ? 5 : -40), startY - 6);
+        }
+
+        /**
+         * Real-time Interactive drag controls mapping logic
+         */
+        function handleDragMove(mouseY) {
+            const beamTop = 40;
+            const beamHeight = 350;
+            const scaleY = beamHeight / state.D;
+            
+            // Relate absolute canvas pixels back to internal dimension variables
+            const relativeY = (mouseY - beamTop) / scaleY;
+
+            if (state.activeDrag === 'd_prime') {
+                // Compression steel cover constraint checks (30mm to 100mm)
+                state.d_prime = Math.min(Math.max(Math.round(relativeY), 30), 100);
+                
+                // Track dynamic sliding audio frequency
+                audio.updateThrum(140 - state.d_prime);
+            } else if (state.activeDrag === 'd') {
+                // Tension steel effective depth bounds check (420mm to overall depth D - 30mm)
+                state.d = Math.min(Math.max(Math.round(relativeY), 420), state.D - 30);
+                
+                // Track dynamic sliding audio frequency
+                audio.updateThrum(100 + (state.d / 5));
+            }
+
+            solvePhysics();
+            updateHUD();
+            draw();
+        }
+
+        // Add interactive touch and mouse structural drag events
+        function setupInteraction() {
+            function getCanvasY(e) {
+                const rect = dom.beamCanvas.getBoundingClientRect();
+                const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+                return clientY - rect.top;
+            }
+
+            function onStart(e) {
+                const y = getCanvasY(e);
+                const beamHeight = 350;
+                const scaleY = beamHeight / state.D;
+                const y_d_prime = 40 + state.d_prime * scaleY;
+                const y_d = 40 + state.d * scaleY;
+
+                // Simple collision zone checks
+                if (Math.abs(y - y_d_prime) < 18) {
+                    state.activeDrag = 'd_prime';
+                    audio.startThrum(120);
+                } else if (Math.abs(y - y_d) < 18) {
+                    state.activeDrag = 'd';
+                    audio.startThrum(200);
+                }
+            }
+
+            function onMove(e) {
+                if (!state.activeDrag) return;
+                e.preventDefault();
+                handleDragMove(getCanvasY(e));
+            }
+
+            function onEnd() {
+                if (state.activeDrag) {
+                    state.activeDrag = null;
+                    audio.stopThrum();
+                    audio.playClick();
+                }
+            }
+
+            dom.beamCanvas.addEventListener('mousedown', onStart);
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onEnd);
+
+            dom.beamCanvas.addEventListener('touchstart', onStart, { passive: false });
+            window.addEventListener('touchmove', onMove, { passive: false });
+            window.addEventListener('touchend', onEnd);
+        }
+
+        // Interactive GUI sliders dynamic updates
+        function setupGuiControls() {
+            dom.inputB.addEventListener('input', (e) => {
+                state.b = parseInt(e.target.value);
+                solvePhysics();
+                updateHUD();
+                draw();
+                audio.playClick();
+            });
+
+            dom.inputD.addEventListener('input', (e) => {
+                state.D = parseInt(e.target.value);
+                // Ensure effective cover depth constraints align with new overall size limits
+                if (state.d > state.D - 30) {
+                    state.d = state.D - 50;
+                }
+                solvePhysics();
+                updateHUD();
+                draw();
+                audio.playClick();
+            });
+
+            dom.inputMu.addEventListener('input', (e) => {
+                state.Mu = parseInt(e.target.value);
+                solvePhysics();
+                updateHUD();
+                draw();
+                audio.playClick();
+            });
+
+            // Handle Selector Button matrix triggers
+            dom.fckSelector.addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+                
+                dom.fckSelector.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.fck = parseInt(btn.dataset.val);
+                
+                solvePhysics();
+                updateHUD();
+                draw();
+                audio.playClick();
+            });
+
+            dom.fySelector.addEventListener('click', (e) => {
+                const btn = e.target.closest('button');
+                if (!btn) return;
+
+                dom.fySelector.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.fy = parseInt(btn.dataset.val);
+
+                solvePhysics();
+                updateHUD();
+                draw();
+                audio.playClick();
+            });
+
+            // Speech Narrator click listener
+            dom.btnExplain.addEventListener('click', () => {
+                const msg = narrator.generateExplanation(state);
+                narrator.speak(msg);
+                audio.playClick();
+            });
+
+            // Toggle Audio Engine system volume state
+            dom.audioToggle.addEventListener('click', () => {
+                audio.muted = !audio.muted;
+                if (audio.muted) {
+                    dom.audioToggle.classList.remove('active');
+                    dom.audioToggle.innerHTML = `
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon></svg>
+                        AUDIO OFF`;
+                } else {
+                    dom.audioToggle.classList.add('active');
+                    dom.audioToggle.innerHTML = `
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                        AUDIO ON`;
+                    audio.init();
+                    audio.playSweep(true);
+                }
+            });
+        }
+
+        // Entry Bootloader initialization
+        function initApp() {
+            solvePhysics();
+            resizeCanvases();
+            updateHUD();
+            setupInteraction();
+            setupGuiControls();
+        }
+
+        window.addEventListener('load', initApp);
+    </script>
+</body>
+</html>
