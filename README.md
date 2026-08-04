@@ -1,4 +1,4 @@
-# ⚡ Antigravity Spaced Repetition & Interactive Simulation Studio
+# 🧠 SynapseLab AI - Interactive Learning & Memory Engine
 
 > A next-generation, AI-powered educational web application combining **FSRS Spaced Repetition**, **Gizmo-style Interactive Canvas Simulations**, **Automated 30-MCQ Generation from PDF/Office Courseware**, and **5-Tier Hierarchical Concept Mind Maps**.
 

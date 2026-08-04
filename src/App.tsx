@@ -284,11 +284,11 @@ export const App: React.FC = () => {
         {/* Sidebar Header */}
         <div className="sidebar-header">
           <div className="sidebar-logo">
-            AS
+            SL
           </div>
           <div>
-            <span className="sidebar-logo-text">AETHER SIM</span>
-            <span className="sidebar-logo-sub">dashboard</span>
+            <span className="sidebar-logo-text">SYNAPSELAB AI</span>
+            <span className="sidebar-logo-sub">Memory Engine</span>
           </div>
         </div>
 

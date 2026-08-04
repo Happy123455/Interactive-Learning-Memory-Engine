@@ -902,7 +902,7 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '24px', fontWeight: 'bold', color: 'white', letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            ⚡ FSRS Spaced Repetition Studio
+            ⚡ SynapseLab AI Spaced Repetition Studio
           </h1>
           <p style={{ color: 'var(--text-secondary)', fontSize: '13px', marginTop: '4px' }}>
             Subject-Hierarchical Mind Maps & Objective 10-MCQ Diagnostic Assessment for adaptive retention.
