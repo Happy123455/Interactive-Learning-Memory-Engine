@@ -3906,11 +3906,17 @@ INSTRUCTIONS:
 
 Return ONLY the raw JSON content. Do NOT wrap in markdown code blocks.`;
 
-    const geminiModel = ai.getGenerativeModel({ model: modelName });
+    const geminiModel = ai.getGenerativeModel({ 
+      model: modelName,
+      generationConfig: { responseMimeType: "application/json" }
+    });
     const response = await generateContentWithRetry(geminiModel, prompt, 3);
     logTokenUsage(response);
 
-    const planText = stripMarkdownFences(response.response.text());
+    const rawText = response.response.text();
+    // Extract JSON block in case any external headers/HTML get prepended
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const planText = jsonMatch ? jsonMatch[0] : stripMarkdownFences(rawText);
     
     // Save to study_plan.json for persistence
     const planPath = path.join(DATA_DIR, 'study_plan.json');
