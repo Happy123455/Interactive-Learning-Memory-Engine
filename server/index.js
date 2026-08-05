@@ -1073,6 +1073,7 @@ const runAutoRunBackground = async (assignmentId, questions) => {
 
 // Serve static simulations
 app.use('/simulations', express.static(SIM_DIR));
+app.use('/downloads', express.static(DOWNLOADS_DIR));
 
 // DB endpoints
 app.get('/api/db', (req, res) => {

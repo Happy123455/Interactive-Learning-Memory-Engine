@@ -1,15 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
-import type { Database, Question, Unit, Assignment, FsrsItem } from '../types';
-import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
+import type { Database, Question, Unit, Assignment, FsrsItem, Subject } from '../types';
+import { ZoomIn, ZoomOut, Maximize2, Plus, X, Folder, File, Layers } from 'lucide-react';
 
 interface MindMapProps {
   db: Database;
   onSelectQuestion: (question: Question) => void;
+  onRefreshDB: () => void;
 }
 
 interface NodeData {
   id: string;
-  type: 'root' | 'subject' | 'unit' | 'assignment' | 'question' | 'topic';
+  type: 'root' | 'subject' | 'unit' | 'category' | 'assignment' | 'question' | 'topic' | 'enote' | 'ppt';
   label: string;
   x: number;
   y: number;
@@ -29,12 +30,57 @@ interface LinkData {
   color: string;
 }
 
-export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
+export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion, onRefreshDB }) => {
   // Navigation expand states
   const [mapMode, setMapMode] = useState<'assignments' | 'topics'>('assignments');
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
   const [expandedUnits, setExpandedUnits] = useState<Record<string, boolean>>({});
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
   const [expandedAssignments, setExpandedAssignments] = useState<Record<string, boolean>>({});
+
+  // Local materials list state
+  const [materials, setMaterials] = useState<any[]>([]);
+
+  // Add Subject/Unit Modal states
+  const [showAddSubject, setShowAddSubject] = useState(false);
+  const [showAddUnit, setShowAddUnit] = useState(false);
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [selectedSubId, setSelectedSubId] = useState('');
+  const [newUnitNumber, setNewUnitNumber] = useState<number>(1);
+  const [newUnitName, setNewUnitName] = useState('');
+
+  // Fetch local materials on mount
+  useEffect(() => {
+    const fetchMaterials = async () => {
+      try {
+        const res = await fetch('/api/local-assignments');
+        if (res.ok) {
+          const data = await res.json();
+          setMaterials(data);
+        }
+      } catch (e) {
+        console.error('Failed to load local materials in MindMap:', e);
+      }
+    };
+    fetchMaterials();
+  }, []);
+
+  // Initialize first subject expanded
+  useEffect(() => {
+    if (db.subjects.length > 0) {
+      setExpandedSubjects(prev => ({ [db.subjects[0].id]: true, ...prev }));
+      setSelectedSubId(db.subjects[0].id);
+    }
+  }, [db]);
+
+  // Matching helper for local materials
+  const isMatch = (mat: any, sub: Subject, unit: Unit) => {
+    const matSub = mat.subjectName.toLowerCase();
+    const subName = sub.name.toLowerCase();
+    const subFolder = mat.subjectFolder.toLowerCase();
+    const isSubjectMatched = subName.includes(matSub) || matSub.includes(subName) || subFolder.includes(subName);
+    return isSubjectMatched && mat.detectedUnit === unit.number;
+  };
 
   const getFsrsColorForNode = (nodeId: string, nodeType: string) => {
     const items = db.fsrsItems || [];
@@ -63,20 +109,13 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
   const dragStart = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Initialize first subject expanded
-  useEffect(() => {
-    if (db.subjects.length > 0) {
-      setExpandedSubjects(prev => ({ [db.subjects[0].id]: true, ...prev }));
-    }
-  }, [db]);
-
   // Compute Layout Nodes and Links
   const computeLayout = (): { nodes: NodeData[]; links: LinkData[] } => {
     const nodes: NodeData[] = [];
     const links: LinkData[] = [];
 
     // Helper to calculate the visible height (in leaf slots) of a subtree
-    const getSpacingHeight = (nodeId: string, type: 'root' | 'subject' | 'unit' | 'assignment'): number => {
+    const getSpacingHeight = (nodeId: string, type: 'root' | 'subject' | 'unit' | 'category' | 'assignment'): number => {
       if (type === 'root') {
         return db.subjects.reduce((sum, sub) => sum + getSpacingHeight(sub.id, 'subject'), 0) || 1;
       }
@@ -91,22 +130,44 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
         const parts = nodeId.split('-');
         const subId = parts[0];
         const unitId = parts[1];
-        const unit = db.subjects.find(s => s.id === subId)?.units.find(u => u.id === unitId);
+        const subject = db.subjects.find(s => s.id === subId);
+        if (!subject) return 1;
+        const unit = subject.units.find(u => u.id === unitId);
+        if (!unit) return 1;
 
         if (mapMode === 'topics') {
           const topics = unit?.topics || [];
           return topics.length || 1;
         }
 
-        const assignments = unit?.assignments || [];
-        return assignments.reduce((sum, ass) => sum + getSpacingHeight(`${nodeId}-${ass.id}`, 'assignment'), 0) || 1;
+        // Partition materials
+        const unitMats = materials.filter(m => isMatch(m, subject, unit));
+        const hasEnotes = unitMats.some(m => m.materialType === 'enote');
+        const hasPpts = unitMats.some(m => m.materialType === 'ppt');
+        const hasAssignments = unit.assignments.length > 0 || unitMats.some(m => m.materialType === 'assignment');
+
+        let height = 0;
+        if (hasEnotes) {
+          height += expandedCategories[`${nodeId}-enote`] ? unitMats.filter(m => m.materialType === 'enote').length : 1;
+        }
+        if (hasPpts) {
+          height += expandedCategories[`${nodeId}-ppt`] ? unitMats.filter(m => m.materialType === 'ppt').length : 1;
+        }
+        if (hasAssignments) {
+          if (expandedCategories[`${nodeId}-assignment`]) {
+            height += unit.assignments.reduce((sum, ass) => sum + getSpacingHeight(`${nodeId}-${ass.id}`, 'assignment'), 0) || 1;
+          } else {
+            height += 1;
+          }
+        }
+        return height || 1;
       }
       if (type === 'assignment') {
         if (!expandedAssignments[nodeId]) return 1;
         const parts = nodeId.split('-');
         const subId = parts[0];
         const unitId = parts[1];
-        const assId = parts[2];
+        const assId = parts[3]; // format is subId-unitId-assignment-assId
         const assignment = db.subjects.find(s => s.id === subId)
           ?.units.find(u => u.id === unitId)
           ?.assignments.find(a => a.id === assId);
@@ -121,7 +182,7 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
 
     const layoutNode = (
       nodeId: string,
-      type: 'root' | 'subject' | 'unit' | 'assignment' | 'question' | 'topic',
+      type: 'root' | 'subject' | 'unit' | 'category' | 'assignment' | 'question' | 'topic' | 'enote' | 'ppt',
       x: number,
       parentId: string | undefined,
       label: string,
@@ -156,11 +217,59 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
               });
             }
           } else {
-            const assignments = originalData.assignments || [];
-            assignments.forEach((ass: Assignment) => {
-              const assId = `${nodeId}-${ass.id}`;
-              layoutNode(assId, 'assignment', x + 260, nodeId, ass.name, ass);
-            });
+            const parts = nodeId.split('-');
+            const subId = parts[0];
+            const subject = db.subjects.find(s => s.id === subId)!;
+            const unit = originalData as Unit;
+            const unitMats = materials.filter(m => isMatch(m, subject, unit));
+
+            const hasEnotes = unitMats.some(m => m.materialType === 'enote');
+            const hasPpts = unitMats.some(m => m.materialType === 'ppt');
+            const hasAssignments = unit.assignments.length > 0 || unitMats.some(m => m.materialType === 'assignment');
+
+            if (hasEnotes) {
+              const catId = `${nodeId}-enote`;
+              layoutNode(catId, 'category', x + 240, nodeId, '📄 E-Notes', { type: 'enote', files: unitMats.filter(m => m.materialType === 'enote') });
+            }
+            if (hasPpts) {
+              const catId = `${nodeId}-ppt`;
+              layoutNode(catId, 'category', x + 240, nodeId, '🎬 Presentations', { type: 'ppt', files: unitMats.filter(m => m.materialType === 'ppt') });
+            }
+            if (hasAssignments) {
+              const catId = `${nodeId}-assignment`;
+              layoutNode(catId, 'category', x + 240, nodeId, '📚 Assignments', { type: 'assignment', assignments: unit.assignments });
+            }
+            if (!hasEnotes && !hasPpts && !hasAssignments) {
+              currentSlot += 1;
+            }
+          }
+        } else {
+          currentSlot += 1;
+        }
+      } else if (type === 'category') {
+        const catKey = nodeId;
+        const catType = originalData.type;
+        if (expandedCategories[catKey]) {
+          if (catType === 'assignment') {
+            const dbAsses = originalData.assignments || [];
+            if (dbAsses.length === 0) {
+              currentSlot += 1;
+            } else {
+              dbAsses.forEach((ass: Assignment) => {
+                const assId = `${parentId}-assignment-${ass.id}`;
+                layoutNode(assId, 'assignment', x + 260, catKey, ass.name, ass);
+              });
+            }
+          } else {
+            const files = originalData.files || [];
+            if (files.length === 0) {
+              currentSlot += 1;
+            } else {
+              files.forEach((file: any, fIdx: number) => {
+                const fileId = `${catKey}-file-${fIdx}`;
+                layoutNode(fileId, file.materialType, x + 260, catKey, file.detectedTitle, file);
+              });
+            }
           }
         } else {
           currentSlot += 1;
@@ -168,13 +277,17 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
       } else if (type === 'assignment') {
         if (expandedAssignments[nodeId]) {
           const questions = originalData.questions || [];
-          questions.forEach((q: Question) => {
-            layoutNode(q.id, 'question', x + 280, nodeId, q.text, q);
-          });
+          if (questions.length === 0) {
+            currentSlot += 1;
+          } else {
+            questions.forEach((q: Question) => {
+              layoutNode(q.id, 'question', x + 280, nodeId, q.text, q);
+            });
+          }
         } else {
           currentSlot += 1;
         }
-      } else if (type === 'question' || type === 'topic') {
+      } else if (type === 'question' || type === 'topic' || type === 'enote' || type === 'ppt') {
         currentSlot += 1;
       }
 
@@ -199,7 +312,7 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
     };
 
     // Calculate layout starting from root
-    layoutNode('root', 'root', 0, undefined, 'Semester 5', null);
+    layoutNode('root', 'root', 0, undefined, 'Semester 5 Workspace', null);
 
     // Build link Bezier endpoints from node coordinates
     nodes.forEach(node => {
@@ -209,6 +322,9 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
           let color = 'rgba(255, 255, 255, 0.1)';
           if (node.type === 'subject') color = 'var(--accent-cyan)';
           else if (node.type === 'unit') color = 'var(--accent-purple)';
+          else if (node.type === 'category') color = 'var(--accent-yellow)';
+          else if (node.type === 'enote') color = '#10b981';
+          else if (node.type === 'ppt') color = '#38bdf8';
           else if (node.type === 'assignment') color = 'var(--accent-blue)';
           else if (node.type === 'topic') color = '#a855f7';
           else if (node.type === 'question') {
@@ -234,13 +350,14 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
 
   const { nodes, links } = computeLayout();
 
-  // Dragging mechanics
-  const handleMouseDown = (e: React.MouseEvent) => {
+  // Mouse Drag handlers for Pan
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button !== 0) return; // Only left click
     isDragging.current = true;
     dragStart.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
     if (!isDragging.current) return;
     setPan({
       x: e.clientX - dragStart.current.x,
@@ -252,91 +369,28 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
     isDragging.current = false;
   };
 
-  // Zoom centered around the mouse cursor
+  // Zoom Handler
   const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
     e.preventDefault();
-    const zoomFactor = 1.15;
-    
-    const rect = e.currentTarget.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
-    const canvasX = (mouseX - pan.x) / zoom;
-    const canvasY = (mouseY - pan.y) / zoom;
-
-    let nextZoom = zoom;
-    if (e.deltaY < 0) {
-      nextZoom = Math.min(zoom * zoomFactor, 2.5);
-    } else {
-      nextZoom = Math.max(zoom / zoomFactor, 0.2);
-    }
-
-    setZoom(nextZoom);
-    setPan({
-      x: mouseX - canvasX * nextZoom,
-      y: mouseY - canvasY * nextZoom
-    });
+    const zoomFactor = 1.1;
+    const newZoom = e.deltaY < 0 ? zoom * zoomFactor : zoom / zoomFactor;
+    setZoom(Math.max(0.15, Math.min(newZoom, 3.5)));
   };
 
-  // Keyboard controls for zooming (+/-) and panning (arrow keys / WASD)
+  // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-
-      const key = e.key.toLowerCase();
-      const zoomFactor = 1.15;
-
-      if (key === '+' || key === '=' || e.keyCode === 187) {
-        e.preventDefault();
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          const midX = rect.width / 2;
-          const midY = rect.height / 2;
-          const canvasX = (midX - pan.x) / zoom;
-          const canvasY = (midY - pan.y) / zoom;
-          const nextZoom = Math.min(zoom * zoomFactor, 2.5);
-          setZoom(nextZoom);
-          setPan({
-            x: midX - canvasX * nextZoom,
-            y: midY - canvasY * nextZoom
-          });
-        } else {
-          setZoom(z => Math.min(z * zoomFactor, 2.5));
-        }
-      } else if (key === '-' || key === '_' || e.keyCode === 189) {
-        e.preventDefault();
-        if (containerRef.current) {
-          const rect = containerRef.current.getBoundingClientRect();
-          const midX = rect.width / 2;
-          const midY = rect.height / 2;
-          const canvasX = (midX - pan.x) / zoom;
-          const canvasY = (midY - pan.y) / zoom;
-          const nextZoom = Math.max(zoom / zoomFactor, 0.2);
-          setZoom(nextZoom);
-          setPan({
-            x: midX - canvasX * nextZoom,
-            y: midY - canvasY * nextZoom
-          });
-        } else {
-          setZoom(z => Math.max(z / zoomFactor, 0.2));
-        }
-      } else if (key === '0' || key === 'r') {
-        e.preventDefault();
-        setZoom(0.8);
-        setPan({ x: 100, y: 300 });
-      } else if (key === 'arrowleft' || key === 'a') {
-        e.preventDefault();
+      if (e.key === '=' || e.key === '+') {
+        setZoom(z => Math.min(z * 1.1, 3.5));
+      } else if (e.key === '-') {
+        setZoom(z => Math.max(z / 1.1, 0.15));
+      } else if (e.key === 'ArrowLeft') {
         setPan(p => ({ ...p, x: p.x + 40 }));
-      } else if (key === 'arrowright' || key === 'd') {
-        e.preventDefault();
+      } else if (e.key === 'ArrowRight') {
         setPan(p => ({ ...p, x: p.x - 40 }));
-      } else if (key === 'arrowup' || key === 'w') {
-        e.preventDefault();
+      } else if (e.key === 'ArrowUp') {
         setPan(p => ({ ...p, y: p.y + 40 }));
-      } else if (key === 'arrowdown' || key === 's') {
-        e.preventDefault();
+      } else if (e.key === 'ArrowDown') {
         setPan(p => ({ ...p, y: p.y - 40 }));
       }
     };
@@ -356,11 +410,20 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
         ...prev,
         [node.id]: !prev[node.id]
       }));
+    } else if (node.type === 'category') {
+      setExpandedCategories(prev => ({
+        ...prev,
+        [node.id]: !prev[node.id]
+      }));
     } else if (node.type === 'assignment') {
       setExpandedAssignments(prev => ({
         ...prev,
         [node.id]: !prev[node.id]
       }));
+    } else if (node.type === 'enote' || node.type === 'ppt') {
+      const file = node.originalData;
+      const fileUrl = `http://localhost:5050/${file.filePath.slice(file.filePath.indexOf('downloads'))}`;
+      window.open(fileUrl, '_blank');
     } else if (node.type === 'question') {
       onSelectQuestion(node.originalData as Question);
     } else if (node.type === 'topic') {
@@ -379,86 +442,162 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
     }
   };
 
-  // Helper for Difficulty gradient calculation
   const getDifficultyColor = (difficulty: number) => {
-    const hue = ((10 - difficulty) / 9) * 120; // 10 -> 0 (red), 1 -> 120 (green)
+    const hue = ((10 - difficulty) / 9) * 120;
     return `hsl(${hue}, 100%, 50%)`;
   };
 
+  // Add Subject handler
+  const handleAddSubject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSubjectName.trim()) return;
+
+    try {
+      const updatedDb = { ...db };
+      const newSubject: Subject = {
+        id: `subject-${Date.now()}`,
+        name: newSubjectName.trim(),
+        units: []
+      };
+      updatedDb.subjects.push(newSubject);
+
+      const res = await fetch('/api/db', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updatedDb)
+      });
+
+      if (res.ok) {
+        setNewSubjectName('');
+        setShowAddSubject(false);
+        onRefreshDB();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  // Add Unit handler
+  const handleAddUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUnitName.trim() || !selectedSubId) return;
+
+    try {
+      const updatedDb = { ...db };
+      const subject = updatedDb.subjects.find(s => s.id === selectedSubId);
+      if (subject) {
+        const newUnit: Unit = {
+          id: `unit-${Date.now()}`,
+          number: Number(newUnitNumber),
+          name: newUnitName.trim(),
+          assignments: [],
+          topics: []
+        };
+        subject.units.push(newUnit);
+
+        const res = await fetch('/api/db', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updatedDb)
+        });
+
+        if (res.ok) {
+          setNewUnitName('');
+          setNewUnitNumber(subject.units.length + 1);
+          setShowAddUnit(false);
+          onRefreshDB();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   return (
-    <div className="mindmap-container" ref={containerRef}>
-      {/* HUD Toolbar */}
-      <div className="mindmap-toolbar glass-panel" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', background: 'rgba(0,0,0,0.4)', borderRadius: '6px', padding: '2px' }}>
-          <button
-            onClick={() => setMapMode('assignments')}
-            style={{
-              padding: '4px 8px',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              borderRadius: '4px',
-              border: 'none',
-              background: mapMode === 'assignments' ? 'var(--accent-cyan)' : 'transparent',
-              color: mapMode === 'assignments' ? '#05060b' : 'var(--text-secondary)'
-            }}
-          >
-            📚 Assignment Questions
-          </button>
-          <button
-            onClick={() => setMapMode('topics')}
-            style={{
-              padding: '4px 8px',
-              fontSize: '10px',
-              fontWeight: 'bold',
-              borderRadius: '4px',
-              border: 'none',
-              background: mapMode === 'topics' ? 'var(--accent-purple)' : 'transparent',
-              color: mapMode === 'topics' ? '#ffffff' : 'var(--text-secondary)'
-            }}
-          >
-            🎓 Unit PPT Topics
-          </button>
-        </div>
-
+    <div className="mindmap-container" ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%', overflow: 'hidden' }}>
+      
+      {/* Floating Control Panel */}
+      <div style={{ position: 'absolute', top: '16px', left: '16px', zIndex: 10, display: 'flex', gap: '8px' }}>
         <button
-          onClick={() => setZoom(z => Math.min(z * 1.2, 2.5))}
-          title="Zoom In"
+          onClick={() => setShowAddSubject(true)}
+          style={{
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(56, 189, 248, 0.4)',
+            borderRadius: '8px',
+            color: '#38bdf8',
+            padding: '8px 14px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.2s'
+          }}
         >
-          <ZoomIn size={18} />
-        </button>
-        <button
-          onClick={() => setZoom(z => Math.max(z / 1.2, 0.2))}
-          title="Zoom Out"
-        >
-          <ZoomOut size={18} />
+          <Plus size={12} /> Add Subject
         </button>
         <button
           onClick={() => {
-            setZoom(0.8);
-            setPan({ x: 100, y: 300 });
+            if (db.subjects.length > 0) {
+              setSelectedSubId(db.subjects[0].id);
+              setNewUnitNumber(db.subjects[0].units.length + 1);
+              setShowAddUnit(true);
+            } else {
+              alert('Please create a subject first!');
+            }
           }}
-          title="Reset View"
+          style={{
+            background: 'rgba(15, 23, 42, 0.85)',
+            border: '1px solid rgba(168, 85, 247, 0.4)',
+            borderRadius: '8px',
+            color: '#c084fc',
+            padding: '8px 14px',
+            fontSize: '11px',
+            fontWeight: 'bold',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(8px)',
+            transition: 'all 0.2s'
+          }}
         >
-          <Maximize2 size={18} />
+          <Plus size={12} /> Add Unit
         </button>
       </div>
 
-      <div className="mindmap-legend glass-panel pointer-events-none">
-        <div className="mindmap-legend-title">Difficulty Grade</div>
-        <div className="mindmap-legend-row">
-          <span className="mindmap-dot green"></span>
-          <span>Easy</span>
-          <span style={{ color: 'var(--text-muted)', fontWeight: 'bold' }}>→</span>
-          <span className="mindmap-dot red"></span>
-          <span>Hard</span>
-        </div>
+      {/* Floating Toolbar (Right) */}
+      <div className="mindmap-toolbar">
+        <button className="toolbar-btn" onClick={() => setZoom(z => Math.min(z * 1.2, 3.5))} title="Zoom In"><ZoomIn size={16} /></button>
+        <button className="toolbar-btn" onClick={() => setZoom(z => Math.max(z / 1.2, 0.15))} title="Zoom Out"><ZoomOut size={16} /></button>
+        <button className="toolbar-btn" onClick={() => { setPan({ x: 150, y: 300 }); setZoom(0.8); }} title="Fit Screen"><Maximize2 size={16} /></button>
+        <div style={{ width: '1px', height: '16px', background: 'rgba(255,255,255,0.1)', margin: '0 4px' }} />
+        <button
+          className={`toolbar-btn ${mapMode === 'assignments' ? 'active' : ''}`}
+          onClick={() => setMapMode('assignments')}
+          title="Switch to Assignments view"
+          style={{ fontSize: '10px', width: 'auto', padding: '0 10px', color: mapMode === 'assignments' ? '#38bdf8' : '#94a3b8' }}
+        >
+          📚 Materials Mode
+        </button>
+        <button
+          className={`toolbar-btn ${mapMode === 'topics' ? 'active' : ''}`}
+          onClick={() => setMapMode('topics')}
+          title="Switch to Topics view"
+          style={{ fontSize: '10px', width: 'auto', padding: '0 10px', color: mapMode === 'topics' ? '#c084fc' : '#94a3b8' }}
+        >
+          🧬 Unit Topics Mode
+        </button>
       </div>
 
-      {/* SVG Canvas */}
+      {/* Mind Map SVG Canvas */}
       <svg
         className="mindmap-svg"
-        style={{ cursor: isDragging.current ? 'grabbing' : 'grab' }}
+        style={{ cursor: isDragging.current ? 'grabbing' : 'grab', width: '100%', height: '100%' }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -466,7 +605,6 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
         onWheel={handleWheel}
       >
         <g transform={`translate(${pan.x}, ${pan.y}) scale(${zoom})`}>
-          {/* Defs for Glows and Gradients */}
           <defs>
             <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
               <feGaussianBlur stdDeviation="6" result="blur" />
@@ -566,6 +704,32 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
               );
             }
 
+            if (node.type === 'category') {
+              const isExpanded = expandedCategories[node.id];
+              return (
+                <g
+                  key={node.id}
+                  transform={`translate(${node.x}, ${node.y})`}
+                  className="cursor-pointer"
+                  onClick={() => handleNodeClick(node)}
+                >
+                  <rect
+                    x="-65"
+                    y="-16"
+                    width="130"
+                    height="32"
+                    rx="5"
+                    fill="#111827"
+                    stroke={isExpanded ? 'var(--accent-yellow)' : 'rgba(251, 191, 36, 0.4)'}
+                    strokeWidth="1.5"
+                  />
+                  <text textAnchor="middle" dy="4" fill="#f3f4f6" fontSize="10" fontWeight="bold">
+                    {node.label}
+                  </text>
+                </g>
+              );
+            }
+
             if (node.type === 'assignment') {
               const isExpanded = expandedAssignments[node.id];
               return (
@@ -586,9 +750,35 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
                     strokeWidth="1.5"
                     filter={isExpanded ? 'url(#glow-blue)' : ''}
                   />
-                  <text textAnchor="middle" dy="4" fill="#e5e7eb" fontSize="11">
-                    {node.label}
+                  <text textAnchor="middle" dy="4" fill="#e5e7eb" fontSize="10">
+                    {node.label.length > 22 ? `${node.label.slice(0, 20)}...` : node.label}
                   </text>
+                </g>
+              );
+            }
+
+            if (node.type === 'enote' || node.type === 'ppt') {
+              return (
+                <g
+                  key={node.id}
+                  transform={`translate(${node.x}, ${node.y})`}
+                  className="cursor-pointer group"
+                  onClick={() => handleNodeClick(node)}
+                >
+                  <rect
+                    x="-65"
+                    y="-14"
+                    width="130"
+                    height="28"
+                    rx="4"
+                    fill="#0f172a"
+                    stroke={node.type === 'enote' ? '#10b981' : '#38bdf8'}
+                    strokeWidth="1"
+                  />
+                  <text textAnchor="middle" dy="4" fill="#e2e8f0" fontSize="9">
+                    {node.label.length > 22 ? `${node.label.slice(0, 20)}...` : node.label}
+                  </text>
+                  <title>{node.originalData.fileName}</title>
                 </g>
               );
             }
@@ -657,7 +847,6 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
                 className="cursor-pointer group"
                 onClick={() => handleNodeClick(node)}
               >
-                {/* Glow ring */}
                 <circle
                   r="8"
                   fill="none"
@@ -666,11 +855,8 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
                   style={{ filter: `drop-shadow(0 0 4px ${diffColor})` }}
                 />
                 <circle r="4" fill="#ffffff" />
-                
-                {/* Status Dot */}
                 <circle cx="8" cy="-8" r="3" fill={statusColor} />
 
-                {/* Text Label */}
                 <text
                   x="16"
                   y="4"
@@ -680,14 +866,104 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
                 >
                   {node.label.length > 35 ? `${node.label.slice(0, 32)}...` : node.label}
                 </text>
-
-                {/* Tooltip on hover */}
                 <title>{`${node.label}\nDifficulty: ${node.difficulty}/10\nStatus: ${node.status}`}</title>
               </g>
             );
           })}
         </g>
       </svg>
+
+      {/* Add Subject Modal */}
+      {showAddSubject && (
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 100 }}>
+          <div className="modal-box glass-panel" style={{ background: '#080a10', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', fontFamily: 'var(--font-mono)', color: 'var(--accent-cyan)', margin: 0 }}>Add New Subject</h3>
+              <X size={16} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowAddSubject(false)} />
+            </div>
+            <form onSubmit={handleAddSubject} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Subject Name</label>
+                <input
+                  type="text"
+                  placeholder="E.g., Design of Steel Structures"
+                  value={newSubjectName}
+                  onChange={(e) => setNewSubjectName(e.target.value)}
+                  required
+                  style={{ width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '8px 10px', color: 'white' }}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px' }}>
+                <button type="button" onClick={() => setShowAddSubject(false)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }}>Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Unit Modal */}
+      {showAddUnit && (
+        <div className="modal-overlay" style={{ display: 'flex', zIndex: 100 }}>
+          <div className="modal-box glass-panel" style={{ background: '#080a10', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '12px', padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ fontSize: '15px', fontWeight: 'bold', fontFamily: 'var(--font-mono)', color: '#c084fc', margin: 0 }}>Add New Unit</h3>
+              <X size={16} style={{ cursor: 'pointer', color: 'var(--text-secondary)' }} onClick={() => setShowAddUnit(false)} />
+            </div>
+            <form onSubmit={handleAddUnit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div className="form-group">
+                <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Subject</label>
+                <select
+                  value={selectedSubId}
+                  onChange={(e) => {
+                    setSelectedSubId(e.target.value);
+                    const sub = db.subjects.find(s => s.id === e.target.value);
+                    if (sub) {
+                      setNewUnitNumber(sub.units.length + 1);
+                    }
+                  }}
+                  required
+                  style={{ width: '100%', background: '#0c0f1d', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '8px 10px', color: 'white' }}
+                >
+                  {db.subjects.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div className="form-group" style={{ width: '80px' }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Unit #</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="10"
+                    value={newUnitNumber}
+                    onChange={(e) => setNewUnitNumber(Number(e.target.value))}
+                    required
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '8px 10px', color: 'white' }}
+                  />
+                </div>
+                <div className="form-group" style={{ flex: 1 }}>
+                  <label className="form-label" style={{ color: 'var(--text-secondary)' }}>Unit Title</label>
+                  <input
+                    type="text"
+                    placeholder="E.g., Tension Member Design"
+                    value={newUnitName}
+                    onChange={(e) => setNewUnitName(e.target.value)}
+                    required
+                    style={{ width: '100%', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--border-glass)', borderRadius: '6px', padding: '8px 10px', color: 'white' }}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '12px' }}>
+                <button type="button" onClick={() => setShowAddUnit(false)} className="btn-secondary" style={{ padding: '6px 12px', fontSize: '11px' }}>Cancel</button>
+                <button type="submit" className="btn-primary" style={{ padding: '6px 12px', fontSize: '11px' }}>Create</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
