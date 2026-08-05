@@ -3827,6 +3827,162 @@ DESIGN & TECHNICAL SPECIFICATIONS:
     res.status(500).json({ error: error.message });
   }
 });
+// Generate Adaptive Prep Study Routine based on UMS data + FSRS history
+app.post('/api/prepplanner/generate-routine', async (req, res) => {
+  const { examDate, confidence, studyHours, userState } = req.body;
+  
+  try {
+    const db = readDB();
+    const settings = readSettings();
+    const ai = getGeminiClient();
+    const modelName = settings.generatorModel || 'gemini-3.5-flash';
+    
+    // Compile FSRS context to guide the AI on what's difficult
+    const fsrsSummary = (db.fsrsItems || []).map(item => ({
+      concept: item.concept,
+      reviews: item.reviewCount || 0,
+      difficultyRating: item.difficultyRating || 5,
+      stability: item.stability || 1.0,
+      queryText: item.queryText ? item.queryText.slice(0, 50) : ''
+    }));
+
+    const subjectSummary = (db.subjects || []).map(s => ({
+      name: s.name,
+      units: s.units.map(u => ({
+        number: u.number,
+        name: u.name,
+        assignmentsCount: u.assignments ? u.assignments.length : 0
+      }))
+    }));
+
+    const prompt = `You are a World-Class Academic Coach and Intelligent Exam Prep Advisor.
+Your job is to analyze this student's exam date, current study state, and spaced repetition (FSRS) performance, and build a highly customized, day-by-day Study Plan and Preparation Routine leading up to their exams.
+
+STUDENT PROFILE & CONTEXT:
+- Target Exam Date: ${examDate || 'Next 10 days'}
+- Student Confidence Level (1-10): ${confidence || 5}
+- Daily Study Allocation: ${studyHours || 2} hours per day
+- Student Current Status / Feelings: "${userState || 'Stressed but willing to prepare.'}"
+
+COURSE SYLLABUS STRUCTURE:
+${JSON.stringify(subjectSummary, null, 2)}
+
+STUDENT SPACED REPETITION (FSRS) PERFORMANCE LOGS:
+${JSON.stringify(fsrsSummary.slice(0, 30), null, 2)}
+
+INSTRUCTIONS:
+1. Target Weaknesses: Explicitly schedule more review time for concepts where FSRS stability is low, or where difficultyRating is high (closer to 1-3 indicates failing/hard cards).
+2. Day-by-Day Schedule: Structure a clear, chronological preparation roadmap. For each day, specify:
+   - What topic/unit to study
+   - Specific FSRS flashcards or simulations to practice
+   - Focus duration
+3. Dynamic Advice: Provide actionable cognitive hacks, time management tactics, and stress reduction strategies based on their reported feelings.
+4. Output JSON Format only, matching this structure:
+{
+  "routineSummary": "brief high-level advice summary based on student state",
+  "recommendedHoursPerDay": number,
+  "anxietyAdvice": "tailored cognitive or stress relief tip",
+  "schedule": [
+    {
+      "dayNumber": number,
+      "dateString": "e.g., Aug 6",
+      "topics": ["subject/unit name"],
+      "focus": "specific concepts or assignments to practice",
+      "durationMinutes": number,
+      "priority": "High" | "Medium" | "Low"
+    }
+  ]
+}
+
+Return ONLY the raw JSON content. Do NOT wrap in markdown code blocks.`;
+
+    const geminiModel = ai.getGenerativeModel({ model: modelName });
+    const response = await generateContentWithRetry(geminiModel, prompt, 3);
+    logTokenUsage(response);
+
+    const planText = stripMarkdownFences(response.response.text());
+    
+    // Save to study_plan.json for persistence
+    const planPath = path.join(DATA_DIR, 'study_plan.json');
+    fs.writeFileSync(planPath, planText, 'utf-8');
+
+    res.json(JSON.parse(planText));
+  } catch (error) {
+    console.error('Error generating study routine:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Compile detailed study script/blueprint for a creative study suggestion
+app.post('/api/prepplanner/generate-suggestion', async (req, res) => {
+  const { concept, format } = req.body;
+  if (!concept || !format) {
+    return res.status(400).json({ error: 'Concept and Format are required.' });
+  }
+
+  try {
+    const settings = readSettings();
+    const ai = getGeminiClient();
+    const modelName = settings.generatorModel || 'gemini-3.5-flash';
+
+    let formatInstructions = '';
+    if (format === 'podcast') {
+      formatInstructions = 'Draft an engaging, conversational 2-person podcast script (between a student and a friendly expert). Use simple analogies, clear pacing, and quick Q&A format explaining this concept.';
+    } else if (format === 'simulation') {
+      formatInstructions = 'Write a detailed mechanical/physical simulation blueprint. Explain what visual assets (slits, beams, particles, arrows) are needed, how parameter sliders behave, and the math formulas that drive live updates.';
+    } else if (format === 'explainer') {
+      formatInstructions = 'Draft a highly structured explainer video script. Describe exactly what to show on screen (chalkboard drawings, highlights) and what the voiceover should say to step through formula derivations.';
+    } else if (format === 'infographic') {
+      formatInstructions = 'Design a text-based blueprint outline for an interactive infographic. Outline color schemes, card comparisons, hierarchical flowcharts, and key equations that contrast details.';
+    } else if (format === 'notebooklm') {
+      formatInstructions = 'Generate a structured text document (Summary, FAQ Sheet, Glossary, Key Equations list) optimized to be uploaded as a custom source text to NotebookLM to train its study guide.';
+    }
+
+    const prompt = `You are a Creative Educational Media Architect.
+Design a highly detailed, premium study resource blueprint for this concept.
+
+CONCEPT TO EXPLAIN: "${concept}"
+REQUESTED LEARNING FORMAT: "${format.toUpperCase()}"
+
+INSTRUCTIONS:
+${formatInstructions}
+
+Ensure the output is comprehensive, pedagogical, and highly structured (using headers, bullet points, and dialogs where applicable). Explain the concept thoroughly so the student walks away with 100% clarity.`;
+
+    const geminiModel = ai.getGenerativeModel({ model: modelName });
+    const response = await generateContentWithRetry(geminiModel, prompt, 3);
+    logTokenUsage(response);
+
+    res.json({ result: response.response.text() });
+  } catch (error) {
+    console.error('Error generating study format suggestion:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Load persistent study plan if exists
+app.get('/api/prepplanner/load-plan', (req, res) => {
+  const planPath = path.join(DATA_DIR, 'study_plan.json');
+  if (fs.existsSync(planPath)) {
+    try {
+      const data = fs.readFileSync(planPath, 'utf-8');
+      return res.json(JSON.parse(data));
+    } catch (e) {
+      return res.json({ error: 'Failed to read plan' });
+    }
+  }
+  res.json(null);
+});
+
+app.post('/api/prepplanner/save-plan', (req, res) => {
+  const planPath = path.join(DATA_DIR, 'study_plan.json');
+  try {
+    fs.writeFileSync(planPath, JSON.stringify(req.body, null, 2), 'utf-8');
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // Fallback to serving Vite app in production
 const distPath = path.join(__dirname, '../dist');

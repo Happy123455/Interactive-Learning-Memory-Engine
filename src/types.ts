@@ -190,4 +190,4 @@ export interface Settings {
   customFeaturePrompts?: string[];
 }
 
-export type ActiveTab = 'dashboard' | 'mindmap' | 'structural' | 'fsrs';
+export type ActiveTab = 'dashboard' | 'mindmap' | 'structural' | 'fsrs' | 'prepplanner';

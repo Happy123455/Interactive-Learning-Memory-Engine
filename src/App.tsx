@@ -5,6 +5,7 @@ import { MindMap } from './components/MindMap';
 import { SimViewer } from './components/SimViewer';
 import { StructuralWorkspace } from './components/structural/StructuralWorkspace';
 import { FSRSSpace } from './components/FSRSSpace';
+import { PrepPlanner } from './components/PrepPlanner';
 import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -430,6 +431,12 @@ export const App: React.FC = () => {
             >
               FSRS Studio
             </button>
+            <button
+              onClick={() => setActiveTab('prepplanner')}
+              className={`tab-btn ${activeTab === 'prepplanner' ? 'active' : ''}`}
+            >
+              Prep Planner
+            </button>
           </div>
 
           <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -495,6 +502,8 @@ export const App: React.FC = () => {
             />
           ) : activeTab === 'structural' ? (
             <StructuralWorkspace onBackToSim={() => setActiveTab('dashboard')} />
+          ) : activeTab === 'prepplanner' ? (
+            <PrepPlanner db={db} />
           ) : (
             <FSRSSpace db={db} onRefreshDB={loadDB} onSelectQuestion={handleSelectQuestion} />
           )}
