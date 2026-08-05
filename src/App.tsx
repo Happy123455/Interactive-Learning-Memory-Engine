@@ -560,9 +560,9 @@ export const App: React.FC = () => {
                   onChange={(e) => setOptModel(e.target.value)}
                   style={{ width: '100%' }}
                 >
-                  <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                  <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recommended)</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                 </select>
               </div>
 
@@ -574,9 +574,9 @@ export const App: React.FC = () => {
                   onChange={(e) => setGenModel(e.target.value)}
                   style={{ width: '100%' }}
                 >
-                  <option value="gemini-3.5-flash">Gemini 3.5 Flash</option>
-                  <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                  <option value="gemini-3.1-flash-lite">Gemini 3.1 Flash Lite</option>
+                  <option value="gemini-1.5-flash">Gemini 1.5 Flash (Recommended)</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
                 </select>
               </div>
 

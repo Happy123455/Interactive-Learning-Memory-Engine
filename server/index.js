@@ -399,7 +399,7 @@ const generateContentWithRetry = async (modelInstance, prompt, maxRetries = 8) =
 const readSettings = () => {
   try {
     if (!fs.existsSync(SETTINGS_PATH)) {
-      fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ apiKey: '', optimizerModel: 'gemini-3.1-flash-lite', generatorModel: 'gemini-3.5-flash', styleProfile: 'universal_pedagogy' }, null, 2));
+      fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ apiKey: '', optimizerModel: 'gemini-1.5-flash', generatorModel: 'gemini-1.5-flash', styleProfile: 'universal_pedagogy' }, null, 2));
     }
     const data = fs.readFileSync(SETTINGS_PATH, 'utf-8');
     const parsed = JSON.parse(data);
@@ -409,7 +409,7 @@ const readSettings = () => {
     return parsed;
   } catch (error) {
     console.error('Error reading Settings:', error);
-    return { apiKey: '', optimizerModel: 'gemini-3.1-flash-lite', generatorModel: 'gemini-3.5-flash', styleProfile: 'universal_pedagogy' };
+    return { apiKey: '', optimizerModel: 'gemini-1.5-flash', generatorModel: 'gemini-1.5-flash', styleProfile: 'universal_pedagogy' };
   }
 };
 
@@ -441,7 +441,17 @@ const getGeminiClient = (apiKey) => {
   if (!apiKey) {
     throw new Error('Gemini API Key is not configured. Please add it in settings.');
   }
-  return new GoogleGenerativeAI(apiKey);
+  const client = new GoogleGenerativeAI(apiKey);
+  // Intercept getGenerativeModel to safely map fallback models to valid API models
+  const originalGetModel = client.getGenerativeModel.bind(client);
+  client.getGenerativeModel = (config) => {
+    let modelName = config.model;
+    if (modelName.includes('gemini-3.5') || modelName.includes('gemini-3.1') || modelName.includes('gemini-2.5')) {
+      modelName = 'gemini-1.5-flash';
+    }
+    return originalGetModel({ ...config, model: modelName });
+  };
+  return client;
 };
 
 // Token usage logger
