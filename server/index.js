@@ -399,7 +399,7 @@ const generateContentWithRetry = async (modelInstance, prompt, maxRetries = 8) =
 const readSettings = () => {
   try {
     if (!fs.existsSync(SETTINGS_PATH)) {
-      fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ apiKey: '', optimizerModel: 'gemini-1.5-flash', generatorModel: 'gemini-1.5-flash', styleProfile: 'universal_pedagogy' }, null, 2));
+      fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ apiKey: '', optimizerModel: 'gemini-2.5-flash', generatorModel: 'gemini-2.5-flash', styleProfile: 'universal_pedagogy' }, null, 2));
     }
     const data = fs.readFileSync(SETTINGS_PATH, 'utf-8');
     const parsed = JSON.parse(data);
@@ -409,7 +409,7 @@ const readSettings = () => {
     return parsed;
   } catch (error) {
     console.error('Error reading Settings:', error);
-    return { apiKey: '', optimizerModel: 'gemini-1.5-flash', generatorModel: 'gemini-1.5-flash', styleProfile: 'universal_pedagogy' };
+    return { apiKey: '', optimizerModel: 'gemini-2.5-flash', generatorModel: 'gemini-2.5-flash', styleProfile: 'universal_pedagogy' };
   }
 };
 
@@ -446,8 +446,8 @@ const getGeminiClient = (apiKey) => {
   const originalGetModel = client.getGenerativeModel.bind(client);
   client.getGenerativeModel = (config) => {
     let modelName = config.model;
-    if (modelName.includes('gemini-3.5') || modelName.includes('gemini-3.1') || modelName.includes('gemini-2.5')) {
-      modelName = 'gemini-1.5-flash';
+    if (modelName.includes('gemini-3.5') || modelName.includes('gemini-3.1') || modelName.includes('gemini-1.5')) {
+      modelName = 'gemini-2.5-flash';
     }
     return originalGetModel({ ...config, model: modelName });
   };
