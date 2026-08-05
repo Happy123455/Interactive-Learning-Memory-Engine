@@ -499,7 +499,6 @@ export const App: React.FC = () => {
             <MindMap
               db={db}
               onSelectQuestion={handleSelectQuestion}
-              onRefreshDB={loadDB}
             />
           ) : activeTab === 'structural' ? (
             <StructuralWorkspace onBackToSim={() => setActiveTab('dashboard')} />

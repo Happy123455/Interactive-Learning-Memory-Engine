@@ -34,10 +34,23 @@ export const PrepPlanner: React.FC<PrepPlannerProps> = ({ db }) => {
   const [selectedConcept, setSelectedConcept] = useState<string>('');
   const [activeFormat, setActiveFormat] = useState<string>('podcast');
   const [suggestionText, setSuggestionText] = useState<string>('');
+  const [suggestionSource, setSuggestionSource] = useState<'concept' | 'unit'>('concept');
+  const [selectedSubjectId, setSelectedSubjectId] = useState<string>('');
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('');
   
   // Loading flags
   const [isLoadingPlan, setIsLoadingPlan] = useState<boolean>(false);
   const [isLoadingSuggestion, setIsLoadingSuggestion] = useState<boolean>(false);
+
+  // Initialize UMS Subject/Unit defaults
+  useEffect(() => {
+    if (db.subjects && db.subjects.length > 0) {
+      setSelectedSubjectId(db.subjects[0].id);
+      if (db.subjects[0].units && db.subjects[0].units.length > 0) {
+        setSelectedUnitId(db.subjects[0].units[0].id);
+      }
+    }
+  }, [db]);
 
   // Initialize and load saved plan
   useEffect(() => {
@@ -353,43 +366,137 @@ export const PrepPlanner: React.FC<PrepPlannerProps> = ({ db }) => {
 
           {/* Creative Study Formats Suggestions Board */}
           <div style={{ background: 'rgba(15, 23, 42, 0.4)', border: '1px solid var(--border-glass)', borderRadius: '12px', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-            <div>
-              <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', margin: 0 }}>
-                💡 Creative Learning Suggestion Engine
-              </h2>
-              <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                Select a concept and generate creative materials (podcasts, simulation blueprints, or NotebookLM guides) to boost active recall.
-              </p>
-            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ fontSize: '16px', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                  💡 Creative Learning Suggestion Engine
+                </h2>
+                <p style={{ fontSize: '11px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                  Select a concept or entire unit and generate creative materials (podcasts, simulation blueprints, or NotebookLM guides) to boost active recall.
+                </p>
+              </div>
 
-            {/* Selector Grid for registered concepts */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {conceptDetails.map((c, i) => (
+              {/* Source Toggle */}
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '2px' }}>
                 <button
-                  key={i}
-                  onClick={() => setSelectedConcept(c.name)}
+                  onClick={() => {
+                    setSuggestionSource('concept');
+                    setSelectedConcept('');
+                  }}
                   style={{
-                    background: selectedConcept === c.name ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.02)',
-                    border: selectedConcept === c.name ? '1px solid #38bdf8' : '1px solid var(--border-glass)',
+                    background: suggestionSource === 'concept' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    border: 'none',
                     borderRadius: '6px',
-                    color: selectedConcept === c.name ? 'white' : 'var(--text-secondary)',
-                    padding: '6px 12px',
-                    fontSize: '11px',
-                    cursor: 'pointer',
+                    color: suggestionSource === 'concept' ? 'white' : 'var(--text-secondary)',
+                    padding: '4px 10px',
+                    fontSize: '10px',
                     fontWeight: 'bold',
-                    transition: 'all 0.2s'
+                    cursor: 'pointer'
                   }}
                 >
-                  {c.name}
+                  FSRS Concepts
                 </button>
-              ))}
-
-              {conceptDetails.length === 0 && (
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
-                  No concepts identified in FSRS deck yet. Flashcards must be created first.
-                </div>
-              )}
+                <button
+                  onClick={() => {
+                    setSuggestionSource('unit');
+                    // Automatically trigger selected unit load
+                    const currentSub = db.subjects?.find(s => s.id === selectedSubjectId);
+                    const currentUnit = currentSub?.units?.find(u => u.id === selectedUnitId);
+                    if (currentSub && currentUnit) {
+                      setSelectedConcept(`${currentSub.name} - Unit ${currentUnit.number}: ${currentUnit.name}`);
+                    }
+                  }}
+                  style={{
+                    background: suggestionSource === 'unit' ? 'rgba(56, 189, 248, 0.15)' : 'transparent',
+                    border: 'none',
+                    borderRadius: '6px',
+                    color: suggestionSource === 'unit' ? 'white' : 'var(--text-secondary)',
+                    padding: '4px 10px',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Syllabus Units
+                </button>
+              </div>
             </div>
+
+            {suggestionSource === 'concept' ? (
+              /* Selector Grid for registered concepts */
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                {conceptDetails.map((c, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedConcept(c.name)}
+                    style={{
+                      background: selectedConcept === c.name ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255,255,255,0.02)',
+                      border: selectedConcept === c.name ? '1px solid #38bdf8' : '1px solid var(--border-glass)',
+                      borderRadius: '6px',
+                      color: selectedConcept === c.name ? 'white' : 'var(--text-secondary)',
+                      padding: '6px 12px',
+                      fontSize: '11px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+
+                {conceptDetails.length === 0 && (
+                  <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                    No concepts identified in FSRS deck yet. Flashcards must be created first.
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Dropdowns for Syllabus Units */
+              <div style={{ display: 'flex', gap: '12px', background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '12px', alignItems: 'center' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '9px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Select Subject:</label>
+                  <select
+                    value={selectedSubjectId}
+                    onChange={(e) => {
+                      const subId = e.target.value;
+                      setSelectedSubjectId(subId);
+                      const sub = db.subjects?.find(s => s.id === subId);
+                      if (sub && sub.units && sub.units.length > 0) {
+                        setSelectedUnitId(sub.units[0].id);
+                        setSelectedConcept(`${sub.name} - Unit ${sub.units[0].number}: ${sub.units[0].name}`);
+                      }
+                    }}
+                    style={{ width: '100%', background: 'rgba(15,23,42,0.9)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'white', padding: '6px', fontSize: '11px' }}
+                  >
+                    {(db.subjects || []).map(s => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', fontSize: '9px', color: 'var(--text-secondary)', marginBottom: '4px' }}>Select Syllabus Unit:</label>
+                  <select
+                    value={selectedUnitId}
+                    onChange={(e) => {
+                      const uId = e.target.value;
+                      setSelectedUnitId(uId);
+                      const sub = db.subjects?.find(s => s.id === selectedSubjectId);
+                      const unit = sub?.units?.find(u => u.id === uId);
+                      if (sub && unit) {
+                        setSelectedConcept(`${sub.name} - Unit ${unit.number}: ${unit.name}`);
+                      }
+                    }}
+                    style={{ width: '100%', background: 'rgba(15,23,42,0.9)', border: '1px solid var(--border-glass)', borderRadius: '6px', color: 'white', padding: '6px', fontSize: '11px' }}
+                  >
+                    {(db.subjects?.find(s => s.id === selectedSubjectId)?.units || []).map(u => (
+                      <option key={u.id} value={u.id}>Unit {u.number} - {u.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
 
             {selectedConcept && (
               <div style={{ background: 'rgba(255,255,255,0.01)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '14px' }}>
