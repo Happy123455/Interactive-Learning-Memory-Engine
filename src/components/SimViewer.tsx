@@ -1413,9 +1413,8 @@ Please guide me through this calculation/concept step-by-step. Break it down int
                 <div ref={simContainerRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
                   <iframe
                     src={iframeSrc}
-                    style={{ width: '100%', height: '100%', border: 'none', background: '#000' }}
-                    sandbox="allow-scripts allow-modals allow-same-origin"
-                    allow="autoplay; speech-synthesis"
+                    style={{ width: '100%', height: '100%', border: 'none', background: '#080a10', colorScheme: 'dark' }}
+                    allow="autoplay; speech-synthesis; fullscreen"
                     title="simulation-preview"
                   />
                   {/* DRAGGABLE CANVAS QUICK TOOLS */}
