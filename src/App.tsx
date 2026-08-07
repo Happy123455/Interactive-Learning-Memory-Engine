@@ -130,12 +130,15 @@ export const App: React.FC = () => {
       const res = await fetch('/api/settings');
       if (res.ok) {
         const data = await res.json();
-        setSettings(data);
         const localKey = localStorage.getItem('gemini_api_key') || data.apiKey || '';
         if (localKey) {
           setApiKeyInput(localKey);
           localStorage.setItem('gemini_api_key', localKey);
         }
+        setSettings({
+          ...data,
+          apiKeyConfigured: !!localKey || data.apiKeyConfigured
+        });
         setOptModel(data.optimizerModel || 'gemini-3.1-flash-lite');
         setGenModel(data.generatorModel || 'gemini-3.5-flash');
         setStyleProfile(data.styleProfile || 'universal_pedagogy');
@@ -144,6 +147,11 @@ export const App: React.FC = () => {
       }
     } catch (error) {
       console.error('Error loading Settings:', error);
+      const localKey = localStorage.getItem('gemini_api_key') || '';
+      if (localKey) {
+        setApiKeyInput(localKey);
+        setSettings(prev => ({ ...prev, apiKeyConfigured: true }));
+      }
     }
   };
 
