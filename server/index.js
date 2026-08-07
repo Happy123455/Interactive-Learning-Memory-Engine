@@ -3731,8 +3731,10 @@ const syncScrapedContentToDB = () => {
     const db = readDB();
     let dbUpdated = false;
 
+    const excludedSubjects = ['career orientation', 'gpsc civil', 'computer aided design & drawing'];
     contentData.subjects.forEach(cs => {
       let cleanName = cs.name.replace(/^[0-9A-Z]+\s*-\s*/, '').replace(/\s*Semester\s*-\s*\d+/, '').trim();
+      if (excludedSubjects.some(ex => cleanName.toLowerCase().includes(ex))) return;
       let dbSub = db.subjects.find(s => s.name.toLowerCase() === cleanName.toLowerCase() || cs.name.toLowerCase().includes(s.name.toLowerCase()));
 
       if (!dbSub) {
