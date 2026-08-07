@@ -730,6 +730,8 @@ Please guide me through this calculation/concept step-by-step. Break it down int
       let cleanPath = targetFile ? targetFile.trim() : '';
       if (cleanPath === '/' || cleanPath === '') {
         cleanPath = '';
+      } else if (!cleanPath.includes('?t=')) {
+        cleanPath += (cleanPath.includes('?') ? '&' : '?') + `t=${Date.now()}`;
       }
 
       updateIframeSrc(cleanPath);
