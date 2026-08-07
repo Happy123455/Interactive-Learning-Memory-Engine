@@ -1984,7 +1984,8 @@ app.post('/api/select-step', (req, res) => {
 });
 
 // Fetch simulation prompt blueprint
-app.get('/api/simulation-prompt', (req, res) => {
+// Fetch simulation prompt blueprint (with dynamic generation fallback)
+app.get('/api/simulation-prompt', async (req, res) => {
   const { questionId, variantId, stepId } = req.query;
   if (!questionId) {
     return res.status(400).json({ error: 'Question ID is required.' });
@@ -2001,12 +2002,126 @@ app.get('/api/simulation-prompt', (req, res) => {
 
     if (fs.existsSync(promptFilePath)) {
       const prompt = fs.readFileSync(promptFilePath, 'utf-8');
-      res.json({ prompt });
-    } else {
-      res.json({ prompt: 'No prompt blueprint available for this simulation.' });
+      return res.json({ prompt });
     }
+
+    // FALLBACK: Dynamically generate the blueprint if it is missing
+    console.log(`[Prompt Fallback] Prompt blueprint not found at ${promptFileName}. Generating on the fly...`);
+    const db = readDB();
+    let foundTopic = null;
+    let foundSubject = null;
+    let foundUnit = null;
+    let isUnitTopic = false;
+
+    // Search Unit Topics
+    for (const s of db.subjects) {
+      for (const u of s.units) {
+        if (u.topics) {
+          const t = u.topics.find(top => top.id === questionId);
+          if (t) {
+            foundTopic = t;
+            foundSubject = s;
+            foundUnit = u;
+            isUnitTopic = true;
+            break;
+          }
+        }
+      }
+      if (foundTopic) break;
+    }
+
+    // Search Assignment Questions
+    if (!foundTopic) {
+      for (const s of db.subjects) {
+        for (const u of s.units) {
+          for (const a of u.assignments) {
+            const q = a.questions.find(que => que.id === questionId);
+            if (q) {
+              foundTopic = q;
+              foundSubject = s;
+              foundUnit = u;
+              break;
+            }
+          }
+          if (foundTopic) break;
+        }
+        if (foundTopic) break;
+      }
+    }
+
+    if (!foundTopic) {
+      return res.json({ prompt: 'No prompt blueprint available for this simulation.' });
+    }
+
+    const settings = readSettings();
+    const ai = getGeminiClient();
+    const optimizerModel = settings.optimizerModel || 'gemini-3.1-flash-lite';
+
+    let stage1Prompt = '';
+    const activeProfileKey = settings.styleProfile || 'universal_pedagogy';
+    const activeProfileText = STYLE_PROFILES[activeProfileKey] || STYLE_PROFILES['universal_pedagogy'];
+    const blueprintPromptTemplate = settings.promptBlueprintSystem || DEFAULT_BLUEPRINT_PROMPT;
+
+    if (isUnitTopic) {
+      const flashcardsContext = (foundTopic.flashcards && foundTopic.flashcards.length > 0)
+        ? `\n--- REVIEWED FLASHCARD INFO CARDS FOR THIS TOPIC ---\n` + foundTopic.flashcards.map(fc => `[${fc.type.toUpperCase()}] ${fc.questionOrConcept}: ${fc.answerOrDetails} (Importance: ${fc.importance}/10)`).join('\n')
+        : '';
+
+      stage1Prompt = `${blueprintPromptTemplate}
+
+Active Pedagogy Style Profile:
+${activeProfileText}
+
+Target Unit Topic Details:
+Topic Title: "${foundTopic.title}"
+Concept: "${foundTopic.concept}"
+Description & Exam Notes: "${foundTopic.description}"
+Assessed Importance Weight: ${foundTopic.importanceScore || 8}/10
+Assessed Difficulty: ${foundTopic.difficulty}/10
+${flashcardsContext}
+
+CRITICAL IMPORTANCE & FLASHCARD INTERACTION WEIGHTING:
+Include these requested interaction modules:
+- Interactive Sliders & Input Panel
+- 2D Canvas / Vector Graphics
+- Drag & Drop object placement
+- Real-time Equation Graphing
+- Speech Synthesis Concept Narration voiceovers
+- Web Audio Synth SFX
+- Tutorial Overlay Modal
+
+Output a very comprehensive, detailed, and long simulation blueprint instructions for the code compiler (between 800 to 1200 words). Explicitly detail step-by-step logic, if-else conditional branches, parameter controls, sound formulas, and SVG/Canvas drawing coordinates.`;
+    } else {
+      stage1Prompt = `${blueprintPromptTemplate}
+
+Active Pedagogy Style Profile:
+${activeProfileText}
+
+Target Problem Details:
+Full Problem Text: "${foundTopic.text}"
+Subject: ${foundSubject.name}
+Unit: Unit ${foundUnit.number} (${foundUnit.name})
+Concept: ${foundTopic.concept}
+Difficulty: ${foundTopic.difficulty}/10
+
+Output a very comprehensive, detailed, and long simulation blueprint instructions for the code compiler (between 800 to 1200 words). Explicitly detail step-by-step logic, if-else conditional branches, parameter controls, sound formulas, and SVG/Canvas drawing coordinates.`;
+    }
+
+    console.log(`[Prompt Fallback - Model: ${optimizerModel}] Compiling dynamic blueprint...`);
+    const optInstance = ai.getGenerativeModel({ model: optimizerModel });
+    const stage1Resp = await generateContentWithRetry(optInstance, stage1Prompt, 3);
+    logTokenUsage(stage1Resp);
+    const generatedBlueprint = stage1Resp.response.text();
+
+    // Write file back to disk so next time it serves instantly
+    fs.writeFileSync(promptFilePath, generatedBlueprint, 'utf-8');
+    try {
+      fs.writeFileSync(path.join(BACKUP_SIM_DIR, promptFileName), generatedBlueprint, 'utf-8');
+    } catch (e) {}
+
+    res.json({ prompt: generatedBlueprint });
   } catch (error) {
-    console.error('Error reading simulation prompt:', error);
+    console.error('Error fallback-generating simulation prompt:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -2320,6 +2435,16 @@ Output a very comprehensive, detailed, and long simulation blueprint instruction
     const stage1Resp = await generateContentWithRetry(optModelInstance, stage1Prompt);
     logTokenUsage(stage1Resp);
     const optimizedPrompt = stage1Resp.response.text();
+
+    // Save prompt blueprint locally
+    const promptFileName = `sim-${topicId}-prompt.txt`;
+    const promptFilePath = path.join(SIM_DIR, promptFileName);
+    fs.writeFileSync(promptFilePath, optimizedPrompt, 'utf-8');
+    try {
+      fs.writeFileSync(path.join(BACKUP_SIM_DIR, promptFileName), optimizedPrompt, 'utf-8');
+    } catch (e) {
+      console.error('Failed to write backup of topic prompt blueprint:', e.message);
+    }
 
     console.log(`[Topic Sim - Layer 2: ${generatorModel}] Coding simulation for Topic "${foundTopic.title}"...`);
     const codeSystemPromptTemplate = settings.promptCodeSystem || DEFAULT_CODE_PROMPT;
