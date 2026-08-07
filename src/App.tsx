@@ -491,8 +491,8 @@ export const App: React.FC = () => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                      username: settings.umsUsername || '6352905262',
-                      password: settings.umsPassword || '!123abcCBA'
+                      username: settings.umsUsername || '',
+                      password: settings.umsPassword || ''
                     })
                   });
                   if (res.ok) {
@@ -610,7 +610,7 @@ export const App: React.FC = () => {
                   <label className="form-label">UMS Username / Phone</label>
                   <input
                     type="text"
-                    placeholder="e.g. 6352905262"
+                    placeholder="Enter student ID / phone"
                     value={umsUsernameInput}
                     onChange={(e) => setUmsUsernameInput(e.target.value)}
                     style={{ fontSize: '11px' }}
