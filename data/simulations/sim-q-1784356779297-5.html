@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Groove Weld Capacity Simulator</title>
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-purple: #9d00ff;
+            --bg-dark: #0a0b10;
+            --panel-bg: rgba(20, 25, 35, 0.7);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg-dark); 
+            color: white; 
+            font-family: 'Segoe UI', Roboto, sans-serif; 
+            height: 100vh; 
+            overflow: hidden; 
+            display: grid;
+            grid-template-columns: 350px 1fr;
+        }
+        #sidebar { background: var(--panel-bg); backdrop-filter: blur(15px); border-right: 1px solid #333; padding: 20px; overflow-y: auto; }
+        #canvas-container { position: relative; width: 100%; height: 100vh; cursor: crosshair; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .glass-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); padding: 15px; margin-bottom: 15px; border-radius: 8px; cursor: pointer; transition: 0.3s; }
+        .glass-card:hover { border-color: var(--neon-cyan); }
+        .draggable { cursor: grab; padding: 10px; background: #222; border: 1px solid #444; margin: 5px; display: inline-block; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 100; }
+        .modal-content { background: #1a1c22; padding: 40px; border-radius: 12px; max-width: 500px; border: 2px solid var(--neon-cyan); }
+    </style>
+</head>
+<body>
+
+<div id="sidebar">
+    <h2 style="color: var(--neon-cyan);">Weld Capacity Lab</h2>
+    <div id="controls">
+        <h3>1. Inputs</h3>
+        <div class="glass-card" onclick="speak('Think of the weld as super-strong glue. The thicker the plate, the more material we need.')">Plate Thickness (t): <span id="val-t">10</span>mm</div>
+        <div class="glass-card" onclick="speak('Length represents the weld run. Longer welds distribute stress better.')">Weld Length (L): <span id="val-l">200</span>mm</div>
+        
+        <h3>2. Equation Drop</h3>
+        <div id="drop-zone" style="border: 2px dashed #444; height: 100px; margin: 20px 0; display: flex; align-items: center; justify-content: center;">
+            Drop Value Here
+        </div>
+        <div id="values">
+            <div class="draggable" draggable="true" data-val="410">410 MPa</div>
+            <div class="draggable" draggable="true" data-val="200">200 mm</div>
+        </div>
+    </div>
+    <button onclick="toggleAudio()" style="margin-top:20px; width:100%; padding:10px; background:var(--neon-purple); border:none; color:white;">Toggle Tension Audio</button>
+</div>
+
+<div id="canvas-container">
+    <canvas id="simCanvas"></canvas>
+</div>
+
+<div id="codebook" class="modal">
+    <div class="modal-content">
+        <h3>IS 800: Clause 10.5</h3>
+        <p>Effective throat thickness of a complete penetration groove weld shall be taken as the thickness of the thinner part joined.</p>
+        <button onclick="document.getElementById('codebook').style.display='none'">Close</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let audioCtx, oscillator;
+    let weldStrain = 0;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Audio
+    function toggleAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (oscillator) {
+            oscillator.stop();
+            oscillator = null;
+        } else {
+            oscillator = audioCtx.createOscillator();
+            oscillator.connect(audioCtx.destination);
+            oscillator.frequency.value = 100;
+            oscillator.start();
+        }
+    }
+
+    function speak(text) {
+        const msg = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(msg);
+    }
+
+    // Drag and Drop
+    const dropZone = document.getElementById('drop-zone');
+    document.querySelectorAll('.draggable').forEach(el => {
+        el.addEventListener('dragstart', e => e.dataTransfer.setData('text', e.target.dataset.val));
+    });
+    dropZone.addEventListener('dragover', e => e.preventDefault());
+    dropZone.addEventListener('drop', e => {
+        const val = e.dataTransfer.getData('text');
+        dropZone.innerHTML = `Value: ${val}`;
+        dropZone.style.borderColor = 'var(--neon-cyan)';
+    });
+
+    // Animation Loop
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Plates
+        const midX = canvas.width / 4;
+        const midY = canvas.height / 2;
+        
+        ctx.fillStyle = "#333";
+        ctx.fillRect(midX, midY - 50, 100, 20); // Top Plate
+        ctx.fillRect(midX, midY + 30, 100, 20); // Bottom Plate
+        
+        // Draw Weld
+        ctx.fillStyle = "cyan";
+        ctx.fillRect(midX + 90, midY - 30, 20, 60);
+        
+        // Force Vector
+        ctx.strokeStyle = "red";
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(midX + 110, midY);
+        ctx.lineTo(midX + 200 + (weldStrain * 10), midY);
+        ctx.stroke();
+        
+        // Text Shadow
+        ctx.fillStyle = "white";
+        ctx.font = "16px Arial";
+        ctx.fillText("Groove Weld Joint", midX, midY - 60);
+
+        if(oscillator) {
+            weldStrain = Math.sin(Date.now() / 500) * 5;
+            oscillator.frequency.value = 100 + (weldStrain * 50);
+        }
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+</script>
+</body>
+</html>

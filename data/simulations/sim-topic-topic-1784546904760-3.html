@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infiltration Indices Simulator: Φ vs. W</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            950: '#0b0f19',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar for steps panel */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-blue {
+            box-shadow: 0 0 15px rgba(59, 130, 246, 0.3);
+        }
+        .glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.3);
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(34, 197, 94, 0.3);
+        }
+        /* Custom slider styles to look high-tech */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: #334155;
+            height: 6px;
+            border-radius: 9999px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            transition: transform 0.1s, background-color 0.1s;
+            border: 2px solid #ffffff;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #60a5fa;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 overflow-hidden font-sans h-screen flex flex-col justify-between">
+
+    <!-- ONBOARDING MODAL -->
+    <div id="welcome-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 backdrop-blur-md transition-opacity duration-500">
+        <div class="glass-panel max-w-2xl w-full mx-4 p-8 rounded-2xl shadow-2xl border border-slate-700/60 relative overflow-hidden">
+            <div class="absolute -right-20 -top-20 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl"></div>
+            <div class="absolute -left-20 -bottom-20 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl"></div>
+            
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="p-3 bg-blue-500/20 text-blue-400 rounded-lg">
+                    <i class="fa-solid fa-droplet text-2xl"></i>
+                </div>
+                <h1 class="text-3xl font-extrabold tracking-tight bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent">
+                    Infiltration Indices Simulator
+                </h1>
+            </div>
+
+            <p class="text-slate-300 mb-6 leading-relaxed">
+                Welcome, Engineer. This simulator lets you interactively visualize and compute the fundamental hydrological indices of runoff generation: 
+                <span class="text-blue-400 font-semibold">Φ-index</span> and <span class="text-emerald-400 font-semibold">W-index</span>.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <h3 class="text-blue-400 font-bold mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-bar"></i> Dynamic Hyetograph
+                    </h3>
+                    <p class="text-xs text-slate-400">Drag the horizontal threshold index line to balance excess rainfall (runoff) with losses (infiltration).</p>
+                </div>
+                <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                    <h3 class="text-emerald-400 font-bold mb-1 flex items-center gap-2">
+                        <i class="fa-solid fa-volume-high"></i> Multi-sensory Engineering
+                    </h3>
+                    <p class="text-xs text-slate-400">Uses Web Audio Synthesis to generate tactile soundscapes, and TTS Speech to explain calculations in real-time.</p>
+                </div>
+            </div>
+
+            <button onclick="closeModal()" class="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl transition shadow-lg hover:shadow-indigo-500/20 flex items-center justify-center gap-2">
+                Launch Engineering Deck <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN APP HEADER -->
+    <header class="bg-slate-900/80 border-b border-slate-800/60 px-6 py-4 flex items-center justify-between backdrop-blur-md shrink-0">
+        <div class="flex items-center space-x-3">
+            <span class="flex h-3 w-3 relative">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                    THE INFILTRATION INDICES SIMULATOR <span class="text-xs bg-blue-500/15 border border-blue-500/30 text-blue-400 px-2.5 py-0.5 rounded-full font-mono">Φ vs. W</span>
+                </h1>
+                <p class="text-xs text-slate-400">Tactile & Pedagogical Hydrological Engineering Engine</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <!-- Global Mode Audio Toggles -->
+            <button id="audio-toggle-btn" onclick="toggleSound()" class="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition border border-slate-700/50 flex items-center gap-2 text-xs" title="Toggle Synth Sound Effect">
+                <i id="audio-icon" class="fa-solid fa-volume-high text-blue-400"></i> <span class="font-mono">SYNTH FEEDBACK</span>
+            </button>
+            <div class="h-6 w-px bg-slate-800"></div>
+            <div class="text-xs text-slate-400 font-mono hidden md:block">
+                SYS_STATUS: <span class="text-emerald-400">ACTIVE_SIM</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- CORE WORKSPACE GRID -->
+    <main class="flex-1 grid grid-cols-12 gap-4 p-4 overflow-hidden h-[calc(100vh-140px)]">
+
+        <!-- 1. THE CONTROL PANEL (LEFT SIDEBAR) -->
+        <section class="col-span-12 lg:col-span-3 flex flex-col space-y-3 overflow-y-auto pr-1">
+            <div class="glass-panel p-4 rounded-xl flex flex-col space-y-4 shrink-0">
+                <div class="flex items-center justify-between border-b border-slate-700/40 pb-2">
+                    <h2 class="text-sm font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-blue-400"></i> Storm Inputs
+                    </h2>
+                    <span class="text-[10px] bg-slate-900 px-2 py-0.5 text-slate-400 rounded-md font-mono border border-slate-800">BOUND_OK</span>
+                </div>
+
+                <!-- Input Sliders -->
+                <div class="space-y-3">
+                    <!-- Total Rainfall P -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Total Rainfall (<span class="font-semibold text-slate-200">P</span>)</span>
+                            <span class="font-mono text-blue-400 font-bold text-sm" id="p-val">100 mm</span>
+                        </div>
+                        <input type="range" id="param-p" min="40" max="200" step="5" value="100" class="w-full" oninput="updateParameters('P', this.value)">
+                    </div>
+
+                    <!-- Direct Runoff R -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Direct Runoff (<span class="font-semibold text-slate-200">R</span>)</span>
+                            <span class="font-mono text-emerald-400 font-bold text-sm" id="r-val">40 mm</span>
+                        </div>
+                        <input type="range" id="param-r" min="10" max="150" step="5" value="40" class="w-full" oninput="updateParameters('R', this.value)">
+                        <p id="r-warning" class="text-[10px] text-red-400 mt-1 hidden"><i class="fa-solid fa-triangle-exclamation"></i> Runoff cannot exceed total rainfall!</p>
+                    </div>
+
+                    <!-- Duration t -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Storm Duration (<span class="font-semibold text-slate-200">t</span>)</span>
+                            <span class="font-mono text-amber-400 font-bold text-sm" id="t-val">6 hours</span>
+                        </div>
+                        <input type="range" id="param-t" min="2" max="12" step="1" value="6" class="w-full" oninput="updateParameters('t', this.value)">
+                    </div>
+
+                    <!-- Initial Abstraction Ia -->
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-400">Initial Abstraction (<span class="font-semibold text-slate-200">I<sub>a</sub></span>)</span>
+                            <span class="font-mono text-pink-400 font-bold text-sm" id="ia-val">15 mm</span>
+                        </div>
+                        <input type="range" id="param-ia" min="0" max="50" step="1" value="15" class="w-full" oninput="updateParameters('Ia', this.value)">
+                        <p id="ia-warning" class="text-[10px] text-red-400 mt-1 hidden"><i class="fa-solid fa-triangle-exclamation"></i> I<sub>a</sub> cannot exceed total infiltration losses (P - R)!</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MODE SWITCH CARD -->
+            <div class="glass-panel p-4 rounded-xl flex flex-col space-y-3 shrink-0">
+                <h2 class="text-sm font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2 border-b border-slate-700/40 pb-2">
+                    <i class="fa-solid fa-calculator text-indigo-400"></i> Analysis Model
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="mode-phi-btn" onclick="setMode('phi')" class="py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-blue-500/10 border-blue-500 text-blue-400 glow-blue">
+                        <span class="text-lg font-bold">Φ-Index</span>
+                        <span class="text-[9px] text-slate-400">Total Loss Filter</span>
+                    </button>
+                    <button id="mode-w-btn" onclick="setMode('w')" class="py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700">
+                        <span class="text-lg font-bold">W-Index</span>
+                        <span class="text-[9px] text-slate-400">Isolates I<sub>a</sub> Loss</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- INDEX PRESETS FOR TEACHING -->
+            <div class="glass-panel p-3 rounded-xl flex-1 flex flex-col space-y-2 min-h-[140px] overflow-y-auto">
+                <h2 class="text-xs font-bold tracking-wider text-slate-400 uppercase">Quick Scenarios</h2>
+                <div class="space-y-1.5 text-xs">
+                    <button onclick="loadPreset(120, 50, 6, 20)" class="w-full p-2 bg-slate-900/60 hover:bg-slate-900 rounded-lg text-left border border-slate-800 hover:border-slate-700/60 transition flex items-center justify-between group">
+                        <div>
+                            <p class="font-medium text-slate-300 group-hover:text-blue-400 transition">High Infiltration Sandy Soil</p>
+                            <p class="text-[10px] text-slate-500">P = 120, R = 50, I<sub>a</sub> = 20</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-blue-400 transition text-[10px]"></i>
+                    </button>
+                    <button onclick="loadPreset(80, 60, 4, 5)" class="w-full p-2 bg-slate-900/60 hover:bg-slate-900 rounded-lg text-left border border-slate-800 hover:border-slate-700/60 transition flex items-center justify-between group">
+                        <div>
+                            <p class="font-medium text-slate-300 group-hover:text-blue-400 transition">Clay Soil (Low Abs)</p>
+                            <p class="text-[10px] text-slate-500">P = 80, R = 60, I<sub>a</sub> = 5</p>
+                        </div>
+                        <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-blue-400 transition text-[10px]"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. THE VISUAL CANVAS (CENTER GRID) -->
+        <section class="col-span-12 lg:col-span-6 flex flex-col space-y-3 h-full">
+            <!-- THE HYETOGRAPH AND INDEX DRAWING CARD -->
+            <div class="glass-panel p-4 rounded-xl flex-1 flex flex-col relative min-h-[300px]">
+                <div class="flex items-center justify-between mb-2">
+                    <div>
+                        <h2 class="text-sm font-bold tracking-wider text-slate-300 uppercase flex items-center gap-2">
+                            <i class="fa-solid fa-chart-area text-blue-400"></i> Interactive Hyetograph
+                        </h2>
+                        <p class="text-[10px] text-slate-400 mt-0.5">Plot values based on a standard dynamic storm distribution pattern</p>
+                    </div>
+                    <!-- Indicator Badge of Alignment -->
+                    <div id="match-badge" class="px-2.5 py-1 rounded text-[11px] font-mono font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-circle text-[8px]"></i> <span id="match-text">CALIBRATING</span>
+                    </div>
+                </div>
+
+                <!-- Live Chart Area -->
+                <div class="flex-1 relative min-h-[180px]">
+                    <canvas id="hyetographChart" class="w-full h-full"></canvas>
+                </div>
+
+                <!-- DRAGGABLE / SLIDEABLE CONTROL BAR FOR THRESHOLD -->
+                <div class="mt-4 bg-slate-950/60 p-3 rounded-lg border border-slate-800/80">
+                    <div class="flex items-center justify-between mb-2 text-xs">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-300">Manual Threshold Filter (<span class="text-blue-400" id="threshold-label">f<sub>p</sub></span>)</span>
+                            <span class="bg-blue-500/10 text-blue-400 text-[10px] font-mono px-1.5 py-0.5 rounded font-bold" id="manual-index-val">12.50 mm/hr</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="toggleAutoSolve()" id="auto-btn" class="px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-[10px] rounded transition font-bold shadow-sm shadow-indigo-600/30">
+                                AUTO MATCH: ON
+                            </button>
+                        </div>
+                    </div>
+                    <!-- Drag controller acting as threshold modifier -->
+                    <input type="range" id="threshold-slider" min="0" max="40" step="0.05" value="12.5" class="w-full accent-blue-500" oninput="onThresholdSliderInput(this.value)">
+                    <div class="flex justify-between text-[10px] text-slate-500 mt-1 font-mono">
+                        <span>0 mm/hr (High Runoff)</span>
+                        <span>Drag to match observed Runoff of <span id="target-r-label" class="text-emerald-400 font-bold">40</span> mm</span>
+                        <span>Max Intensity (0 Runoff)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ANALYTICAL STATS / BALANCING VISUALS -->
+            <div class="grid grid-cols-3 gap-3 shrink-0">
+                <div class="glass-panel p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Dynamic Losses</span>
+                    <span class="text-lg font-mono font-bold text-blue-400 mt-1" id="dyn-losses">60.00 <span class="text-xs">mm</span></span>
+                    <span class="text-[9px] text-slate-500 mt-0.5 font-mono">P - Runoff = Total Loss</span>
+                </div>
+                <div class="glass-panel p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Theoretical Φ-Index</span>
+                    <span class="text-lg font-mono font-bold text-indigo-400 mt-1" id="dyn-phi">10.00 <span class="text-xs">mm/hr</span></span>
+                    <span class="text-[9px] text-slate-500 mt-0.5 font-mono">Constant (P - R) / t</span>
+                </div>
+                <div class="glass-panel p-3 rounded-xl flex flex-col justify-between">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Theoretical W-Index</span>
+                    <span class="text-lg font-mono font-bold text-pink-400 mt-1" id="dyn-w">7.50 <span class="text-xs">mm/hr</span></span>
+                    <span class="text-[9px] text-slate-500 mt-0.5 font-mono">(P - R - I<sub>a</sub>) / t</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. EXAM FLASHCARD HUD & MATH SOLVER (RIGHT SIDEBAR) -->
+        <section class="col-span-12 lg:col-span-3 flex flex-col space-y-3 overflow-y-auto pr-1">
+            
+            <!-- PERSISTENT FORMULA FLASHCARD -->
+            <div class="glass-panel p-4 rounded-xl shrink-0 border-l-4 border-l-indigo-500 relative overflow-hidden">
+                <div class="absolute -right-12 -bottom-12 w-24 h-24 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                <h3 class="text-xs font-bold tracking-widest text-indigo-400 uppercase mb-2">Core Hydro-Equation</h3>
+                
+                <div id="formula-container" class="bg-slate-900/80 p-3 rounded-lg border border-slate-800 text-center font-mono my-2">
+                    <p class="text-base text-white font-bold" id="formula-latex">
+                        Φ = (P - R) / t
+                    </p>
+                </div>
+                
+                <!-- dynamic alert box if rule is breached -->
+                <div id="pro-tip-box" class="bg-blue-950/40 border border-blue-900/60 p-2.5 rounded-lg text-[11px] text-slate-300 mt-2 transition duration-300">
+                    <div class="flex gap-2">
+                        <i class="fa-solid fa-lightbulb text-amber-400 mt-0.5 shrink-0"></i>
+                        <p id="pro-tip-text">Φ-index is always ≥ W-index because Φ includes initial losses (I<sub>a</sub>) while W isolates them.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- STEP-BY-STEP SOLVE PANEL -->
+            <div class="glass-panel p-4 rounded-xl flex-1 flex flex-col min-h-[220px]">
+                <div class="flex items-center justify-between border-b border-slate-700/40 pb-2 mb-3">
+                    <h3 class="text-xs font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+                        <i class="fa-solid fa-list-check text-emerald-400"></i> Math Solve Path
+                    </h3>
+                    <button onclick="triggerVoiceExplanation()" class="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 border border-slate-700 hover:text-white rounded transition flex items-center gap-1" title="Narrate current equations">
+                        <i class="fa-solid fa-volume-high text-indigo-400"></i> <span class="font-mono">NARRATE</span>
+                    </button>
+                </div>
+
+                <div id="calculation-steps" class="flex-1 overflow-y-auto space-y-3 pr-1 text-xs text-slate-300 font-mono">
+                    <!-- Steps get dynamically appended here by JS -->
+                </div>
+            </div>
+
+            <!-- AUDIO FEEDBACK & INFO CONTROLS -->
+            <div class="glass-panel p-3 rounded-xl flex items-center justify-between text-xs shrink-0 bg-gradient-to-r from-indigo-950/20 to-slate-900">
+                <div class="flex items-center space-x-2">
+                    <div class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></div>
+                    <span class="text-slate-400 font-semibold text-[10px]">HYDRO-ENGINE SYSTEM</span>
+                </div>
+                <button onclick="explainCoreConcept()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-[10px] border border-slate-700 rounded text-slate-300 hover:text-white transition flex items-center gap-1">
+                    <i class="fa-solid fa-circle-question text-blue-400"></i> Concept Brief
+                </button>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- STATUS BAR / FOOTER -->
+    <footer class="bg-slate-900 border-t border-slate-800/80 px-6 py-2 flex justify-between items-center text-[10px] text-slate-500 shrink-0 font-mono">
+        <div>CODENAME: PHI_W_ENGINE_V1.1</div>
+        <div>STORM RATIO: <span id="storm-ratio-indicator" class="text-emerald-400 font-bold">100 / 40</span></div>
+        <div>© 2024 Hydrological Educational Systems</div>
+    </footer>
+
+    <!-- WEB AUDIO AND LOGIC SCRIPT -->
+    <script>
+        // Global Simulation State
+        const state = {
+            P: 100, // Total Rainfall (mm)
+            R: 40,  // Direct Runoff (mm)
+            t: 6,   // Duration (hours)
+            Ia: 15, // Initial Abstraction (mm)
+            mode: 'phi', // 'phi' or 'w'
+            autoSolve: true,
+            manualThreshold: 6.67, // dynamically matched at start
+            soundEnabled: true,
+            stormProfile: [0.10, 0.25, 0.35, 0.18, 0.09, 0.03], // Peak in center-left storm profile
+            chart: null,
+            audioCtx: null
+        };
+
+        // Initialize Audio Context on user action
+        function initAudio() {
+            if (!state.audioCtx) {
+                state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Onboarding Modal closer
+        function closeModal() {
+            document.getElementById('welcome-modal').classList.add('opacity-0');
+            setTimeout(() => {
+                document.getElementById('welcome-modal').classList.add('hidden');
+            }, 500);
+            initAudio();
+            playTone(440, 0.15, 'sine');
+            setTimeout(() => {
+                playTone(659, 0.2, 'sine');
+            }, 100);
+            recalculate();
+        }
+
+        // Play Synthesized Audio Feedbacks
+        function playTone(freq, duration, type = 'sine') {
+            if (!state.soundEnabled) return;
+            try {
+                initAudio();
+                const osc = state.audioCtx.createOscillator();
+                const gainNode = state.audioCtx.createGain();
+                
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, state.audioCtx.currentTime);
+                
+                gainNode.gain.setValueAtTime(0.08, state.audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + duration);
+                
+                osc.connect(gainNode);
+                gainNode.connect(state.audioCtx.destination);
+                
+                osc.start();
+                osc.stop(state.audioCtx.currentTime + duration);
+            } catch (e) {
+                console.warn("Audio Context init failed. Audio muted until interaction.", e);
+            }
+        }
+
+        function toggleSound() {
+            state.soundEnabled = !state.soundEnabled;
+            const audioIcon = document.getElementById('audio-icon');
+            const audioBtn = document.getElementById('audio-toggle-btn');
+            
+            if (state.soundEnabled) {
+                audioIcon.className = 'fa-solid fa-volume-high text-blue-400';
+                audioBtn.classList.add('border-slate-700/50');
+                playTone(440, 0.1, 'sine');
+            } else {
+                audioIcon.className = 'fa-solid fa-volume-mute text-slate-500';
+                audioBtn.classList.remove('border-slate-700/50');
+            }
+        }
+
+        // Preset Manager
+        function loadPreset(p, r, t, ia) {
+            state.P = p;
+            state.R = r;
+            state.t = t;
+            state.Ia = ia;
+
+            document.getElementById('param-p').value = p;
+            document.getElementById('param-r').value = r;
+            document.getElementById('param-t').value = t;
+            document.getElementById('param-ia').value = ia;
+
+            playTone(523, 0.15, 'triangle');
+            setTimeout(() => { playTone(659, 0.15, 'triangle'); }, 80);
+
+            recalculate();
+        }
+
+        // Change analysis mode (Phi vs W)
+        function setMode(mode) {
+            state.mode = mode;
+            
+            const phiBtn = document.getElementById('mode-phi-btn');
+            const wBtn = document.getElementById('mode-w-btn');
+
+            if (mode === 'phi') {
+                phiBtn.className = "py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-blue-500/10 border-blue-500 text-blue-400 glow-blue";
+                wBtn.className = "py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700";
+                document.getElementById('formula-latex').innerHTML = "Φ = (P - R) / t";
+                document.getElementById('threshold-label').innerHTML = "Φ<sub>index</sub>";
+            } else {
+                wBtn.className = "py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-pink-500/10 border-pink-500 text-pink-400 glow-red";
+                phiBtn.className = "py-2.5 rounded-lg border font-semibold text-xs transition flex flex-col items-center justify-center gap-1 bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700";
+                document.getElementById('formula-latex').innerHTML = "W = (P - R - I<sub>a</sub>) / t";
+                document.getElementById('threshold-label').innerHTML = "W<sub>index</sub>";
+            }
+
+            playTone(392, 0.2, 'sawtooth');
+            recalculate();
+        }
+
+        function toggleAutoSolve() {
+            state.autoSolve = !state.autoSolve;
+            const btn = document.getElementById('auto-btn');
+            if (state.autoSolve) {
+                btn.className = "px-2 py-0.5 bg-indigo-600 hover:bg-indigo-500 text-white font-mono text-[10px] rounded transition font-bold shadow-sm shadow-indigo-600/30";
+                btn.innerHTML = "AUTO MATCH: ON";
+            } else {
+                btn.className = "px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-[10px] border border-slate-700 rounded transition font-bold";
+                btn.innerHTML = "AUTO MATCH: OFF";
+            }
+            playTone(587, 0.1, 'sine');
+            recalculate();
+        }
+
+        // Get rainfall block distribution
+        function getHyetographData() {
+            const dt = state.t / state.stormProfile.length;
+            const absoluteRainfall = state.stormProfile.map(f => state.P * f); // mm
+            const rawIntensities = absoluteRainfall.map(rain => rain / dt); // mm/hr
+            
+            // Deduct Initial Abstraction if mode is W-Index
+            let remainingIa = (state.mode === 'w') ? state.Ia : 0;
+            let effectiveRainfall = [];
+            
+            for (let i = 0; i < absoluteRainfall.length; i++) {
+                let rain = absoluteRainfall[i];
+                if (remainingIa > 0) {
+                    if (rain >= remainingIa) {
+                        rain -= remainingIa;
+                        remainingIa = 0;
+                    } else {
+                        remainingIa -= rain;
+                        rain = 0;
+                    }
+                }
+                effectiveRainfall.push(rain);
+            }
+
+            const effectiveIntensities = effectiveRainfall.map(rain => rain / dt);
+            
+            return {
+                labels: Array.from({length: state.stormProfile.length}, (_, i) => `Block ${i+1}`),
+                dt: dt,
+                rawIntensities: rawIntensities,
+                effectiveIntensities: effectiveIntensities, // intensities after Ia subtraction
+                absoluteRainfall: absoluteRainfall
+            };
+        }
+
+        // Calculate theoretical values & dynamic solver
+        function recalculate() {
+            // Parameter validation
+            let warningR = false;
+            let warningIa = false;
+
+            if (state.R >= state.P) {
+                state.R = state.P - 5;
+                document.getElementById('param-r').value = state.R;
+                warningR = true;
+            }
+            document.getElementById('r-warning').style.display = warningR ? 'block' : 'none';
+
+            const maxAllowedIa = state.P - state.R;
+            if (state.Ia > maxAllowedIa) {
+                state.Ia = maxAllowedIa;
+                document.getElementById('param-ia').value = state.Ia;
+                warningIa = true;
+            }
+            document.getElementById('ia-warning').style.display = warningIa ? 'block' : 'none';
+
+            // DOM Label updates
+            document.getElementById('p-val').innerText = `${state.P} mm`;
+            document.getElementById('r-val').innerText = `${state.R} mm`;
+            document.getElementById('t-val').innerText = `${state.t} hours`;
+            document.getElementById('ia-val').innerText = `${state.Ia} mm`;
+            document.getElementById('target-r-label').innerText = `${state.R}`;
+            document.getElementById('storm-ratio-indicator').innerText = `${state.P} / ${state.R}`;
+
+            // Core simplified calculations
+            const losses = state.P - state.R;
+            const phi_simple = losses / state.t;
+            const w_simple = (losses - state.Ia) / state.t;
+
+            document.getElementById('dyn-losses').innerText = `${losses.toFixed(2)} mm`;
+            document.getElementById('dyn-phi').innerText = `${phi_simple.toFixed(2)} mm/hr`;
+            document.getElementById('dyn-w').innerText = `${w_simple.toFixed(2)} mm/hr`;
+
+            // Enforce Φ >= W warning on the Flashcard
+            const proTipBox = document.getElementById('pro-tip-box');
+            const proTipText = document.getElementById('pro-tip-text');
+            if (phi_simple < w_simple) {
+                proTipBox.className = "bg-red-950/40 border border-red-900/60 p-2.5 rounded-lg text-[11px] text-red-300 mt-2 glow-red animate-pulse";
+                proTipText.innerHTML = "ALERT: Standard rule breached! Check constraints. Φ should always be ≥ W. Under regular situations, Ia is deducted only for W-Index.";
+            } else {
+                proTipBox.className = "bg-blue-950/40 border border-blue-900/60 p-2.5 rounded-lg text-[11px] text-slate-300 mt-2";
+                proTipText.innerHTML = "Φ-index is always ≥ W-index because Φ includes initial losses (I<sub>a</sub>) while W isolates them.";
+            }
+
+            // Find dynamic piecewise-linear indices
+            const data = getHyetographData();
+            const theoreticalDynamicThreshold = solveDynamicThreshold(data.effectiveIntensities, data.dt, state.R);
+
+            // Update range of threshold slider to match peak storm intensity
+            const maxIntensity = Math.max(...data.rawIntensities);
+            const slider = document.getElementById('threshold-slider');
+            slider.max = (maxIntensity * 1.2).toFixed(2);
+
+            if (state.autoSolve) {
+                state.manualThreshold = theoreticalDynamicThreshold;
+                slider.value = theoreticalDynamicThreshold.toFixed(2);
+            }
+
+            document.getElementById('manual-index-val').innerText = `${state.manualThreshold.toFixed(2)} mm/hr`;
+
+            // Calculate simulated runoff at manual threshold
+            let simulatedRunoff = 0;
+            const targetIntensities = data.effectiveIntensities;
+            for (let i = 0; i < targetIntensities.length; i++) {
+                simulatedRunoff += Math.max(0, targetIntensities[i] - state.manualThreshold) * data.dt;
+            }
+
+            // Update Match State Indicators
+            const matchBadge = document.getElementById('match-badge');
+            const matchText = document.getElementById('match-text');
+            const error = simulatedRunoff - state.R;
+
+            if (Math.abs(error) < 0.1) {
+                matchBadge.className = "px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 glow-green flex items-center gap-1.5";
+                matchText.innerText = "MATCHED! PERFECT BALANCING";
+            } else if (error > 0) {
+                matchBadge.className = "px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1.5";
+                matchText.innerText = `ERR: +${error.toFixed(1)} mm Excess`;
+            } else {
+                matchBadge.className = "px-2.5 py-1 rounded text-[11px] font-mono font-bold bg-red-500/10 text-red-400 border border-red-500/30 glow-red flex items-center gap-1.5";
+                matchText.innerText = `ERR: ${error.toFixed(1)} mm Deficit`;
+            }
+
+            // Render Chart
+            updateChart(data, state.manualThreshold);
+
+            // Render Dynamic Steps Panel
+            renderSteps(phi_simple, w_simple, theoreticalDynamicThreshold, data, losses);
+        }
+
+        // Numerical Solver for dynamic piecewise-linear threshold
+        function solveDynamicThreshold(intensities, dt, targetR) {
+            let low = 0;
+            let high = Math.max(...intensities) * 1.5;
+            let ans = 0;
+
+            for (let step = 0; step < 100; step++) {
+                let mid = (low + high) / 2;
+                let calculatedR = 0;
+                for (let i = 0; i < intensities.length; i++) {
+                    calculatedR += Math.max(0, intensities[i] - mid) * dt;
+                }
+
+                if (Math.abs(calculatedR - targetR) < 0.0001) {
+                    ans = mid;
+                    break;
+                }
+                if (calculatedR > targetR) {
+                    low = mid;
+                } else {
+                    high = mid;
+                }
+                ans = mid;
+            }
+            return ans;
+        }
+
+        // Left slider modifications updater
+        function updateParameters(param, val) {
+            state[param] = parseFloat(val);
+            
+            // Audio pitch shifts based on slider modifications
+            let pitch = 300;
+            if (param === 'P') pitch = 300 + (val * 2);
+            if (param === 'R') pitch = 200 + (val * 3);
+            if (param === 't') pitch = 400 - (val * 20);
+            if (param === 'Ia') pitch = 500 + (val * 5);
+            playTone(pitch, 0.06, 'sine');
+
+            recalculate();
+        }
+
+        // Sliding the horizontal bar
+        function onThresholdSliderInput(value) {
+            state.manualThreshold = parseFloat(value);
+            state.autoSolve = false;
+            
+            const btn = document.getElementById('auto-btn');
+            btn.className = "px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-slate-400 font-mono text-[10px] border border-slate-700 rounded transition font-bold";
+            btn.innerHTML = "AUTO MATCH: OFF";
+
+            // Audio synth tone proportional to threshold value
+            const minFreq = 220;
+            const maxFreq = 880;
+            const sliderMax = parseFloat(document.getElementById('threshold-slider').max) || 40;
+            const pct = state.manualThreshold / sliderMax;
+            const freq = minFreq + (pct * (maxFreq - minFreq));
+            playTone(freq, 0.04, 'triangle');
+
+            recalculate();
+        }
+
+        // Render equations step by step
+        function renderSteps(phi_s, w_s, dynThresh, data, losses) {
+            const stepsDiv = document.getElementById('calculation-steps');
+            let html = '';
+
+            if (state.mode === 'phi') {
+                html += `
+                    <div class="border-b border-slate-800 pb-2 mb-2">
+                        <span class="text-blue-400 font-bold">MODE: Φ-Index Analysis</span>
+                        <p class="text-[10px] text-slate-400 mt-1">Calculates constant loss rate without separating initial abstraction.</p>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 1: Total Losses</span>
+                        <div class="text-white font-bold text-xs pl-2">F<sub>L</sub> = P - R = ${state.P} - ${state.R} = ${losses.toFixed(2)} mm</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 2: Simple Uniform Rate</span>
+                        <div class="text-white font-bold text-xs pl-2">Φ<sub>simple</sub> = F<sub>L</sub> / t = ${losses.toFixed(2)} / ${state.t} = <span class="text-blue-400">${phi_s.toFixed(2)} mm/hr</span></div>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 3: Dynamic Storm Filter</span>
+                        <p class="text-[10px] text-slate-500 pl-2 leading-relaxed">Solving: Σ [Intensity<sub>i</sub> - f<sub>p</sub>] * dt = Runoff (${state.R} mm)</p>
+                        <div class="text-indigo-400 font-bold text-xs pl-2 mt-1">Calculated Φ<sub>dynamic</sub> = ${dynThresh.toFixed(2)} mm/hr</div>
+                    </div>
+                `;
+            } else {
+                html += `
+                    <div class="border-b border-slate-800 pb-2 mb-2">
+                        <span class="text-pink-400 font-bold">MODE: W-Index Analysis</span>
+                        <p class="text-[10px] text-slate-400 mt-1">Subtracts initial abstraction (I<sub>a</sub> = ${state.Ia} mm) from the earliest storm hours.</p>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 1: Infiltration Losses</span>
+                        <div class="text-white font-bold text-xs pl-2">F<sub>p</sub> = P - R - I<sub>a</sub> = ${state.P} - ${state.R} - ${state.Ia} = ${(losses - state.Ia).toFixed(2)} mm</div>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 2: Simple Avg Infiltration</span>
+                        <div class="text-white font-bold text-xs pl-2">W<sub>simple</sub> = F<sub>p</sub> / t = ${(losses - state.Ia).toFixed(2)} / ${state.t} = <span class="text-pink-400">${w_s.toFixed(2)} mm/hr</span></div>
+                    </div>
+                    <div>
+                        <span class="text-slate-400">Step 3: Dynamic Storm Filter</span>
+                        <p class="text-[10px] text-slate-500 pl-2 leading-relaxed">Solving: Σ [Intensity<sub>i_eff</sub> - W<sub>index</sub>] * dt = Runoff (${state.R} mm)</p>
+                        <div class="text-indigo-400 font-bold text-xs pl-2 mt-1">Calculated W<sub>dynamic</sub> = ${dynThresh.toFixed(2)} mm/hr</div>
+                    </div>
+                `;
+            }
+
+            stepsDiv.innerHTML = html;
+        }
+
+        // Text-to-Speech Explainer
+        function speakExplanation(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Speech Synthesis is not supported in this browser.");
+            }
+        }
+
+        function triggerVoiceExplanation() {
+            const dynamicValue = state.manualThreshold.toFixed(2);
+            let text = "";
+            if (state.mode === 'phi') {
+                text = `You are evaluating a storm of ${state.P} millimeters total rainfall over ${state.t} hours. The direct runoff observed is ${state.R} millimeters. Under the Phi Index model, the total loss rate equals ${dynamicValue} millimeters per hour. Any rainfall intensity above this threshold transforms directly into excess runoff.`;
+            } else {
+                text = `You are evaluating the W Index model. We isolated an initial abstraction of ${state.Ia} millimeters from the early portion of the storm. The average dynamic rate of infiltration during the storm excess period is calculated as ${dynamicValue} millimeters per hour.`;
+            }
+            speakExplanation(text);
+        }
+
+        function explainCoreConcept() {
+            const conceptText = "Hydrological engineering dictates that the Phi Index represents average constant loss rate inclusive of initial losses, while the W Index measures actual average infiltration rates, strictly isolating the initial losses. Because Phi contains additional early losses, Phi is mathematically greater than or equal to W.";
+            speakExplanation(conceptText);
+        }
+
+        // Dynamic Chart drawing using Chart.js
+        function updateChart(data, threshold) {
+            const ctx = document.getElementById('hyetographChart').getContext('2d');
+            
+            // Build datasets
+            // Dataset 1: Rainfall intensity (Bars)
+            // Color segments dynamically based on whether they exceed the current manual threshold line
+            const backgroundColors = [];
+            const borderColors = [];
+            
+            const intensities = data.effectiveIntensities;
+
+            for (let i = 0; i < intensities.length; i++) {
+                if (intensities[i] > threshold) {
+                    // Exceeds index: Red Excess/Runoff
+                    backgroundColors.push('rgba(239, 68, 68, 0.45)');
+                    borderColors.push('rgba(239, 68, 68, 0.9)');
+                } else {
+                    // Under index: Blue Losses/Infiltration
+                    backgroundColors.push('rgba(59, 130, 246, 0.45)');
+                    borderColors.push('rgba(59, 130, 246, 0.9)');
+                }
+            }
+
+            // Line dataset representing the dynamic index threshold
+            const thresholdLineData = Array(intensities.length).fill(threshold);
+
+            if (state.chart) {
+                // Update existing chart to avoid stutter
+                state.chart.data.labels = data.labels;
+                state.chart.data.datasets[0].data = intensities;
+                state.chart.data.datasets[0].backgroundColor = backgroundColors;
+                state.chart.data.datasets[0].borderColor = borderColors;
+                state.chart.data.datasets[1].data = thresholdLineData;
+                state.chart.data.datasets[1].label = state.mode === 'phi' ? 'Φ-Index Line' : 'W-Index Line';
+                state.chart.options.scales.y.suggestedMax = Math.max(...intensities) * 1.25;
+                state.chart.update('none'); // Update without transition latency
+            } else {
+                state.chart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.labels,
+                        datasets: [
+                            {
+                                label: 'Rainfall Intensity (mm/hr)',
+                                data: intensities,
+                                backgroundColor: backgroundColors,
+                                borderColor: borderColors,
+                                borderWidth: 2,
+                                barPercentage: 0.85,
+                                categoryPercentage: 0.9,
+                                order: 2
+                            },
+                            {
+                                label: state.mode === 'phi' ? 'Φ-Index Line' : 'W-Index Line',
+                                data: thresholdLineData,
+                                type: 'line',
+                                borderColor: 'rgba(244, 63, 94, 0.9)',
+                                borderWidth: 3,
+                                pointRadius: 5,
+                                pointBackgroundColor: '#ffffff',
+                                borderDash: [6, 4],
+                                fill: false,
+                                order: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                labels: {
+                                    color: '#94a3b8',
+                                    font: { family: 'Inter', size: 10 }
+                                }
+                            },
+                            tooltip: {
+                                backgroundColor: '#0f172a',
+                                titleFont: { family: 'JetBrains Mono', size: 11 },
+                                bodyFont: { family: 'Inter', size: 10 },
+                                borderWidth: 1,
+                                borderColor: '#334155',
+                                callbacks: {
+                                    afterLabel: function(context) {
+                                        if (context.datasetIndex === 0) {
+                                            const index = context.dataIndex;
+                                            const intensityVal = intensities[index];
+                                            const excess = Math.max(0, intensityVal - threshold);
+                                            return `Excess: ${excess.toFixed(2)} mm/hr`;
+                                        }
+                                        return '';
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                grid: { color: 'rgba(51, 65, 85, 0.2)' },
+                                ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Intensity (mm/hr)',
+                                    color: '#94a3b8',
+                                    font: { family: 'Inter', size: 10 }
+                                },
+                                grid: { color: 'rgba(51, 65, 85, 0.2)' },
+                                ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } },
+                                suggestedMin: 0,
+                                suggestedMax: 35
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        // Window Initializer
+        window.addEventListener('DOMContentLoaded', () => {
+            recalculate();
+        });
+    </script>
+</body>
+</html>

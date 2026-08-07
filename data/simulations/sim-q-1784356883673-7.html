@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectonica: Cosmos, Geometry, and Climate</title>
+    <!-- Google Fonts for premium UI look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;800&family=Playfair+Display:ital,wght@0,600;1,400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #0b0c10;
+            --panel-bg: rgba(22, 26, 35, 0.65);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #f0f2f5;
+            --text-secondary: #94a3b8;
+            --accent-east: #ff9f1c; /* Saffron/Warm Sun */
+            --accent-west: #00f0ff; /* Electric Ice Blue */
+            --glow-east: rgba(255, 159, 28, 0.3);
+            --glow-west: rgba(0, 240, 255, 0.3);
+            --active-tab: #3a86ff;
+            --font-sans: 'Inter', sans-serif;
+            --font-serif: 'Playfair Display', serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-sans);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ambient glowing backgrounds */
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            border-radius: 50%;
+            pointer-events: none;
+            filter: blur(150px);
+            z-index: 0;
+            opacity: 0.15;
+            transition: all 1s ease;
+        }
+        #glow-left {
+            top: -100px;
+            left: -100px;
+            background: var(--accent-east);
+        }
+        #glow-right {
+            bottom: -100px;
+            right: -100px;
+            background: var(--accent-west);
+        }
+
+        /* Top Header Navigation */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 2.5rem;
+            border-bottom: 1px solid var(--panel-border);
+            z-index: 10;
+            background: rgba(11, 12, 16, 0.8);
+            backdrop-filter: blur(20px);
+        }
+
+        .logo-area {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .logo-area h1 {
+            font-family: var(--font-serif);
+            font-size: 1.6rem;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--accent-east), var(--accent-west));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-area p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
+        }
+
+        .top-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn-audio {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            padding: 0.6rem 1.2rem;
+            border-radius: 40px;
+            color: var(--text-primary);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-audio:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-audio.active {
+            background: linear-gradient(135deg, rgba(255, 159, 28, 0.2), rgba(0, 240, 255, 0.2));
+            border-color: var(--active-tab);
+            box-shadow: 0 0 15px rgba(58, 134, 255, 0.3);
+        }
+
+        /* App Container Layout */
+        .app-container {
+            display: flex;
+            flex: 1;
+            width: 100%;
+            height: calc(100vh - 75px);
+            position: relative;
+            z-index: 5;
+        }
+
+        /* Interactive Canvas Workspace (Left Side) */
+        .workspace {
+            flex: 1.3;
+            position: relative;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            border-right: 1px solid var(--panel-border);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background: #0d0f14;
+        }
+
+        /* Canvas HUD Overlays */
+        .hud-label {
+            position: absolute;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--text-secondary);
+            padding: 4px 8px;
+            background: rgba(11, 12, 16, 0.7);
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            pointer-events: none;
+        }
+
+        #hud-east {
+            top: 20px;
+            left: 20px;
+            border-left: 3px solid var(--accent-east);
+        }
+
+        #hud-west {
+            top: 20px;
+            right: 20px;
+            border-right: 3px solid var(--accent-west);
+        }
+
+        /* Glassmorphic Control Panel (Right Side) */
+        .control-panel {
+            flex: 0.95;
+            background: var(--panel-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+            border-left: 1px solid var(--panel-border);
+        }
+
+        /* Tabs System */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 20;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 1.1rem 0.5rem;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .tab-btn:hover {
+            color: var(--text-primary);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .tab-btn.active {
+            color: var(--text-primary);
+            border-bottom: 3px solid var(--active-tab);
+            background: rgba(255, 255, 255, 0.04);
+        }
+
+        /* Tab Contents */
+        .tab-content {
+            padding: 2rem;
+            display: none;
+            flex-direction: column;
+            gap: 1.8rem;
+        }
+
+        .tab-content.active {
+            display: flex;
+        }
+
+        /* Typography elements inside Panel */
+        h2 {
+            font-family: var(--font-serif);
+            font-size: 1.7rem;
+            font-weight: 500;
+            line-height: 1.2;
+            margin-bottom: 0.25rem;
+        }
+
+        .subtitle {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+        }
+
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--panel-border), transparent);
+            margin: 0.5rem 0;
+        }
+
+        /* Interactive Sliders */
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .slider-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .slider-value {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            color: var(--accent-west);
+            background: rgba(0, 240, 255, 0.08);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Custom range styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        /* Elements Lab (Add/Remove components) */
+        .elements-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .element-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            border-radius: 8px;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .element-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: transparent;
+            transition: background 0.3s;
+        }
+
+        .element-card.active::before {
+            background: var(--active-color, var(--active-tab));
+        }
+
+        .element-card.active {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.15);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .element-card h4 {
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .element-card p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            line-height: 1.3;
+        }
+
+        /* Narrative TTS Controller panel */
+        .narrator-box {
+            background: rgba(58, 134, 255, 0.06);
+            border: 1px solid rgba(58, 134, 255, 0.15);
+            border-radius: 12px;
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .narrator-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .narrator-title {
+            font-size: 0.8rem;
+            font-weight: 800;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--active-tab);
+        }
+
+        .narrator-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .btn-narrate {
+            background: var(--active-tab);
+            border: none;
+            color: white;
+            padding: 0.4rem 0.9rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-narrate:hover {
+            filter: brightness(1.1);
+        }
+
+        .narrator-text {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-primary);
+            min-height: 4.5em;
+        }
+
+        /* Information Panels for Theory */
+        .theory-card {
+            background: rgba(255, 255, 255, 0.01);
+            border-left: 2px solid var(--accent-color, var(--text-secondary));
+            padding: 0.8rem 1.2rem;
+            font-size: 0.85rem;
+            line-height: 1.45;
+            color: var(--text-secondary);
+        }
+
+        /* Dynamic Vector Overlay Control toggle */
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255, 255, 255, 0.02);
+            padding: 0.8rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--panel-border);
+        }
+
+        .toggle-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .toggle-title {
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .toggle-desc {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 24px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255,255,255,0.1);
+            transition: .4s;
+            border-radius: 34px;
+        }
+
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-round {
+            background-color: var(--active-tab);
+        }
+
+        input:checked + .slider-round:before {
+            transform: translateX(20px);
+        }
+
+        /* Responsive UI Adjustments */
+        @media(max-width: 1024px) {
+            .app-container {
+                flex-direction: column;
+                height: auto;
+                overflow-y: scroll;
+            }
+            .workspace {
+                height: 50vh;
+                flex: none;
+            }
+            .control-panel {
+                height: auto;
+                flex: none;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Glowing backdrop assets -->
+    <div class="ambient-glow" id="glow-left"></div>
+    <div class="ambient-glow" id="glow-right"></div>
+
+    <!-- Header Navigation -->
+    <header>
+        <div class="logo-area">
+            <h1>Architectonica</h1>
+            <p>Theory of Architecture &bull; Eastern vs Western Cosmologies</p>
+        </div>
+        <div class="top-controls">
+            <button class="btn-audio" id="audio-toggle-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                <span>Initialize Audio Synth</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- App Main Area -->
+    <div class="app-container">
+        
+        <!-- Canvas Workspace Viewport -->
+        <div class="workspace">
+            <div class="hud-label" id="hud-east">INDIAN: SACRED MANDALA & CLIMATE</div>
+            <div class="hud-label" id="hud-west">WESTERN: VITRUVIAN GEOMETRY & THRUST</div>
+            <canvas id="architectureCanvas"></canvas>
+        </div>
+
+        <!-- Sidebar Controller Panel -->
+        <div class="control-panel">
+            
+            <!-- Tab Controls -->
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('cosmos')">Cosmos & Geometry</button>
+                <button class="tab-btn" onclick="switchTab('climate')">Climate & Form</button>
+                <button class="tab-btn" onclick="switchTab('elements')">Elements Lab</button>
+            </div>
+
+            <!-- Tab 1: Cosmological & Sacred Geometry -->
+            <div class="tab-content active" id="tab-cosmos">
+                <div>
+                    <h2>Sacred Ratios & Layouts</h2>
+                    <p class="subtitle">Contrast the micro-macrocosmic symmetry of India's Vastu Purusha Mandala with Western humanistic, anthropomorphic proportions.</p>
+                </div>
+
+                <div class="narrator-box">
+                    <div class="narrator-header">
+                        <span class="narrator-title">Concept Narrator</span>
+                        <div class="narrator-controls">
+                            <button class="btn-narrate" id="narrate-btn-1">Listen Analysis</button>
+                        </div>
+                    </div>
+                    <p class="narrator-text" id="narrative-text-1">Click the button to generate architectural synthesis regarding geometrical proportions of Indian and Western culture.</p>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Proportional Scale (Grid Ratio)</span>
+                        <span class="slider-value" id="val-proportion">1.00</span>
+                    </div>
+                    <input type="range" id="slider-proportion" min="0.5" max="2.0" step="0.01" value="1.0">
+                    <p class="subtitle" style="font-size: 0.75rem;">Adjust the scaling aspect ratio. India shifts across 3x3 up to 9x9 mandala alignments. Western shifts along the Golden Section (&Phi; &approx; 1.618).</p>
+                </div>
+
+                <div class="toggle-container">
+                    <div class="toggle-info">
+                        <span class="toggle-title">Geometric Matrix Overlays</span>
+                        <span class="toggle-desc">Overlay Vastu Shastra & Vitruvian circles</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-grid" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div class="theory-card" style="--accent-color: var(--accent-east)">
+                    <strong>Eastern Conception:</strong> Cosmic alignment is supreme. The building acts as an organic, living replica of the macrocosm (Prasada). The center (Brahma-sthana) is left open to breathe, ensuring energetic equilibrium.
+                </div>
+
+                <div class="theory-card" style="--accent-color: var(--accent-west)">
+                    <strong>Western Conception:</strong> Geometric logic derived from the human form (Vitruvian Man). Architecture utilizes rational numbers and golden proportions (1 : 1.618) to seek beauty through perfect human-centered scale.
+                </div>
+            </div>
+
+            <!-- Tab 2: Climate & Ecology adaptation -->
+            <div class="tab-content" id="tab-climate">
+                <div>
+                    <h2>Climate Adaptation</h2>
+                    <p class="subtitle">Experience how extreme environments structurally dictated traditional architectural silhouettes in hot-humid India vs cold-temperate Europe.</p>
+                </div>
+
+                <div class="narrator-box">
+                    <div class="narrator-header">
+                        <span class="narrator-title">Concept Narrator</span>
+                        <div class="narrator-controls">
+                            <button class="btn-narrate" id="narrate-btn-2">Listen Analysis</button>
+                        </div>
+                    </div>
+                    <p class="narrator-text" id="narrative-text-2">Click below to hear how sun angles, climate constraints, and physical forces dictate localized architectural shapes.</p>
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Sun Altitude (Solar Angle)</span>
+                        <span class="slider-value" id="val-sun">45&deg;</span>
+                    </div>
+                    <input type="range" id="slider-sun" min="10" max="90" step="1" value="45">
+                </div>
+
+                <div class="slider-group">
+                    <div class="slider-header">
+                        <span class="slider-label">Thermal Climate Severity</span>
+                        <span class="slider-value" id="val-climate">Moderate</span>
+                    </div>
+                    <input type="range" id="slider-climate" min="-1" max="1" step="0.1" value="0">
+                    <p class="subtitle" style="font-size: 0.75rem;">Negative represents dry heat/monsoon parameters. Positive triggers cold, steep-roof load parameters.</p>
+                </div>
+
+                <div class="toggle-container">
+                    <div class="toggle-info">
+                        <span class="toggle-title">Vector Force Overlays</span>
+                        <span class="toggle-desc">Show dead load and wind/sun force directions</span>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-vectors" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div class="theory-card" style="--accent-color: var(--accent-east)">
+                    <strong>Vedic Solar Science:</strong> Deep chhajjas (overhangs) block high summer sun while inviting gentle winter rays. Perforated Jali walls create high-velocity breeze channels via the Venturi effect.
+                </div>
+
+                <div class="theory-card" style="--accent-color: var(--accent-west)">
+                    <strong>Western Vaulting Physics:</strong> High, pointed roofs deflect snow. Piercing massive walls with tall windows captures maximum sparse daylight. Structural weight is concentrated into buttresses.
+                </div>
+            </div>
+
+            <!-- Tab 3: Elements Lab -->
+            <div class="tab-content" id="tab-elements">
+                <div>
+                    <h2>Architectural Elements</h2>
+                    <p class="subtitle">Toggle diagnostic structural details and observe how morphing parts adapt to dynamic wind loads, internal pressures, and structural paths.</p>
+                </div>
+
+                <div class="elements-grid">
+                    <!-- Indian Archetypes -->
+                    <div class="element-card active" id="elem-jali" style="--active-color: var(--accent-east)" onclick="toggleElement('jali')">
+                        <h4>Jali Screen</h4>
+                        <p>India &bull; Dynamic micro-ventilation and patterned shadow casting.</p>
+                    </div>
+                    <div class="element-card" id="elem-amalaka" style="--active-color: var(--accent-east)" onclick="toggleElement('amalaka')">
+                        <h4>Amalaka Dome</h4>
+                        <p>India &bull; Ribbed stone crown binding the vertical axis mundi force.</p>
+                    </div>
+
+                    <!-- Western Archetypes -->
+                    <div class="element-card active" id="elem-buttress" style="--active-color: var(--accent-west)" onclick="toggleElement('buttress')">
+                        <h4>Flying Buttress</h4>
+                        <p>West &bull; Lateral thrust external bracing allowing massive wall height.</p>
+                    </div>
+                    <div class="element-card" id="elem-column" style="--active-color: var(--accent-west)" onclick="toggleElement('column')">
+                        <h4>Ionic Columns</h4>
+                        <p>West &bull; Structural posts using human proportioned entasis.</p>
+                    </div>
+                </div>
+
+                <div class="theory-card" style="border-left: 2px solid var(--active-tab);">
+                    <strong>Interactive Lab Rule:</strong> Activating Indian options morphs the eastern sanctuary simulation. Activating Western parts re-distributes lateral thrust vector lines dynamically inside the canvas workspace.
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Scripts: Sound Synthesizer, TTS Narrator, Visual Canvas Engine -->
+    <script>
+        // Global Simulation Settings and Variables
+        const config = {
+            proportion: 1.0,
+            sunAngle: 45,
+            climate: 0, // -1 (Hot/Monsoon) to +1 (Cold/Temperate)
+            showGrid: true,
+            showVectors: true,
+            elements: {
+                jali: true,
+                amalaka: false,
+                buttress: true,
+                column: false
+            }
+        };
+
+        // Initialize elements, UI listeners
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            // Activate button & content
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabId).classList.add('active');
+            soundEngine.playTone(300, 0.08, 'sine');
+        }
+
+        function toggleElement(elemId) {
+            config.elements[elemId] = !config.elements[elemId];
+            const card = document.getElementById('elem-' + elemId);
+            if(config.elements[elemId]) {
+                card.classList.add('active');
+                soundEngine.playSuccessChord();
+            } else {
+                card.classList.remove('active');
+                soundEngine.playTone(180, 0.15, 'triangle');
+            }
+        }
+
+        // Web Audio Synthesizer Engine
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.filter = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContextClass();
+                    
+                    // Create main resonance filter
+                    this.filter = this.ctx.createBiquadFilter();
+                    this.filter.type = 'lowpass';
+                    this.filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+                    this.filter.Q.setValueAtTime(1, this.ctx.currentTime);
+                    this.filter.connect(this.ctx.destination);
+                    
+                    document.getElementById('audio-toggle-btn').classList.add('active');
+                    document.getElementById('audio-toggle-btn').querySelector('span').innerText = "Audio Connected";
+                    this.playTone(440, 0.1, 'sine');
+                } catch (e) {
+                    console.error("Audio initialization blocked or not supported:", e);
+                }
+            }
+
+            playTone(freq, duration, type = 'sine') {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+
+                osc.connect(gain);
+                gain.connect(this.filter || this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playSweep(val) {
+                if (!this.ctx) return;
+                // High parameter -> High frequency sweeps
+                const targetFreq = Math.max(150, Math.min(2400, (val + 1) * 1000));
+                this.filter.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.15);
+                this.playTone(200 + (val * 100), 0.05, 'triangle');
+            }
+
+            playSuccessChord() {
+                if (!this.ctx) return;
+                const root = 220; // A3
+                const intervals = [1.0, 1.25, 1.5, 1.875]; // Root, Major 3rd, Perfect 5th, Major 7th
+                intervals.forEach((ratio, index) => {
+                    setTimeout(() => {
+                        this.playTone(root * ratio, 0.35, 'sine');
+                    }, index * 40);
+                });
+            }
+        }
+
+        const soundEngine = new SoundEngine();
+        document.getElementById('audio-toggle-btn').addEventListener('click', () => {
+            soundEngine.init();
+        });
+
+        // Speech Synthesis Narrator module
+        class VoiceNarrator {
+            constructor() {
+                this.synth = window.speechSynthesis;
+                this.utterance = null;
+            }
+
+            speakText(text, statusElementId) {
+                if (!this.synth) {
+                    alert("Speech synthesis not supported in this browser.");
+                    return;
+                }
+                
+                this.synth.cancel(); // Stop current speech
+                soundEngine.init(); // Auto unlock audio sync
+                
+                this.utterance = new SpeechSynthesisUtterance(text);
+                this.utterance.rate = 1.02;
+                this.utterance.pitch = 0.95;
+                
+                // Visual tracking on narrator box text
+                const textContainer = document.getElementById(statusElementId);
+                let textCopy = text;
+                textContainer.innerHTML = `<span style="color: #00f0ff; font-weight:bold;">[Speaking]</span> ` + text;
+
+                this.utterance.onend = () => {
+                    textContainer.innerHTML = textCopy;
+                };
+
+                this.utterance.onerror = () => {
+                    textContainer.innerHTML = textCopy;
+                };
+
+                this.synth.speak(this.utterance);
+            }
+        }
+
+        const narrator = new VoiceNarrator();
+
+        // Narrator scripts mapped to theory
+        const narrationScripts = {
+            cosmos: "Observe the geometry displayed on your canvas. In the Indian tradition on the left, the Vastu Purusha Mandala is mapped to a square grid, where elements align perfectly around the Brahma-sthana center to reflect cosmological symmetry. Meanwhile, on the right, Western classicism leverages human proportions through geometric circles and squares—maximizing dynamic height and formal ratios inspired by the Golden Spiral.",
+            climate: "Let's review the architectural forms influenced by climate. Notice how hot, humid climates favor passive cooling. By shifting the climate scale, the Indian side expands the protective Chhajja eaves, and patterns from the Jali screen block glaring solar rays. On the Western side, cold environmental constraints generate steep roofs designed to shed snow loads, combined with massive flying buttresses that permit towering glass window openings to capture every ray of northern light."
+        };
+
+        document.getElementById('narrate-btn-1').addEventListener('click', () => {
+            narrator.speakText(narrationScripts.cosmos, 'narrative-text-1');
+        });
+        document.getElementById('narrate-btn-2').addEventListener('click', () => {
+            narrator.speakText(narrationScripts.climate, 'narrative-text-2');
+        });
+
+
+        // Canvas Visualizer Engine
+        const canvas = document.getElementById('architectureCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Handling DPI scaling for ultra-sharp blueprint visualizer
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Control input binding hooks
+        document.getElementById('slider-proportion').addEventListener('input', (e) => {
+            config.proportion = parseFloat(e.target.value);
+            document.getElementById('val-proportion').innerText = config.proportion.toFixed(2);
+            soundEngine.playTone(150 + (config.proportion * 200), 0.05, 'sine');
+        });
+
+        document.getElementById('slider-sun').addEventListener('input', (e) => {
+            config.sunAngle = parseInt(e.target.value);
+            document.getElementById('val-sun').innerText = config.sunAngle + '°';
+            soundEngine.playSweep(config.climate);
+        });
+
+        document.getElementById('slider-climate').addEventListener('input', (e) => {
+            config.climate = parseFloat(e.target.value);
+            
+            let label = "Moderate";
+            if (config.climate < -0.4) label = "Extreme Sun (Indian)";
+            else if (config.climate > 0.4) label = "Severe Cold (Western)";
+            
+            document.getElementById('val-climate').innerText = label;
+            soundEngine.playSweep(config.climate);
+        });
+
+        document.getElementById('toggle-grid').addEventListener('change', (e) => {
+            config.showGrid = e.target.checked;
+            soundEngine.playTone(config.showGrid ? 600 : 300, 0.1, 'triangle');
+        });
+
+        document.getElementById('toggle-vectors').addEventListener('change', (e) => {
+            config.showVectors = e.target.checked;
+            soundEngine.playTone(config.showVectors ? 500 : 250, 0.1, 'sine');
+        });
+
+
+        // Blueprint Rendering Loop
+        function drawVisualizer() {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            const midX = w / 2;
+
+            // Clear Screen with extremely dark charcoal theme
+            ctx.fillStyle = '#0d0f14';
+            ctx.fillRect(0, 0, w, h);
+
+            // Draw center separation border
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(midX, 0);
+            ctx.lineTo(midX, h);
+            ctx.stroke();
+
+            // Calculate active geometries based on parameters
+            const baselineY = h * 0.75;
+            const buildingWidth = Math.min(180, w * 0.22);
+            
+            // Adjust proportions based on slider inputs
+            const indianHeight = Math.min(260, 160 * config.proportion);
+            const westernHeight = Math.min(280, 150 * (config.proportion * 1.15));
+
+            // Compute dynamic Sun vector
+            const rad = (config.sunAngle * Math.PI) / 180;
+            const sunDirX = Math.cos(rad);
+            const sunDirY = -Math.sin(rad);
+
+            // ==========================================
+            // RENDER: EASTERN ARCHITECTURE (LEFT HALF)
+            // ==========================================
+            ctx.save();
+            // Center of Indian side workspace
+            const eastCenterX = midX / 2;
+            
+            // --- 1. Interactive Vastu Mandala Grid ---
+            if (config.showGrid) {
+                const gridSize = buildingWidth * 1.25;
+                const gridStartX = eastCenterX - gridSize / 2;
+                const gridStartY = baselineY - gridSize + 40;
+                
+                // Draw 9x9 Vastu Shastra Grid Lines
+                ctx.strokeStyle = 'rgba(255, 159, 28, 0.07)';
+                ctx.lineWidth = 1;
+                const steps = 9;
+                for (let i = 0; i <= steps; i++) {
+                    const offset = (gridSize / steps) * i;
+                    // Vertical lines
+                    ctx.beginPath();
+                    ctx.moveTo(gridStartX + offset, gridStartY);
+                    ctx.lineTo(gridStartX + offset, gridStartY + gridSize);
+                    ctx.stroke();
+                    // Horizontal lines
+                    ctx.beginPath();
+                    ctx.moveTo(gridStartX, gridStartY + offset);
+                    ctx.lineTo(gridStartX + gridSize, gridStartY + offset);
+                    ctx.stroke();
+                }
+
+                // Highlight Brahma-sthana (Center square)
+                ctx.fillStyle = 'rgba(255, 159, 28, 0.04)';
+                const cellW = gridSize / steps;
+                ctx.fillRect(gridStartX + cellW*3, gridStartY + cellW*3, cellW*3, cellW*3);
+                
+                ctx.strokeStyle = 'rgba(255, 159, 28, 0.25)';
+                ctx.setLineDash([2, 4]);
+                ctx.strokeRect(gridStartX + cellW*3, gridStartY + cellW*3, cellW*3, cellW*3);
+                ctx.setLineDash([]);
+
+                // Golden Axis center marker
+                ctx.fillStyle = 'var(--accent-east)';
+                ctx.beginPath();
+                ctx.arc(eastCenterX, gridStartY + gridSize/2, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // --- 2. Dynamic Solar Rays and Shadows ---
+            const sunStartX = eastCenterX - 220;
+            const sunStartY = baselineY - 240;
+            // Sun graphic
+            ctx.fillStyle = 'rgba(255, 159, 28, 0.1)';
+            ctx.beginPath();
+            ctx.arc(sunStartX, sunStartY, 18, 0, Math.PI*2);
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(255, 159, 28, 0.7)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sunStartX, sunStartY, 8, 0, Math.PI*2);
+            ctx.stroke();
+
+            // Draw Solar Vectors
+            ctx.strokeStyle = 'rgba(255, 159, 28, 0.22)';
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([5, 5]);
+            ctx.beginPath();
+            ctx.moveTo(sunStartX, sunStartY);
+            ctx.lineTo(sunStartX + sunDirX * 350, sunStartY - sunDirY * 350);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // --- 3. Build Sanctuary (Vimana/Shikhara Temple Facade) ---
+            const baseW = buildingWidth;
+            const baseH = indianHeight * 0.35;
+            const shikharaH = indianHeight * 0.75;
+            
+            // Climatic adjustments: If negative climate index (extreme sun/humid), raise eaves (chhajjas)
+            const chhajjaProjection = Math.max(10, -config.climate * 35);
+            
+            // Draw Garbhagriha base
+            ctx.strokeStyle = 'rgba(255, 159, 28, 0.85)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'var(--glow-east)';
+            
+            ctx.strokeRect(eastCenterX - baseW/2, baselineY - baseH, baseW, baseH);
+            
+            // Draw layered Shikhara (Temple Tower curve)
+            ctx.beginPath();
+            ctx.moveTo(eastCenterX - baseW/2, baselineY - baseH);
+            
+            // Curved tower silhouette scaling up to peak (Spire)
+            const peakY = baselineY - baseH - shikharaH;
+            ctx.bezierCurveTo(
+                eastCenterX - baseW/2.5, baselineY - baseH - shikharaH * 0.6,
+                eastCenterX - baseW/6, peakY + shikharaH * 0.1,
+                eastCenterX, peakY
+            );
+            ctx.bezierCurveTo(
+                eastCenterX + baseW/6, peakY + shikharaH * 0.1,
+                eastCenterX + baseW/2.5, baselineY - baseH - shikharaH * 0.6,
+                eastCenterX + baseW/2, baselineY - baseH
+            );
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset bloom
+
+            // Draw horizontal sacred tiers inside Shikhara
+            const tierCount = 7;
+            ctx.strokeStyle = 'rgba(255, 159, 28, 0.3)';
+            ctx.lineWidth = 1;
+            for (let i = 1; i < tierCount; i++) {
+                const ratio = i / tierCount;
+                const currY = (baselineY - baseH) - (shikharaH * ratio);
+                // Calculate proportional width at this height level using simple curve approximation
+                const tW = baseW/2 * Math.pow(1 - ratio, 1.4);
+                ctx.beginPath();
+                ctx.moveTo(eastCenterX - tW, currY);
+                ctx.lineTo(eastCenterX + tW, currY);
+                ctx.stroke();
+            }
+
+            // Amalaka active feature
+            if (config.elements.amalaka) {
+                const crownRadius = 16;
+                const crownY = peakY - crownRadius;
+                ctx.fillStyle = '#0d0f14';
+                ctx.strokeStyle = 'rgba(255, 159, 28, 0.95)';
+                ctx.lineWidth = 2.5;
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = 'var(--glow-east)';
+                
+                // Segments of the Amalaka dome
+                ctx.beginPath();
+                ctx.arc(eastCenterX, crownY, crownRadius, 0, Math.PI, true);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                
+                // Finial point (Kalasha spire)
+                ctx.beginPath();
+                ctx.moveTo(eastCenterX, crownY - crownRadius);
+                ctx.lineTo(eastCenterX, crownY - crownRadius - 15);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+            }
+
+            // Draw Chhajja (Protective shade roofs)
+            if (chhajjaProjection > 5) {
+                ctx.strokeStyle = '#ffb703';
+                ctx.lineWidth = 3;
+                // Double layered overhang projection
+                ctx.beginPath();
+                ctx.moveTo(eastCenterX - baseW/2 - chhajjaProjection, baselineY - baseH);
+                ctx.lineTo(eastCenterX - baseW/2, baselineY - baseH - 8);
+                ctx.moveTo(eastCenterX + baseW/2, baselineY - baseH - 8);
+                ctx.lineTo(eastCenterX + baseW/2 + chhajjaProjection, baselineY - baseH);
+                ctx.stroke();
+
+                // Direct climate ray shadow tracing visualizer
+                ctx.fillStyle = 'rgba(255, 159, 28, 0.04)';
+                ctx.beginPath();
+                // Extrude shadow block along sun vector
+                ctx.moveTo(eastCenterX - baseW/2 - chhajjaProjection, baselineY - baseH);
+                ctx.lineTo(eastCenterX - baseW/2 - chhajjaProjection + sunDirX * 120, baselineY - baseH - sunDirY * 120);
+                ctx.lineTo(eastCenterX - baseW/2, baselineY);
+                ctx.lineTo(eastCenterX - baseW/2, baselineY - baseH);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Jali Screen active feature
+            if (config.elements.jali) {
+                const jaliW = baseW * 0.4;
+                const jaliH = baseH * 0.5;
+                const jaliX = eastCenterX - jaliW / 2;
+                const jaliY = baselineY - baseH + (baseH - jaliH)/2;
+                
+                // Background
+                ctx.fillStyle = 'rgba(11, 12, 16, 0.9)';
+                ctx.fillRect(jaliX, jaliY, jaliW, jaliH);
+                ctx.strokeStyle = 'rgba(255, 159, 28, 0.55)';
+                ctx.strokeRect(jaliX, jaliY, jaliW, jaliH);
+
+                // Grid pattern rendering
+                ctx.lineWidth = 1;
+                const cells = 6;
+                for(let i=1; i<cells; i++) {
+                    const oX = (jaliW/cells)*i;
+                    ctx.beginPath();
+                    ctx.moveTo(jaliX + oX, jaliY);
+                    ctx.lineTo(jaliX + oX, jaliY + jaliH);
+                    ctx.stroke();
+                    
+                    const oY = (jaliH/cells)*i;
+                    ctx.beginPath();
+                    ctx.moveTo(jaliX, jaliY + oY);
+                    ctx.lineTo(jaliX + jaliW, jaliY + oY);
+                    ctx.stroke();
+                }
+
+                // Air flow dynamic vectors entering the Jali
+                if (config.showVectors) {
+                    ctx.strokeStyle = '#38b000';
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    ctx.moveTo(jaliX - 35, jaliY + jaliH/2 - 5);
+                    ctx.lineTo(jaliX + 15, jaliY + jaliH/2 - 5);
+                    ctx.moveTo(jaliX - 35, jaliY + jaliH/2 + 5);
+                    ctx.lineTo(jaliX + 15, jaliY + jaliH/2 + 5);
+                    ctx.stroke();
+                    
+                    // Small flow indicators
+                    ctx.fillStyle = '#38b000';
+                    ctx.font = '7px var(--font-mono)';
+                    ctx.fillText('COOL VENTURI AIRFLOW', jaliX - 60, jaliY + jaliH/2 - 12);
+                }
+            }
+
+            // Eastern Architectural Math display
+            ctx.fillStyle = 'rgba(255, 159, 28, 0.8)';
+            ctx.font = '10px var(--font-mono)';
+            ctx.fillText('COSMIC AXIS ratio = 1 : 1 Symmetrical', eastCenterX - 110, baselineY + 30);
+            ctx.fillText(`MANDALA MATRIX: 9x9 (81 Padas)`, eastCenterX - 85, baselineY + 45);
+
+            ctx.restore();
+
+            // ==========================================
+            // RENDER: WESTERN ARCHITECTURE (RIGHT HALF)
+            // ==========================================
+            ctx.save();
+            const westCenterX = midX + (midX / 2);
+
+            // --- 1. Interactive Vitruvian Geometric Circle & Square ---
+            if (config.showGrid) {
+                const rSize = buildingWidth * 1.15;
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.08)';
+                ctx.lineWidth = 1;
+
+                // Human proportions Vitruvian square
+                ctx.strokeRect(westCenterX - rSize/2, baselineY - rSize, rSize, rSize);
+
+                // Vitruvian circle centered matching ideal proportions
+                ctx.beginPath();
+                ctx.arc(westCenterX, baselineY - rSize/2, rSize * 0.618, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Dynamic Golden Spiral
+                ctx.strokeStyle = 'rgba(0, 240, 255, 0.15)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                let spiralR = 4;
+                let theta = 0;
+                ctx.moveTo(westCenterX, baselineY - rSize/2);
+                for (let i = 0; i < 40; i++) {
+                    theta += 0.35;
+                    spiralR = 2.2 * Math.pow(1.11, i);
+                    const sx = westCenterX + spiralR * Math.cos(theta);
+                    const sy = (baselineY - rSize/2) + spiralR * Math.sin(theta);
+                    ctx.lineTo(sx, sy);
+                }
+                ctx.stroke();
+
+                // Golden Center marker
+                ctx.fillStyle = 'var(--accent-west)';
+                ctx.beginPath();
+                ctx.arc(westCenterX, baselineY - rSize/2, 4, 0, Math.PI*2);
+                ctx.fill();
+            }
+
+            // --- 2. Snow and structural vector forces ---
+            const snowRoofSeverity = Math.max(0, config.climate * 45);
+            
+            // --- 3. Build Gothic Cathedral / Classical Temple Silhouette ---
+            const wBaseW = buildingWidth;
+            const wBaseH = westernHeight * 0.3;
+            const roofPitchY = baselineY - wBaseH - (westernHeight * 0.45);
+
+            ctx.strokeStyle = 'rgba(0, 240, 255, 0.85)';
+            ctx.lineWidth = 2;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'var(--glow-west)';
+
+            // Facade base bounding walls
+            ctx.strokeRect(westCenterX - wBaseW/2, baselineY - wBaseH, wBaseW, wBaseH);
+
+            // Steepend roof silhouette influenced directly by Cold climate parameters (snow shed)
+            const actualRoofPeakY = roofPitchY - snowRoofSeverity;
+            ctx.beginPath();
+            ctx.moveTo(westCenterX - wBaseW/2, baselineY - wBaseH);
+            ctx.lineTo(westCenterX - wBaseW/2, roofPitchY);
+            ctx.lineTo(westCenterX, actualRoofPeakY); // dynamic high peak point
+            ctx.lineTo(westCenterX + wBaseW/2, roofPitchY);
+            ctx.lineTo(westCenterX + wBaseW/2, baselineY - wBaseH);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Architectural rose window/circle geometry element
+            ctx.beginPath();
+            ctx.arc(westCenterX, roofPitchY + 40, wBaseW * 0.16, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Classical columns (Post and lintel element)
+            if (config.elements.column) {
+                const colW = 12;
+                const colH = wBaseH;
+                const offsetDistance = wBaseW * 0.3;
+                
+                ctx.fillStyle = '#0d0f14';
+                // Draw Column Left
+                ctx.fillRect(westCenterX - offsetDistance - colW/2, baselineY - colH, colW, colH);
+                ctx.strokeRect(westCenterX - offsetDistance - colW/2, baselineY - colH, colW, colH);
+                // Draw Column Right
+                ctx.fillRect(westCenterX + offsetDistance - colW/2, baselineY - colH, colW, colH);
+                ctx.strokeRect(westCenterX + offsetDistance - colW/2, baselineY - colH, colW, colH);
+
+                // Humanistic Ionic column scrolls (Volute decoration detail)
+                ctx.beginPath();
+                ctx.arc(westCenterX - offsetDistance - colW/2, baselineY - colH + 4, 3, 0, Math.PI*2);
+                ctx.arc(westCenterX - offsetDistance + colW/2, baselineY - colH + 4, 3, 0, Math.PI*2);
+                ctx.arc(westCenterX + offsetDistance - colW/2, baselineY - colH + 4, 3, 0, Math.PI*2);
+                ctx.arc(westCenterX + offsetDistance + colW/2, baselineY - colH + 4, 3, 0, Math.PI*2);
+                ctx.fillStyle = 'var(--accent-west)';
+                ctx.fill();
+            }
+
+            // Flying Buttress mechanical structure elements
+            if (config.elements.buttress) {
+                const flyStartX = westCenterX - wBaseW/2;
+                const flyEndX = flyStartX - 45;
+                const flyY = roofPitchY + 15;
+
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2.5;
+                // Outer support flyer buttress (Left side block)
+                ctx.beginPath();
+                ctx.arc(flyEndX, baselineY, 15, Math.PI, Math.PI*2); // foundation base buttress pier
+                ctx.moveTo(flyStartX, flyY);
+                ctx.quadraticCurveTo(flyEndX + 10, flyY + 20, flyEndX, baselineY - 45);
+                ctx.lineTo(flyEndX, baselineY);
+                ctx.stroke();
+
+                // Mirror flight buttress on right side
+                const flyStartX_R = westCenterX + wBaseW/2;
+                const flyEndX_R = flyStartX_R + 45;
+                ctx.beginPath();
+                ctx.arc(flyEndX_R, baselineY, 15, Math.PI, Math.PI*2);
+                ctx.moveTo(flyStartX_R, flyY);
+                ctx.quadraticCurveTo(flyEndX_R - 10, flyY + 20, flyEndX_R, baselineY - 45);
+                ctx.lineTo(flyEndX_R, baselineY);
+                ctx.stroke();
+
+                // Dynamic vector lateral force analysis overlay lines
+                if (config.showVectors) {
+                    ctx.strokeStyle = '#d00000'; // Pure vector red force line
+                    ctx.lineWidth = 1.5;
+                    ctx.beginPath();
+                    // Load path pushing lateral weight out
+                    ctx.moveTo(westCenterX, actualRoofPeakY);
+                    ctx.lineTo(flyStartX, flyY);
+                    ctx.lineTo(flyEndX, baselineY - 20);
+                    // Right mirror load path
+                    ctx.moveTo(westCenterX, actualRoofPeakY);
+                    ctx.lineTo(flyStartX_R, flyY);
+                    ctx.lineTo(flyEndX_R, baselineY - 20);
+                    ctx.stroke();
+
+                    // Force arrowheads indicators
+                    ctx.fillStyle = '#d00000';
+                    ctx.font = '7px var(--font-mono)';
+                    ctx.fillText('LATERAL THRUST PATHS', flyEndX - 40, baselineY - 80);
+                }
+            }
+
+            // Western Architectural analytical math display
+            ctx.fillStyle = 'rgba(0, 240, 255, 0.8)';
+            ctx.font = '10px var(--font-mono)';
+            ctx.fillText(`GOLDEN RATIO Height/Width = 1.618`, westCenterX - 100, baselineY + 30);
+            ctx.fillText(`VITRUVIAN ORDER: Human Proportioned Grid`, westCenterX - 110, baselineY + 45);
+
+            ctx.restore();
+
+            // Loop visual request frames
+            requestAnimationFrame(drawVisualizer);
+        }
+
+        // Initialize simulation loops
+        drawVisualizer();
+
+    </script>
+</body>
+</html>

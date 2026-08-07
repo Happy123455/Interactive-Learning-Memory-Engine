@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolt-Builder Sandbox | Structural Simulator</title>
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: rgba(25, 30, 40, 0.8);
+            --accent-cyan: #00f2ff;
+            --accent-magenta: #ff007a;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+        body, html { margin: 0; padding: 0; height: 100vh; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; }
+        
+        .dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .panel { background: var(--panel); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 15px; padding: 20px; display: flex; flex-direction: column; }
+        
+        canvas { width: 100%; height: 100%; cursor: crosshair; }
+        
+        .btn { background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); padding: 10px; cursor: pointer; margin-top: 10px; transition: 0.3s; }
+        .btn:hover { background: var(--accent-cyan); color: black; }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .modal-content { background: var(--panel); padding: 40px; border-radius: 20px; max-width: 600px; border: 1px solid var(--accent-magenta); }
+
+        .bolt-card { padding: 10px; background: #1a1f2e; margin: 5px; cursor: grab; border: 1px solid #333; text-align: center; }
+        
+        h2 { color: var(--accent-cyan); font-size: 1.2rem; margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="panel">
+        <h2>IS:800 Checklist</h2>
+        <div id="checklist">
+            <div class="bolt-card" draggable="true" ondragstart="drag(event)" id="M16">Bolt M16</div>
+            <div class="bolt-card" draggable="true" ondragstart="drag(event)" id="M24">Bolt M24</div>
+        </div>
+        <button class="btn" onclick="narrate()">AI Guide</button>
+        <button class="btn" onclick="toggleModal(true)">Open Clause Table</button>
+    </div>
+
+    <div class="panel" style="position: relative; overflow: hidden; padding: 0;">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="panel">
+        <h2>Stress Monitor</h2>
+        <div id="metrics" style="font-family: monospace; font-size: 1.5rem; color: var(--accent-magenta);">0.00 kN</div>
+        <button class="btn" id="audioBtn">Toggle Audio Pulse</button>
+    </div>
+</div>
+
+<div class="modal" id="modal">
+    <div class="modal-content">
+        <h2>IS:800 Clause 73</h2>
+        <p>Design parameters for tension members... select values to apply to simulation.</p>
+        <button class="btn" onclick="toggleModal(false)">Close</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let osc = null;
+    let stress = 0;
+    let bolts = [];
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+    canvas.ondragover = (ev) => ev.preventDefault();
+    canvas.ondrop = (ev) => {
+        ev.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        bolts.push({
+            x: ev.clientX - rect.left,
+            y: ev.clientY - rect.top,
+            size: ev.dataTransfer.getData("text") === "M24" ? 12 : 8
+        });
+        playChime();
+    };
+
+    function playChime() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function narrate() {
+        const synth = window.speechSynthesis;
+        const utter = new SpeechSynthesisUtterance("Let’s keep the steel from snapping! Drag the bolts to pin these plates together.");
+        synth.speak(utter);
+    }
+
+    function toggleModal(show) { document.getElementById('modal').style.display = show ? 'flex' : 'none'; }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Gusset
+        ctx.fillStyle = 'rgba(255, 0, 122, 0.2)';
+        ctx.fillRect(50, 150, 400, 200);
+        
+        // Draw Bolts
+        bolts.forEach(b => {
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.size, 0, Math.PI*2);
+            ctx.fillStyle = '#00f2ff';
+            ctx.fill();
+            ctx.strokeStyle = 'white';
+            ctx.stroke();
+        });
+
+        // Stress Logic
+        stress = Math.sin(Date.now() * 0.005) * 50 + 50;
+        document.getElementById('metrics').innerText = stress.toFixed(2) + " kN";
+        
+        // Visual Pulse
+        ctx.strokeStyle = `rgba(255, 0, 122, ${stress/100})`;
+        ctx.lineWidth = 5;
+        ctx.strokeRect(50, 150, 400, 200);
+
+        requestAnimationFrame(animate);
+    }
+
+    document.getElementById('audioBtn').onclick = () => {
+        if (osc) { osc.stop(); osc = null; }
+        else {
+            osc = audioCtx.createOscillator();
+            osc.connect(audioCtx.destination);
+            osc.frequency.value = 200 + stress * 6;
+            osc.start();
+        }
+    };
+
+    animate();
+</script>
+</body>
+</html>

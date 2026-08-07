@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bolted Joint Sandbox | Cyber-Engineering</title>
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --glass: rgba(255, 255, 255, 0.05);
+            --neon-cyan: #00f2ff;
+            --neon-purple: #9d00ff;
+            --text: #e0e0e0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg); color: var(--text); 
+            font-family: 'Segoe UI', monospace; 
+            height: 100vh; overflow: hidden;
+            display: flex; flex-direction: column;
+        }
+        header { padding: 1rem; border-bottom: 1px solid var(--glass); display: flex; justify-content: space-between; }
+        .main-layout { flex: 1; display: grid; grid-template-columns: 300px 1fr 300px; gap: 10px; padding: 10px; overflow: hidden; }
+        
+        .panel { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; padding: 15px; }
+        canvas { width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+        
+        .chip { padding: 10px; background: rgba(0,242,255,0.1); border: 1px solid var(--neon-cyan); margin-bottom: 10px; cursor: grab; text-align: center; border-radius: 4px; transition: 0.3s; }
+        .chip:hover { background: var(--neon-cyan); color: #000; }
+        
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; place-items: center; z-index: 100; }
+        .modal-content { background: #1a1a1a; padding: 2rem; border: 2px solid var(--neon-purple); max-width: 600px; }
+        
+        .btn { padding: 10px 20px; background: transparent; border: 1px solid var(--neon-purple); color: var(--neon-purple); cursor: pointer; margin-top: 10px; }
+        .btn:hover { background: var(--neon-purple); color: white; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>BOLTED JOINT SIMULATOR v1.0</h1>
+    <div>
+        <button class="btn" onclick="narrate()">Narrate</button>
+        <button class="btn" onclick="toggleAudio()">Audio Feed: <span id="audio-stat">OFF</span></button>
+    </div>
+</header>
+
+<div class="main-layout">
+    <div class="panel">
+        <h3>Inventory</h3>
+        <div class="chip" draggable="true" ondragstart="drag(event, 'M20')">Bolt M20 (Grade 4.6)</div>
+        <div class="chip" draggable="true" ondragstart="drag(event, 'M24')">Bolt M24 (Grade 8.8)</div>
+        <div id="tension-ctrl">
+            <label>Load: <input type="range" id="load" min="0" max="500" value="0"></label>
+        </div>
+    </div>
+    
+    <div class="panel" style="position: relative;">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="panel">
+        <h3>IS 800:2007 Ref</h3>
+        <div id="ref-book" style="cursor: pointer; padding: 10px; border: 1px dashed #666;" onclick="showModal()">
+            📖 Clause 10.2: Edge/End Distances
+        </div>
+    </div>
+</div>
+
+<div id="modal" onclick="hideModal()">
+    <div class="modal-content">
+        <h2>IS 800:2007 - Clause 10.2</h2>
+        <p>Minimum edge and end distances from the center of any hole to the nearest edge of an element should not be less than 1.7 times the hole diameter.</p>
+        <button class="btn">Close</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let tension = 0;
+    let audioCtx, osc;
+
+    // High DPI Scaling
+    function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Audio Engine
+    function toggleAudio() {
+        if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if(!osc) {
+            osc = audioCtx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.connect(audioCtx.destination);
+            osc.start();
+            document.getElementById('audio-stat').innerText = 'ON';
+        } else {
+            osc.stop(); osc = null;
+            document.getElementById('audio-stat').innerText = 'OFF';
+        }
+    }
+
+    function updateAudio() {
+        if(osc) osc.frequency.value = 100 + (tension * 2);
+    }
+
+    // Animation Loop
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Plate
+        ctx.fillStyle = '#333';
+        ctx.fillRect(50, 150, 400, 100);
+        
+        // Draw Bolts with Tension Stretch
+        const stretch = tension / 50;
+        ctx.fillStyle = '#00f2ff';
+        ctx.fillRect(150 - stretch, 130, 20 + stretch*2, 140);
+        
+        // Tension Overlay
+        if(tension > 400) {
+            ctx.fillStyle = 'rgba(255,0,0,0.5)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = 'white';
+            ctx.fillText('CRITICAL LOAD EXCEEDED', 20, 30);
+        }
+
+        updateAudio();
+        requestAnimationFrame(animate);
+    }
+
+    // Controls
+    document.getElementById('load').oninput = (e) => { tension = e.target.value; };
+    function narrate() {
+        const msg = new SpeechSynthesisUtterance("Tension is a tug of war between the bolt and the plate. Observe the stress concentration.");
+        window.speechSynthesis.speak(msg);
+    }
+
+    function showModal() { document.getElementById('modal').style.display = 'grid'; }
+    function hideModal() { document.getElementById('modal').style.display = 'none'; }
+    function drag(e, val) { e.dataTransfer.setData("text", val); }
+
+    animate();
+</script>
+</body>
+</html>

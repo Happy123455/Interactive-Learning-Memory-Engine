@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infiltration Dynamics - Interactive Hydrological Laboratory</title>
+    <!-- Tailwind CSS CDN for layouts -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#05070c',
+                            panel: '#0d111b',
+                            border: '#1f293d',
+                            blue: '#00f0ff',
+                            green: '#39ff14',
+                            red: '#ff3131',
+                            orange: '#ff9900',
+                            text: '#e2e8f0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Glowing neon utilities */
+        .neon-border-blue { border-color: #00f0ff; box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+        .neon-border-green { border-color: #39ff14; box-shadow: 0 0 10px rgba(57, 255, 20, 0.2); }
+        .neon-border-red { border-color: #ff3131; box-shadow: 0 0 10px rgba(255, 49, 49, 0.2); }
+        .neon-text-blue { color: #00f0ff; text-shadow: 0 0 8px rgba(0, 240, 255, 0.5); }
+        .neon-text-green { color: #39ff14; text-shadow: 0 0 8px rgba(57, 255, 20, 0.5); }
+        .neon-text-red { color: #ff3131; text-shadow: 0 0 8px rgba(255, 49, 49, 0.5); }
+        
+        /* Hide scrollbars but allow scrolling inside panels */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Pulsing indicator */
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+        .pulse-warning { animation: pulse-glow 1.5s infinite; }
+
+        /* General layout custom locks */
+        html, body {
+            height: 100vh;
+            overflow: hidden;
+            background-color: #05070c;
+        }
+    </style>
+</head>
+<body class="text-cyber-text font-sans flex flex-col justify-between h-screen">
+
+    <!-- TOP HEADER -->
+    <header class="h-14 bg-cyber-panel border-b border-cyber-border px-6 flex items-center justify-between z-10">
+        <div class="flex items-center space-x-3">
+            <div class="w-3 h-3 rounded-full bg-cyber-blue animate-ping"></div>
+            <h1 class="text-lg font-bold tracking-wider neon-text-blue uppercase">Infiltration Dynamics Lab</h1>
+            <span class="text-xs text-slate-500 border border-slate-700 px-2 py-0.5 rounded uppercase font-mono">v2.5 - Professional Edition</span>
+        </div>
+
+        <!-- System Status Bar -->
+        <div class="flex items-center space-x-6 text-xs font-mono">
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-500">VOICE CONTROL:</span>
+                <span id="voice-status" class="text-cyber-orange">INACTIVE</span>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="text-slate-500">AUDIO ENGINE:</span>
+                <button id="btn-audio-init" onclick="initAudio()" class="text-cyber-green hover:underline">START AUDIO SYNTH</button>
+            </div>
+            <button onclick="toggleOnboarding()" class="bg-cyber-border hover:bg-slate-700 text-slate-300 px-3 py-1 rounded transition">
+                Help / Guide
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN BODY SECTION -->
+    <main class="flex-grow flex flex-row overflow-hidden p-3 gap-3" style="height: calc(100vh - 3.5rem);">
+        
+        <!-- LEFT PANEL: CONTROLS & MODEL PARAMETERS -->
+        <section class="w-1/4 bg-cyber-panel border border-cyber-border rounded-lg p-4 flex flex-col gap-4 overflow-y-auto no-scrollbar">
+            <div>
+                <h2 class="text-sm font-semibold tracking-wider text-cyber-blue uppercase mb-3 border-b border-cyber-border pb-1">1. Environment Profiles</h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="setSoilType('sand')" id="btn-soil-sand" class="border border-cyber-border bg-slate-900/50 hover:bg-slate-800 p-2 rounded text-center transition">
+                        <span class="block text-xs font-bold text-amber-200">SAND</span>
+                        <span class="text-[10px] text-slate-400">High Perm.</span>
+                    </button>
+                    <button onclick="setSoilType('silt')" id="btn-soil-silt" class="border border-cyber-border bg-slate-900/50 hover:bg-slate-800 p-2 rounded text-center transition">
+                        <span class="block text-xs font-bold text-yellow-600">SILT</span>
+                        <span class="text-[10px] text-slate-400">Medium Perm.</span>
+                    </button>
+                    <button onclick="setSoilType('clay')" id="btn-soil-clay" class="border border-cyber-border bg-slate-900/50 hover:bg-slate-800 p-2 rounded text-center transition">
+                        <span class="block text-xs font-bold text-red-400">CLAY</span>
+                        <span class="text-[10px] text-slate-400">Low Perm.</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-grow flex flex-col gap-4">
+                <h2 class="text-sm font-semibold tracking-wider text-cyber-blue uppercase border-b border-cyber-border pb-1">2. Variables Panel</h2>
+                
+                <!-- Rain intensity slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Rainfall Intensity ($i$)</span>
+                        <span class="text-cyber-blue font-mono font-bold" id="val-rain">60 mm/hr</span>
+                    </div>
+                    <input type="range" id="slider-rain" min="5" max="300" value="60" oninput="updateRain(this.value)" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyber-blue">
+                </div>
+
+                <!-- Capacity baseline adjustment (Initial infiltration rate) -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Initial Infiltration ($f_0$)</span>
+                        <span class="text-cyber-green font-mono font-bold" id="val-f0">200 mm/hr</span>
+                    </div>
+                    <input type="range" id="slider-f0" min="20" max="400" value="200" oninput="updateF0(this.value)" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyber-green">
+                </div>
+
+                <!-- Constant infiltration rate -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Constant Infiltration ($f_c$)</span>
+                        <span class="text-emerald-400 font-mono font-bold" id="val-fc">50 mm/hr</span>
+                    </div>
+                    <input type="range" id="slider-fc" min="1" max="100" value="50" oninput="updateFc(this.value)" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-400">
+                </div>
+
+                <!-- Horton decay rate constant -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400">Decay Constant ($k$)</span>
+                        <span class="text-purple-400 font-mono font-bold" id="val-k">0.05 s⁻¹</span>
+                    </div>
+                    <input type="range" id="slider-k" min="0.01" max="0.2" step="0.01" value="0.05" oninput="updateK(this.value)" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-400">
+                </div>
+            </div>
+
+            <!-- AR Field Overlay Controller -->
+            <div class="border border-cyber-border rounded p-3 bg-slate-900/30">
+                <h3 class="text-xs font-semibold uppercase text-cyber-orange mb-2 flex items-center justify-between">
+                    <span>AR Field Mode</span>
+                    <span id="camera-badge" class="bg-red-900/40 text-cyber-red text-[9px] px-1.5 py-0.5 rounded">DISABLED</span>
+                </h3>
+                <p class="text-[10px] text-slate-400 mb-2">Overlay your real-world camera feed behind the lysimeter to test soil settings under simulated external light.</p>
+                <button onclick="toggleCamera()" class="w-full py-1.5 bg-cyber-orange/10 hover:bg-cyber-orange/20 text-cyber-orange border border-cyber-orange/40 rounded text-xs font-mono transition">
+                    Toggle Camera Feed
+                </button>
+            </div>
+
+            <!-- Speech Voiceover Controls -->
+            <div class="border border-cyber-border rounded p-3 bg-slate-900/30 text-xs space-y-2">
+                <span class="text-slate-300 font-bold block">Speech System</span>
+                <div class="flex gap-2">
+                    <button onclick="speakNarrative()" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">
+                        Narrate Scenario
+                    </button>
+                    <button id="btn-voice-listen" onclick="toggleVoiceRecognition()" class="flex-1 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded border border-slate-700">
+                        Voice Control
+                    </button>
+                </div>
+                <div class="text-[10px] text-slate-500 italic">
+                    Say: "More rain", "Less rain", "Soil Sand", "Silt", "Clay", "Reset simulation".
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER PANEL: DYNAMIC VISUAL SIMULATOR (CANVAS) -->
+        <section class="flex-grow bg-cyber-panel border border-cyber-border rounded-lg flex flex-col p-3 relative">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-xs tracking-wider text-slate-400 font-mono uppercase">Interactive Dynamic Lysimeter & double-ring infiltrometer</span>
+                <div class="flex space-x-3 text-xs">
+                    <button onclick="resetSimulation()" class="text-cyber-blue border border-cyber-blue/30 px-3 py-1 rounded hover:bg-cyber-blue/10 transition">
+                        Reset Run (t = 0)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Virtual Soil Canvas Container -->
+            <div class="relative flex-grow bg-black rounded border border-cyber-border overflow-hidden">
+                <video id="webcam" class="absolute inset-0 w-full h-full object-cover opacity-20 pointer-events-none hidden" autoplay playsinline muted></video>
+                <canvas id="sim-canvas" class="absolute inset-0 w-full h-full block z-10 cursor-grab active:cursor-grabbing"></canvas>
+                
+                <!-- Equations Display (Floating Overlay) -->
+                <div class="absolute bottom-4 left-4 bg-cyber-panel/95 border border-cyber-border p-3 rounded z-20 font-mono text-xs shadow-2xl max-w-sm">
+                    <div class="text-cyber-green font-bold mb-1">HORTON'S MODEL:</div>
+                    <div class="text-slate-300 font-bold">f(t) = f_c + (f_0 - f_c)·e^{-k·t}</div>
+                    <div class="mt-2 text-[11px] grid grid-cols-2 gap-x-3 gap-y-1 text-slate-400">
+                        <div>f(t) current: <span class="text-cyber-green" id="eq-f">--</span></div>
+                        <div>Rainfall (i): <span class="text-cyber-blue" id="eq-i">--</span></div>
+                        <div>Act. Infilt (f_a): <span class="text-emerald-400" id="eq-fa">--</span></div>
+                        <div>Runoff (R): <span class="text-cyber-red" id="eq-r">--</span></div>
+                    </div>
+                </div>
+
+                <!-- Snap Alert Indicator -->
+                <div id="snap-alert" class="absolute top-4 left-1/2 transform -translate-x-1/2 bg-cyber-green/90 text-black px-4 py-1.5 rounded-full font-bold text-xs shadow-lg tracking-wider opacity-0 transition-opacity duration-300 pointer-events-none z-30 uppercase">
+                    Infiltrometer Locked
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: DYNAMIC GRAPHING & KNOWLEDGE EXAM -->
+        <section class="w-1/4 bg-cyber-panel border border-cyber-border rounded-lg p-4 flex flex-col gap-4 overflow-y-auto no-scrollbar">
+            
+            <!-- Real-Time Graph Section (Custom Canvas) -->
+            <div>
+                <h2 class="text-sm font-semibold tracking-wider text-cyber-blue uppercase mb-2 border-b border-cyber-border pb-1">3. Live Rates Over Time</h2>
+                <div class="relative bg-black rounded border border-cyber-border h-44 overflow-hidden">
+                    <canvas id="graph-canvas" class="w-full h-full block"></canvas>
+                </div>
+                <div class="flex justify-between text-[10px] mt-1 text-slate-500 font-mono">
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-cyber-blue inline-block"></span>Rain (i)</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-cyber-green inline-block"></span>Cap (f)</span>
+                    <span class="flex items-center gap-1"><span class="w-2.5 h-0.5 bg-cyber-red inline-block"></span>Runoff</span>
+                </div>
+            </div>
+
+            <!-- Flashcard / Exam System -->
+            <div class="flex-grow flex flex-col">
+                <h2 class="text-sm font-semibold tracking-wider text-cyber-blue uppercase mb-2 border-b border-cyber-border pb-1">4. Exam & Lab Challenges</h2>
+                
+                <div class="flex-grow bg-slate-900/50 rounded border border-cyber-border p-3 flex flex-col justify-between">
+                    <!-- Flashcard alert mechanism -->
+                    <div id="flashcard-zone" class="border border-yellow-500/20 bg-yellow-500/5 rounded p-2.5 hidden mb-3">
+                        <span class="text-cyber-orange text-xs font-bold block mb-1">💡 CRITICAL EQUILIBRIUM:</span>
+                        <p class="text-[11px] text-slate-300 leading-relaxed">
+                            Since Rainfall Intensity (<span class="text-cyber-blue">i</span>) exceeds Infiltration Capacity (<span class="text-cyber-green">f</span>), actual infiltration is constrained to <span class="text-emerald-400">f_a = f</span>. The remainder becomes Surface Runoff.
+                        </p>
+                    </div>
+
+                    <!-- Solver Interactive Game -->
+                    <div class="space-y-2">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold text-slate-400 uppercase">Interactive Challenge</span>
+                            <button onclick="generateNewProblem()" class="text-[10px] text-cyber-blue hover:underline">New Problem</button>
+                        </div>
+                        <div class="bg-black/80 rounded p-2 border border-slate-800 text-[11px] font-mono leading-relaxed text-slate-300" id="challenge-prompt">
+                            Given Rainfall (i) = 120 mm/hr and Capacity (f) = 45 mm/hr, calculate actual infiltration (f_a) and runoff (R).
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-2 text-xs font-mono">
+                            <div>
+                                <label class="block text-[10px] text-slate-500 mb-0.5">Actual Infilt (f_a)</label>
+                                <input type="number" id="input-ans-fa" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-center text-cyber-blue focus:outline-none focus:border-cyber-blue" placeholder="mm/hr">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] text-slate-500 mb-0.5">Runoff (R)</label>
+                                <input type="number" id="input-ans-r" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-center text-cyber-blue focus:outline-none focus:border-cyber-blue" placeholder="mm/hr">
+                            </div>
+                        </div>
+
+                        <button onclick="verifyChallengeAnswer()" class="w-full py-1.5 bg-cyber-green/10 hover:bg-cyber-green/20 text-cyber-green border border-cyber-green/30 rounded text-xs font-bold uppercase transition">
+                            Submit & Run Assessment
+                        </button>
+                        <div id="challenge-feedback" class="text-center text-[10px] font-bold mt-1 min-h-[15px]"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- ONBOARDING MODAL / TUTORIAL -->
+    <div id="onboarding-modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-cyber-panel border-2 border-cyber-blue rounded-xl p-6 max-w-lg w-full shadow-2xl relative">
+            <h2 class="text-xl font-bold text-cyber-blue uppercase mb-3 border-b border-cyber-border pb-2 flex items-center justify-between">
+                <span>Hydrologic Infiltration Simulator</span>
+                <span class="text-xs bg-cyber-blue/20 text-cyber-blue px-2 py-0.5 rounded font-mono">ONBOARDING</span>
+            </h2>
+            
+            <div class="space-y-3 text-xs leading-relaxed text-slate-300">
+                <p>Welcome to the premium interactive laboratory for exploring <strong>Infiltration Dynamics</strong>.</p>
+                
+                <div class="border border-slate-700 bg-slate-900/60 p-3 rounded">
+                    <span class="block text-cyber-orange font-bold uppercase mb-1">Double-Ring Infiltrometer Physics</span>
+                    <p>Standard infiltration instruments allow lateral water seepage, resulting in artificially high measurements. The double-ring system solves this. The outer ring acts as a hydraulic boundary buffer, forcing water in the inner ring to flow <strong>purely vertically</strong>. This ensures high-accuracy 1D infiltration measurement.</p>
+                </div>
+
+                <div class="space-y-1">
+                    <span class="block text-slate-400 font-bold uppercase">Primary Tasks:</span>
+                    <ul class="list-disc list-inside space-y-1 text-[11px] text-slate-400">
+                        <li><strong>Drag and Drop</strong> the infiltrometer across the soil zones (Sand, Silt, Clay) to see site variations.</li>
+                        <li><strong>Adjust variables</strong> (Rainfall, Infiltration rates) to observe runoff generation triggers.</li>
+                        <li><strong>Analyze</strong> the visual particle flows: Percolation is slow/deep, infiltration is fast/shallow, runoff is horizontal.</li>
+                        <li><strong>Listen closely</strong>: Simulated rainfall & runoff generate continuous custom synthesized audio feedback.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="dismissOnboarding()" class="px-6 py-2 bg-cyber-blue hover:bg-cyan-400 text-black font-bold rounded-lg transition uppercase text-xs tracking-wider">
+                    Initiate Lab Simulation
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AUDIO NOTIFICATION AND SETUP SCRIPT -->
+    <script>
+        // Core Web Audio Engine State
+        let audioCtx = null;
+        let rainSynthNode = null;
+        let runoffSynthNode = null;
+        let masterGain = null;
+        let rainVolume = null;
+        let runoffVolume = null;
+
+        function initAudio() {
+            if (audioCtx) return;
+            try {
+                const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContextClass();
+                
+                // Master controls
+                masterGain = audioCtx.createGain();
+                masterGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                masterGain.connect(audioCtx.destination);
+
+                // Rain sound generator (Filtered white noise)
+                const bufferSize = audioCtx.sampleRate * 2;
+                const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const output = noiseBuffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    output[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = noiseBuffer;
+                noise.loop = true;
+
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 800;
+                filter.Q.value = 1.2;
+
+                rainVolume = audioCtx.createGain();
+                rainVolume.gain.setValueAtTime(0.02, audioCtx.currentTime);
+
+                noise.connect(filter);
+                filter.connect(rainVolume);
+                rainVolume.connect(masterGain);
+                noise.start();
+
+                // Runoff low-frequency roar
+                const runoffNoise = audioCtx.createBufferSource();
+                runoffNoise.buffer = noiseBuffer;
+                runoffNoise.loop = true;
+
+                const runoffFilter = audioCtx.createBiquadFilter();
+                runoffFilter.type = 'lowpass';
+                runoffFilter.frequency.value = 180;
+
+                runoffVolume = audioCtx.createGain();
+                runoffVolume.gain.setValueAtTime(0.0, audioCtx.currentTime);
+
+                runoffNoise.connect(runoffFilter);
+                runoffFilter.connect(runoffVolume);
+                runoffVolume.connect(masterGain);
+                runoffNoise.start();
+
+                document.getElementById('btn-audio-init').innerText = "AUDIO ONLINE";
+                document.getElementById('btn-audio-init').className = "text-cyber-green font-bold";
+                playSfxClick();
+            } catch (e) {
+                console.error("Web Audio Init Error:", e);
+            }
+        }
+
+        function playSfxClick() {
+            if (!audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(masterGain);
+            osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(120, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playSfxLock() {
+            if (!audioCtx) return;
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc1.connect(gain);
+            osc2.connect(gain);
+            gain.connect(masterGain);
+            osc1.frequency.setValueAtTime(200, audioCtx.currentTime);
+            osc2.frequency.setValueAtTime(280, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+            osc1.start(); osc2.start();
+            osc1.stop(audioCtx.currentTime + 0.2); osc2.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // Web Speech System
+        function speakNarrative() {
+            const i = parseFloat(document.getElementById('slider-rain').value);
+            const f = currentCapacity;
+            let text = "";
+            if (i > f) {
+                text = `Rainfall rate is ${i} millimeters per hour. This exceeds the soil infiltration capacity of ${Math.round(f)} millimeters per hour. Consequently, excess water accumulates and generates surface runoff.`;
+            } else {
+                text = `Rainfall rate is ${i} millimeters per hour, which is completely absorbed by the soil since it is below the current infiltration capacity of ${Math.round(f)} millimeters per hour.`;
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+
+    <!-- CORE SIMULATION LOGIC -->
+    <script>
+        const canvas = document.getElementById('sim-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // State Machine
+        let time = 0;
+        let isDragging = false;
+        let dragOffset = 0;
+        let currentSoil = 'sand'; // sand, silt, clay
+        
+        // Draggable Infiltrometer dimensions
+        let infiltrometer = {
+            x: 200, // initialized to center of sand zone
+            y: 110,
+            width: 140,
+            innerWidth: 70,
+            depth: 80,
+            currentY: 110,
+            targetY: 110
+        };
+
+        // Soil Profile Setup
+        const soilZones = {
+            sand: { xStart: 0, xEnd: 0, center: 0, f0: 250, fc: 60, k: 0.05, label: "SAND ZONE", color: "#E6C280", depthFactor: 1.0 },
+            silt: { xStart: 0, xEnd: 0, center: 0, f0: 120, fc: 20, k: 0.03, label: "SILT ZONE", color: "#A3937C", depthFactor: 0.5 },
+            clay: { xStart: 0, xEnd: 0, center: 0, f0: 40, fc: 4, k: 0.01, label: "CLAY ZONE", color: "#B85D43", depthFactor: 0.1 }
+        };
+
+        // Live Parameters
+        let rainIntensity = 60; // mm/hr
+        let customF0 = 250;
+        let customFc = 60;
+        let customK = 0.05;
+        let currentCapacity = 250;
+        let actualInfiltration = 0;
+        let runoff = 0;
+
+        // Particle System
+        let rainParticles = [];
+        let soilParticles = [];
+        let runoffParticles = [];
+
+        // Graphing Variables
+        const graphCanvas = document.getElementById('graph-canvas');
+        const graphCtx = graphCanvas.getContext('2d');
+        let graphHistory = [];
+        const maxGraphPoints = 120;
+
+        // Challenge Variables
+        let activeChallenge = { i: 0, f: 0, fa: 0, r: 0 };
+
+        // Handle sizing and resize
+        function resize() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            // Setup 3 zones based on width
+            const third = canvas.width / 3;
+            soilZones.sand.xStart = 0;
+            soilZones.sand.xEnd = third;
+            soilZones.sand.center = third / 2;
+
+            soilZones.silt.xStart = third;
+            soilZones.silt.xEnd = third * 2;
+            soilZones.silt.center = third + third / 2;
+
+            soilZones.clay.xStart = third * 2;
+            soilZones.clay.xEnd = canvas.width;
+            soilZones.clay.center = third * 2 + third / 2;
+
+            // Adjust graph canvas size
+            const gRect = graphCanvas.getBoundingClientRect();
+            graphCanvas.width = gRect.width;
+            graphCanvas.height = gRect.height;
+
+            // Snap infiltrometer to current selected soil zone center
+            if (!isDragging) {
+                infiltrometer.x = soilZones[currentSoil].center;
+            }
+        }
+
+        window.addEventListener('resize', resize);
+
+        // Soil type switcher
+        function setSoilType(type) {
+            currentSoil = type;
+            const profile = soilZones[type];
+            
+            // Sync controls
+            document.getElementById('slider-f0').value = profile.f0;
+            document.getElementById('slider-fc').value = profile.fc;
+            document.getElementById('slider-k').value = profile.k;
+
+            updateF0(profile.f0);
+            updateFc(profile.fc);
+            updateK(profile.k);
+
+            // Animate device movement
+            infiltrometer.x = profile.center;
+            time = 0; // reset Horton equation curve time
+
+            // UI Button styling active states
+            ['sand', 'silt', 'clay'].forEach(s => {
+                const btn = document.getElementById(`btn-soil-${s}`);
+                if (s === type) {
+                    btn.classList.add('border-cyber-blue', 'bg-slate-800');
+                    btn.classList.remove('border-cyber-border', 'bg-slate-900/50');
+                } else {
+                    btn.classList.remove('border-cyber-blue', 'bg-slate-800');
+                    btn.classList.add('border-cyber-border', 'bg-slate-900/50');
+                }
+            });
+
+            playSfxLock();
+            triggerSnapAlert(profile.label + " ACTIVATED");
+        }
+
+        function triggerSnapAlert(text) {
+            const alertBox = document.getElementById('snap-alert');
+            alertBox.innerText = text;
+            alertBox.style.opacity = '1';
+            setTimeout(() => {
+                alertBox.style.opacity = '0';
+            }, 1800);
+        }
+
+        // Variable Synchronization
+        function updateRain(val) {
+            rainIntensity = parseFloat(val);
+            document.getElementById('val-rain').innerText = val + " mm/hr";
+            if (rainVolume) {
+                // Synthesizer frequency/gain dynamics based on rain rate
+                rainVolume.gain.setValueAtTime((val / 300) * 0.08, audioCtx.currentTime);
+            }
+        }
+        function updateF0(val) {
+            customF0 = parseFloat(val);
+            document.getElementById('val-f0').innerText = val + " mm/hr";
+        }
+        function updateFc(val) {
+            customFc = parseFloat(val);
+            document.getElementById('val-fc').innerText = val + " mm/hr";
+        }
+        function updateK(val) {
+            customK = parseFloat(val);
+            document.getElementById('val-k').innerText = val + " s⁻¹";
+        }
+
+        function resetSimulation() {
+            time = 0;
+            graphHistory = [];
+            rainParticles = [];
+            soilParticles = [];
+            runoffParticles = [];
+            playSfxClick();
+        }
+
+        // Onboarding Handling
+        function dismissOnboarding() {
+            document.getElementById('onboarding-modal').style.display = 'none';
+            initAudio();
+        }
+        function toggleOnboarding() {
+            const m = document.getElementById('onboarding-modal');
+            m.style.display = m.style.display === 'none' ? 'flex' : 'none';
+        }
+
+        // Camera Background Implementation (AR Mode)
+        let localStream = null;
+        function toggleCamera() {
+            const video = document.getElementById('webcam');
+            const badge = document.getElementById('camera-badge');
+            if (localStream) {
+                // stop stream
+                localStream.getTracks().forEach(track => track.stop());
+                localStream = null;
+                video.classList.add('hidden');
+                badge.innerText = "DISABLED";
+                badge.className = "bg-red-900/40 text-cyber-red text-[9px] px-1.5 py-0.5 rounded";
+            } else {
+                navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+                    .then(stream => {
+                        localStream = stream;
+                        video.srcObject = stream;
+                        video.classList.remove('hidden');
+                        badge.innerText = "ONLINE";
+                        badge.className = "bg-green-900/40 text-cyber-green text-[9px] px-1.5 py-0.5 rounded";
+                    })
+                    .catch(err => {
+                        console.error("Camera access failed", err);
+                        alert("Camera stream unavailable. Verify permissions.");
+                    });
+            }
+        }
+
+        // Interactive Pointer Handlers for drag-drop Double-ring
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Check if user clicked near the infiltrometer head
+            if (Math.abs(mouseX - infiltrometer.x) < infiltrometer.width / 2 && mouseY < infiltrometer.y + 40 && mouseY > infiltrometer.y - 20) {
+                isDragging = true;
+                dragOffset = mouseX - infiltrometer.x;
+                playSfxClick();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            infiltrometer.x = Math.max(80, Math.min(canvas.width - 80, mouseX - dragOffset));
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            if (!isDragging) return;
+            isDragging = false;
+            
+            // Snap to closest soil profile center
+            const distSand = Math.abs(infiltrometer.x - soilZones.sand.center);
+            const distSilt = Math.abs(infiltrometer.x - soilZones.silt.center);
+            const distClay = Math.abs(infiltrometer.x - soilZones.clay.center);
+
+            let chosen = 'sand';
+            let minDist = distSand;
+            if (distSilt < minDist) { chosen = 'silt'; minDist = distSilt; }
+            if (distClay < minDist) { chosen = 'clay'; }
+
+            setSoilType(chosen);
+        });
+
+        // Touch support
+        canvas.addEventListener('touchstart', (e) => {
+            if(e.touches.length === 1) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.touches[0].clientX - rect.left;
+                const mouseY = e.touches[0].clientY - rect.top;
+                if (Math.abs(mouseX - infiltrometer.x) < infiltrometer.width / 2 && mouseY < infiltrometer.y + 40) {
+                    isDragging = true;
+                    dragOffset = mouseX - infiltrometer.x;
+                }
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (!isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.touches[0].clientX - rect.left;
+            infiltrometer.x = Math.max(80, Math.min(canvas.width - 80, mouseX - dragOffset));
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+            const distSand = Math.abs(infiltrometer.x - soilZones.sand.center);
+            const distSilt = Math.abs(infiltrometer.x - soilZones.silt.center);
+            const distClay = Math.abs(infiltrometer.x - soilZones.clay.center);
+            let chosen = 'sand';
+            let minDist = distSand;
+            if (distSilt < minDist) { chosen = 'silt'; minDist = distSilt; }
+            if (distClay < minDist) { chosen = 'clay'; }
+            setSoilType(chosen);
+        });
+    </script>
+
+    <!-- RENDER ENGINE & LOOP -->
+    <script>
+        function updateSimulationPhysics() {
+            time += 0.016; // roughly delta-time for 60fps
+
+            // Horton model equation calculation
+            // f(t) = fc + (f0 - fc) * e^(-kt)
+            currentCapacity = customFc + (customF0 - customFc) * Math.exp(-customK * time);
+            
+            // Equilibrium logics
+            if (rainIntensity > currentCapacity) {
+                actualInfiltration = currentCapacity;
+                runoff = rainIntensity - currentCapacity;
+                document.getElementById('flashcard-zone').classList.remove('hidden');
+            } else {
+                actualInfiltration = rainIntensity;
+                runoff = 0;
+                document.getElementById('flashcard-zone').classList.add('hidden');
+            }
+
+            // Sync dynamic overlays
+            document.getElementById('eq-f').innerText = Math.round(currentCapacity) + " mm/hr";
+            document.getElementById('eq-i').innerText = Math.round(rainIntensity) + " mm/hr";
+            document.getElementById('eq-fa').innerText = Math.round(actualInfiltration) + " mm/hr";
+            document.getElementById('eq-r').innerText = Math.round(runoff) + " mm/hr";
+
+            // Update procedural audio synth settings
+            if (runoffVolume) {
+                // Rushing audio proportional to runoff
+                runoffVolume.gain.setValueAtTime(Math.min(0.12, (runoff / 300) * 0.15), audioCtx.currentTime);
+            }
+
+            // Generate particles
+            generateWaterParticles();
+        }
+
+        function generateWaterParticles() {
+            // Raindrop generator: Spawn rate dynamic based on intensity
+            const spawnProbability = rainIntensity / 300;
+            if (Math.random() < spawnProbability * 3) {
+                rainParticles.push({
+                    x: Math.random() * canvas.width,
+                    y: 0,
+                    vy: 4 + Math.random() * 4,
+                    size: 1 + Math.random() * 1.5
+                });
+            }
+
+            // Inside Double-Ring water system simulation
+            // Infiltrating percolation particle creation
+            if (Math.random() < (actualInfiltration / 400)) {
+                // Spawn particle below surface inside the inner ring width
+                const xMargin = infiltrometer.innerWidth / 2;
+                soilParticles.push({
+                    x: (infiltrometer.x - xMargin) + Math.random() * infiltrometer.innerWidth,
+                    y: 150, // soil surface level
+                    vy: 0.2 + (actualInfiltration / 400) * 1.5,
+                    vx: 0, // 1D purely vertical flow logic
+                    life: 1.0,
+                    decay: 0.005,
+                    isBuffer: false
+                });
+            }
+
+            // Outer ring buffer zone lateral dispersion demonstration
+            if (Math.random() < (actualInfiltration / 400)) {
+                // outer left zone
+                const leftBoundaryL = infiltrometer.x - infiltrometer.width/2;
+                const leftBoundaryR = infiltrometer.x - infiltrometer.innerWidth/2;
+                const spawnX = leftBoundaryL + Math.random() * (leftBoundaryR - leftBoundaryL);
+                soilParticles.push({
+                    x: spawnX,
+                    y: 150,
+                    vy: 0.2 + (actualInfiltration / 400) * 1.2,
+                    vx: -0.4 - Math.random() * 0.5, // flows laterally outward!
+                    life: 1.0,
+                    decay: 0.005,
+                    isBuffer: true
+                });
+
+                // outer right zone
+                const rightBoundaryL = infiltrometer.x + infiltrometer.innerWidth/2;
+                const rightBoundaryR = infiltrometer.x + infiltrometer.width/2;
+                const spawnRX = rightBoundaryL + Math.random() * (rightBoundaryR - rightBoundaryL);
+                soilParticles.push({
+                    x: spawnRX,
+                    y: 150,
+                    vy: 0.2 + (actualInfiltration / 400) * 1.2,
+                    vx: 0.4 + Math.random() * 0.5, // flows laterally outward!
+                    life: 1.0,
+                    decay: 0.005,
+                    isBuffer: true
+                });
+            }
+
+            // Runoff horizontal particles generator
+            if (runoff > 0 && Math.random() < (runoff / 300) * 5) {
+                // Spawns on surface and runs left/right away from lysimeter
+                const dir = Math.random() > 0.5 ? 1 : -1;
+                runoffParticles.push({
+                    x: infiltrometer.x + (dir * (infiltrometer.width / 2)),
+                    y: 148,
+                    vx: dir * (1 + (runoff / 100) * 2),
+                    life: 1.0,
+                    decay: 0.01
+                });
+            }
+        }
+
+        function drawSoilCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw 3 distinct Soil Profiles (Background blocks)
+            const third = canvas.width / 3;
+            const h = canvas.height;
+            const surfaceY = 150;
+
+            // Draw Sky area
+            ctx.fillStyle = "rgba(10, 15, 25, 0.4)";
+            ctx.fillRect(0, 0, canvas.width, surfaceY);
+
+            // Draw Sand Zone
+            ctx.fillStyle = "#1e1a12"; // very dark earthy backdrop
+            ctx.fillRect(0, surfaceY, third, h - surfaceY);
+            // Soil texture accents for sand
+            ctx.fillStyle = "rgba(230, 194, 128, 0.05)";
+            for(let i=0; i<40; i++) {
+                ctx.fillRect(Math.random()*third, surfaceY + Math.random()*(h-surfaceY), 3, 3);
+            }
+
+            // Silt Zone
+            ctx.fillStyle = "#171614";
+            ctx.fillRect(third, surfaceY, third, h - surfaceY);
+            ctx.fillStyle = "rgba(163, 147, 124, 0.05)";
+            for(let i=0; i<40; i++) {
+                ctx.fillRect(third + Math.random()*third, surfaceY + Math.random()*(h-surfaceY), 4, 2);
+            }
+
+            // Clay Zone
+            ctx.fillStyle = "#1d1412";
+            ctx.fillRect(third*2, surfaceY, third, h - surfaceY);
+            ctx.fillStyle = "rgba(184, 93, 67, 0.05)";
+            for(let i=0; i<40; i++) {
+                ctx.fillRect(third*2 + Math.random()*third, surfaceY + Math.random()*(h-surfaceY), 6, 1.5);
+            }
+
+            // Zone dividers lines
+            ctx.strokeStyle = "rgba(31, 41, 61, 0.6)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(third, surfaceY); ctx.lineTo(third, h);
+            ctx.moveTo(third*2, surfaceY); ctx.lineTo(third*2, h);
+            ctx.stroke();
+
+            // Label soil text at the base of profile
+            ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
+            ctx.font = "bold 10px monospace";
+            ctx.fillText("SAND (HIGH HYDRAULIC COND.)", 20, h - 20);
+            ctx.fillText("SILT (MEDIUM COND.)", third + 20, h - 20);
+            ctx.fillText("CLAY (LOW COND. / IMPERM.)", third*2 + 20, h - 20);
+
+            // Ground Surface Line
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, surfaceY);
+            ctx.lineTo(canvas.width, surfaceY);
+            ctx.stroke();
+
+            // 2. Update and Draw Rain particles
+            ctx.fillStyle = "#5cb3ff";
+            rainParticles.forEach((p, index) => {
+                p.y += p.vy;
+                ctx.fillRect(p.x, p.y, p.size, p.size * 3);
+                // collision with ground surface or infiltrometer water surface
+                if (p.y >= surfaceY) {
+                    rainParticles.splice(index, 1);
+                }
+            });
+
+            // 3. Update and Draw Soil percolating/infiltrating particles
+            soilParticles.forEach((p, index) => {
+                p.y += p.vy;
+                p.x += p.vx;
+                p.life -= p.decay;
+
+                if (p.life <= 0 || p.y > h) {
+                    soilParticles.splice(index, 1);
+                    return;
+                }
+
+                // Render colors based on flow role
+                if (p.isBuffer) {
+                    // lateral seepage is colored orange to highlight error prevention
+                    ctx.fillStyle = `rgba(255, 153, 0, ${p.life})`;
+                } else {
+                    // strictly vertical is glowing green/blue matrix
+                    ctx.fillStyle = `rgba(57, 255, 20, ${p.life})`;
+                }
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // 4. Runoff horizontal particles rendering
+            ctx.fillStyle = "rgba(255, 49, 49, 0.8)";
+            runoffParticles.forEach((p, index) => {
+                p.x += p.vx;
+                p.life -= p.decay;
+                if (p.life <= 0 || p.x < 0 || p.x > canvas.width) {
+                    runoffParticles.splice(index, 1);
+                    return;
+                }
+                ctx.fillRect(p.x, p.y, 4, 2);
+            });
+
+            // 5. Draw the Double-Ring Infiltrometer Assembly (Draggable UI Component)
+            const d = infiltrometer;
+            const topY = d.y;
+            const bottomY = surfaceY + 25; // driven 25px deep into soil
+
+            // Draw Steel cylinders
+            ctx.strokeStyle = "rgba(226, 232, 240, 0.85)";
+            ctx.lineWidth = 3;
+
+            // Outer Left Wall
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.width/2, topY);
+            ctx.lineTo(d.x - d.width/2, bottomY);
+            ctx.stroke();
+
+            // Outer Right Wall
+            ctx.beginPath();
+            ctx.moveTo(d.x + d.width/2, topY);
+            ctx.lineTo(d.x + d.width/2, bottomY);
+            ctx.stroke();
+
+            // Inner Left Wall
+            ctx.strokeStyle = "rgba(0, 240, 255, 0.9)"; // highlighted Cyan
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.innerWidth/2, topY);
+            ctx.lineTo(d.x - d.innerWidth/2, bottomY);
+            ctx.stroke();
+
+            // Inner Right Wall
+            ctx.beginPath();
+            ctx.moveTo(d.x + d.innerWidth/2, topY);
+            ctx.lineTo(d.x + d.innerWidth/2, bottomY);
+            ctx.stroke();
+
+            // Metal bridge joining top handle
+            ctx.strokeStyle = "rgba(226, 232, 240, 0.6)";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(d.x - d.width/2, topY);
+            ctx.lineTo(d.x + d.width/2, topY);
+            ctx.stroke();
+
+            // Draggable Knob Handle Icon on top
+            ctx.fillStyle = isDragging ? "#ff9900" : "#00f0ff";
+            ctx.beginPath();
+            ctx.arc(d.x, topY, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#000";
+            ctx.font = "bold 9px monospace";
+            ctx.fillText("DRAG", d.x - 11, topY + 3);
+
+            // Water Level Simulation within rings
+            // If rain exceeds capacity, pool up water inside rings
+            const maxWaterHeight = surfaceY - topY - 10;
+            const pondedRatio = Math.min(1.0, runoff / 150);
+            const waterLevelY = surfaceY - (pondedRatio * maxWaterHeight);
+
+            if (runoff > 0) {
+                ctx.fillStyle = "rgba(0, 240, 255, 0.35)"; // translucent cyber blue
+                // Inner ring water mass
+                ctx.fillRect(d.x - d.innerWidth/2 + 1, waterLevelY, d.innerWidth - 2, surfaceY - waterLevelY);
+                // Outer ring buffer water masses
+                ctx.fillRect(d.x - d.width/2 + 1, waterLevelY, (d.width - d.innerWidth)/2 - 1, surfaceY - waterLevelY);
+                ctx.fillRect(d.x + d.innerWidth/2 + 1, waterLevelY, (d.width - d.innerWidth)/2 - 1, surfaceY - waterLevelY);
+
+                // Water Surface Line glow
+                ctx.strokeStyle = "#00f0ff";
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(d.x - d.width/2, waterLevelY);
+                ctx.lineTo(d.x + d.width/2, waterLevelY);
+                ctx.stroke();
+            }
+
+            // 6. Double-Ring Scientific Flow Vector Overlays
+            // Inner ring gets strictly vertical green arrows
+            ctx.strokeStyle = "#39ff14";
+            ctx.lineWidth = 2.5;
+            for (let i = -1; i <= 1; i += 0.6) {
+                const arrX = d.x + (i * d.innerWidth * 0.35);
+                const arrY = surfaceY + 10;
+                ctx.beginPath();
+                ctx.moveTo(arrX, arrY);
+                ctx.lineTo(arrX, arrY + 25);
+                ctx.stroke();
+                // arrowheads
+                ctx.beginPath();
+                ctx.moveTo(arrX - 4, arrY + 20);
+                ctx.lineTo(arrX, arrY + 25);
+                ctx.lineTo(arrX + 4, arrY + 20);
+                ctx.stroke();
+            }
+
+            // Outer rings get diverging orange vectors showing the buffering action
+            ctx.strokeStyle = "#ff9900";
+            // Left divergence
+            let oArrX = d.x - (d.width + d.innerWidth)/4;
+            ctx.beginPath();
+            ctx.moveTo(oArrX, surfaceY + 10);
+            ctx.quadraticCurveTo(oArrX - 15, surfaceY + 25, oArrX - 25, surfaceY + 30);
+            ctx.stroke();
+            // Right divergence
+            oArrX = d.x + (d.width + d.innerWidth)/4;
+            ctx.beginPath();
+            ctx.moveTo(oArrX, surfaceY + 10);
+            ctx.quadraticCurveTo(oArrX + 15, surfaceY + 25, oArrX + 25, surfaceY + 30);
+            ctx.stroke();
+        }
+
+        // Custom Live Graph Renderer
+        function drawGraph() {
+            // Update historical database
+            if (graphHistory.length > maxGraphPoints) {
+                graphHistory.shift();
+            }
+            graphHistory.push({
+                time: time,
+                i: rainIntensity,
+                f: currentCapacity,
+                r: runoff
+            });
+
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            const w = graphCanvas.width;
+            const h = graphCanvas.height;
+            const padding = 25;
+
+            // Draw grid line borders
+            graphCtx.strokeStyle = "rgba(31, 41, 61, 0.4)";
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(padding, padding);
+            graphCtx.lineTo(padding, h - padding);
+            graphCtx.lineTo(w - padding, h - padding);
+            graphCtx.stroke();
+
+            // Labelling axis Y max
+            graphCtx.fillStyle = "#64748b";
+            graphCtx.font = "8px monospace";
+            graphCtx.fillText("300", 2, padding + 5);
+            graphCtx.fillText("0", 12, h - padding + 3);
+            graphCtx.fillText("RATE", 2, h/2);
+
+            // Render Curves
+            if (graphHistory.length < 2) return;
+
+            const scaleX = (w - padding * 2) / maxGraphPoints;
+            const scaleY = (h - padding * 2) / 300; // max value of variables
+
+            // 1. Plot Runoff Zone Area (Red shadow space between i and f where i > f)
+            graphCtx.fillStyle = "rgba(255, 49, 49, 0.12)";
+            graphCtx.beginPath();
+            let activeSegment = false;
+            for (let idx = 0; idx < graphHistory.length; idx++) {
+                const pt = graphHistory[idx];
+                const gX = padding + idx * scaleX;
+                const gY_i = h - padding - pt.i * scaleY;
+                const gY_f = h - padding - pt.f * scaleY;
+
+                if (pt.i > pt.f) {
+                    if (!activeSegment) {
+                        graphCtx.moveTo(gX, gY_f);
+                        activeSegment = true;
+                    }
+                    graphCtx.lineTo(gX, gY_i);
+                } else if (activeSegment) {
+                    graphCtx.lineTo(gX, gY_f);
+                    graphCtx.closePath();
+                    graphCtx.fill();
+                    graphCtx.beginPath();
+                    activeSegment = false;
+                }
+            }
+            if (activeSegment) {
+                // close path back to final f
+                const finalIdx = graphHistory.length - 1;
+                const finalX = padding + finalIdx * scaleX;
+                const finalY_f = h - padding - graphHistory[finalIdx].f * scaleY;
+                graphCtx.lineTo(finalX, finalY_f);
+                graphCtx.closePath();
+                graphCtx.fill();
+            }
+
+            // 2. Plot Rainfall Curve (i)
+            graphCtx.strokeStyle = "#00f0ff";
+            graphCtx.lineWidth = 2;
+            graphCtx.beginPath();
+            graphCtx.moveTo(padding, h - padding - graphHistory[0].i * scaleY);
+            for (let idx = 1; idx < graphHistory.length; idx++) {
+                graphCtx.lineTo(padding + idx * scaleX, h - padding - graphHistory[idx].i * scaleY);
+            }
+            graphCtx.stroke();
+
+            // 3. Plot Capacity Curve (f)
+            graphCtx.strokeStyle = "#39ff14";
+            graphCtx.lineWidth = 2;
+            graphCtx.beginPath();
+            graphCtx.moveTo(padding, h - padding - graphHistory[0].f * scaleY);
+            for (let idx = 1; idx < graphHistory.length; idx++) {
+                graphCtx.lineTo(padding + idx * scaleX, h - padding - graphHistory[idx].f * scaleY);
+            }
+            graphCtx.stroke();
+        }
+
+        // Master Animation Render Loop (Maintaining solid 60FPS)
+        function animationTick() {
+            updateSimulationPhysics();
+            drawSoilCanvas();
+            drawGraph();
+            requestAnimationFrame(animationTick);
+        }
+
+        // Initialize Layout snap points
+        resize();
+        setSoilType('sand');
+        animationTick();
+    </script>
+
+    <!-- INTERACTIVE KNOWLEDGE EXAM CHALLENGES ENGINE -->
+    <script>
+        function generateNewProblem() {
+            const possibleI = [40, 60, 90, 120, 150, 200, 250];
+            const possibleF = [15, 30, 50, 80, 100, 180];
+            
+            const randomI = possibleI[Math.floor(Math.random() * possibleI.length)];
+            const randomF = possibleF[Math.floor(Math.random() * possibleF.length)];
+
+            activeChallenge.i = randomI;
+            activeChallenge.f = randomF;
+
+            // actual formula metrics
+            if (randomI > randomF) {
+                activeChallenge.fa = randomF;
+                activeChallenge.r = randomI - randomF;
+            } else {
+                activeChallenge.fa = randomI;
+                activeChallenge.r = 0;
+            }
+
+            document.getElementById('challenge-prompt').innerHTML = `
+                <span class='text-cyber-orange font-bold'>SCENARIO:</span> A rain system delivers <span class='text-cyber-blue font-bold'>${randomI} mm/hr</span> to a target surface zone with a measured infiltration capacity boundary of <span class='text-cyber-green font-bold'>${randomF} mm/hr</span>.<br><br>
+                Determine the <strong>Actual Infiltration Rate (f_a)</strong> and resulting <strong>Surface Runoff Rate (R)</strong>.
+            `;
+
+            // Clear response cells
+            document.getElementById('input-ans-fa').value = "";
+            document.getElementById('input-ans-r').value = "";
+            document.getElementById('challenge-feedback').innerText = "";
+            playSfxClick();
+        }
+
+        function verifyChallengeAnswer() {
+            const userFa = parseFloat(document.getElementById('input-ans-fa').value);
+            const userR = parseFloat(document.getElementById('input-ans-r').value);
+
+            const isFaCorrect = (userFa === activeChallenge.fa);
+            const isRCorrect = (userR === activeChallenge.r);
+
+            const feedback = document.getElementById('challenge-feedback');
+
+            if (isFaCorrect && isRCorrect) {
+                feedback.innerText = "ASSESSMENT PASSED: +10 XP";
+                feedback.className = "text-center text-[10px] font-bold mt-1 text-cyber-green neon-text-green";
+                playSfxLock();
+                
+                // Set the simulation live rates to match user-validated model!
+                document.getElementById('slider-rain').value = activeChallenge.i;
+                updateRain(activeChallenge.i);
+                document.getElementById('slider-f0').value = activeChallenge.f;
+                updateF0(activeChallenge.f);
+                // accelerate time decay to stabilize live graph matching challenge state
+                time = 50; 
+                
+                const utt = new SpeechSynthesisUtterance("Correct calculations. The actual infiltration equals capacity, and excess is converted to surface runoff.");
+                window.speechSynthesis.speak(utt);
+            } else {
+                feedback.innerText = `INCORRECT. HINT: f_a = min(i, f). R = max(0, i - f).`;
+                feedback.className = "text-center text-[10px] font-bold mt-1 text-cyber-red neon-text-red";
+                if (audioCtx) {
+                    // low feedback beep
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.connect(gain); gain.connect(masterGain);
+                    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start(); osc.stop(audioCtx.currentTime + 0.3);
+                }
+            }
+        }
+
+        // Initialize First Problem
+        generateNewProblem();
+    </script>
+
+    <!-- VOICE COMMAND LISTENING PORTAL -->
+    <script>
+        let recognition = null;
+        let isListening = false;
+
+        function toggleVoiceRecognition() {
+            if (isListening) {
+                stopListening();
+                return;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                alert("Speech recognition API not supported by your current browser environment.");
+                return;
+            }
+
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voice-status').innerText = "LISTENING...";
+                document.getElementById('voice-status').className = "text-cyber-green animate-pulse";
+                document.getElementById('btn-voice-listen').innerText = "Stop Voice";
+                playSfxClick();
+            };
+
+            recognition.onresult = (event) => {
+                const last = event.results.length - 1;
+                const command = event.results[last][0].transcript.toLowerCase().trim();
+                console.log("Voice Command Recognized: ", command);
+
+                triggerSnapAlert("VOICE COMMAND: " + command.toUpperCase());
+
+                if (command.includes("more rain") || command.includes("increase rain")) {
+                    let newVal = Math.min(300, rainIntensity + 40);
+                    document.getElementById('slider-rain').value = newVal;
+                    updateRain(newVal);
+                } else if (command.includes("less rain") || command.includes("decrease rain")) {
+                    let newVal = Math.max(5, rainIntensity - 40);
+                    document.getElementById('slider-rain').value = newVal;
+                    updateRain(newVal);
+                } else if (command.includes("sand")) {
+                    setSoilType('sand');
+                } else if (command.includes("silt")) {
+                    setSoilType('silt');
+                } else if (command.includes("clay")) {
+                    setSoilType('clay');
+                } else if (command.includes("reset")) {
+                    resetSimulation();
+                } else if (command.includes("solve") || command.includes("challenge")) {
+                    verifyChallengeAnswer();
+                }
+            };
+
+            recognition.onerror = (err) => {
+                console.error("Speech Error: ", err);
+                stopListening();
+            };
+
+            recognition.onend = () => {
+                stopListening();
+            };
+
+            recognition.start();
+        }
+
+        function stopListening() {
+            isListening = false;
+            if (recognition) {
+                recognition.stop();
+            }
+            document.getElementById('voice-status').innerText = "INACTIVE";
+            document.getElementById('voice-status').className = "text-cyber-orange";
+            document.getElementById('btn-voice-listen').innerText = "Voice Control";
+        }
+    </script>
+</body>
+</html>

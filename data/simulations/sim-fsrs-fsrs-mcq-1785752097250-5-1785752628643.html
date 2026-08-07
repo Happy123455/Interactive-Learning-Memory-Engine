@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contrast of Form: Interactive Architectural Sandbox</title>
+  <style>
+    :root {
+      --bg-dark: #0B0F19;
+      --card-dark: #1E293B;
+      --card-border: #334155;
+      --accent-pink: #FF6B8B;
+      --accent-green: #2ED573;
+      --accent-blue: #1E90FF;
+      --accent-yellow: #FFA502;
+      --text-light: #F8FAFC;
+      --text-muted: #94A3B8;
+      --neon-shadow-pink: rgba(255, 107, 139, 0.35);
+      --neon-shadow-blue: rgba(30, 144, 255, 0.35);
+      --neon-shadow-green: rgba(46, 213, 115, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(30, 144, 255, 0.08) 0, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(255, 107, 139, 0.08) 0, transparent 50%);
+      color: var(--text-light);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px;
+      overflow-x: hidden;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1280px;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 28px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 1024px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 8px;
+      width: 100%;
+      max-width: 1280px;
+    }
+
+    header h1 {
+      font-size: 2.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent-pink), var(--accent-blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 8px;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+    }
+
+    /* Simulation Sandbox Container */
+    .sandbox-card {
+      background-color: var(--card-dark);
+      border-radius: 20px;
+      border: 2px solid var(--card-border);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .canvas-container {
+      position: relative;
+      width: 100%;
+      height: 520px;
+      background: #090D16;
+      cursor: grab;
+      overflow: hidden;
+    }
+
+    .canvas-container:active {
+      cursor: grabbing;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Dynamic Value HUD inside Canvas */
+    .hud {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: rgba(11, 15, 25, 0.85);
+      backdrop-filter: blur(8px);
+      padding: 16px 20px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+      z-index: 10;
+    }
+
+    .hud-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 700;
+    }
+
+    .hud-value {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--accent-green);
+      font-family: monospace;
+      text-shadow: 0 0 10px var(--neon-shadow-green);
+      transition: color 0.3s ease;
+    }
+
+    .hud-subvalue {
+      font-size: 0.8rem;
+      color: var(--text-light);
+      margin-top: 4px;
+    }
+
+    /* Controls Panel under Canvas */
+    .sandbox-controls {
+      padding: 20px;
+      background-color: rgba(11, 15, 25, 0.9);
+      border-top: 2px solid var(--card-border);
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    @media (max-width: 640px) {
+      .sandbox-controls {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .control-btn {
+      background: #1E293B;
+      color: var(--text-light);
+      border: 2px solid var(--card-border);
+      padding: 12px 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .control-btn:hover {
+      background: #334155;
+      border-color: var(--accent-blue);
+      transform: translateY(-2px);
+    }
+
+    .control-btn.active {
+      border-color: transparent;
+    }
+
+    #btn-geometric.active {
+      background: linear-gradient(135deg, var(--accent-pink), #e05270);
+      box-shadow: 0 4px 15px var(--neon-shadow-pink);
+    }
+
+    #btn-size.active {
+      background: linear-gradient(135deg, var(--accent-blue), #0f75dc);
+      box-shadow: 0 4px 15px var(--neon-shadow-blue);
+    }
+
+    #btn-texture.active {
+      background: linear-gradient(135deg, var(--accent-green), #20b861);
+      box-shadow: 0 4px 15px var(--neon-shadow-green);
+    }
+
+    /* Side Panel with MCQ Assessment */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .mcq-card {
+      background-color: var(--card-dark);
+      border-radius: 20px;
+      border: 2px solid var(--card-border);
+      padding: 28px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .question-box {
+      margin-bottom: 24px;
+    }
+
+    .speak-btn {
+      background: #273549;
+      border: 1px solid var(--card-border);
+      color: var(--accent-pink);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+    }
+
+    .speak-btn:hover {
+      background: var(--accent-pink);
+      color: var(--bg-dark);
+      box-shadow: 0 0 15px var(--neon-shadow-pink);
+    }
+
+    .question-box h2 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-top: 16px;
+      color: var(--text-light);
+    }
+
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-item {
+      background: #0F172A;
+      border: 2px solid var(--card-border);
+      border-radius: 14px;
+      padding: 16px 20px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      text-align: left;
+      font-size: 0.95rem;
+      line-height: 1.4;
+      color: var(--text-light);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .option-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      border-radius: 50%;
+      background: #1E293B;
+      color: var(--text-muted);
+      font-weight: bold;
+      font-size: 0.95rem;
+      border: 1px solid var(--card-border);
+      transition: all 0.2s;
+    }
+
+    .option-item:hover {
+      border-color: var(--accent-blue);
+      background: rgba(30, 144, 255, 0.05);
+      transform: translateX(6px);
+    }
+
+    .option-item:hover .option-badge {
+      background: var(--accent-blue);
+      color: var(--text-light);
+      border-color: transparent;
+    }
+
+    .option-item.selected {
+      border-color: var(--accent-pink);
+      background: rgba(255, 107, 139, 0.08);
+    }
+
+    .option-item.selected .option-badge {
+      background: var(--accent-pink);
+      color: var(--text-light);
+      border-color: transparent;
+      box-shadow: 0 0 10px var(--neon-shadow-pink);
+    }
+
+    /* Explanation Area */
+    .sandbox-explanation {
+      background-color: var(--card-dark);
+      border-radius: 20px;
+      border: 2px solid var(--card-border);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .sandbox-explanation h3 {
+      font-size: 1.15rem;
+      margin-bottom: 12px;
+      color: var(--accent-pink);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sandbox-explanation p {
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .mode-indicator {
+      display: inline-block;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-top: 16px;
+      letter-spacing: 0.5px;
+      transition: all 0.3s;
+    }
+
+    .indicator-geometric {
+      background: rgba(255, 107, 139, 0.15);
+      color: var(--accent-pink);
+      border: 1px solid rgba(255, 107, 139, 0.3);
+    }
+
+    .indicator-size {
+      background: rgba(30, 144, 255, 0.15);
+      color: var(--accent-blue);
+      border: 1px solid rgba(30, 144, 255, 0.3);
+    }
+
+    .indicator-texture {
+      background: rgba(46, 213, 115, 0.15);
+      color: var(--accent-green);
+      border: 1px solid rgba(46, 213, 115, 0.3);
+    }
+
+    /* Extra visual helper lines on canvas info overlay */
+    .interaction-helper {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(11, 15, 25, 0.7);
+      padding: 6px 12px;
+      border-radius: 20px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>Contrast of Form</h1>
+    <p>Interactive Architectural Sandbox</p>
+  </header>
+
+  <div class="app-container">
+    <!-- Interactive Canvas Area -->
+    <div class="sandbox-card">
+      <div class="hud">
+        <div class="hud-title" id="hud-mode-title">CONTRAST OF FORM ANALYSIS</div>
+        <div class="hud-value" id="contrast-metric">Calculating...</div>
+        <div class="hud-subvalue" id="contrast-sub">Drag shapes to analyze tension</div>
+      </div>
+      <div class="interaction-helper">💡 Drag the shapes freely!</div>
+      <div class="canvas-container" id="canvas-container">
+        <canvas id="sandboxCanvas"></canvas>
+      </div>
+      <div class="sandbox-controls">
+        <button class="control-btn active" onclick="setMode('geometric')" id="btn-geometric">
+          <span>🔺</span> Geometric Contrast
+        </button>
+        <button class="control-btn" onclick="setMode('size')" id="btn-size">
+          <span>📏</span> Scale / Size Only
+        </button>
+        <button class="control-btn" onclick="setMode('texture')" id="btn-texture">
+          <span>🎨</span> Color / Reflectance
+        </button>
+      </div>
+    </div>
+
+    <!-- Sidebar containing MCQ -->
+    <div class="sidebar">
+      <div class="mcq-card">
+        <div class="question-box">
+          <button class="speak-btn" onclick="speakQuestion()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+            Read Out Loud
+          </button>
+          <h2>Under the architectural principle of Contrast, how is "Contrast of Form" specifically defined and achieved?</h2>
+        </div>
+        <div class="options-list">
+          <button class="option-item" onclick="selectOption(0)">
+            <div class="option-badge">A</div>
+            <span>By opposing vertical lines with diagonal lines.</span>
+          </button>
+          <button class="option-item" onclick="selectOption(1)">
+            <div class="option-badge">B</div>
+            <span>By utilizing different materials or color combinations to vary surface reflectance.</span>
+          </button>
+          <button class="option-item" onclick="selectOption(2)">
+            <div class="option-badge">C</div>
+            <span>Through differences in shape or mass, using simple geometric figures like ellipses, squares, or circles.</span>
+          </button>
+          <button class="option-item" onclick="selectOption(3)">
+            <div class="option-badge">D</div>
+            <span>By scaling identical shapes to have drastically different physical bulk.</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="sandbox-explanation">
+        <h3>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+          ELI5 Playground Guide
+        </h3>
+        <p id="explanation-text">Forms are like different cookie cutters! Placing a round, bouncy circle next to a sharp, rigid square creates a sudden shift in geometric logic, making each layout distinct because of their outline structures.</p>
+        <div class="mode-indicator indicator-geometric" id="sandbox-status">Geometric Contrast Active</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('sandboxCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+
+    // Audio Engine Setup
+    let audioCtx = null;
+    let osc = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      osc = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+    }
+
+    function playBeep(freq, volume) {
+      if (!audioCtx) return;
+      osc.frequency.setTargetAtTime(freq, audioCtx.currentTime, 0.03);
+      gainNode.gain.setTargetAtTime(volume, audioCtx.currentTime, 0.03);
+    }
+
+    function stopBeep() {
+      if (gainNode) {
+        gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.08);
+      }
+    }
+
+    // Adapt to responsive layouts
+    function resizeCanvas() {
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Physics Sandbox Parameters
+    let mode = 'geometric'; 
+    let shapes = [];
+    let isDragging = false;
+    let draggedShape = null;
+    let dragOffset = { x: 0, y: 0 };
+
+    class Shape {
+      constructor(x, y, size, type, color, strokeColor = '#FFFFFF') {
+        this.x = x;
+        this.y = y;
+        this.size = size;
+        this.type = type; // 'circle', 'square', 'ellipse', 'triangle'
+        this.color = color;
+        this.strokeColor = strokeColor;
+        this.targetSize = size;
+        this.baseY = y;
+        this.baseX = x;
+        this.bouncePhase = Math.random() * Math.PI * 2;
+        this.vx = 0;
+        this.vy = 0;
+      }
+
+      update() {
+        // Smooth scaling
+        this.size += (this.targetSize - this.size) * 0.15;
+
+        // Apply visual bounce when held static, or pull back gently if dropped
+        if (!isDragging || draggedShape !== this) {
+          // Spring mechanics back to home line
+          const forceX = (this.baseX - this.x) * 0.1;
+          const forceY = (this.baseY - this.y) * 0.1;
+          this.vx = (this.vx + forceX) * 0.8;
+          this.vy = (this.vy + forceY) * 0.8;
+          this.x += this.vx;
+          this.y += this.vy;
+        } else {
+          // Slight hover bobbing when active
+          this.bouncePhase += 0.05;
+        }
+      }
+
+      draw() {
+        ctx.save();
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = this.color;
+        ctx.fillStyle = this.color;
+        ctx.strokeStyle = this.strokeColor;
+        ctx.lineWidth = 5;
+
+        ctx.beginPath();
+        if (this.type === 'circle') {
+          ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else if (this.type === 'square') {
+          ctx.rect(this.x - this.size, this.y - this.size, this.size * 2, this.size * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else if (this.type === 'ellipse') {
+          ctx.ellipse(this.x, this.y, this.size * 1.4, this.size * 0.8, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+        } else if (this.type === 'triangle') {
+          ctx.moveTo(this.x, this.y - this.size * 1.15);
+          ctx.lineTo(this.x + this.size * 1.2, this.y + this.size * 0.9);
+          ctx.lineTo(this.x - this.size * 1.2, this.y + this.size * 0.9);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+        }
+
+        if (mode === 'texture') {
+          // Render highly tactile surface shading lines inside the structure
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          for (let i = -this.size; i < this.size; i += 15) {
+            ctx.moveTo(this.x + i, this.y - this.size * 0.6);
+            ctx.lineTo(this.x + i + 10, this.y + this.size * 0.6);
+          }
+          ctx.stroke();
+        }
+
+        ctx.restore();
+      }
+
+      contains(px, py) {
+        const dx = px - this.x;
+        const dy = py - this.y;
+        return (dx * dx + dy * dy) < (this.size * 1.4 * this.size * 1.4);
+      }
+    }
+
+    // Initialize shapes dynamically matching the selected mode context
+    function initShapes() {
+      shapes = [];
+      const cx = canvas.width / 2;
+      const cy = canvas.height / 2;
+      
+      const widthSpacing = Math.min(canvas.width / 4, 180);
+
+      if (mode === 'geometric') {
+        // High geometric variation (Contrast of Form)
+        shapes.push(new Shape(cx - widthSpacing, cy, 55, 'circle', '#FF6B8B', '#FFFFFF'));
+        shapes.push(new Shape(cx, cy, 55, 'square', '#2ED573', '#FFFFFF'));
+        shapes.push(new Shape(cx + widthSpacing, cy, 60, 'triangle', '#1E90FF', '#FFFFFF'));
+        
+        document.getElementById('hud-mode-title').innerText = "FORM CONTRAST ANALYSIS";
+        document.getElementById('contrast-metric').innerText = "HIGH GEOMETRIC CONTRAST";
+        document.getElementById('contrast-metric').style.color = "var(--accent-pink)";
+        document.getElementById('contrast-sub').innerText = "Opposing shapes: Circle, Square, and Triangle clash visually.";
+      } else if (mode === 'size') {
+        // Same shape family, scale contrast variants
+        shapes.push(new Shape(cx - widthSpacing, cy, 25, 'circle', '#1E90FF', '#FFFFFF'));
+        shapes.push(new Shape(cx, cy, 55, 'circle', '#1E90FF', '#FFFFFF'));
+        shapes.push(new Shape(cx + widthSpacing, cy, 95, 'circle', '#1E90FF', '#FFFFFF'));
+        
+        document.getElementById('hud-mode-title').innerText = "SCALE CONTRAST ANALYSIS";
+        document.getElementById('contrast-metric').innerText = "CONTRAST OF SIZE ONLY";
+        document.getElementById('contrast-metric').style.color = "var(--accent-blue)";
+        document.getElementById('contrast-sub').innerText = "Identical geometry (Circles) differing only in physical dimension.";
+      } else if (mode === 'texture') {
+        // Same shape family and size, differing only in texture/reflectance
+        shapes.push(new Shape(cx - widthSpacing, cy, 55, 'square', '#2ED573', '#FFFFFF'));
+        shapes.push(new Shape(cx, cy, 55, 'square', '#FF6B8B', '#2ED573'));
+        shapes.push(new Shape(cx + widthSpacing, cy, 55, 'square', '#0B0F19', '#FFA502'));
+        
+        document.getElementById('hud-mode-title').innerText = "REFLECTANCE CONTRAST ANALYSIS";
+        document.getElementById('contrast-metric').innerText = "CONTRAST OF TEXTURE";
+        document.getElementById('contrast-metric').style.color = "var(--accent-green)";
+        document.getElementById('contrast-sub').innerText = "Consistent square silhouettes, but surfaces show distinct treatments.";
+      }
+    }
+
+    // Set UI Mode
+    function setMode(newMode) {
+      mode = newMode;
+      document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+      
+      const indicator = document.getElementById('sandbox-status');
+      indicator.className = "mode-indicator";
+
+      const explanation = document.getElementById('explanation-text');
+      
+      if (mode === 'geometric') {
+        document.getElementById('btn-geometric').classList.add('active');
+        indicator.innerText = "Geometric Contrast Active";
+        indicator.classList.add('indicator-geometric');
+        explanation.innerText = "Forms are like different cookie cutters! Placing a round, bouncy circle next to a sharp, rigid square creates a sudden shift in geometric logic, making each layout distinct because of their outline structures.";
+      } else if (mode === 'size') {
+        document.getElementById('btn-size').classList.add('active');
+        indicator.innerText = "Size Scaling Focus Active";
+        indicator.classList.add('indicator-size');
+        explanation.innerText = "This is Contrast of Size! Here, we use only one shape type (circles), but change their bulkiness. It makes the big shape dominant, but the basic form styling remains uniform.";
+      } else if (mode === 'texture') {
+        document.getElementById('btn-texture').classList.add('active');
+        indicator.innerText = "Color/Reflectance Active";
+        indicator.classList.add('indicator-texture');
+        explanation.innerText = "This represents Contrast of Surface & Reflectance. The shapes have identical square footprints, but vary completely in fill patterns, textures, and coloring traits.";
+      }
+
+      initShapes();
+      initAudio();
+      playBeep(440, 0.15);
+      setTimeout(stopBeep, 120);
+    }
+
+    // Dynamic HUD calculation based on shape distance
+    function updateHUDMetric() {
+      if (shapes.length < 2) return;
+      
+      // Calculate dynamic index representing proximity tension of forms
+      const dx = Math.abs(shapes[0].x - shapes[1].x);
+      const dy = Math.abs(shapes[0].y - shapes[1].y);
+      const dist = Math.sqrt(dx*dx + dy*dy);
+
+      if (mode === 'geometric') {
+        if (dist < 150) {
+          document.getElementById('contrast-metric').innerText = "MAX FORM TENSION";
+          document.getElementById('contrast-metric').style.color = "var(--accent-pink)";
+        } else if (dist < 300) {
+          document.getElementById('contrast-metric').innerText = "MODERATE FORM TENSION";
+          document.getElementById('contrast-metric').style.color = "var(--accent-yellow)";
+        } else {
+          document.getElementById('contrast-metric').innerText = "MUTED FORM TENSION";
+          document.getElementById('contrast-metric').style.color = "var(--text-muted)";
+        }
+      }
+    }
+
+    // Core Canvas Drawing Loop
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Cybernetic Background Grid drawing
+      ctx.strokeStyle = '#161F30';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Draw subtle link connecting shapes to emphasize composition tension
+      if (shapes.length >= 3) {
+        ctx.save();
+        ctx.setLineDash([6, 6]);
+        ctx.strokeStyle = 'rgba(148, 163, 184, 0.25)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(shapes[0].x, shapes[0].y);
+        ctx.lineTo(shapes[1].x, shapes[1].y);
+        ctx.lineTo(shapes[2].x, shapes[2].y);
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // Update & Render Shapes
+      shapes.forEach(shape => {
+        shape.update();
+        shape.draw();
+      });
+
+      updateHUDMetric();
+      requestAnimationFrame(draw);
+    }
+
+    // Pointer Coordinates Setup
+    function getPointerPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    // Event Handlers
+    function handlePointerDown(e) {
+      initAudio();
+      const pos = getPointerPos(e);
+      shapes.forEach(shape => {
+        if (shape.contains(pos.x, pos.y)) {
+          isDragging = true;
+          draggedShape = shape;
+          dragOffset.x = pos.x - shape.x;
+          dragOffset.y = pos.y - shape.y;
+          shape.targetSize = shape.size * 1.15; // Swell on click
+        }
+      });
+    }
+
+    function handlePointerMove(e) {
+      if (!isDragging || !draggedShape) return;
+      const pos = getPointerPos(e);
+      draggedShape.x = pos.x - dragOffset.x;
+      draggedShape.y = pos.y - dragOffset.y;
+
+      // Restrict shapes inside simulation zone boundaries
+      draggedShape.x = Math.max(draggedShape.size, Math.min(canvas.width - draggedShape.size, draggedShape.x));
+      draggedShape.y = Math.max(draggedShape.size, Math.min(canvas.height - draggedShape.size, draggedShape.y));
+
+      // Pitch modulation relative to canvas height position
+      const frequency = 220 + (canvas.height - draggedShape.y) * 1.2;
+      playBeep(frequency, 0.15);
+    }
+
+    function handlePointerUp() {
+      if (draggedShape) {
+        draggedShape.targetSize = draggedShape.targetSize / 1.15; // snap back size
+      }
+      isDragging = false;
+      draggedShape = null;
+      stopBeep();
+    }
+
+    canvas.addEventListener('mousedown', handlePointerDown);
+    canvas.addEventListener('mousemove', handlePointerMove);
+    window.addEventListener('mouseup', handlePointerUp);
+
+    canvas.addEventListener('touchstart', handlePointerDown, { passive: true });
+    canvas.addEventListener('touchmove', handlePointerMove, { passive: true });
+    window.addEventListener('touchend', handlePointerUp);
+
+    // Bootstrap
+    initShapes();
+    draw();
+
+    // Native Web Speech Engine integration
+    function speakQuestion() {
+      const speechText = `Question: Under the architectural principle of Contrast, how is "Contrast of Form" specifically defined and achieved? 
+      Option A: By opposing vertical lines with diagonal lines. 
+      Option B: By utilizing different materials or color combinations to vary surface reflectance. 
+      Option C: Through differences in shape or mass, using simple geometric figures like ellipses, squares, or circles. 
+      Option D: By scaling identical shapes to have drastically different physical bulk.`;
+      
+      window.speechSynthesis.cancel();
+      
+      const utterance = new SpeechSynthesisUtterance(speechText);
+      utterance.pitch = 1.0; 
+      utterance.rate = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // MCQ Selection Handler & Communication Bridge
+    function selectOption(index) {
+      document.querySelectorAll('.option-item').forEach((item, i) => {
+        if (i === index) {
+          item.classList.add('selected');
+        } else {
+          item.classList.remove('selected');
+        }
+      });
+
+      // Play selection sound feedback
+      initAudio();
+      playBeep(350 + (index * 90), 0.18);
+      setTimeout(stopBeep, 120);
+
+      // Dispatch selected option out to host container
+      window.parent.postMessage({
+        type: 'mcq-selected',
+        optionIndex: index
+      }, '*');
+    }
+  </script>
+</body>
+</html>

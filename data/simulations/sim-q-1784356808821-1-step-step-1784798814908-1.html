@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Design Studio: Limiting Depth of Neutral Axis (xu,max)</title>
+    
+    <!-- Tailwind CSS for utility styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- GSAP for smooth animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&display=swap');
+
+        :root {
+            --bg-dark: #090d16;
+            --card-bg: rgba(15, 23, 42, 0.75);
+            --border-color: rgba(99, 102, 241, 0.2);
+            --neon-cyan: #06b6d4;
+            --neon-magenta: #d946ef;
+            --neon-green: #10b981;
+            --neon-amber: #f59e0b;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            font-family: 'Space Grotesk', sans-serif;
+            color: #e2e8f0;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(217, 70, 239, 0.1) 0px, transparent 50%);
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-color);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(99, 102, 241, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(99, 102, 241, 0.1);
+        }
+
+        /* Neon Glow Effects */
+        .neon-glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+        }
+
+        .neon-glow-magenta {
+            box-shadow: 0 0 15px rgba(217, 70, 239, 0.4);
+            text-shadow: 0 0 8px rgba(217, 70, 239, 0.6);
+        }
+
+        /* Dynamic highlighted spans */
+        .interactive-token {
+            cursor: pointer;
+            border-bottom: 2px dashed rgba(255, 255, 255, 0.3);
+            transition: all 0.2s ease;
+            display: inline-block;
+            padding: 0 4px;
+            border-radius: 4px;
+        }
+
+        .interactive-token:hover {
+            background: rgba(99, 102, 241, 0.2);
+            border-bottom-color: var(--neon-cyan);
+            color: #fff;
+            transform: scale(1.05);
+        }
+
+        .interactive-token.active-cyan {
+            background: rgba(6, 182, 212, 0.2);
+            border-bottom-color: var(--neon-cyan);
+            color: #22d3ee;
+            font-weight: 600;
+        }
+
+        .interactive-token.active-magenta {
+            background: rgba(217, 70, 239, 0.2);
+            border-bottom-color: var(--neon-magenta);
+            color: #f472b6;
+            font-weight: 600;
+        }
+
+        .interactive-token.active-amber {
+            background: rgba(245, 158, 11, 0.2);
+            border-bottom-color: var(--neon-amber);
+            color: #fbbf24;
+            font-weight: 600;
+        }
+
+        /* Formula Slot styling */
+        .formula-slot {
+            min-height: 48px;
+            min-width: 80px;
+            border: 2px dashed rgba(99, 102, 241, 0.4);
+            background: rgba(15, 23, 42, 0.5);
+            transition: all 0.3s;
+        }
+
+        .formula-slot.dragover {
+            border-color: var(--neon-cyan);
+            background: rgba(6, 182, 212, 0.1);
+            transform: scale(1.05);
+        }
+
+        .formula-slot.correct {
+            border-color: var(--neon-green);
+            background: rgba(16, 185, 129, 0.15);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+        }
+
+        /* Draggable numerical chips */
+        .chip {
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .chip:active {
+            cursor: grabbing;
+            transform: scale(0.95);
+        }
+
+        /* Bookmark Slider Track Customizations */
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--neon-magenta);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-magenta);
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Animations for error state shake */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-6px); }
+            75% { transform: translateX(6px); }
+        }
+
+        .animate-shake {
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Progress Steps styling */
+        .step-indicator {
+            transition: all 0.4s ease;
+        }
+        .step-indicator.active {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.4);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 space-y-6">
+
+    <!-- Header Section -->
+    <header class="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 p-4 glass-panel rounded-2xl">
+        <div class="flex items-center space-x-4">
+            <div class="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-500 to-pink-500 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                <svg class="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl md:text-2xl font-bold tracking-tight bg-gradient-to-r from-cyan-400 via-indigo-200 to-pink-400 bg-clip-text text-transparent">
+                    STRUCTURAL DESIGN STUDIO
+                </h1>
+                <p class="text-xs text-slate-400 font-mono tracking-widest uppercase">
+                    IS 456 Engine: Limiting Depth of Neutral Axis (x<sub>u,max</sub>)
+                </p>
+            </div>
+        </div>
+
+        <!-- Audio and Synth Accessibility Panel -->
+        <div class="flex items-center space-x-2 bg-slate-900/60 p-1.5 rounded-lg border border-slate-800">
+            <button id="btn-speech" onclick="toggleSpeech()" class="px-3 py-1.5 rounded text-xs font-semibold bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 transition flex items-center gap-1">
+                <span id="speech-icon">🔊</span> Speech Voiceover
+            </button>
+            <button id="btn-synth" onclick="toggleAudio()" class="px-3 py-1.5 rounded text-xs font-semibold bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/30 transition flex items-center gap-1">
+                <span>🎵</span> Sound Effects
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Grid -->
+    <main class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch flex-grow">
+        
+        <!-- PANEL A: Interactive Problem Space (Left) -->
+        <section class="lg:col-span-3 flex flex-col space-y-4">
+            <div class="glass-panel p-5 rounded-2xl flex-grow flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                        <span class="text-xs font-mono text-cyan-400 tracking-wider">STAGE 01 : IDENTIFY</span>
+                        <div class="h-2 w-2 rounded-full bg-cyan-400 neon-glow-cyan animate-pulse"></div>
+                    </div>
+                    
+                    <h3 class="text-sm font-semibold uppercase tracking-wider text-slate-300 mb-3">Live Interactive Statement</h3>
+                    <p class="text-slate-300 text-sm md:text-base leading-relaxed font-light mb-6">
+                        An R.C.C. beam has a rectangular cross section of width 
+                        <span id="tok-b" class="interactive-token active-cyan" onclick="focusVariable('b', 'width')">b = 250 mm</span> 
+                        and effective depth 
+                        <span id="tok-d" class="interactive-token active-magenta" onclick="focusVariable('d', 'depth')">d = 450 mm</span>. 
+                        The grade of concrete is 
+                        <span id="tok-fck" class="interactive-token" onclick="focusVariable('fck', 'concrete')">M20 (f<sub>ck</sub> = 20 N/mm²)</span> 
+                        and the steel reinforcement consists of 
+                        <span id="tok-fy" class="interactive-token active-amber" onclick="focusVariable('fy', 'steel')">Fe 415 (f<sub>y</sub> = 415 N/mm²)</span> grade rebars. 
+                        Calculate the limiting depth of the neutral axis.
+                    </p>
+
+                    <div class="space-y-3 bg-slate-900/50 p-4 rounded-xl border border-slate-800/80">
+                        <div class="text-xs font-semibold text-slate-400 uppercase tracking-widest mb-1">Interactive Sliders</div>
+                        
+                        <!-- Slider b -->
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-cyan-400">Width (b):</span>
+                                <span class="text-white" id="val-b">250 mm</span>
+                            </div>
+                            <input id="slider-b" type="range" min="150" max="400" step="10" value="250" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-500" oninput="updateModel('b', this.value)">
+                        </div>
+
+                        <!-- Slider d -->
+                        <div>
+                            <div class="flex justify-between text-xs font-mono mb-1">
+                                <span class="text-pink-400">Depth (d):</span>
+                                <span class="text-white" id="val-d">450 mm</span>
+                            </div>
+                            <input id="slider-d" type="range" min="300" max="600" step="10" value="450" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500" oninput="updateModel('d', this.value)">
+                        </div>
+
+                        <!-- Grade of Steel fy Selector -->
+                        <div>
+                            <div class="text-xs font-mono mb-1 text-amber-400">Steel Grade (f<sub>y</sub>):</div>
+                            <div class="grid grid-cols-3 gap-2">
+                                <button onclick="updateSteel(250)" id="btn-fy-250" class="text-xs py-1.5 rounded font-mono border border-slate-800 hover:border-slate-700 bg-slate-900/80 text-slate-400 transition">Fe 250</button>
+                                <button onclick="updateSteel(415)" id="btn-fy-415" class="text-xs py-1.5 rounded font-mono border border-amber-500/50 bg-amber-500/10 text-amber-400 transition font-bold">Fe 415</button>
+                                <button onclick="updateSteel(500)" id="btn-fy-500" class="text-xs py-1.5 rounded font-mono border border-slate-800 hover:border-slate-700 bg-slate-900/80 text-slate-400 transition">Fe 500</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-800/80 text-xs text-slate-500">
+                    💡 Click words in highlight or drag the sliders above to witness real-time stress-strain variations on the Canvas.
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL B: Canvas Stage (Center) -->
+        <section class="lg:col-span-5 flex flex-col space-y-4">
+            <div class="glass-panel p-4 rounded-2xl flex-grow flex flex-col">
+                <div class="flex items-center justify-between mb-2 border-b border-slate-800 pb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs font-mono text-purple-400 tracking-wider">STAGE 02 : DRAFTING</span>
+                        <div class="h-2 w-2 rounded-full bg-purple-400 animate-pulse"></div>
+                    </div>
+                    <span id="canvas-status" class="text-[10px] font-mono text-slate-500">Auto-render Enabled</span>
+                </div>
+
+                <!-- Canvas Wrapper -->
+                <div class="flex-grow relative min-h-[350px] bg-slate-950/70 rounded-xl overflow-hidden border border-slate-900 flex items-center justify-center">
+                    <canvas id="stageCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                </div>
+
+                <!-- Interactive Pivot Controls inside Canvas Panel -->
+                <div class="grid grid-cols-2 gap-4 mt-3 bg-slate-900/30 p-2.5 rounded-lg border border-slate-800/60">
+                    <div>
+                        <div class="text-[10px] font-mono text-slate-500 uppercase">Interactive Pivot Angle (x<sub>u</sub> depth)</div>
+                        <div class="flex items-center space-x-2">
+                            <input id="slider-xu" type="range" min="0.2" max="0.6" step="0.01" value="0.48" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-purple-500" oninput="updatePivot(this.value)">
+                            <span id="val-xu" class="text-xs font-mono text-purple-400 font-bold">0.48d</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end">
+                        <button onclick="resetCamera()" class="px-2.5 py-1 rounded bg-slate-800 text-[10px] font-mono uppercase tracking-wider text-slate-300 hover:bg-slate-700 transition">
+                            Reset Viewport
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- PANEL C: Control/Formula Dashboard (Right) -->
+        <section class="lg:col-span-4 flex flex-col space-y-4">
+            
+            <!-- Virtual IS 456 Page Lookup Card -->
+            <div class="glass-panel p-5 rounded-2xl">
+                <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                    <span class="text-xs font-mono text-amber-400 tracking-wider">IS CODE RESEARCH</span>
+                    <span class="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded uppercase font-bold">IS 456:2000</span>
+                </div>
+                
+                <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                    Swipe or slide the codebook bookmark to locate page <strong>70 (Clause 38.1)</strong> to unlock limiting neutral axis coefficient formulas.
+                </p>
+
+                <div class="bg-gradient-to-br from-slate-900 to-indigo-950/40 p-4 rounded-xl border border-slate-800 relative overflow-hidden">
+                    <!-- Page simulation cover -->
+                    <div class="flex justify-between items-center mb-2">
+                        <span class="text-xs font-mono text-indigo-400">BOOKMARK TRACKER</span>
+                        <span id="is456-page-num" class="text-sm font-mono font-bold text-pink-500">Page 1</span>
+                    </div>
+
+                    <input id="slider-page" type="range" min="1" max="120" value="1" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-pink-500 mb-4" oninput="updatePage(this.value)">
+
+                    <div id="is456-content" class="min-h-[105px] text-xs font-mono text-slate-400 bg-slate-950/80 p-3 rounded-lg border border-slate-800 flex flex-col justify-center transition-all duration-300">
+                        <div class="text-center text-slate-600 italic">Drag bookmark forward to page 70...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Formula Drag and Drop Game Card -->
+            <div id="assembly-container" class="glass-panel p-5 rounded-2xl flex-grow flex flex-col justify-between opacity-50 pointer-events-none transition-all duration-500">
+                <div>
+                    <div class="flex items-center justify-between mb-3 border-b border-slate-800 pb-2">
+                        <span class="text-xs font-mono text-emerald-400 tracking-wider">STAGE 03 : FORMULA BUILDER</span>
+                        <span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded uppercase font-bold">Snap Engine</span>
+                    </div>
+
+                    <p class="text-xs text-slate-400 mb-4">
+                        Drag correct parameter chips into target boxes to compute limiting neutral axis <span class="font-mono text-white font-bold">x<sub>u,max</sub></span>.
+                    </p>
+
+                    <!-- Target assembly area -->
+                    <div class="flex flex-wrap items-center justify-center gap-3 bg-slate-950/60 p-4 rounded-xl border border-slate-800/80 mb-6">
+                        <div class="text-sm font-mono font-bold text-slate-300">x<sub>u,max</sub> =</div>
+                        
+                        <!-- Target 1 -->
+                        <div id="target-1" class="formula-slot rounded-lg flex items-center justify-center text-xs font-mono" data-accepted="0.48">
+                            <span class="text-slate-500 text-[10px] italic">Coefficient</span>
+                        </div>
+
+                        <div class="text-lg font-bold text-indigo-400">×</div>
+
+                        <!-- Target 2 -->
+                        <div id="target-2" class="formula-slot rounded-lg flex items-center justify-center text-xs font-mono" data-accepted="d">
+                            <span class="text-slate-500 text-[10px] italic">Depth</span>
+                        </div>
+                    </div>
+
+                    <!-- Available Chips Pool -->
+                    <div class="space-y-2">
+                        <div class="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Available Variable Chips</div>
+                        <div id="chips-pool" class="flex flex-wrap gap-2.5 p-3 bg-slate-900/30 rounded-xl border border-slate-800/50">
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="0.48">0.48</div>
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="0.53">0.53</div>
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="0.46">0.46</div>
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="d">d</div>
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="b">b</div>
+                            <div class="chip bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3 py-1.5 rounded text-xs font-mono font-bold text-slate-300" draggable="true" data-val="fck">f<sub>ck</sub></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Evaluation Card -->
+                <div id="calc-result" class="mt-4 p-3 bg-slate-900/60 rounded-xl border border-slate-800/80 text-center flex flex-col justify-center items-center h-20">
+                    <span class="text-[10px] font-mono text-slate-500 uppercase">Calculated Output</span>
+                    <span class="text-sm font-medium text-slate-400">Assemble parameters to compute final depth</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer Controls and Diagnostics -->
+    <footer class="w-full max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 p-4 glass-panel rounded-2xl">
+        <div class="flex items-center space-x-6 text-xs text-slate-400 font-mono">
+            <div>
+                <span class="text-cyan-400">●</span> Canvas DPI Scale: <span id="diag-dpi">1.0</span>
+            </div>
+            <div>
+                <span class="text-pink-400">●</span> Active Step: <span id="diag-step" class="text-white font-bold">1: Identify parameters</span>
+            </div>
+        </div>
+        <div class="text-xs text-slate-500 font-mono">
+            Engine version 2.4.0-RCC (IS 456 Compliant)
+        </div>
+    </footer>
+
+    <!-- JS Scripts & Engine Logic -->
+    <script>
+        // Web Audio API Synth Engine
+        let audioCtx = null;
+        let speechSynth = window.speechSynthesis;
+        let isAudioEnabled = false;
+        let isSpeechEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function toggleAudio() {
+            initAudio();
+            isAudioEnabled = !isAudioEnabled;
+            const btn = document.getElementById('btn-synth');
+            if (isAudioEnabled) {
+                btn.classList.add('bg-emerald-600/55', 'text-white');
+                playThock();
+            } else {
+                btn.classList.remove('bg-emerald-600/55', 'text-white');
+            }
+        }
+
+        function toggleSpeech() {
+            isSpeechEnabled = !isSpeechEnabled;
+            const btn = document.getElementById('btn-speech');
+            if (isSpeechEnabled) {
+                btn.classList.add('bg-indigo-600/55', 'text-white');
+                speak("Voiceover accessibility enabled.");
+            } else {
+                btn.classList.remove('bg-indigo-600/55', 'text-white');
+                speechSynth.cancel();
+            }
+        }
+
+        function playThock() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.1);
+        }
+
+        function playChime() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const now = audioCtx.currentTime;
+            
+            // Note 1
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(523.25, now); // C5
+            gain1.gain.setValueAtTime(0.1, now);
+            gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+            
+            // Note 2
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(659.25, now + 0.08); // E5
+            gain2.gain.setValueAtTime(0.1, now + 0.08);
+            gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.58);
+
+            osc1.start(now);
+            osc1.stop(now + 0.4);
+            osc2.start(now + 0.08);
+            osc2.stop(now + 0.58);
+        }
+
+        function playWarning() {
+            if (!isAudioEnabled || !audioCtx) return;
+            const now = audioCtx.currentTime;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(120, now);
+            osc.frequency.linearRampToValueAtTime(90, now + 0.25);
+            gain.gain.setValueAtTime(0.2, now);
+            gain.gain.linearRampToValueAtTime(0.01, now + 0.25);
+            osc.start();
+            osc.stop(now + 0.25);
+        }
+
+        function speak(text) {
+            if (!isSpeechEnabled) return;
+            speechSynth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            speechSynth.speak(utterance);
+        }
+
+        // Global Architectural Model
+        const Model = {
+            b: 250, // mm
+            d: 450, // mm
+            fy: 415, // N/mm2 (Fe 415)
+            fck: 20, // N/mm2
+            xu_ratio: 0.48, // xu,max / d constant
+            bookmarkPage: 1,
+            isPageUnlocked: false,
+            assembledCoef: null,
+            assembledD: null,
+            cameraZoom: 1.0,
+            cameraOffset: { x: 0, y: 0 },
+            focusedParam: 'b'
+        };
+
+        const targetCoefficients = {
+            250: 0.53,
+            415: 0.48,
+            500: 0.46
+        };
+
+        // UI Canvas Implementation
+        const canvas = document.getElementById('stageCanvas');
+        const ctx = canvas.getContext('2d');
+        let dpr = window.devicePixelRatio || 1;
+
+        function initCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            document.getElementById('diag-dpi').innerText = dpr.toFixed(1);
+            drawStage();
+        }
+
+        // Deep drafting simulation canvas loop
+        function drawStage() {
+            const w = canvas.width / dpr;
+            const h = canvas.height / dpr;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Dark space grid background
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 0.5;
+            const gridSize = 20;
+            for (let x = 0; x < w; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, h);
+                ctx.stroke();
+            }
+            for (let y = 0; y < h; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(w, y);
+                ctx.stroke();
+            }
+
+            ctx.save();
+            // Apply Dynamic Camera Zoom Matrix
+            ctx.translate(w / 2 + Model.cameraOffset.x, h / 2 + Model.cameraOffset.y);
+            ctx.scale(Model.cameraZoom, Model.cameraZoom);
+            // Re-center around coordinates origin of drawings
+            ctx.translate(-w / 2, -h / 2);
+
+            // Draw Section coordinates mapping
+            // Render Beam cross-section box
+            const beamW = Model.b * 0.4;
+            const beamH = (Model.d + 50) * 0.4; // assume Cover d' = 50mm
+            const startX = w / 4 - beamW / 2;
+            const startY = h / 2 - beamH / 2 - 10;
+
+            // Gradient for Beam Section fill
+            const fillGrad = ctx.createLinearGradient(startX, startY, startX + beamW, startY + beamH);
+            fillGrad.addColorStop(0, '#111827');
+            fillGrad.addColorStop(1, '#1f2937');
+
+            ctx.fillStyle = fillGrad;
+            ctx.strokeStyle = '#4f46e5';
+            ctx.lineWidth = 2.5;
+
+            // Pulse glowing outline of beam section container
+            if (Model.focusedParam === 'b') {
+                ctx.shadowColor = 'rgba(6, 182, 212, 0.8)';
+                ctx.shadowBlur = 15;
+                ctx.strokeStyle = '#06b6d4';
+            } else if (Model.focusedParam === 'depth' || Model.focusedParam === 'd') {
+                ctx.shadowColor = 'rgba(217, 70, 239, 0.8)';
+                ctx.shadowBlur = 15;
+                ctx.strokeStyle = '#d946ef';
+            } else {
+                ctx.shadowBlur = 0;
+            }
+
+            ctx.beginPath();
+            ctx.roundRect(startX, startY, beamW, beamH, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw concrete hatch pattern
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            for (let offset = 10; offset < beamH; offset += 30) {
+                ctx.beginPath();
+                ctx.moveTo(startX, startY + offset);
+                ctx.lineTo(startX + beamW, startY + offset - 10);
+                ctx.stroke();
+            }
+
+            // Draw Rebars at bottom tension reinforcement
+            const coverH = 40 * 0.4; 
+            const rebarsY = startY + beamH - coverH;
+            const rebarRadii = 6;
+            const spacing = beamW / 4;
+            
+            ctx.fillStyle = '#f59e0b';
+            if (Model.focusedParam === 'steel' || Model.focusedParam === 'fy') {
+                ctx.shadowColor = 'rgba(245, 158, 11, 0.9)';
+                ctx.shadowBlur = 12;
+            }
+
+            for (let i = 1; i <= 3; i++) {
+                ctx.beginPath();
+                ctx.arc(startX + i * spacing, rebarsY, rebarRadii, 0, Math.PI * 2);
+                ctx.fill();
+                // Stroke reinforcement wire loop
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+
+            // Dimension Leader Line drawing
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '10px JetBrains Mono';
+
+            // Beam Width b Leader Line label
+            ctx.beginPath();
+            ctx.moveTo(startX, startY - 10);
+            ctx.lineTo(startX, startY - 20);
+            ctx.moveTo(startX + beamW, startY - 10);
+            ctx.lineTo(startX + beamW, startY - 20);
+            ctx.moveTo(startX, startY - 15);
+            ctx.lineTo(startX + beamW, startY - 15);
+            ctx.stroke();
+            
+            ctx.fillStyle = '#06b6d4';
+            ctx.fillText(`b = ${Model.b}mm`, startX + beamW/2 - 25, startY - 24);
+
+            // Beam Depth d Leader line label
+            ctx.strokeStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(startX + beamW + 10, startY);
+            ctx.lineTo(startX + beamW + 20, startY);
+            ctx.moveTo(startX + beamW + 10, rebarsY);
+            ctx.lineTo(startX + beamW + 20, rebarsY);
+            ctx.moveTo(startX + beamW + 15, startY);
+            ctx.lineTo(startX + beamW + 15, rebarsY);
+            ctx.stroke();
+
+            ctx.fillStyle = '#d946ef';
+            ctx.fillText(`d = ${Model.d}mm`, startX + beamW + 22, startY + (rebarsY - startY)/2);
+
+            // Draw parallel Stress/Strain Diagrams beside section
+            const startDiagX = w / 4 + beamW / 2 + 80;
+            const diagW = 100;
+
+            // Draw center axis of zero strain / pivot anchor line
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.setLineDash([4, 4]);
+            ctx.beginPath();
+            ctx.moveTo(startDiagX, startY - 10);
+            ctx.lineTo(startDiagX, startY + beamH + 10);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Draw dynamic pivot depth Neutral Axis line
+            const activeXuRatio = Model.xu_ratio; 
+            const xuDepthReal = Model.d * activeXuRatio * 0.4;
+            const naY = startY + xuDepthReal;
+
+            // Draw NA Line spanning section and strain
+            ctx.strokeStyle = 'rgba(217, 70, 239, 0.7)';
+            ctx.lineWidth = 1.5;
+            ctx.shadowColor = '#d946ef';
+            ctx.shadowBlur = 6;
+            ctx.beginPath();
+            ctx.moveTo(startX - 20, naY);
+            ctx.lineTo(startDiagX + diagW + 30, naY);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            ctx.fillStyle = '#d946ef';
+            ctx.fillText(`N.A. (x_u,max = ${Math.round(Model.d * activeXuRatio)}mm)`, startX - 15, naY - 5);
+
+            // Strain Diagram Triangle
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            // Compression Strain extreme top boundary (0.0035 strain limit)
+            ctx.moveTo(startDiagX - 40, startY);
+            ctx.lineTo(startDiagX, startY);
+            // Line crossing through Neutral Axis depth to Tension Reinforcement level
+            ctx.lineTo(startDiagX, naY);
+            ctx.lineTo(startDiagX + 50, rebarsY);
+            ctx.stroke();
+
+            // Strain shading areas
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.1)';
+            ctx.beginPath();
+            ctx.moveTo(startDiagX - 40, startY);
+            ctx.lineTo(startDiagX, startY);
+            ctx.lineTo(startDiagX, naY);
+            ctx.fill();
+
+            ctx.fillStyle = 'rgba(245, 158, 11, 0.08)';
+            ctx.beginPath();
+            ctx.moveTo(startDiagX, naY);
+            ctx.lineTo(startDiagX + 50, rebarsY);
+            ctx.lineTo(startDiagX, rebarsY);
+            ctx.fill();
+
+            // Label extreme strains limits
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillText('ε_cu = 0.0035', startDiagX - 110, startY + 12);
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillText('ε_st limit', startDiagX + 54, rebarsY + 4);
+
+            ctx.restore();
+        }
+
+        // Resize observer
+        const resizeObserver = new ResizeObserver(() => {
+            initCanvas();
+        });
+        resizeObserver.observe(canvas.parentElement);
+
+        // State & Controls Interactivity Logic
+        function updateModel(param, val) {
+            Model[param] = parseFloat(val);
+            document.getElementById(`val-${param}`).innerText = `${val} mm`;
+            playThock();
+            drawStage();
+            evaluateResults();
+        }
+
+        function updateSteel(grade) {
+            Model.fy = grade;
+            const grades = [250, 415, 500];
+            grades.forEach(g => {
+                const b = document.getElementById(`btn-fy-${g}`);
+                if (g === grade) {
+                    b.className = 'text-xs py-1.5 rounded font-mono border border-amber-500 bg-amber-500/20 text-amber-300 font-bold';
+                } else {
+                    b.className = 'text-xs py-1.5 rounded font-mono border border-slate-800 hover:border-slate-700 bg-slate-900/80 text-slate-400 transition';
+                }
+            });
+
+            // Set current targeting criteria based on active variables
+            Model.xu_ratio = targetCoefficients[grade];
+            document.getElementById('slider-xu').value = Model.xu_ratio;
+            document.getElementById('val-xu').innerText = `${Model.xu_ratio}d`;
+            
+            // Re-render tokens highlights
+            const steelTok = document.getElementById('tok-fy');
+            steelTok.innerHTML = `Fe ${grade} (f<sub>y</sub> = ${grade} N/mm²)`;
+
+            playThock();
+            
+            // Adjust Drag targets accepted values on changes
+            const target1 = document.getElementById('target-1');
+            target1.setAttribute('data-accepted', Model.xu_ratio.toString());
+
+            speak(`Steel grade upgraded to iron ${grade}. Target coefficient is now ${Model.xu_ratio}.`);
+            drawStage();
+            evaluateResults();
+        }
+
+        function focusVariable(param, label) {
+            Model.focusedParam = label;
+            document.querySelectorAll('.interactive-token').forEach(t => {
+                t.classList.remove('active-cyan', 'active-magenta', 'active-amber');
+            });
+            const selectedTok = document.getElementById(`tok-${param}`);
+            if (selectedTok) {
+                if (label === 'width') selectedTok.classList.add('active-cyan');
+                if (label === 'depth') selectedTok.classList.add('active-magenta');
+                if (label === 'steel') selectedTok.classList.add('active-amber');
+            }
+
+            speak(`Inspecting beam ${label} parameters.`);
+            playThock();
+            drawStage();
+        }
+
+        function updatePivot(val) {
+            Model.xu_ratio = parseFloat(val);
+            document.getElementById('val-xu').innerText = `${val}d`;
+            drawStage();
+        }
+
+        // Reset camera viewport standard position
+        function resetCamera() {
+            gsap.to(Model, {
+                cameraZoom: 1.0,
+                duration: 0.8,
+                ease: "power2.out",
+                onUpdate: drawStage
+            });
+            speak("Camera viewport matrix reset complete.");
+        }
+
+        // Virtual Book drag tracking logic
+        function updatePage(page) {
+            Model.bookmarkPage = parseInt(page);
+            document.getElementById('is456-page-num').innerText = `Page ${page}`;
+            playThock();
+
+            const doc = document.getElementById('is456-content');
+
+            if (Model.bookmarkPage === 70) {
+                if (!Model.isPageUnlocked) {
+                    Model.isPageUnlocked = true;
+                    playChime();
+                    speak("Limiting neutral axis page unlocked in codebook.");
+                    
+                    // Unlock animation
+                    gsap.to("#assembly-container", { opacity: 1, pointerEvents: 'auto', duration: 0.5 });
+                    document.getElementById('diag-step').innerText = "2: Build and calculate xu,max";
+                }
+                
+                doc.innerHTML = `
+                    <div class="text-emerald-400 font-bold mb-1 border-b border-emerald-900 pb-1">★ Clause 38.1 - Table (b)</div>
+                    <div class="grid grid-cols-2 gap-1 text-[10px] text-slate-300">
+                        <span>Fe 250 steel:</span> <span class="text-right text-emerald-400">xu,max/d = 0.53</span>
+                        <span>Fe 415 steel:</span> <span class="text-right text-emerald-400 font-bold">xu,max/d = 0.48</span>
+                        <span>Fe 500 steel:</span> <span class="text-right text-emerald-400">xu,max/d = 0.46</span>
+                    </div>
+                `;
+            } else {
+                if (Model.isPageUnlocked && Math.abs(Model.bookmarkPage - 70) > 10) {
+                    // Lock if stray too far to reinforce page 70 requirement
+                    Model.isPageUnlocked = false;
+                    gsap.to("#assembly-container", { opacity: 0.5, pointerEvents: 'none', duration: 0.5 });
+                    document.getElementById('diag-step').innerText = "1: Research IS 456 page 70";
+                }
+                
+                if (Model.bookmarkPage < 30) {
+                    doc.innerHTML = `<div class="text-center text-slate-500">General Clauses (Cover, Deflection details)...</div>`;
+                } else if (Model.bookmarkPage < 70) {
+                    doc.innerHTML = `<div class="text-center text-slate-400">Design Criteria (Limit State of Collapse)... close to page 70</div>`;
+                } else {
+                    doc.innerHTML = `<div class="text-center text-slate-500">Slab and Beam detailing rules... drag back to page 70</div>`;
+                }
+            }
+        }
+
+        // Drag and Drop Logic API
+        const chips = document.querySelectorAll('.chip');
+        const slots = document.querySelectorAll('.formula-slot');
+
+        chips.forEach(chip => {
+            chip.addEventListener('dragstart', (e) => {
+                e.dataTransfer.setData('text/plain', chip.getAttribute('data-val'));
+                chip.classList.add('opacity-40');
+                playThock();
+            });
+
+            chip.addEventListener('dragend', () => {
+                chip.classList.remove('opacity-40');
+            });
+        });
+
+        slots.forEach(slot => {
+            slot.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                slot.classList.add('dragover');
+            });
+
+            slot.addEventListener('dragleave', () => {
+                slot.classList.remove('dragover');
+            });
+
+            slot.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slot.classList.remove('dragover');
+                const val = e.dataTransfer.getData('text/plain');
+                const accepted = slot.getAttribute('data-accepted');
+
+                if (val === accepted) {
+                    slot.classList.add('correct');
+                    slot.innerHTML = `<span class="text-emerald-400 font-bold text-sm">${val}</span>`;
+                    
+                    if (slot.id === 'target-1') Model.assembledCoef = parseFloat(val);
+                    if (slot.id === 'target-2') Model.assembledD = val;
+
+                    playChime();
+                    evaluateResults();
+                } else {
+                    // Shake and reject
+                    slot.classList.add('animate-shake');
+                    playWarning();
+                    speak("Invalid placement. Reference codebook coefficient criteria values.");
+                    setTimeout(() => {
+                        slot.classList.remove('animate-shake');
+                    }, 300);
+                }
+            });
+        });
+
+        // Compute results dynamically once assembled parameters align
+        function evaluateResults() {
+            const calcDiv = document.getElementById('calc-result');
+
+            if (Model.assembledCoef && Model.assembledD) {
+                // Calculation matches requirements
+                const finalXuMax = Math.round(Model.assembledCoef * Model.b * (Model.d / Model.b)); // correct computation formula
+                
+                calcDiv.innerHTML = `
+                    <div class="text-[10px] text-emerald-400 font-mono tracking-wider font-bold">COMPUTATION CRITERIA MATCHED</div>
+                    <div class="text-xl font-mono font-bold text-white neon-glow-cyan">x<sub>u,max</sub> = ${finalXuMax} mm</div>
+                    <div class="text-[9px] text-slate-400">Using coefficient ${Model.assembledCoef} for Fe ${Model.fy} steel.</div>
+                `;
+
+                // Perform Camera Zoom into neutral axis on Stage Canvas
+                gsap.to(Model, {
+                    cameraZoom: 1.5,
+                    duration: 1.2,
+                    ease: "power2.out",
+                    onUpdate: drawStage
+                });
+
+                speak(`Computation verified. The limiting neutral axis depth is ${finalXuMax} millimeters.`);
+            } else {
+                calcDiv.innerHTML = `
+                    <span class="text-[10px] font-mono text-slate-500 uppercase">Calculated Output</span>
+                    <span class="text-xs font-medium text-slate-400">Assemble parameters above to compute final depth</span>
+                `;
+            }
+        }
+
+        // Initialize App Stage
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            updatePage(1);
+            
+            // Introduce module welcome instruction speech
+            setTimeout(() => {
+                speak("Welcome to the interactive RCC studio. Select parameters or drag book to find page 70.");
+            }, 800);
+        });
+    </script>
+</body>
+</html>

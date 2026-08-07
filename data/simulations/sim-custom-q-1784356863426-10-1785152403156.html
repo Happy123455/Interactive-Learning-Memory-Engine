@@ -1,0 +1,1334 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PCC Rigid Pavement Design & Mechanics Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            950: '#0a0f1d',
+                        },
+                        brand: {
+                            blue: '#3b82f6',
+                            emerald: '#10b981',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e',
+                            cyan: '#06b6d4',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col antialiased selection:bg-brand-blue selection:text-white">
+
+    <!-- Header Navigation -->
+    <header class="bg-slate-900/90 border-b border-slate-800 sticky top-0 z-50 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <i class="fa-solid me-0 fa-layer-group text-white text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg text-slate-100 leading-tight">PCC Rigid Pavement Simulator</h1>
+                    <p class="text-xs text-slate-400">Structural, Environmental & Material Parameter Design</p>
+                </div>
+            </div>
+
+            <!-- Tab Switcher Navigation -->
+            <nav class="hidden md:flex space-x-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button onclick="switchTab('dashboard')" id="tab-dashboard" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 bg-blue-600 text-white shadow-md">
+                    <i class="fa-solid fa-gauge-high mr-1.5"></i> Design Dashboard
+                </button>
+                <button onclick="switchTab('wheel')" id="tab-wheel" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                    <i class="fa-solid fa-truck-axle mr-1.5"></i> Wheel Stress
+                </button>
+                <button onclick="switchTab('temp')" id="tab-temp" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                    <i class="fa-solid fa-temperature-half mr-1.5"></i> Thermal Warping
+                </button>
+                <button onclick="switchTab('subgrade')" id="tab-subgrade" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                    <i class="fa-solid fa-mountain mr-1.5"></i> Subgrade & DLC
+                </button>
+                <button onclick="switchTab('joints')" id="tab-joints" class="tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all">
+                    <i class="fa-solid fa-bolt mr-1.5"></i> Joint Load Transfer
+                </button>
+            </nav>
+
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 mr-1.5 animate-pulse"></span> IRC:58 / AASHTO Model
+                </span>
+            </div>
+        </div>
+
+        <!-- Mobile Nav Scrollable Bar -->
+        <div class="md:hidden flex overflow-x-auto px-4 py-2 space-x-2 bg-slate-900 border-t border-slate-800">
+            <button onclick="switchTab('dashboard')" id="mob-tab-dashboard" class="whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium bg-blue-600 text-white">Dashboard</button>
+            <button onclick="switchTab('wheel')" id="mob-tab-wheel" class="whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium text-slate-400 bg-slate-800">Wheel Stress</button>
+            <button onclick="switchTab('temp')" id="mob-tab-temp" class="whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium text-slate-400 bg-slate-800">Warping</button>
+            <button onclick="switchTab('subgrade')" id="mob-tab-subgrade" class="whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium text-slate-400 bg-slate-800">Subgrade & DLC</button>
+            <button onclick="switchTab('joints')" id="mob-tab-joints" class="whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium text-slate-400 bg-slate-800">Joints</button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <!-- TAB 1: INTEGRATED DESIGN DASHBOARD -->
+        <section id="sec-dashboard" class="tab-content space-y-6">
+            <!-- Top Metric Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Modulus of Rupture ($f_{cr}$)</div>
+                    <div class="mt-2 flex items-baseline">
+                        <span id="card-fcr" class="text-2xl font-bold font-mono text-cyan-400">4.43</span>
+                        <span class="ml-1.5 text-xs text-slate-400">MPa</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-1">Formula: $f_{cr} = 0.7 \sqrt{f_{ck}}$</div>
+                    <div class="absolute -right-2 -bottom-2 opacity-5 text-cyan-400 text-6xl"><i class="fa-solid fa-shield-halved"></i></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Radius of Rel. Stiffness ($l$)</div>
+                    <div class="mt-2 flex items-baseline">
+                        <span id="card-l" class="text-2xl font-bold font-mono text-indigo-400">89.4</span>
+                        <span class="ml-1.5 text-xs text-slate-400">cm</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-1">Governed by $E$, $h$, $k$, and $\mu$</div>
+                    <div class="absolute -right-2 -bottom-2 opacity-5 text-indigo-400 text-6xl"><i class="fa-solid fa-ruler-combined"></i></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Max Combined Stress</div>
+                    <div class="mt-2 flex items-baseline">
+                        <span id="card-total-stress" class="text-2xl font-bold font-mono text-amber-400">3.82</span>
+                        <span class="ml-1.5 text-xs text-slate-400">MPa</span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-1">Wheel Edge Load + Thermal Warping</div>
+                    <div class="absolute -right-2 -bottom-2 opacity-5 text-amber-400 text-6xl"><i class="fa-solid fa-weight-hanging"></i></div>
+                </div>
+
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-sm relative overflow-hidden">
+                    <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Stress Ratio / Status</div>
+                    <div class="mt-2 flex items-center justify-between">
+                        <span id="card-sr" class="text-2xl font-bold font-mono text-emerald-400">0.86</span>
+                        <span id="card-status-badge" class="px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            SAFE
+                        </span>
+                    </div>
+                    <div class="text-[11px] text-slate-500 mt-1">SR = Combined Stress / $f_{cr}$ (&lt; 1.0)</div>
+                    <div class="absolute -right-2 -bottom-2 opacity-5 text-emerald-400 text-6xl"><i class="fa-solid fa-check-circle"></i></div>
+                </div>
+            </div>
+
+            <!-- Interactive Visualizer & Controls Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Left Viewport: 3D Isometric Interactive Slab Visualization -->
+                <div class="lg:col-span-7 bg-slate-900 border border-slate-800 rounded-2xl p-5 flex flex-col space-y-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-2">
+                            <span class="w-3 h-3 rounded-full bg-cyan-400"></span>
+                            <h3 class="font-semibold text-sm text-slate-200">Interactive 3D Slab Stress Heatmap</h3>
+                        </div>
+                        <div class="flex space-x-1 text-xs">
+                            <button onclick="setWheelPosition('corner')" id="btn-pos-corner" class="pos-btn px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700">Corner</button>
+                            <button onclick="setWheelPosition('edge')" id="btn-pos-edge" class="pos-btn px-2.5 py-1 rounded-lg border border-blue-500/50 bg-blue-600/20 text-blue-400 font-semibold">Edge (Critical)</button>
+                            <button onclick="setWheelPosition('interior')" id="btn-pos-interior" class="pos-btn px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700">Interior</button>
+                        </div>
+                    </div>
+
+                    <!-- Canvas Container -->
+                    <div class="relative w-full h-[340px] bg-slate-950 rounded-xl overflow-hidden border border-slate-800 flex items-center justify-center">
+                        <canvas id="mainIsometricCanvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+                        <!-- Canvas Overlay Floating Info -->
+                        <div class="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur border border-slate-800 rounded-lg p-2.5 text-xs text-slate-300 space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400">Load Location:</span>
+                                <span id="lbl-active-location" class="font-bold text-blue-400">Edge Location</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-slate-400">Max Tensile Zone:</span>
+                                <span id="lbl-tensile-zone" class="font-semibold text-amber-400">Bottom Fiber (Bending)</span>
+                            </div>
+                        </div>
+
+                        <!-- Legend Overlay -->
+                        <div class="absolute top-3 right-3 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-lg p-2 text-[10px] space-y-1">
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 rounded bg-red-500"></div>
+                                <span class="text-slate-300">High Tensile Stress</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 rounded bg-yellow-500"></div>
+                                <span class="text-slate-300">Moderate Stress</span>
+                            </div>
+                            <div class="flex items-center space-x-2">
+                                <div class="w-3 h-3 rounded bg-blue-500"></div>
+                                <span class="text-slate-300">Low Compression / Flexure</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-xs text-slate-400 bg-slate-950/60 p-3 rounded-xl border border-slate-800/80 leading-relaxed">
+                        <i class="fa-solid fa-circle-info text-blue-400 mr-1"></i>
+                        <strong class="text-slate-200">Westergaard Mechanics:</strong> Maximum critical tensile bending stress occurs at the <span class="text-amber-400 font-semibold">Edge</span> (bottom fiber) under daytime loading, making it the controlling location for rigid pavement slab thickness design.
+                    </div>
+                </div>
+
+                <!-- Right Column: Control Parameters Sliders -->
+                <div class="lg:col-span-5 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
+                    <h3 class="font-semibold text-sm text-slate-200 flex items-center justify-between border-b border-slate-800 pb-2">
+                        <span><i class="fa-solid fa-sliders text-cyan-400 mr-2"></i>Design Input Parameters</span>
+                        <button onclick="resetParameters()" class="text-xs text-slate-400 hover:text-slate-200"><i class="fa-solid fa-rotate-left mr-1"></i>Reset</button>
+                    </h3>
+
+                    <div class="space-y-4 text-xs">
+                        <!-- Axle Load P -->
+                        <div>
+                            <div class="flex justify-between text-slate-300 font-medium mb-1">
+                                <span>Design Axle Load ($P_a$)</span>
+                                <span class="text-cyan-400 font-mono"><span id="val-axle-load">102</span> kN (<span id="val-wheel-load">51</span> kN Wheel)</span>
+                            </div>
+                            <input type="range" id="input-axle-load" min="40" max="240" value="102" step="2" class="w-full accent-cyan-500 bg-slate-800 rounded-lg h-2">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                                <span>Single (80 kN)</span>
+                                <span>Standard Single (102 kN)</span>
+                                <span>Tandem (180 kN)</span>
+                            </div>
+                        </div>
+
+                        <!-- Slab Thickness h -->
+                        <div>
+                            <div class="flex justify-between text-slate-300 font-medium mb-1">
+                                <span>Concrete Slab Thickness ($h$)</span>
+                                <span class="text-indigo-400 font-mono"><span id="val-thickness">25</span> cm</span>
+                            </div>
+                            <input type="range" id="input-thickness" min="15" max="40" value="25" step="1" class="w-full accent-indigo-500 bg-slate-800 rounded-lg h-2">
+                        </div>
+
+                        <!-- Concrete Grade f_ck -->
+                        <div>
+                            <div class="flex justify-between text-slate-300 font-medium mb-1">
+                                <span>Concrete Grade ($f_{ck}$)</span>
+                                <span class="text-emerald-400 font-mono">Grade M<span id="val-concrete-grade">40</span></span>
+                            </div>
+                            <div class="grid grid-cols-4 gap-1.5 mt-1.5">
+                                <button onclick="setConcreteGrade(30)" class="grade-btn py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">M30</button>
+                                <button onclick="setConcreteGrade(35)" class="grade-btn py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">M35</button>
+                                <button onclick="setConcreteGrade(40)" class="grade-btn py-1.5 rounded bg-blue-600 text-white font-bold border border-blue-500">M40</button>
+                                <button onclick="setConcreteGrade(50)" class="grade-btn py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">M50</button>
+                            </div>
+                        </div>
+
+                        <!-- Subgrade Reaction k -->
+                        <div>
+                            <div class="flex justify-between text-slate-300 font-medium mb-1">
+                                <span>Modulus of Subgrade Reaction ($k$)</span>
+                                <span class="text-amber-400 font-mono"><span id="val-k">0.08</span> kg/cm³</span>
+                            </div>
+                            <input type="range" id="input-k" min="0.03" max="0.20" value="0.08" step="0.01" class="w-full accent-amber-500 bg-slate-800 rounded-lg h-2">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                                <span>Poor Subgrade (0.03)</span>
+                                <span>Normal Subgrade (0.08)</span>
+                                <span>DLC Base (0.15+)</span>
+                            </div>
+                        </div>
+
+                        <!-- Temperature Gradient delta T -->
+                        <div>
+                            <div class="flex justify-between text-slate-300 font-medium mb-1">
+                                <span>Temperature Gradient ($\Delta T$)</span>
+                                <span class="text-rose-400 font-mono"><span id="val-temp">15</span> °C</span>
+                            </div>
+                            <input type="range" id="input-temp" min="-15" max="25" value="15" step="1" class="w-full accent-rose-500 bg-slate-800 rounded-lg h-2">
+                            <div class="flex justify-between text-[10px] text-slate-500 mt-1">
+                                <span>Night (-15°C Upward)</span>
+                                <span>Neutral (0°C)</span>
+                                <span>Day (+25°C Downward)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stress Breakdown & Westergaard Analysis Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Stress Location Comparison Bar Chart -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3">
+                    <h4 class="font-semibold text-sm text-slate-200 flex items-center justify-between">
+                        <span><i class="fa-solid fa-chart-column text-blue-400 mr-2"></i>Westergaard Wheel Load Stresses vs Location</span>
+                        <span class="text-xs font-normal text-slate-400">No Temperature Stress Included</span>
+                    </h4>
+                    <div class="h-60">
+                        <canvas id="chartWestergaard"></canvas>
+                    </div>
+                </div>
+
+                <!-- Comprehensive Stress Breakdown Table & Formulae Summary -->
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+                    <div>
+                        <h4 class="font-semibold text-sm text-slate-200 mb-3"><i class="fa-solid fa-calculator text-emerald-400 mr-2"></i>Structural Calculation Summary</h4>
+                        <div class="space-y-2 text-xs">
+                            <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-300">
+                                <span class="text-slate-400">Modulus of Elasticity ($E = 5000\sqrt{f_{ck}}$):</span>
+                                <span id="calc-e" class="font-mono text-slate-200">31,622 MPa</span>
+                            </div>
+                            <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-300">
+                                <span class="text-slate-400">Equivalent Contact Radius ($a$):</span>
+                                <span id="calc-a" class="font-mono text-slate-200">14.2 cm</span>
+                            </div>
+                            <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-300">
+                                <span class="text-slate-400">Resisting Section Radius ($b$):</span>
+                                <span id="calc-b" class="font-mono text-slate-200">13.8 cm</span>
+                            </div>
+                            <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-300">
+                                <span class="text-slate-400">Westergaard Edge Stress ($S_e$):</span>
+                                <span id="calc-se" class="font-mono text-blue-400">2.48 MPa</span>
+                            </div>
+                            <div class="flex justify-between py-1.5 border-b border-slate-800 text-slate-300">
+                                <span class="text-slate-400">Warping Edge Stress ($S_t$):</span>
+                                <span id="calc-st" class="font-mono text-amber-400">1.34 MPa</span>
+                            </div>
+                            <div class="flex justify-between py-1.5 pt-2 text-slate-200 font-bold">
+                                <span>Total Critical Combined Stress:</span>
+                                <span id="calc-stotal" class="font-mono text-emerald-400">3.82 MPa</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="status-explanation-box" class="p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-300">
+                        <i class="fa-solid fa-shield-check mr-1.5"></i>
+                        <strong>Pavement Structural Integrity Verified:</strong> The maximum combined stress (3.82 MPa) is less than the concrete flexural strength ($f_{cr} = 4.43$ MPa). No fatigue cracking expected.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: WHEEL LOAD FACTORS & WESTERGAARD STRESSES -->
+        <section id="sec-wheel" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-truck-axle text-blue-400 mr-2.5"></i> 1. Wheel Load Factors & Critical Load Placements
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Understanding how design axle loads are transformed into cumulative standard axles (102 kN single axle, 180 kN tandem axle) and evaluating Westergaard's three primary stress locations.
+                    </p>
+                </div>
+
+                <!-- 3 Locations Grid Cards -->
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- Corner Stress -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3 relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                        <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">1</div>
+                        <h3 class="font-bold text-slate-200 text-sm">Corner Stress ($S_c$)</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Occurs when the wheel load is applied at the slab corner bisector. Generates cantilever action resulting in <strong>highest tensile stress at the TOP surface</strong> of the slab.
+                        </p>
+                        <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[11px] font-mono text-amber-300">
+                            $S_c = \frac{3P}{h^2}\left[1 - \left(\frac{a\sqrt{2}}{l}\right)^{0.6}\right]$
+                        </div>
+                    </div>
+
+                    <!-- Edge Stress (Critical) -->
+                    <div class="bg-slate-950 border border-blue-500/40 rounded-xl p-5 space-y-3 relative overflow-hidden group hover:border-blue-400 transition-all">
+                        <div class="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-400 flex items-center justify-center font-bold">2</div>
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-slate-100 text-sm">Edge Stress ($S_e$)</h3>
+                            <span class="text-[10px] bg-blue-500 text-white font-bold px-2 py-0.5 rounded">CRITICAL</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Occurs along the longitudinal edge far from corners. Causes maximum bending deflection, producing <strong>highest tensile stress at the BOTTOM surface</strong> (governing design criteria).
+                        </p>
+                        <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[11px] font-mono text-blue-300">
+                            $S_e = \frac{0.529P}{h^2}(1+0.54\mu)\left[\log_{10}\left(\frac{l}{b}\right)+0.359\right]$
+                        </div>
+                    </div>
+
+                    <!-- Interior Stress -->
+                    <div class="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3 relative overflow-hidden group hover:border-emerald-500/50 transition-all">
+                        <div class="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold">3</div>
+                        <h3 class="font-bold text-slate-200 text-sm">Interior Stress ($S_i$)</h3>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Wheel load is applied deep within the slab interior. The load is supported symmetrically in all directions, yielding the <strong>lowest overall stress magnitude</strong>.
+                        </p>
+                        <div class="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[11px] font-mono text-emerald-300">
+                            $S_i = \frac{0.316P}{h^2}\left[4\log_{10}\left(\frac{l}{b}\right)+1.069\right]$
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Location Demonstrator Visualizer -->
+                <div class="bg-slate-950 rounded-xl p-5 border border-slate-800 space-y-4">
+                    <h4 class="font-semibold text-xs text-slate-300 uppercase tracking-wider">Interactive Bending Deflection & Stress Distribution Visualizer</h4>
+                    <div class="w-full h-64 bg-slate-900 rounded-lg overflow-hidden relative">
+                        <canvas id="wheelDeformationCanvas" class="w-full h-full"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 3: TEMPERATURE FACTORS (WARPING & FRICTION) -->
+        <section id="sec-temp" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-temperature-high text-rose-400 mr-2.5"></i> 2. Environmental & Temperature Factors
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Concrete slabs experience severe daily thermal gradients causing bending (warping) and seasonal temperature drops causing overall contraction resisted by subgrade friction.
+                    </p>
+                </div>
+
+                <!-- Toggle Daytime vs Nighttime Simulation Controls -->
+                <div class="flex flex-col sm:flex-row items-center justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 gap-4">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xs font-semibold text-slate-300">Select Thermal Condition:</span>
+                        <div class="inline-flex rounded-lg p-1 bg-slate-900 border border-slate-800">
+                            <button onclick="setThermalMode('day')" id="btn-thermal-day" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all bg-amber-500 text-slate-950">
+                                <i class="fa-solid fa-sun mr-1"></i> Daytime Warping
+                            </button>
+                            <button onclick="setThermalMode('night')" id="btn-thermal-night" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">
+                                <i class="fa-solid fa-moon mr-1"></i> Nighttime Warping
+                            </button>
+                            <button onclick="setThermalMode('seasonal')" id="btn-thermal-seasonal" class="px-3 py-1.5 rounded-md text-xs font-bold transition-all text-slate-400 hover:text-white">
+                                <i class="fa-solid fa-snowflake mr-1"></i> Seasonal Friction
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="thermal-summary-badge" class="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 font-medium">
+                        Top is hotter than bottom $\rightarrow$ Edges curl downward
+                    </div>
+                </div>
+
+                <!-- Interactive Warping Canvas Visualization -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div class="lg:col-span-8 bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col space-y-3">
+                        <h4 class="font-semibold text-xs text-slate-300 uppercase tracking-wider">Cross-Sectional Slab Warping Profile</h4>
+                        <div class="w-full h-72 bg-slate-900 rounded-lg overflow-hidden relative">
+                            <canvas id="warpingCanvas" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="lg:col-span-4 bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4 text-xs">
+                        <h4 class="font-bold text-slate-200 border-b border-slate-800 pb-2 text-sm">Thermal Mechanics Details</h4>
+
+                        <div id="thermal-desc-box" class="space-y-3 text-slate-300 leading-relaxed">
+                            <p>
+                                <strong class="text-amber-400">Daytime Gradient:</strong> Solar radiation heats the slab surface ($T_{top} > T_{bottom}$).
+                            </p>
+                            <p>
+                                The top expands more than the bottom, causing the slab to **curl downward** at the edges. Self-weight prevents full curling, inducing **high tensile stress at the bottom surface**.
+                            </p>
+                            <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 font-mono text-[11px] text-amber-300">
+                                Critical Combination:<br>
+                                Max Stress = Wheel Edge Stress + Daytime Edge Warping Stress
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: SUBGRADE AND SUB-BASE SUPPORT -->
+        <section id="sec-subgrade" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-mountain text-amber-400 mr-2.5"></i> 4. Subgrade Support & Dry Lean Concrete (DLC) Sub-base
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Evaluating foundation stiffness via Modulus of Subgrade Reaction ($k$) from Plate Load Tests and understanding how Dry Lean Concrete (DLC) prevents subgrade soil pumping.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Plate Load Test Card -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold"><i class="fa-solid fa-circle-dot"></i></div>
+                            <h3 class="font-bold text-slate-200 text-sm">Plate Load Test (75 cm Diameter)</h3>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Subgrade stiffness ($k$) is measured by pressing a standard 75 cm diameter steel plate into the subgrade to cause a standard displacement ($\delta = 1.25$ mm).
+                        </p>
+                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs font-mono text-amber-300">
+                            $k = \frac{p}{\delta} = \frac{\text{Pressure for } 1.25\text{ mm deflection}}{0.125\text{ cm}}$ (kg/cm³)
+                        </div>
+                        <div class="space-y-1.5 text-xs text-slate-300">
+                            <div class="flex justify-between border-b border-slate-800/80 py-1">
+                                <span class="text-slate-400">Natural Clay Soil Subgrade:</span>
+                                <span class="font-mono text-amber-400">2.5 - 4.5 kg/cm³</span>
+                            </div>
+                            <div class="flex justify-between border-b border-slate-800/80 py-1">
+                                <span class="text-slate-400">Granular Sub-base (GSB):</span>
+                                <span class="font-mono text-amber-400">5.5 - 8.0 kg/cm³</span>
+                            </div>
+                            <div class="flex justify-between py-1">
+                                <span class="text-slate-400">With Dry Lean Concrete (DLC):</span>
+                                <span class="font-mono text-emerald-400">15.0 - 30.0 kg/cm³</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Mud Pumping Mechanics Card -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-lg bg-rose-500/20 text-rose-400 flex items-center justify-center font-bold"><i class="fa-solid fa-water"></i></div>
+                            <h3 class="font-bold text-slate-200 text-sm">Subgrade Pumping Phenomenon</h3>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Under heavy load repetition + free water beneath joints, weak subgrade fine soil converts into mud slurry and gets ejected upward through joint deflections, creating voids beneath slabs!
+                        </p>
+                        <div class="bg-slate-900 p-3 rounded-lg border border-slate-800 text-xs text-slate-300 space-y-1">
+                            <div class="font-bold text-emerald-400"><i class="fa-solid fa-shield mr-1"></i> Solution: Dry Lean Concrete (DLC) Layer</div>
+                            <p class="text-[11px] text-slate-400">
+                                A 100-150mm low-slump zero-slump concrete layer provides an impermeable, erosion-resistant non-erodible working platform.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Interactive Pumping Simulation Canvas -->
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-semibold text-xs text-slate-300 uppercase tracking-wider">Subgrade Mud Pumping Interactive Demonstration</h4>
+                        <button onclick="toggleDLC()" id="btn-toggle-dlc" class="px-3 py-1 rounded-lg text-xs font-bold border border-rose-500 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30">
+                            DLC Base: OFF (Erosion Risk)
+                        </button>
+                    </div>
+
+                    <div class="w-full h-64 bg-slate-900 rounded-lg overflow-hidden relative">
+                        <canvas id="pumpingCanvas" class="w-full h-full cursor-pointer"></canvas>
+                        <div class="absolute bottom-3 left-3 bg-slate-950/80 p-2 rounded text-[11px] text-slate-300">
+                            Click canvas or wheel to simulate dynamic heavy wheel passage across joint
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: JOINT DESIGN & LOAD TRANSFER -->
+        <section id="sec-joints" class="tab-content hidden space-y-6">
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center">
+                        <i class="fa-solid fa-bolt text-indigo-400 mr-2.5"></i> 5. Joint Design & Load Transfer Mechanics
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-1">
+                        Rigid pavements use transverse joints with steel Dowel Bars for wheel load transfer without faulting, and longitudinal joints with Tie Bars to prevent lateral separation.
+                    </p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Dowel Bars Card -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-indigo-500/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-slate-200 text-sm flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-indigo-400 mr-2"></span> Transverse Dowel Bars
+                            </h3>
+                            <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded font-mono">Smooth Round Bars</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Smooth steel bars placed at transverse contraction/expansion joints. They allow longitudinal thermal expansion/contraction while transferring vertical shear loads across adjacent slabs.
+                        </p>
+                        <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                            <li>Typical Diameters: 25 mm to 38 mm</li>
+                            <li>Standard Length: 450 mm @ 300 mm spacing</li>
+                            <li>Coated with lubricant on one half to allow free sliding</li>
+                        </ul>
+                    </div>
+
+                    <!-- Tie Bars Card -->
+                    <div class="bg-slate-950 p-5 rounded-xl border border-cyan-500/30 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="font-bold text-slate-200 text-sm flex items-center">
+                                <span class="w-2 h-2 rounded-full bg-cyan-400 mr-2"></span> Longitudinal Tie Bars
+                            </h3>
+                            <span class="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-mono">Deformed HYSD Bars</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-relaxed">
+                            Deformed high-yield steel bars installed across longitudinal joints between adjacent traffic lanes. They tie slabs together to prevent joint opening due to lateral sliding.
+                        </p>
+                        <ul class="text-xs text-slate-300 space-y-1.5 list-disc list-inside">
+                            <li>Typical Diameters: 12 mm to 16 mm</li>
+                            <li>Bonded firmly to concrete on both ends (NOT for load transfer)</li>
+                            <li>Designed to resist total frictional drag force</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Dowel Bar Load Transfer Interactive Visualizer -->
+                <div class="bg-slate-950 p-5 rounded-xl border border-slate-800 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h4 class="font-semibold text-xs text-slate-300 uppercase tracking-wider">Dowel Bar Load Transfer Shear Visualizer</h4>
+                        <div class="flex items-center space-x-3 text-xs">
+                            <span class="text-slate-400">Load Transfer Efficiency:</span>
+                            <span id="lbl-lte" class="font-mono font-bold text-emerald-400">92% (Excellent)</span>
+                        </div>
+                    </div>
+
+                    <div class="w-full h-64 bg-slate-900 rounded-lg overflow-hidden relative">
+                        <canvas id="dowelCanvas" class="w-full h-full cursor-pointer"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        /* State Variables */
+        const state = {
+            axleLoad: 102, // kN
+            wheelLoad: 51, // kN (P)
+            thickness: 25, // cm (h)
+            fck: 40, // MPa
+            k: 0.08, // kg/cm3
+            tempDelta: 15, // deg C
+            wheelPos: 'edge', // 'corner', 'edge', 'interior'
+            thermalMode: 'day', // 'day', 'night', 'seasonal'
+            dlcEnabled: false,
+            activeTab: 'dashboard'
+        };
+
+        let chartWestergaard = null;
+
+        /* Derived Calculations */
+        function calculatePavementMetrics() {
+            const P = (state.axleLoad / 2) * 1000; // Wheel load in N
+            const h = state.thickness * 10; // Thickness in mm
+            const fck = state.fck; // MPa
+            const fcr = 0.7 * Math.sqrt(fck); // Modulus of rupture in MPa
+
+            // Concrete Elastic Modulus E (MPa)
+            const E = 5000 * Math.sqrt(fck);
+            const mu = 0.15; // Poisson's ratio
+            const alpha = 1e-5; // Coeff thermal expansion per °C
+
+            // k in N/mm3 (1 kg/cm3 = 0.0980665 N/mm3)
+            const k_Nmm3 = state.k * 0.0980665;
+
+            // Radius of Relative Stiffness l (mm)
+            // l = [ (E * h^3) / (12 * k * (1 - mu^2)) ] ^ 0.25
+            const l = Math.pow((E * Math.pow(h, 3)) / (12 * k_Nmm3 * (1 - Math.pow(mu, 2))), 0.25);
+
+            // Tire contact pressure p = 0.8 MPa
+            const p_press = 0.8;
+            const a = Math.sqrt(P / (Math.PI * p_press)); // mm
+
+            // Resisting section radius b (mm)
+            let b = a;
+            if (a < 1.724 * h) {
+                b = Math.sqrt(1.6 * Math.pow(a, 2) + Math.pow(h, 2)) - 0.675 * h;
+            }
+
+            // Westergaard Wheel Load Stresses (MPa)
+            // 1. Corner Stress Sc
+            const Sc = (3 * P / Math.pow(h, 2)) * (1 - Math.pow((a * Math.sqrt(2)) / l, 0.6));
+
+            // 2. Edge Stress Se
+            const Se = (0.529 * P / Math.pow(h, 2)) * (1 + 0.54 * mu) * (Math.log10(l / b) + 0.359);
+
+            // 3. Interior Stress Si
+            const Si = (0.316 * P / Math.pow(h, 2)) * (4 * Math.log10(l / b) + 1.069);
+
+            // Bradbury Warping Stress at Edge St (MPa)
+            // St = C * E * alpha * deltaT / 2
+            const C = 0.82; // Coefficient depending on L/l
+            const St = (C * E * alpha * Math.abs(state.tempDelta)) / 2;
+
+            // Active total critical stress depending on selected location & thermal gradient
+            let activeWheelStress = Se;
+            if (state.wheelPos === 'corner') activeWheelStress = Sc;
+            if (state.wheelPos === 'interior') activeWheelStress = Si;
+
+            const totalStress = activeWheelStress + St;
+            const stressRatio = totalStress / fcr;
+
+            return {
+                fcr,
+                l: l / 10, // cm
+                E,
+                a: a / 10, // cm
+                b: b / 10, // cm
+                Sc,
+                Se,
+                Si,
+                St,
+                activeWheelStress,
+                totalStress,
+                stressRatio
+            };
+        }
+
+        function updateUI() {
+            const metrics = calculatePavementMetrics();
+
+            // Card updates
+            document.getElementById('card-fcr').textContent = metrics.fcr.toFixed(2);
+            document.getElementById('card-l').textContent = metrics.l.toFixed(1);
+            document.getElementById('card-total-stress').textContent = metrics.totalStress.toFixed(2);
+            document.getElementById('card-sr').textContent = metrics.stressRatio.toFixed(2);
+
+            // Status Badge
+            const badge = document.getElementById('card-status-badge');
+            const explanation = document.getElementById('status-explanation-box');
+
+            if (metrics.stressRatio < 1.0) {
+                badge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+                badge.textContent = "SAFE";
+                explanation.className = "p-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs text-emerald-300";
+                explanation.innerHTML = `<i class="fa-solid fa-shield-check mr-1.5"></i> <strong>Pavement Structural Integrity Verified:</strong> Total stress (${metrics.totalStress.toFixed(2)} MPa) is below flexural concrete strength (${metrics.fcr.toFixed(2)} MPa). Safety Factor: ${(1/metrics.stressRatio).toFixed(2)}.`;
+            } else {
+                badge.className = "px-2.5 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 animate-pulse";
+                badge.textContent = "CRACK RISK";
+                explanation.className = "p-3 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs text-rose-300";
+                explanation.innerHTML = `<i class="fa-solid fa-triangle-exclamation mr-1.5"></i> <strong>Fatigue Failure Risk:</strong> Combined stress (${metrics.totalStress.toFixed(2)} MPa) exceeds rupture strength (${metrics.fcr.toFixed(2)} MPa). Increase slab thickness or subgrade reaction $k$.`;
+            }
+
+            // Calculation Breakdown Table
+            document.getElementById('calc-e').textContent = Math.round(metrics.E).toLocaleString() + ' MPa';
+            document.getElementById('calc-a').textContent = metrics.a.toFixed(1) + ' cm';
+            document.getElementById('calc-b').textContent = metrics.b.toFixed(1) + ' cm';
+            document.getElementById('calc-se').textContent = metrics.Se.toFixed(2) + ' MPa';
+            document.getElementById('calc-st').textContent = metrics.St.toFixed(2) + ' MPa';
+            document.getElementById('calc-stotal').textContent = metrics.totalStress.toFixed(2) + ' MPa';
+
+            // Slider Values Labels
+            document.getElementById('val-axle-load').textContent = state.axleLoad;
+            document.getElementById('val-wheel-load').textContent = (state.axleLoad / 2).toFixed(0);
+            document.getElementById('val-thickness').textContent = state.thickness;
+            document.getElementById('val-concrete-grade').textContent = state.fck;
+            document.getElementById('val-k').textContent = state.k.toFixed(2);
+            document.getElementById('val-temp').textContent = state.tempDelta;
+
+            // Chart update
+            updateChart(metrics);
+
+            // Re-render Canvases
+            renderIsometricSlab();
+            renderWheelDeformation();
+            renderWarpingCanvas();
+            renderPumpingCanvas();
+            renderDowelCanvas();
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('chartWestergaard').getContext('2d');
+            chartWestergaard = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Corner Stress (Sc)', 'Edge Stress (Se) [Critical]', 'Interior Stress (Si)', 'Flexural Strength (fcr)'],
+                    datasets: [{
+                        label: 'Stress Magnitude (MPa)',
+                        data: [0, 0, 0, 0],
+                        backgroundColor: [
+                            'rgba(245, 158, 11, 0.7)',
+                            'rgba(59, 130, 246, 0.85)',
+                            'rgba(16, 185, 129, 0.7)',
+                            'rgba(6, 182, 212, 0.4)'
+                        ],
+                        borderColor: [
+                            '#f59e0b',
+                            '#3b82f6',
+                            '#10b981',
+                            '#06b6d4'
+                        ],
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: 'rgba(51, 65, 85, 0.3)' },
+                            ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono' } },
+                            title: { display: true, text: 'Stress (MPa)', color: '#64748b' }
+                        },
+                        x: {
+                            grid: { display: false },
+                            ticks: { color: '#cbd5e1', font: { size: 11 } }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(metrics) {
+            if (!chartWestergaard) return;
+            chartWestergaard.data.datasets[0].data = [
+                metrics.Sc.toFixed(2),
+                metrics.Se.toFixed(2),
+                metrics.Si.toFixed(2),
+                metrics.fcr.toFixed(2)
+            ];
+            chartWestergaard.update();
+        }
+
+        function renderIsometricSlab() {
+            const canvas = document.getElementById('mainIsometricCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            // Handle retina DPR sizing
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            // Isometric transform centers
+            const centerX = w / 2;
+            const centerY = h / 2 + 20;
+
+            const slabW = 200;
+            const slabL = 160;
+            const slabH = Math.min(45, state.thickness * 1.2);
+
+            // Helper for 3D isometric projection
+            function project(x, y, z) {
+                const isoX = (x - y) * Math.cos(0.523599); // 30 deg
+                const isoY = (x + y) * Math.sin(0.523599) - z;
+                return { x: centerX + isoX, y: centerY + isoY };
+            }
+
+            // Draw Subgrade & Base Layer
+            ctx.fillStyle = state.dlcEnabled ? '#1e293b' : '#331f19';
+            ctx.beginPath();
+            const b1 = project(-slabW/2 - 20, -slabL/2 - 20, -slabH - 15);
+            const b2 = project(slabW/2 + 20, -slabL/2 - 20, -slabH - 15);
+            const b3 = project(slabW/2 + 20, slabL/2 + 20, -slabH - 15);
+            const b4 = project(-slabW/2 - 20, slabL/2 + 20, -slabH - 15);
+            ctx.moveTo(b1.x, b1.y); ctx.lineTo(b2.x, b2.y); ctx.lineTo(b3.x, b3.y); ctx.lineTo(b4.x, b4.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Concrete Slab Bottom Face
+            const p1 = project(-slabW/2, -slabL/2, -slabH);
+            const p2 = project(slabW/2, -slabL/2, -slabH);
+            const p3 = project(slabW/2, slabL/2, -slabH);
+            const p4 = project(-slabW/2, slabL/2, -slabH);
+
+            // Concrete Slab Top Face
+            const t1 = project(-slabW/2, -slabL/2, 0);
+            const t2 = project(slabW/2, -slabL/2, 0);
+            const t3 = project(slabW/2, slabL/2, 0);
+            const t4 = project(-slabW/2, slabL/2, 0);
+
+            // Draw Side Faces
+            // Right face
+            ctx.fillStyle = '#334155';
+            ctx.beginPath();
+            ctx.moveTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.lineTo(p3.x, p3.y); ctx.lineTo(p2.x, p2.y);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+
+            // Front face
+            ctx.fillStyle = '#475569';
+            ctx.beginPath();
+            ctx.moveTo(t3.x, t3.y); ctx.lineTo(t4.x, t4.y); ctx.lineTo(p4.x, p4.y); ctx.lineTo(p3.x, p3.y);
+            ctx.closePath(); ctx.fill(); ctx.stroke();
+
+            // Top Face
+            ctx.fillStyle = '#64748b';
+            ctx.beginPath();
+            ctx.moveTo(t1.x, t1.y); ctx.lineTo(t2.x, t2.y); ctx.lineTo(t3.x, t3.y); ctx.lineTo(t4.x, t4.y);
+            ctx.closePath(); ctx.fill();
+
+            // Wheel Load Coordinates
+            let wx = 0, wy = 0;
+            if (state.wheelPos === 'corner') { wx = -slabW/2 + 20; wy = -slabL/2 + 20; }
+            else if (state.wheelPos === 'edge') { wx = 0; wy = -slabL/2 + 10; }
+            else { wx = 0; wy = 0; }
+
+            const wp = project(wx, wy, 0);
+
+            // Draw Stress Contour Map under load
+            const rad = 45;
+            const grad = ctx.createRadialGradient(wp.x, wp.y, 2, wp.x, wp.y, rad);
+            grad.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+            grad.addColorStop(0.5, 'rgba(245, 158, 11, 0.5)');
+            grad.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(wp.x, wp.y, rad, rad * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw Wheel Vector Load Arrow
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(wp.x, wp.y - 45);
+            ctx.lineTo(wp.x, wp.y - 2);
+            ctx.stroke();
+
+            // Arrow tip
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(wp.x, wp.y);
+            ctx.lineTo(wp.x - 6, wp.y - 12);
+            ctx.lineTo(wp.x + 6, wp.y - 12);
+            ctx.closePath();
+            ctx.fill();
+
+            // Label on Canvas
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 11px Inter';
+            ctx.fillText(`Wheel Load P = ${(state.axleLoad/2).toFixed(0)} kN`, wp.x + 10, wp.y - 25);
+        }
+
+        function renderWheelDeformation() {
+            const canvas = document.getElementById('wheelDeformationCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Title / Info overlay
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter';
+            ctx.fillText(`Active Mode: ${state.wheelPos.toUpperCase()} LOADING DEFLECTION BOWL`, 15, 25);
+
+            // Draw Subgrade base line
+            const groundY = h/2 + 40;
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(30, groundY); ctx.lineTo(w - 30, groundY); ctx.stroke();
+
+            // Draw deflected slab profile
+            ctx.beginPath();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = '#3b82f6';
+
+            const startX = 40;
+            const endX = w - 40;
+            const midX = (startX + endX) / 2;
+
+            let loadX = midX;
+            if (state.wheelPos === 'corner') loadX = startX + 20;
+            if (state.wheelPos === 'edge') loadX = startX + 60;
+
+            for (let x = startX; x <= endX; x += 2) {
+                const dist = Math.abs(x - loadX);
+                const deflection = Math.max(0, 35 * Math.exp(-Math.pow(dist / 45, 2)));
+                const y = groundY - 30 + deflection;
+
+                if (x === startX) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+
+            // Draw wheel arrow
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(loadX, groundY - 70);
+            ctx.lineTo(loadX, groundY - 25);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(loadX, groundY - 20);
+            ctx.lineTo(loadX - 8, groundY - 32);
+            ctx.lineTo(loadX + 8, groundY - 32);
+            ctx.closePath();
+            ctx.fill();
+
+            // Tensile Callout
+            ctx.fillStyle = '#f59e0b';
+            ctx.font = 'bold 11px Inter';
+            if (state.wheelPos === 'corner') {
+                ctx.fillText('Tensile Stress at TOP Surface (Cantilever Action)', loadX + 15, groundY - 50);
+            } else {
+                ctx.fillText('Max Tensile Stress at BOTTOM Surface (Bending Flexure)', loadX - 80, groundY + 25);
+            }
+        }
+
+        function renderWarpingCanvas() {
+            const canvas = document.getElementById('warpingCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const centerY = h/2;
+            const startX = 50;
+            const endX = w - 50;
+
+            ctx.lineWidth = 12;
+
+            if (state.thermalMode === 'day') {
+                // Daytime downward curling (Top expands)
+                ctx.strokeStyle = '#3b82f6';
+                ctx.beginPath();
+                for (let x = startX; x <= endX; x += 2) {
+                    const norm = (x - (startX + endX)/2) / ((endX - startX)/2);
+                    const y = centerY + Math.pow(norm, 2) * 25 - 10;
+                    if (x === startX) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                // Sun icon / top heat indicator
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = '16px FontAwesome';
+                ctx.fillText('\uf185 Top Hot (T_top > T_bot)', w/2 - 70, centerY - 45);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 11px Inter';
+                ctx.fillText('TENSILE ZONE (Bottom Fiber)', w/2 - 70, centerY + 45);
+            } else if (state.thermalMode === 'night') {
+                // Nighttime upward curling (Top cools)
+                ctx.strokeStyle = '#3b82f6';
+                ctx.beginPath();
+                for (let x = startX; x <= endX; x += 2) {
+                    const norm = (x - (startX + endX)/2) / ((endX - startX)/2);
+                    const y = centerY - Math.pow(norm, 2) * 25 + 10;
+                    if (x === startX) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+                }
+                ctx.stroke();
+
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '16px FontAwesome';
+                ctx.fillText('\uf186 Top Cool (T_top < T_bot)', w/2 - 70, centerY - 45);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 11px Inter';
+                ctx.fillText('TENSILE ZONE (Top Fiber)', w/2 - 65, centerY - 20);
+            } else {
+                // Seasonal contraction / expansion friction
+                ctx.strokeStyle = '#10b981';
+                ctx.beginPath();
+                ctx.moveTo(startX, centerY);
+                ctx.lineTo(endX, centerY);
+                ctx.stroke();
+
+                // Frictional drag arrows underneath
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 2;
+                for (let x = startX + 30; x < endX; x += 40) {
+                    const dir = x < w/2 ? 1 : -1;
+                    ctx.beginPath();
+                    ctx.moveTo(x, centerY + 15);
+                    ctx.lineTo(x + dir * 15, centerY + 15);
+                    ctx.stroke();
+                }
+                ctx.fillStyle = '#f43f5e';
+                ctx.font = '11px Inter';
+                ctx.fillText('Subgrade Frictional Resistance (Resists Slab Movement)', w/2 - 120, centerY + 35);
+            }
+        }
+
+        function renderPumpingCanvas() {
+            const canvas = document.getElementById('pumpingCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const jointX = w / 2;
+            const topY = h / 2 - 10;
+
+            // Subbase layer
+            if (state.dlcEnabled) {
+                ctx.fillStyle = '#334155'; // Rigid DLC Base
+                ctx.fillRect(40, topY + 25, w - 80, 20);
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = 'bold 10px Inter';
+                ctx.fillText('RIGID DRY LEAN CONCRETE (DLC) SUB-BASE - ERODIBILITY CLASS 1', 50, topY + 39);
+            } else {
+                ctx.fillStyle = '#451a03'; // Weak Mud Soil
+                ctx.fillRect(40, topY + 25, w - 80, 25);
+                ctx.fillStyle = '#f59e0b';
+                ctx.font = 'bold 10px Inter';
+                ctx.fillText('Erodible Soft Soil Subgrade + Free Water Accumulation', 50, topY + 40);
+
+                // Mud Spray particles if DLC is off
+                ctx.fillStyle = '#d97706';
+                ctx.beginPath();
+                ctx.arc(jointX - 4, topY - 15, 6, 0, Math.PI * 2);
+                ctx.arc(jointX + 6, topY - 25, 4, 0, Math.PI * 2);
+                ctx.arc(jointX, topY - 35, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Draw Slabs
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(40, topY, jointX - 45, 25); // Left Slab
+            ctx.fillRect(jointX + 5, topY, w - 80 - jointX, 25); // Right Slab
+
+            // Joint Gap
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.moveTo(jointX, topY - 10); ctx.lineTo(jointX, topY + 30); ctx.stroke();
+        }
+
+        function renderDowelCanvas() {
+            const canvas = document.getElementById('dowelCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const w = rect.width;
+            const h = rect.height;
+            ctx.clearRect(0, 0, w, h);
+
+            const jX = w / 2;
+            const slabY = h / 2 - 20;
+
+            // Draw Concrete Slabs
+            ctx.fillStyle = '#475569';
+            ctx.fillRect(50, slabY, jX - 55, 45); // Slab 1 (Loaded)
+            ctx.fillRect(jX + 5, slabY, w - 105 - jX, 45); // Slab 2 (Unloaded)
+
+            // Dowel Bar
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(jX - 50, slabY + 18, 100, 8); // Steel Dowel Bar
+
+            // Lubricant Sleeve on Right side
+            ctx.fillStyle = '#38bdf8';
+            ctx.fillRect(jX, slabY + 17, 50, 10);
+
+            // Wheel Load Arrow on Left Slab
+            ctx.fillStyle = '#ef4444';
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(jX - 40, slabY - 45);
+            ctx.lineTo(jX - 40, slabY - 5);
+            ctx.stroke();
+
+            // Shear force transfer vectors
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(jX + 20, slabY + 22);
+            ctx.lineTo(jX + 20, slabY + 40);
+            ctx.stroke();
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '11px Inter';
+            ctx.fillText('Transferred Shear Load via Dowel', jX + 28, slabY + 38);
+        }
+
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+
+            // Hide all tab sections
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            // Show target
+            document.getElementById('sec-' + tabId).classList.remove('hidden');
+
+            // Reset navigation tab button styling
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 transition-all';
+            });
+
+            const activeBtn = document.getElementById('tab-' + tabId);
+            if (activeBtn) {
+                activeBtn.className = 'tab-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 bg-blue-600 text-white shadow-md';
+            }
+
+            // Mobile nav buttons sync
+            document.querySelectorAll('[id^="mob-tab-"]').forEach(btn => {
+                btn.className = 'whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium text-slate-400 bg-slate-800';
+            });
+            const activeMob = document.getElementById('mob-tab-' + tabId);
+            if (activeMob) {
+                activeMob.className = 'whitespace-nowrap px-3 py-1 text-xs rounded-lg font-medium bg-blue-600 text-white';
+            }
+
+            updateUI();
+        }
+
+        function setWheelPosition(pos) {
+            state.wheelPos = pos;
+            document.querySelectorAll('.pos-btn').forEach(b => {
+                b.className = 'pos-btn px-2.5 py-1 rounded-lg border border-slate-700 bg-slate-800 text-slate-300 hover:bg-slate-700';
+            });
+            const active = document.getElementById('btn-pos-' + pos);
+            if (active) active.className = 'pos-btn px-2.5 py-1 rounded-lg border border-blue-500/50 bg-blue-600/20 text-blue-400 font-semibold';
+
+            const locLbl = document.getElementById('lbl-active-location');
+            const tensLbl = document.getElementById('lbl-tensile-zone');
+
+            if (pos === 'corner') {
+                locLbl.textContent = "Corner Location";
+                tensLbl.textContent = "Top Surface (Cantilever)";
+            } else if (pos === 'edge') {
+                locLbl.textContent = "Edge Location (Critical)";
+                tensLbl.textContent = "Bottom Fiber (Bending)";
+            } else {
+                locLbl.textContent = "Interior Location";
+                tensLbl.textContent = "Bottom Fiber (Symmetrical Support)";
+            }
+
+            updateUI();
+        }
+
+        function setConcreteGrade(fck) {
+            state.fck = fck;
+            document.querySelectorAll('.grade-btn').forEach(b => {
+                b.className = 'grade-btn py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700';
+            });
+            event.target.className = 'grade-btn py-1.5 rounded bg-blue-600 text-white font-bold border border-blue-500';
+            updateUI();
+        }
+
+        function setThermalMode(mode) {
+            state.thermalMode = mode;
+            const badge = document.getElementById('thermal-summary-badge');
+            const desc = document.getElementById('thermal-desc-box');
+
+            if (mode === 'day') {
+                badge.className = "text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-300 font-medium";
+                badge.innerHTML = "Top is hotter than bottom $\\rightarrow$ Edges curl downward";
+                desc.innerHTML = `
+                    <p><strong class="text-amber-400">Daytime Gradient:</strong> Solar radiation heats the slab surface ($T_{top} > T_{bottom}$).</p>
+                    <p>The top expands more than the bottom, causing the slab to **curl downward** at the edges. Self-weight prevents full curling, inducing **high tensile stress at the bottom surface**.</p>
+                    <div class="p-3 bg-slate-900 rounded-lg border border-slate-800 font-mono text-[11px] text-amber-300">
+                        Critical Combination:<br>Max Stress = Wheel Edge Stress + Daytime Edge Warping Stress
+                    </div>
+                `;
+            } else if (mode === 'night') {
+                badge.className = "text-xs px-3 py-1.5 rounded-lg bg-sky-500/10 border border-sky-500/20 text-sky-300 font-medium";
+                badge.innerHTML = "Top is cooler than bottom $\\rightarrow$ Edges curl upward";
+                desc.innerHTML = `
+                    <p><strong class="text-sky-400">Nighttime Gradient:</strong> Surface loses heat to ambient atmosphere ($T_{top} < T_{bottom}$).</p>
+                    <p>Top contracts relative to the bottom, causing slab edges to **curl upward**. This induces **tensile stresses at the top surface**, compounding corner wheel loads.</p>
+                `;
+            } else {
+                badge.className = "text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-300 font-medium";
+                badge.innerHTML = "Seasonal Temperature Drop $\\rightarrow$ Subgrade Friction Resistance";
+                desc.innerHTML = `
+                    <p><strong class="text-emerald-400">Seasonal Contraction:</strong> Overall drop in seasonal temperature causes slab contraction.</p>
+                    <p>Friction between the bottom concrete face and subbase layer resists contraction, inducing uniform tensile stress across the slab cross-section.</p>
+                `;
+            }
+            updateUI();
+        }
+
+        function toggleDLC() {
+            state.dlcEnabled = !state.dlcEnabled;
+            const btn = document.getElementById('btn-toggle-dlc');
+            if (state.dlcEnabled) {
+                btn.className = "px-3 py-1 rounded-lg text-xs font-bold border border-emerald-500 bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30";
+                btn.textContent = "DLC Base: ON (Pumping Prevented)";
+            } else {
+                btn.className = "px-3 py-1 rounded-lg text-xs font-bold border border-rose-500 bg-rose-500/20 text-rose-300 hover:bg-rose-500/30";
+                btn.textContent = "DLC Base: OFF (Erosion Risk)";
+            }
+            updateUI();
+        }
+
+        function resetParameters() {
+            state.axleLoad = 102;
+            state.thickness = 25;
+            state.fck = 40;
+            state.k = 0.08;
+            state.tempDelta = 15;
+            document.getElementById('input-axle-load').value = 102;
+            document.getElementById('input-thickness').value = 25;
+            document.getElementById('input-k').value = 0.08;
+            document.getElementById('input-temp').value = 15;
+            setConcreteGrade(40);
+            updateUI();
+        }
+
+        // Attach Slider Input Handlers
+        document.getElementById('input-axle-load').addEventListener('input', (e) => {
+            state.axleLoad = parseFloat(e.target.value);
+            updateUI();
+        });
+        document.getElementById('input-thickness').addEventListener('input', (e) => {
+            state.thickness = parseFloat(e.target.value);
+            updateUI();
+        });
+        document.getElementById('input-k').addEventListener('input', (e) => {
+            state.k = parseFloat(e.target.value);
+            updateUI();
+        });
+        document.getElementById('input-temp').addEventListener('input', (e) => {
+            state.tempDelta = parseFloat(e.target.value);
+            updateUI();
+        });
+
+        // Window resize handler for canvas responsiveness
+        window.addEventListener('resize', () => {
+            updateUI();
+        });
+
+        // Initial Initialization
+        window.onload = function() {
+            initChart();
+            updateUI();
+        }
+    </script>
+</body>
+</html>

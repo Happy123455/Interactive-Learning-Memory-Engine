@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welding Lab | Cyber Simulator</title>
+    <style>
+        :root {
+            --neon-blue: #00f3ff;
+            --neon-orange: #ff9d00;
+            --glass: rgba(255, 255, 255, 0.05);
+            --bg-dark: #0a0b10;
+        }
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            overflow: hidden;
+            background: var(--bg-dark);
+            color: white;
+            font-family: 'Segoe UI', sans-serif;
+        }
+        #app {
+            display: flex;
+            width: 100vw; height: 100vh;
+        }
+        #sidebar {
+            width: 300px;
+            background: var(--glass);
+            backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(255,255,255,0.1);
+            padding: 20px;
+            z-index: 10;
+        }
+        #main { flex: 1; position: relative; cursor: crosshair; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .tool-card {
+            background: rgba(0,0,0,0.3);
+            border: 1px solid var(--neon-blue);
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        .tool-card:hover { background: var(--neon-blue); color: black; }
+        #modal {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9);
+            border: 2px solid var(--neon-blue);
+            padding: 30px;
+            display: none;
+            z-index: 100;
+        }
+        .mission-log {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: var(--neon-blue);
+        }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="sidebar">
+        <h2>WELD-LAB v1.0</h2>
+        <div id="tools">
+            <div class="tool-card" onclick="selectTool('FILLET')">Fillet Weld</div>
+            <div class="tool-card" onclick="selectTool('BUTT')">Butt Weld</div>
+        </div>
+        <div class="mission-log" id="log">
+            [ ] Select weld type<br>
+            [ ] Execute weld path<br>
+            [ ] Validate integrity
+        </div>
+        <button onclick="speak()">Explain It</button>
+    </div>
+    <div id="main">
+        <canvas id="simCanvas"></canvas>
+    </div>
+</div>
+
+<div id="modal">
+    <h3>IS-800 Manual</h3>
+    <p>Fusion Requirements: Depth must exceed 3mm. HAZ must be controlled.</p>
+    <button onclick="closeModal()">Close</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let welding = false;
+    let selectedTool = null;
+    const particles = [];
+    
+    // Audio Context
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let osc = null;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function selectTool(type) {
+        selectedTool = type;
+        document.getElementById('log').innerHTML = `[x] Type: ${type}<br>[ ] Drag across joint to fuse`;
+        window.speechSynthesis.speak(new SpeechSynthesisUtterance("Imagine this weld is like super-strong sticky glue for metal! Watch it glow as we melt the edges together!"));
+    }
+
+    function startOsc(freq) {
+        if (!osc) {
+            osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            gain.gain.value = 0.1;
+            osc.start();
+        }
+        osc.frequency.value = freq;
+    }
+
+    canvas.addEventListener('pointerdown', () => { if(selectedTool) welding = true; });
+    canvas.addEventListener('pointerup', () => { welding = false; if(osc) { osc.stop(); osc = null; } });
+    canvas.addEventListener('pointermove', (e) => {
+        if (!welding) return;
+        startOsc(100 + e.movementX * 10);
+        
+        // Particle effect
+        particles.push({x: e.clientX, y: e.clientY, life: 1.0});
+        
+        ctx.fillStyle = 'white';
+        ctx.shadowBlur = 20;
+        ctx.shadowColor = 'orange';
+        ctx.beginPath();
+        ctx.arc(e.clientX - 300, e.clientY, 5, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    function animate() {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        // Draw Plates
+        ctx.fillStyle = '#333';
+        ctx.fillRect(50, 200, 400, 20);
+        ctx.fillRect(240, 50, 20, 300);
+        
+        // Symbol Annotation
+        if(welding) {
+            ctx.fillStyle = "rgba(0,0,0,0.7)";
+            ctx.fillRect(100, 100, 150, 50);
+            ctx.fillStyle = "cyan";
+            ctx.fillText("SYMBOL: " + selectedTool, 110, 120);
+        }
+        
+        requestAnimationFrame(animate);
+    }
+    
+    function speak() {
+        const synth = window.speechSynthesis;
+        synth.speak(new SpeechSynthesisUtterance("Select a tool from the left to begin your fusion simulation."));
+    }
+    
+    animate();
+</script>
+</body>
+</html>

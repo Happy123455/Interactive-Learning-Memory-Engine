@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infiltration & Runoff Dynamics Simulator</title>
+    <style>
+        :root {
+            --bg-color: #05050f;
+            --panel-bg: rgba(10, 11, 30, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --text-primary: #f0f4f8;
+            --text-secondary: #94a3b8;
+            --neon-blue: #00f0ff;
+            --neon-purple: #9d4edd;
+            --neon-green: #39ff14;
+            --neon-amber: #ff9f1c;
+            --neon-red: #ff3b30;
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'Fira Code', monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Ambient Glow Backgrounds */
+        .ambient-glow {
+            position: absolute;
+            width: 600px;
+            height: 600px;
+            background: radial-gradient(circle, rgba(0, 240, 255, 0.05) 0%, rgba(157, 78, 221, 0.05) 50%, rgba(0,0,0,0) 100%);
+            top: -200px;
+            left: -200px;
+            z-index: 0;
+            pointer-events: none;
+        }
+        .ambient-glow-2 {
+            position: absolute;
+            width: 500px;
+            height: 500px;
+            background: radial-gradient(circle, rgba(57, 255, 20, 0.03) 0%, rgba(0, 240, 255, 0.02) 60%, rgba(0,0,0,0) 100%);
+            bottom: -100px;
+            right: -100px;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        header {
+            position: relative;
+            z-index: 10;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(5, 5, 15, 0.8);
+            backdrop-filter: blur(12px);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title-container h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-title-container p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: 0.2rem;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        /* Button Styling */
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-family: var(--font-family);
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(157, 78, 221, 0.2));
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.1);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, rgba(0, 240, 255, 0.3), rgba(157, 78, 221, 0.3));
+            border-color: var(--neon-blue);
+            box-shadow: 0 0 20px rgba(0, 240, 255, 0.2);
+        }
+
+        .btn-active {
+            background: var(--neon-blue) !important;
+            color: #000 !important;
+            border-color: var(--neon-blue) !important;
+            font-weight: 700;
+        }
+
+        /* Layout */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            position: relative;
+            z-index: 10;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Sidebar Styling */
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(16px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease;
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            margin-bottom: 1.2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 0.5rem;
+            letter-spacing: 0.5px;
+        }
+
+        .panel-title span {
+            color: var(--neon-blue);
+        }
+
+        /* Control element stylings */
+        .control-group {
+            margin-bottom: 1.2rem;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .control-value {
+            font-family: var(--font-mono);
+            color: var(--neon-blue);
+            font-weight: 600;
+        }
+
+        /* Sliders */
+        .slider-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: all 0.3s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon-blue);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-blue);
+            transition: all 0.2s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px var(--neon-blue), 0 0 30px var(--neon-blue);
+        }
+
+        /* Dynamic Feedback Equations */
+        .math-container {
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 1rem;
+            border-left: 3px solid var(--neon-purple);
+            margin-top: 1rem;
+        }
+
+        .equation-line {
+            margin-bottom: 0.4rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .equation-line:last-child {
+            margin-bottom: 0;
+        }
+
+        .equation-highlight {
+            color: var(--neon-green);
+        }
+
+        .equation-alert {
+            color: var(--neon-red);
+            font-weight: bold;
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Main Workspace */
+        .workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Interactive Canvas */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 420px;
+            background: #030308;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Horton's Chart container */
+        .chart-container {
+            height: 250px;
+            position: relative;
+        }
+
+        /* Realtime Stats HUD Overlay on Canvas */
+        .hud-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .hud-card {
+            background: rgba(5, 5, 15, 0.85);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .hud-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Interactive Narrative Box */
+        .narrator-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 1rem;
+            background: linear-gradient(135deg, rgba(157, 78, 221, 0.1), rgba(0, 240, 255, 0.05));
+            border: 1px solid rgba(157, 78, 221, 0.3);
+        }
+
+        .narrator-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            box-shadow: 0 0 15px rgba(157, 78, 221, 0.4);
+            flex-shrink: 0;
+        }
+
+        .narrator-content {
+            flex: 1;
+        }
+
+        .narrator-text {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: var(--text-primary);
+        }
+
+        .narrator-controls {
+            margin-top: 0.5rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Custom Toggle Switch */
+        .switch-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-round {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 34px;
+            border: 1px solid var(--border-color);
+        }
+
+        .slider-round:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-secondary);
+            transition: .3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-round {
+            background-color: rgba(0, 240, 255, 0.2);
+            border-color: var(--neon-blue);
+        }
+
+        input:checked + .slider-round:before {
+            transform: translateX(18px);
+            background-color: var(--neon-blue);
+            box-shadow: 0 0 8px var(--neon-blue);
+        }
+
+        /* Animations */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; text-shadow: 0 0 5px rgba(255, 59, 48, 0.5); }
+            50% { opacity: 0.6; text-shadow: none; }
+        }
+
+        /* Utility classes */
+        .text-neon-blue { color: var(--neon-blue); }
+        .text-neon-purple { color: var(--neon-purple); }
+        .text-neon-green { color: var(--neon-green); }
+        .text-neon-amber { color: var(--neon-amber); }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: 1fr;
+            }
+            .sidebar {
+                order: 2;
+            }
+            .workspace {
+                order: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-glow"></div>
+    <div class="ambient-glow-2"></div>
+
+    <header>
+        <div class="header-title-container">
+            <h1>Infiltration & Runoff Generation</h1>
+            <p>Interactive Hydrology Laboratory &bull; Horton's Theory</p>
+        </div>
+        <div class="header-controls">
+            <button id="btn-sound" class="btn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Enable Audio
+            </button>
+            <button id="btn-narrate" class="btn btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"/></svg>
+                Narrate Concept
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <!-- Sidebar Controls -->
+        <section class="sidebar">
+            <!-- Soil Physics & Cloud Setup -->
+            <div class="glass-panel">
+                <div class="panel-title">
+                    <span>Hydrologic Inputs</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                </div>
+
+                <!-- Slider: Rainfall Intensity (i) -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Rainfall Intensity (i)</span>
+                        <span class="control-value"><span id="val-i">12.0</span> mm/hr</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-i" min="0" max="25" step="0.5" value="12">
+                    </div>
+                </div>
+
+                <!-- Slider: Initial Capacity (f0) -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Init. Infiltration Capacity (f₀)</span>
+                        <span class="control-value text-neon-green"><span id="val-f0">20.0</span> mm/hr</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-f0" min="5" max="30" step="0.5" value="20">
+                    </div>
+                </div>
+
+                <!-- Slider: Constant Capacity (fc) -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Ult. Infiltration Capacity (f_c)</span>
+                        <span class="control-value text-neon-purple"><span id="val-fc">4.0</span> mm/hr</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-fc" min="0" max="15" step="0.5" value="4">
+                    </div>
+                </div>
+
+                <!-- Slider: Decay Constant (k) -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Infiltration Decay (k)</span>
+                        <span class="control-value"><span id="val-k">1.2</span> hr⁻¹</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-k" min="0.1" max="3.0" step="0.1" value="1.2">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Math & Governing Equations -->
+            <div class="glass-panel">
+                <div class="panel-title">
+                    <span>Governing Equations</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3A2.5 2.5 0 0 1 6.5 0.5H20v16.5H6.5a2.5 2.5 0 0 0-2.5 2.5z"/></svg>
+                </div>
+                
+                <div style="font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 0.8rem;">
+                    Horton's model determines the temporal decay of infiltration capacity:
+                </div>
+                
+                <div class="math-container">
+                    <div class="equation-line">
+                        <span class="text-neon-blue">f(t) = f_c + (f₀ - f_c)e^(-kt)</span>
+                    </div>
+                    <div class="equation-line" style="margin-top: 0.6rem; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 0.6rem;">
+                        <span>Actual Inf. f_a:</span>
+                        <span id="eq-fa-val" class="equation-highlight">min(i, f(t))</span>
+                    </div>
+                    <div class="equation-line">
+                        <span>Runoff Rate q:</span>
+                        <span id="eq-q-val" class="equation-highlight">max(0, i - f(t))</span>
+                    </div>
+                </div>
+
+                <div class="switch-container" style="margin-top: 1.2rem;">
+                    <span style="font-size: 0.85rem; color: var(--text-secondary);">Visual Debug Overlay</span>
+                    <label class="switch">
+                        <input type="checkbox" id="toggle-debug" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- Dynamic System State Card -->
+            <div class="glass-panel" style="flex: 1;">
+                <div class="panel-title">
+                    <span>Simulation Clock</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem;">
+                    <button id="btn-play" class="btn btn-primary" style="flex: 1; justify-content: center;">
+                        Play
+                    </button>
+                    <button id="btn-reset" class="btn" style="flex: 1; justify-content: center;">
+                        Reset
+                    </button>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Simulated Time (t)</span>
+                        <span class="control-value text-neon-blue" id="val-time">0.0 mins</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-time" min="0" max="60" step="0.1" value="0">
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Workspace (Canvas & Real-time Chart) -->
+        <section class="workspace">
+            
+            <!-- Canvas Viewport -->
+            <div class="canvas-container">
+                <canvas id="canvas-soil"></canvas>
+                
+                <!-- HUD Stats Overlay -->
+                <div class="hud-overlay">
+                    <div class="hud-card">
+                        <div class="hud-dot" style="background-color: var(--neon-blue);"></div>
+                        <span>Rainfall (i): <span id="hud-val-i">12.0</span> mm/hr</span>
+                    </div>
+                    <div class="hud-card">
+                        <div class="hud-dot" style="background-color: var(--neon-green);"></div>
+                        <span>Infiltration Cap (f): <span id="hud-val-f">20.0</span> mm/hr</span>
+                    </div>
+                    <div class="hud-card">
+                        <div class="hud-dot" style="background-color: var(--neon-amber);"></div>
+                        <span>Actual Infiltration (f_a): <span id="hud-val-fa">12.0</span> mm/hr</span>
+                    </div>
+                    <div class="hud-card">
+                        <div class="hud-dot" style="background-color: var(--neon-red);"></div>
+                        <span>Runoff Rate (q): <span id="hud-val-q">0.0</span> mm/hr</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Narrator Interface -->
+            <div class="glass-panel narrator-box">
+                <div class="narrator-avatar">🤖</div>
+                <div class="narrator-content">
+                    <div class="narrator-text" id="narrator-speech">
+                        Welcome to the Hydrology Simulator. Press "Narrate Concept" to walk through Horton's infiltration and surface runoff theory, or change inputs to directly visualize flow state changes.
+                    </div>
+                    <div class="narrator-controls">
+                        <span id="narrator-status" style="font-size: 0.75rem; color: var(--neon-purple); font-weight: 600; display: none;">Speaking...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SVG Real-time Horton Chart -->
+            <div class="glass-panel chart-container">
+                <svg id="horton-chart" width="100%" height="100%" style="overflow: visible;"></svg>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // Global variables & Math Configurations
+        const SIM = {
+            i: 12.0,      // Rain Intensity (mm/hr)
+            f0: 20.0,     // Initial Infiltration Capacity (mm/hr)
+            fc: 4.0,      // Final Infiltration Capacity (mm/hr)
+            k: 1.2,       // Decay constant (hr^-1)
+            t: 0.0,       // Clock Time (minutes)
+            isRunning: false,
+            debug: true,
+            soundEnabled: false,
+            // Math derived states
+            f_t: 20.0,    // Current Capacity
+            f_a: 12.0,    // Actual infiltration rate
+            q: 0.0,       // Runoff rate
+            totalInfiltrated: 0,
+            totalRunoff: 0,
+            lastFrameTime: null
+        };
+
+        // DOM elements
+        const elements = {
+            slideI: document.getElementById('slide-i'),
+            slideF0: document.getElementById('slide-f0'),
+            slideFc: document.getElementById('slide-fc'),
+            slideK: document.getElementById('slide-k'),
+            slideTime: document.getElementById('slide-time'),
+            valI: document.getElementById('val-i'),
+            valF0: document.getElementById('val-f0'),
+            valFc: document.getElementById('val-fc'),
+            valK: document.getElementById('val-k'),
+            valTime: document.getElementById('val-time'),
+            hudI: document.getElementById('hud-val-i'),
+            hudF: document.getElementById('hud-val-f'),
+            hudFa: document.getElementById('hud-val-fa'),
+            hudQ: document.getElementById('hud-val-q'),
+            eqFaVal: document.getElementById('eq-fa-val'),
+            eqQVal: document.getElementById('eq-q-val'),
+            btnPlay: document.getElementById('btn-play'),
+            btnReset: document.getElementById('btn-reset'),
+            btnSound: document.getElementById('btn-sound'),
+            btnNarrate: document.getElementById('btn-narrate'),
+            toggleDebug: document.getElementById('toggle-debug'),
+            narratorSpeech: document.getElementById('narrator-speech'),
+            narratorStatus: document.getElementById('narrator-status'),
+            canvas: document.getElementById('canvas-soil'),
+            svg: document.getElementById('horton-chart')
+        };
+
+        // --- Sound Engine Class (Web Audio API) ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+                this.rainGain = null;
+                this.runoffGain = null;
+                this.rainNoise = null;
+                this.runoffOsc = null;
+                this.runoffSubOsc = null;
+                this.lastState = 'infiltration'; // tracks infiltration vs runoff transition
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    
+                    // Rain White Noise Generation
+                    const bufferSize = 2 * this.ctx.sampleRate;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+
+                    this.rainNoise = this.ctx.createBufferSource();
+                    this.rainNoise.buffer = noiseBuffer;
+                    this.rainNoise.loop = true;
+
+                    // Filter for rain sound dampening/shaping
+                    this.rainFilter = this.ctx.createBiquadFilter();
+                    this.rainFilter.type = 'lowpass';
+                    this.rainFilter.frequency.setValueAtTime(800, this.ctx.currentTime);
+
+                    this.rainGain = this.ctx.createGain();
+                    this.rainGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    this.rainNoise.connect(this.rainFilter);
+                    this.rainFilter.connect(this.rainGain);
+                    this.rainGain.connect(this.ctx.destination);
+                    this.rainNoise.start(0);
+
+                    // Runoff Hum Synth (Sub-oscillator + Triangle)
+                    this.runoffOsc = this.ctx.createOscillator();
+                    this.runoffOsc.type = 'triangle';
+                    this.runoffOsc.frequency.setValueAtTime(80, this.ctx.currentTime); // low hum
+
+                    this.runoffSubOsc = this.ctx.createOscillator();
+                    this.runoffSubOsc.type = 'sine';
+                    this.runoffSubOsc.frequency.setValueAtTime(40, this.ctx.currentTime); // deep sub
+
+                    this.runoffGain = this.ctx.createGain();
+                    this.runoffGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+                    this.runoffOsc.connect(this.runoffGain);
+                    this.runoffSubOsc.connect(this.runoffGain);
+                    this.runoffGain.connect(this.ctx.destination);
+                    this.runoffOsc.start(0);
+                    this.runoffSubOsc.start(0);
+
+                    this.initialized = true;
+                } catch (e) {
+                    console.error('AudioContext initialized failed: ', e);
+                }
+            }
+
+            updateAudio(iValue, qValue) {
+                if (!this.initialized || !SIM.soundEnabled) return;
+                const now = this.ctx.currentTime;
+
+                // Rain sound maps to rainfall intensity
+                const targetRainGain = Math.min(iValue / 25, 1.0) * 0.15;
+                this.rainGain.gain.setTargetAtTime(targetRainGain, now, 0.1);
+                this.rainFilter.frequency.setTargetAtTime(800 + iValue * 50, now, 0.2);
+
+                // Runoff sound maps to runoff depth/rate
+                const targetRunoffGain = Math.min(qValue / 25, 1.0) * 0.3;
+                this.runoffGain.gain.setTargetAtTime(targetRunoffGain, now, 0.2);
+                this.runoffOsc.frequency.setTargetAtTime(80 + qValue * 5, now, 0.2);
+
+                // State transition chime
+                const currentState = qValue > 0 ? 'runoff' : 'infiltration';
+                if (currentState === 'runoff' && this.lastState === 'infiltration') {
+                    this.playChime();
+                }
+                this.lastState = currentState;
+            }
+
+            playChime() {
+                if (!this.initialized || !SIM.soundEnabled) return;
+                const now = this.ctx.currentTime;
+                
+                const chime1 = this.ctx.createOscillator();
+                const chime2 = this.ctx.createOscillator();
+                const chimeGain = this.ctx.createGain();
+
+                chime1.type = 'sine'; chime1.frequency.setValueAtTime(659.25, now); // E5
+                chime2.type = 'sine'; chime2.frequency.setValueAtTime(987.77, now); // B5
+
+                chimeGain.gain.setValueAtTime(0, now);
+                chimeGain.gain.linearRampToValueAtTime(0.2, now + 0.05);
+                chimeGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+
+                chime1.connect(chimeGain);
+                chime2.connect(chimeGain);
+                chimeGain.connect(this.ctx.destination);
+
+                chime1.start(now);
+                chime2.start(now);
+                chime1.stop(now + 0.8);
+                chime2.stop(now + 0.8);
+            }
+
+            mute() {
+                if (!this.initialized) return;
+                const now = this.ctx.currentTime;
+                this.rainGain.gain.setTargetAtTime(0, now, 0.05);
+                this.runoffGain.gain.setTargetAtTime(0, now, 0.05);
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        // --- Canvas Particle System & Graphics Render ---
+        const canvas = elements.canvas;
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let maxParticles = 600;
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class RainDrop {
+            constructor() {
+                this.reset();
+                this.y = Math.random() * canvas.height * 0.4; // offset start
+            }
+
+            reset() {
+                this.x = Math.random() * canvas.width;
+                this.y = -10;
+                this.vy = 4 + Math.random() * 4; // falling velocity
+                this.size = 1 + Math.random() * 1.5;
+                this.color = 'rgba(0, 240, 255, ' + (0.3 + Math.random() * 0.4) + ')';
+                this.infiltrated = false;
+            }
+
+            update() {
+                const groundY = canvas.height * 0.45; // interface level of soil
+                
+                if (!this.infiltrated) {
+                    this.y += this.vy;
+                    // Check transition to soil surface
+                    if (this.y >= groundY) {
+                        if (SIM.q > 0) {
+                            // Runoff active, some pool, some escape left/right
+                            if (Math.random() < 0.4) {
+                                this.infiltrated = true;
+                                this.y = groundY;
+                                this.vy = 0.5 + Math.random() * 0.8; // move down slowly
+                                this.vx = 0;
+                            } else {
+                                // Dynamic surface runoff vector path
+                                this.infiltrated = true;
+                                this.y = groundY - Math.random() * Math.min(SIM.q * 1.5, 30);
+                                this.vx = Math.random() > 0.5 ? 1.5 : -1.5; // Flow horizontal
+                                this.vy = 0;
+                            }
+                        } else {
+                            // Direct Infiltration (no surface runoff pooling)
+                            this.infiltrated = true;
+                            this.vy = 0.5 + Math.random() * 0.8; // entry into soil
+                            this.vx = (Math.random() - 0.5) * 0.2;
+                        }
+                    }
+                } else {
+                    // Subsurface dynamic percolation
+                    this.x += this.vx || 0;
+                    // Slower movement as soil saturation changes or depth increases
+                    const flowFactor = Math.max(0.1, SIM.f_a / 25);
+                    this.y += this.vy * flowFactor;
+
+                    // Transition through different layers or reset at deep recharge
+                    if (this.y > canvas.height) {
+                        this.reset();
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                if (!this.infiltrated) {
+                    // Streaking rain drop
+                    ctx.strokeStyle = this.color;
+                    ctx.lineWidth = this.size;
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(this.x, this.y + 12);
+                    ctx.stroke();
+                } else {
+                    // Internal soil percolation water droplet
+                    ctx.fillStyle = 'rgba(0, 240, 255, 0.6)';
+                    ctx.arc(this.x, this.y, this.size * 1.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        // Initialize particles
+        for (let i = 0; i < maxParticles; i++) {
+            particles.push(new RainDrop());
+        }
+
+        function drawSoilLayers() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const groundY = h * 0.45;
+
+            // 1. Render Sky
+            ctx.fillStyle = '#050512';
+            ctx.fillRect(0, 0, w, groundY);
+
+            // 2. Render Soil Cross Section (A Horizon and B Horizon)
+            // A Horizon (Sandy loam topsoil)
+            const gradientA = ctx.createLinearGradient(0, groundY, 0, h * 0.75);
+            gradientA.addColorStop(0, '#2c1e15');
+            gradientA.addColorStop(1, '#423023');
+            ctx.fillStyle = gradientA;
+            ctx.fillRect(0, groundY, w, h * 0.3);
+
+            // B Horizon (Clay rich dense subsoil)
+            const gradientB = ctx.createLinearGradient(0, h * 0.75, 0, h);
+            gradientB.addColorStop(0, '#593922');
+            gradientB.addColorStop(1, '#2c1405');
+            ctx.fillStyle = gradientB;
+            ctx.fillRect(0, h * 0.75, w, h * 0.25);
+
+            // Layer boundary indicators
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(0, h * 0.75);
+            ctx.lineTo(w, h * 0.75);
+            ctx.stroke();
+
+            if (SIM.debug) {
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+                ctx.font = '10px var(--font-mono)';
+                ctx.fillText('A-Horizon (Sandy Loam)', 15, groundY + 25);
+                ctx.fillText('B-Horizon (Clayey Subsoil)', 15, h * 0.75 + 25);
+            }
+        }
+
+        function renderSimulation() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawSoilLayers();
+
+            // Runoff pooling visual height calculation
+            const groundY = canvas.height * 0.45;
+            const runoffHeight = Math.min(SIM.q * 1.5, 35); // Visual scaling
+
+            // Update & Render Particles matching Rainfall intensity
+            const activeCount = Math.floor(Math.min(SIM.i / 25, 1.0) * maxParticles);
+            for (let i = 0; i < activeCount; i++) {
+                particles[i].update();
+                particles[i].draw();
+            }
+
+            // Draw Surface Runoff Overlay
+            if (SIM.q > 0) {
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.35)';
+                ctx.fillRect(0, groundY - runoffHeight, canvas.width, runoffHeight);
+                
+                // Animated Water Ripple Surface Line
+                ctx.strokeStyle = '#00f0ff';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                const sliceWidth = canvas.width / 40;
+                let tx = 0;
+                for (let j = 0; j <= 40; j++) {
+                    const ty = groundY - runoffHeight + Math.sin(j * 0.5 + Date.now() * 0.01) * 2.5;
+                    if (j === 0) ctx.moveTo(tx, ty);
+                    else ctx.lineTo(tx, ty);
+                    tx += sliceWidth;
+                }
+                ctx.stroke();
+            }
+
+            // Ground Surface Boundary Line (if no runoff)
+            if (SIM.q <= 0) {
+                ctx.strokeStyle = '#2a1a10';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(0, groundY);
+                ctx.lineTo(canvas.width, groundY);
+                ctx.stroke();
+            }
+
+            // Debug Vector Arrow Drawing
+            if (SIM.debug) {
+                // Downward dynamic arrows to indicate actual infiltration rate
+                const arrowCount = 5;
+                const spacing = canvas.width / (arrowCount + 1);
+                ctx.strokeStyle = 'var(--neon-green)';
+                ctx.lineWidth = 3;
+                
+                for (let k = 1; k <= arrowCount; k++) {
+                    const ax = k * spacing;
+                    const ay = groundY + 40;
+                    const len = Math.max(5, (SIM.f_a / 25) * 50); // Scale with actual flow f_a
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(ax, ay);
+                    ctx.lineTo(ax, ay + len);
+                    // Arrow Tip
+                    ctx.lineTo(ax - 5, ay + len - 7);
+                    ctx.moveTo(ax, ay + len);
+                    ctx.lineTo(ax + 5, ay + len - 7);
+                    ctx.stroke();
+                }
+
+                // Horizontal dynamic arrows for Runoff escape paths
+                if (SIM.q > 0) {
+                    ctx.strokeStyle = 'var(--neon-red)';
+                    ctx.lineWidth = 2.5;
+                    const rxLeft = 50;
+                    const rxRight = canvas.width - 50;
+                    const ry = groundY - runoffHeight - 12;
+
+                    // Left Flow arrow
+                    ctx.beginPath();
+                    ctx.moveTo(rxLeft + 40, ry);
+                    ctx.lineTo(rxLeft, ry);
+                    ctx.lineTo(rxLeft + 7, ry - 5);
+                    ctx.moveTo(rxLeft, ry);
+                    ctx.lineTo(rxLeft + 7, ry + 5);
+                    ctx.stroke();
+
+                    // Right Flow arrow
+                    ctx.beginPath();
+                    ctx.moveTo(rxRight - 40, ry);
+                    ctx.lineTo(rxRight, ry);
+                    ctx.lineTo(rxRight - 7, ry - 5);
+                    ctx.moveTo(rxRight, ry);
+                    ctx.lineTo(rxRight - 7, ry + 5);
+                    ctx.stroke();
+                }
+            }
+        }
+
+
+        // --- Dynamic Horton's SVG Chart ---
+        function updateHortonChart() {
+            const svg = elements.svg;
+            svg.innerHTML = ''; // clear graph
+
+            const width = svg.parentElement.clientWidth;
+            const height = 250;
+            svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+
+            const margin = { top: 20, right: 30, bottom: 40, left: 55 };
+            const chartWidth = width - margin.left - margin.right;
+            const chartHeight = height - margin.top - margin.bottom;
+
+            // X scale: 0 to 60 minutes
+            // Y scale: 0 to 30 mm/hr
+            const xScale = (t) => margin.left + (t / 60) * chartWidth;
+            const yScale = (y) => margin.top + chartHeight - (y / 30) * chartHeight;
+
+            // Draw Grid lines & labels
+            for (let i = 0; i <= 60; i += 10) {
+                const x = xScale(i);
+                // Vertical grid lines
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('y1', margin.top);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', margin.top + chartHeight);
+                line.setAttribute('stroke', 'rgba(255, 255, 255, 0.05)');
+                svg.appendChild(line);
+
+                // X labels
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', x);
+                text.setAttribute('y', margin.top + chartHeight + 20);
+                text.setAttribute('fill', 'var(--text-secondary)');
+                text.setAttribute('font-size', '10px');
+                text.setAttribute('text-anchor', 'middle');
+                text.textContent = i;
+                svg.appendChild(text);
+            }
+
+            for (let j = 0; j <= 30; j += 5) {
+                const y = yScale(j);
+                // Horizontal grid lines
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', margin.left);
+                line.setAttribute('y1', y);
+                line.setAttribute('x2', margin.left + chartWidth);
+                line.setAttribute('y2', y);
+                line.setAttribute('stroke', 'rgba(255, 255, 255, 0.05)');
+                svg.appendChild(line);
+
+                // Y labels
+                const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                text.setAttribute('x', margin.left - 10);
+                text.setAttribute('y', y + 3);
+                text.setAttribute('fill', 'var(--text-secondary)');
+                text.setAttribute('font-size', '10px');
+                text.setAttribute('text-anchor', 'end');
+                text.textContent = j;
+                svg.appendChild(text);
+            }
+
+            // Draw Axis Labels
+            const xLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            xLabel.setAttribute('x', margin.left + chartWidth / 2);
+            xLabel.setAttribute('y', height - 5);
+            xLabel.setAttribute('fill', 'var(--text-primary)');
+            xLabel.setAttribute('font-size', '11px');
+            xLabel.setAttribute('font-weight', 'bold');
+            xLabel.setAttribute('text-anchor', 'middle');
+            xLabel.textContent = 'Time (t, minutes)';
+            svg.appendChild(xLabel);
+
+            const yLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            yLabel.setAttribute('transform', `rotate(-90)`);
+            yLabel.setAttribute('x', -(margin.top + chartHeight / 2));
+            yLabel.setAttribute('y', 15);
+            yLabel.setAttribute('fill', 'var(--text-primary)');
+            yLabel.setAttribute('font-size', '11px');
+            yLabel.setAttribute('font-weight', 'bold');
+            yLabel.setAttribute('text-anchor', 'middle');
+            yLabel.textContent = 'Rate (f & i, mm/hr)';
+            svg.appendChild(yLabel);
+
+            // Shading Areas: Infiltration & Runoff Dynamics
+            let pointsF = []; // Horton capacity points
+            let pointsI = []; // Rainfall intensity points
+
+            for (let t = 0; t <= 60; t += 0.5) {
+                const ft = SIM.fc + (SIM.f0 - SIM.fc) * Math.exp(-SIM.k * (t / 60) * 5); // decay mapping
+                pointsF.push({ t, f: ft });
+                pointsI.push({ t, i: SIM.i });
+            }
+
+            // Build dynamic poly-paths
+            let pathInfiltration = `M ${xScale(0)} ${yScale(0)} `;
+            let pathRunoff = '';
+            let runoffPoints = [];
+
+            pointsF.forEach((pt, idx) => {
+                const x = xScale(pt.t);
+                const actualInf = Math.min(SIM.i, pt.f);
+                pathInfiltration += `L ${x} ${yScale(actualInf)} `;
+
+                if (SIM.i > pt.f) {
+                    runoffPoints.push({ x, yTop: yScale(SIM.i), yBot: yScale(pt.f) });
+                }
+            });
+            pathInfiltration += `L ${xScale(60)} ${yScale(0)} Z`;
+
+            // Draw Infiltration Area fill (Blue/Cyan)
+            const polyInf = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            polyInf.setAttribute('d', pathInfiltration);
+            polyInf.setAttribute('fill', 'rgba(0, 240, 255, 0.1)');
+            svg.appendChild(polyInf);
+
+            // Draw Runoff Area fill (Red/Amber)
+            if (runoffPoints.length > 0) {
+                let dRunoff = `M ${runoffPoints[0].x} ${runoffPoints[0].yTop} `;
+                for (let k = 1; k < runoffPoints.length; k++) {
+                    dRunoff += `L ${runoffPoints[k].x} ${runoffPoints[k].yTop} `;
+                }
+                for (let k = runoffPoints.length - 1; k >= 0; k--) {
+                    dRunoff += `L ${runoffPoints[k].x} ${runoffPoints[k].yBot} `;
+                }
+                dRunoff += 'Z';
+                
+                const polyRun = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                polyRun.setAttribute('d', dRunoff);
+                polyRun.setAttribute('fill', 'rgba(255, 59, 48, 0.15)');
+                svg.appendChild(polyRun);
+            }
+
+            // Draw Rain Intensity Line (Horizontal)
+            const rainPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let dI = `M ${xScale(0)} ${yScale(SIM.i)} L ${xScale(60)} ${yScale(SIM.i)}`;
+            rainPath.setAttribute('d', dI);
+            rainPath.setAttribute('stroke', '#ff3b30');
+            rainPath.setAttribute('stroke-width', '2');
+            rainPath.setAttribute('stroke-dasharray', '5 5');
+            rainPath.setAttribute('fill', 'none');
+            svg.appendChild(rainPath);
+
+            // Draw Horton Curve Line f(t)
+            const hortonPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            let dF = `M ${xScale(pointsF[0].t)} ${yScale(pointsF[0].f)} `;
+            for (let k = 1; k < pointsF.length; k++) {
+                dF += `L ${xScale(pointsF[k].t)} ${yScale(pointsF[k].f)} `;
+            }
+            hortonPath.setAttribute('d', dF);
+            hortonPath.setAttribute('stroke', '#39ff14');
+            hortonPath.setAttribute('stroke-width', '3');
+            hortonPath.setAttribute('fill', 'none');
+            svg.appendChild(hortonPath);
+
+            // Draw Current State tracking cursor
+            const currentX = xScale(SIM.t);
+            const currentY = yScale(SIM.f_t);
+
+            // Vertical indicator line at current time
+            const timeCursor = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            timeCursor.setAttribute('x1', currentX);
+            timeCursor.setAttribute('y1', margin.top);
+            timeCursor.setAttribute('x2', currentX);
+            timeCursor.setAttribute('y2', margin.top + chartHeight);
+            timeCursor.setAttribute('stroke', 'rgba(255, 255, 255, 0.4)');
+            timeCursor.setAttribute('stroke-width', '1.5');
+            svg.appendChild(timeCursor);
+
+            // Glowing Tracking Dot on Curve
+            const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            dot.setAttribute('cx', currentX);
+            dot.setAttribute('cy', currentY);
+            dot.setAttribute('r', '6');
+            dot.setAttribute('fill', 'var(--neon-green)');
+            dot.setAttribute('stroke', '#fff');
+            dot.setAttribute('stroke-width', '1.5');
+            dot.style.filter = 'drop-shadow(0px 0px 5px var(--neon-green))';
+            svg.appendChild(dot);
+        }
+
+
+        // --- Simulation Physics Calculations ---
+        function updateSystemPhysics(dt) {
+            // Update clock
+            if (SIM.isRunning) {
+                SIM.t += dt;
+                if (SIM.t > 60) {
+                    SIM.t = 0; // wrap around clock
+                }
+                elements.slideTime.value = SIM.t.toFixed(1);
+            }
+
+            // Recalculate Horton Curve equation parameters
+            // map scale: hour = 12 simulation minutes
+            const tInHours = (SIM.t / 12.0); 
+            SIM.f_t = SIM.fc + (SIM.f0 - SIM.fc) * Math.exp(-SIM.k * tInHours);
+
+            // Actual Infiltration rate (fa) and Runoff Rate (q) logic
+            if (SIM.i <= SIM.f_t) {
+                SIM.f_a = SIM.i;
+                SIM.q = 0;
+            } else {
+                SIM.f_a = SIM.f_t;
+                SIM.q = SIM.i - SIM.f_t;
+            }
+
+            // Update DOM visual labels
+            elements.valTime.textContent = `${SIM.t.toFixed(1)} mins`;
+            elements.hudI.textContent = SIM.i.toFixed(1);
+            elements.hudF.textContent = SIM.f_t.toFixed(1);
+            elements.hudFa.textContent = SIM.f_a.toFixed(1);
+            elements.hudQ.textContent = SIM.q.toFixed(1);
+
+            // Display Latex formatted dynamically
+            elements.eqFaVal.innerHTML = `${SIM.f_a.toFixed(1)} <span style="font-size: 0.75rem;">mm/hr</span>`;
+            if (SIM.q > 0) {
+                elements.eqQVal.className = 'equation-alert';
+                elements.eqQVal.innerHTML = `${SIM.q.toFixed(1)} <span style="font-size: 0.75rem;">mm/hr (RUNOFF!)</span>`;
+            } else {
+                elements.eqQVal.className = 'equation-highlight';
+                elements.eqQVal.innerHTML = `0.0 <span style="font-size: 0.75rem;">(Infiltrating)</span>`;
+            }
+
+            // Sync Sound variables
+            sound.updateAudio(SIM.i, SIM.q);
+        }
+
+        // Global Loop
+        function simLoop(timestamp) {
+            if (!SIM.lastFrameTime) SIM.lastFrameTime = timestamp;
+            const deltaMs = timestamp - SIM.lastFrameTime;
+            SIM.lastFrameTime = timestamp;
+
+            // Step speed factor
+            const dt = SIM.isRunning ? (deltaMs / 1000) * 2.0 : 0; // 1s real = 2 sim minutes
+
+            updateSystemPhysics(dt);
+            renderSimulation();
+            updateHortonChart();
+
+            requestAnimationFrame(simLoop);
+        }
+
+        // --- TTS Narration Module (SpeechSynthesis API) ---
+        const narratorScript = [
+            {
+                text: "Welcome to Horton's Infiltration and Runoff Simulation. Infiltration is the process where water enters the soil through the ground surface.",
+                highlight: 'header'
+            },
+            {
+                text: "Horton's model describes how the soil's Infiltration Capacity decaying over time as the soil matrix becomes increasingly saturated, modeled here by the green curve.",
+                highlight: 'horton-chart'
+            },
+            {
+                text: "When Rainfall Intensity, represented by the red line, is less than the infiltration capacity, all rainwater is absorbed directly. Actual Infiltration equals rainfall, and no runoff occurs.",
+                highlight: 'slide-i'
+            },
+            {
+                text: "However, once Rainfall Intensity exceeds Infiltration Capacity, the soil cannot absorb water fast enough. Ponding begins and excess water triggers Surface Runoff, highlighted in red.",
+                highlight: 'canvas-soil'
+            },
+            {
+                text: "Adjust the rainfall or soil sliders now to see how soil type and storm intensity alter the exact onset and magnitude of hydrologic runoff.",
+                highlight: 'slide-f0'
+            }
+        ];
+
+        let currentScriptIndex = 0;
+        let speechSynth = window.speechSynthesis;
+        let speechUtterance = null;
+
+        function playNarrator() {
+            if (speechSynth.speaking) {
+                speechSynth.cancel();
+                elements.narratorStatus.style.display = 'none';
+                elements.btnNarrate.textContent = 'Narrate Concept';
+                return;
+            }
+
+            currentScriptIndex = 0;
+            speakNextLine();
+        }
+
+        function speakNextLine() {
+            if (currentScriptIndex >= narratorScript.length) {
+                elements.narratorStatus.style.display = 'none';
+                elements.btnNarrate.textContent = 'Narrate Concept';
+                elements.narratorSpeech.textContent = "Narration complete. Enjoy exploring the interactive parameters!";
+                // remove active highlight
+                document.querySelectorAll('.glass-panel').forEach(p => p.style.boxShadow = '');
+                return;
+            }
+
+            const step = narratorScript[currentScriptIndex];
+            elements.narratorSpeech.textContent = step.text;
+            elements.narratorStatus.style.display = 'inline';
+            elements.btnNarrate.textContent = 'Stop Narration';
+
+            // Visual highlighters of active concepts
+            document.querySelectorAll('.glass-panel, .canvas-container').forEach(p => p.style.border = '');
+            const targetEl = document.getElementById(step.highlight) || document.querySelector('.' + step.highlight);
+            if (targetEl) {
+                targetEl.style.border = '2px solid var(--neon-purple)';
+            }
+
+            speechUtterance = new SpeechSynthesisUtterance(step.text);
+            speechUtterance.rate = 1.0;
+            
+            speechUtterance.onend = () => {
+                currentScriptIndex++;
+                speakNextLine();
+            };
+
+            speechSynth.speak(speechUtterance);
+        }
+
+
+        // --- Event Listeners & UI Binding ---
+        elements.slideI.addEventListener('input', (e) => {
+            SIM.i = parseFloat(e.target.value);
+            elements.valI.textContent = SIM.i.toFixed(1);
+        });
+
+        elements.slideF0.addEventListener('input', (e) => {
+            SIM.f0 = parseFloat(e.target.value);
+            // enforce f0 >= fc rule logically
+            if (SIM.f0 < SIM.fc) {
+                SIM.fc = SIM.f0;
+                elements.slideFc.value = SIM.fc;
+                elements.valFc.textContent = SIM.fc.toFixed(1);
+            }
+            elements.valF0.textContent = SIM.f0.toFixed(1);
+        });
+
+        elements.slideFc.addEventListener('input', (e) => {
+            SIM.fc = parseFloat(e.target.value);
+            // enforce fc <= f0 rule logically
+            if (SIM.fc > SIM.f0) {
+                SIM.f0 = SIM.fc;
+                elements.slideF0.value = SIM.f0;
+                elements.valF0.textContent = SIM.f0.toFixed(1);
+            }
+            elements.valFc.textContent = SIM.fc.toFixed(1);
+        });
+
+        elements.slideK.addEventListener('input', (e) => {
+            SIM.k = parseFloat(e.target.value);
+            elements.valK.textContent = SIM.k.toFixed(1);
+        });
+
+        elements.slideTime.addEventListener('input', (e) => {
+            SIM.t = parseFloat(e.target.value);
+            elements.valTime.textContent = `${SIM.t.toFixed(1)} mins`;
+        });
+
+        elements.toggleDebug.addEventListener('change', (e) => {
+            SIM.debug = e.target.checked;
+        });
+
+        elements.btnPlay.addEventListener('click', () => {
+            SIM.isRunning = !SIM.isRunning;
+            elements.btnPlay.textContent = SIM.isRunning ? 'Pause' : 'Play';
+            if (SIM.isRunning) elements.btnPlay.classList.add('btn-active');
+            else elements.btnPlay.classList.remove('btn-active');
+        });
+
+        elements.btnReset.addEventListener('click', () => {
+            SIM.isRunning = false;
+            SIM.t = 0;
+            elements.btnPlay.textContent = 'Play';
+            elements.btnPlay.classList.remove('btn-active');
+            elements.slideTime.value = 0;
+            elements.valTime.textContent = '0.0 mins';
+        });
+
+        elements.btnSound.addEventListener('click', () => {
+            SIM.soundEnabled = !SIM.soundEnabled;
+            if (SIM.soundEnabled) {
+                sound.init();
+                elements.btnSound.classList.add('btn-active');
+                elements.btnSound.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    Audio On
+                `;
+            } else {
+                sound.mute();
+                elements.btnSound.classList.remove('btn-active');
+                elements.btnSound.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                    Enable Audio
+                `;
+            }
+        });
+
+        elements.btnNarrate.addEventListener('click', playNarrator);
+
+        // Run engine loop initialization
+        requestAnimationFrame(simLoop);
+
+    </script>
+</body>
+</html>

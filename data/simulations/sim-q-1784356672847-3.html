@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Beam Engineering Workspace</title>
+    <style>
+        :root {
+            /* Cyber-Engineering Theme Colors */
+            --bg-dark: #0f172a;
+            --neon-cyan-rgb: 6, 182, 212; /* R,G,B values for JS use */
+            --neon-cyan: rgb(var(--neon-cyan-rgb));
+            --neon-emerald-rgb: 16, 185, 129;
+            --neon-emerald: rgb(var(--neon-emerald-rgb));
+            --neon-amber-rgb: 245, 158, 11;
+            --neon-amber: rgb(var(--neon-amber-rgb));
+            --text-light-rgb: 226, 232, 240;
+            --text-light: rgb(var(--text-light-rgb));
+            --panel-bg: rgba(30, 41, 59, 0.7); /* slate-800 translucent */
+            --modal-bg: rgba(15, 23, 42, 0.8); /* darker, more blur */
+
+            /* Glow filters for premium look */
+            --glow-filter: drop-shadow(0 0 5px var(--neon-cyan)) drop-shadow(0 0 10px var(--neon-cyan));
+            --glow-filter-success: drop-shadow(0 0 5px var(--neon-emerald)) drop-shadow(0 0 10px var(--neon-emerald));
+            --glow-filter-warning: drop-shadow(0 0 5px var(--neon-amber)) drop-shadow(0 0 10px var(--neon-amber));
+        }
+
+        /* Basic Reset & Font */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-light);
+        }
+
+        /* Full-screen containment */
+        html, body {
+            height: 100%;
+            overflow: hidden; /* CRITICAL RULE 1: No outer scrollbars */
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #app {
+            display: grid;
+            grid-template-columns: 350px 1fr; /* Control Center | Canvas */
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* CRITICAL RULE 1: No app scrollbars */
+            gap: 15px;
+            padding: 15px;
+            transition: transform 0.1s ease-out; /* For screen shake */
+        }
+
+        /* Glassmorphism Panel Styling */
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(10px); /* Glassmorphism effect */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        #control-center {
+            overflow-y: auto; /* Scrollable for content if it exceeds height */
+            gap: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #canvas-container {
+            overflow: hidden; /* CRITICAL RULE 1: No canvas scrollbars */
+            background: rgba(0, 0, 0, 0.3); /* Darker background for canvas */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        #beamCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+        }
+
+        /* Headings */
+        h2 {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px var(--neon-cyan);
+            margin-bottom: 20px;
+            font-size: 1.6em;
+            text-align: center;
+        }
+
+        /* Control Group Card */
+        .control-group {
+            background: rgba(43, 60, 80, 0.5); /* slightly lighter inner background */
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: var(--text-light);
+        }
+
+        /* Input Styles (Range & Number) */
+        .control-group input[type="range"],
+        .control-group input[type="number"],
+        .rebar-input-field select, .rebar-input-field input {
+            width: calc(100% - 10px);
+            padding: 8px;
+            margin-top: 5px;
+            border-radius: 5px;
+            border: 1px solid var(--neon-cyan);
+            background-color: rgba(60, 70, 90, 0.8);
+            color: var(--text-light);
+            -webkit-appearance: none;
+            appearance: none;
+            outline: none;
+            box-shadow: 0 0 5px rgba(6, 182, 212, 0.3);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: 0 0 8px var(--neon-cyan);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .control-group input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: 0 0 8px var(--neon-cyan);
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        .control-group input:focus,
+        .rebar-input-field select:focus, .rebar-input-field input:focus {
+            border-color: var(--neon-emerald);
+            box-shadow: 0 0 8px var(--neon-emerald);
+        }
+
+        /* General Button Style */
+        .btn {
+            background-color: var(--neon-cyan);
+            color: var(--bg-dark); /* Dark text on bright button */
+            padding: 12px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            filter: var(--glow-filter); /* Neon glow */
+            text-shadow: none; /* Override h2 text-shadow if any */
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            background-color: var(--neon-emerald);
+            filter: var(--glow-filter-success);
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px var(--neon-emerald);
+        }
+
+        /* Modal Overlay & Content */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--modal-bg);
+            backdrop-filter: blur(15px); /* CRITICAL RULE 5: Blur backdrop */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 30px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            width: 80%;
+            max-width: 900px;
+            max-height: 80vh;
+            overflow-y: auto; /* Scrollable if content too tall */
+            position: relative;
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        .modal-content h3 {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 6px var(--neon-cyan);
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            text-align: center;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: var(--neon-amber);
+            transform: scale(1.1);
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* Code Library Cards (draggable) */
+        .code-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .code-card {
+            background: rgba(60, 70, 90, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+            position: relative;
+        }
+
+        .code-card:hover {
+            transform: translateY(-5px) scale(1.02);
+            box-shadow: 0 0 15px var(--neon-cyan);
+            border-color: var(--neon-cyan);
+        }
+
+        .code-card.violated {
+            border-color: var(--neon-amber);
+            box-shadow: 0 0 15px var(--neon-amber);
+            animation: pulse-amber 1s infinite alternate;
+        }
+
+        @keyframes pulse-amber {
+            from { box-shadow: 0 0 5px var(--neon-amber); }
+            to { box-shadow: 0 0 20px var(--neon-amber); }
+        }
+
+        .code-card h4 {
+            color: var(--neon-cyan);
+            font-size: 1.3em;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px var(--neon-cyan);
+        }
+
+        .code-card p {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: var(--text-light);
+        }
+
+        /* Checklist Items */
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(43, 60, 80, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .checklist-item.verified {
+            border-color: var(--neon-emerald);
+            box-shadow: 0 0 8px var(--neon-emerald);
+        }
+
+        .checklist-item.pending {
+            border-color: var(--neon-amber);
+            box-shadow: 0 0 8px var(--neon-amber);
+        }
+
+        .checklist-item.error { /* For checklist items whose constraints are violated */
+            border-color: red;
+            box-shadow: 0 0 8px red;
+        }
+
+        .checklist-item .status-indicator {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #ef4444; /* Red for initial pending */
+            box-shadow: 0 0 5px #ef4444;
+            transition: all 0.3s ease;
+        }
+
+        .checklist-item.verified .status-indicator {
+            background-color: var(--neon-emerald);
+            box-shadow: 0 0 5px var(--neon-emerald);
+        }
+
+        .checklist-item.pending .status-indicator {
+            background-color: var(--neon-amber);
+            box-shadow: 0 0 5px var(--neon-amber);
+        }
+
+        .checklist-item p {
+            margin: 0;
+            font-weight: bold;
+            color: var(--text-light);
+            flex-grow: 1;
+        }
+
+        /* Droppable Clause Slots */
+        .droppable-clause {
+            background: rgba(60, 70, 90, 0.6);
+            border: 1px dashed var(--neon-cyan);
+            border-radius: 5px;
+            padding: 8px 12px;
+            margin-left: 10px;
+            min-width: 120px;
+            text-align: center;
+            font-size: 0.9em;
+            cursor: default;
+            transition: all 0.2s ease;
+            position: relative;
+            display: inline-block; /* To allow width to adjust, but remain in line with text */
+            vertical-align: middle;
+            line-height: 1.2;
+        }
+
+        .droppable-clause.highlight {
+            border-color: var(--neon-emerald);
+            background-color: rgba(var(--neon-emerald-rgb), 0.2);
+        }
+        .droppable-clause.filled {
+            border-style: solid;
+            background-color: rgba(var(--neon-emerald-rgb), 0.3);
+            color: var(--neon-emerald);
+            font-weight: bold;
+            text-shadow: 0 0 5px var(--neon-emerald);
+        }
+
+        .droppable-clause::after {
+            content: attr(data-placeholder);
+            color: rgba(255, 255, 255, 0.4);
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            opacity: 1;
+            transition: opacity 0.2s;
+        }
+
+        .droppable-clause.filled::after {
+            opacity: 0;
+            pointer-events: none; /* Make text behind clickable/draggable */
+        }
+
+        .droppable-clause.error {
+            border-color: var(--neon-amber);
+            background-color: rgba(var(--neon-amber-rgb), 0.2);
+            animation: pulse-amber 0.5s infinite alternate;
+        }
+
+        /* Input group for sliders */
+        .input-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .input-group label {
+            min-width: 80px;
+            margin-bottom: 0;
+        }
+
+        .input-group span {
+            margin-left: 10px;
+            min-width: 50px;
+            text-align: right;
+            color: var(--neon-cyan);
+            font-weight: bold;
+        }
+
+        /* Beam Warning Overlay */
+        .beam-warning-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 0, 0, 0.1); /* Subtle red glow */
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+
+        .beam-warning-overlay.active {
+            opacity: 1;
+            animation: beamWarningPulse 1s infinite alternate;
+        }
+
+        @keyframes beamWarningPulse {
+            from { background-color: rgba(255, 0, 0, 0.1); }
+            to { background-color: rgba(255, 0, 0, 0.4); }
+        }
+
+        /* Screen Shake Animation */
+        @keyframes screenshake {
+            0% { transform: translate(0, 0); }
+            20% { transform: translate(-5px, -5px) rotate(-0.5deg); }
+            40% { transform: translate(5px, 5px) rotate(0.5deg); }
+            60% { transform: translate(-5px, 5px) rotate(0.5deg); }
+            80% { transform: translate(5px, -5px) rotate(-0.5deg); }
+            100% { transform: translate(0, 0); }
+        }
+
+        /* Canvas Overlay Buttons */
+        .canvas-overlay-buttons {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 50;
+        }
+
+        .canvas-overlay-buttons .btn {
+            width: fit-content;
+            padding: 8px 15px;
+            font-size: 0.9em;
+            margin-top: 0;
+            filter: var(--glow-filter);
+        }
+        .canvas-overlay-buttons .btn.active {
+            filter: var(--glow-filter-success);
+            background-color: var(--neon-emerald);
+        }
+
+        /* Rebar controls specific layout */
+        .rebar-controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+        .rebar-input-field {
+            display: flex;
+            flex-direction: column;
+            width: calc(50% - 5px); /* Two columns */
+        }
+        .rebar-input-field label {
+            font-size: 0.9em;
+            margin-bottom: 5px;
+        }
+        .rebar-add-btn {
+            width: 100%;
+            margin-top: 10px;
+            background-color: var(--neon-cyan);
+        }
+        .rebar-section-details {
+            font-size: 0.9em;
+            margin-top: 10px;
+            color: var(--text-light);
+            text-align: center;
+        }
+        .rebar-section-details strong {
+            color: var(--neon-emerald);
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app">
+        <div id="control-center" class="panel">
+            <h2>RCC Beam Design Console</h2>
+
+            <div class="control-group">
+                <label>Beam Dimensions (mm)</label>
+                <div class="input-group">
+                    <label for="beamWidth">Width (b):</label>
+                    <input type="range" id="beamWidth" min="150" max="600" value="300" step="10">
+                    <span id="beamWidthValue">300</span>
+                </div>
+                <div class="input-group">
+                    <label for="beamDepth">Depth (D):</label>
+                    <input type="range" id="beamDepth" min="300" max="1200" value="600" step="10">
+                    <span id="beamDepthValue">600</span>
+                </div>
+                <div class="input-group">
+                    <label for="clearCover">Cover (c):</label>
+                    <input type="range" id="clearCover" min="25" max="75" value="50" step="5">
+                    <span id="clearCoverValue">50</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Material Properties</label>
+                <div class="input-group">
+                    <label for="fck">fck (N/mm²):</label>
+                    <input type="range" id="fck" min="20" max="40" value="25" step="5">
+                    <span id="fckValue">25</span>
+                </div>
+                <div class="input-group">
+                    <label for="fy">fy (N/mm²):</label>
+                    <input type="range" id="fy" min="415" max="500" value="415" step="5">
+                    <span id="fyValue">415</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>Main Reinforcement</label>
+                <div class="rebar-controls">
+                    <div class="rebar-input-field">
+                        <label for="rebarCount">Number:</label>
+                        <select id="rebarCount">
+                            <option value="2">2 bars</option>
+                            <option value="3" selected>3 bars</option>
+                            <option value="4">4 bars</option>
+                            <option value="5">5 bars</option>
+                            <option value="6">6 bars</option>
+                        </select>
+                    </div>
+                    <div class="rebar-input-field">
+                        <label for="rebarDiameter">Diameter (mm):</label>
+                        <select id="rebarDiameter">
+                            <option value="8">8 mm</option>
+                            <option value="10">10 mm</option>
+                            <option value="12" selected>12 mm</option>
+                            <option value="16">16 mm</option>
+                            <option value="20">20 mm</option>
+                            <option value="25">25 mm</option>
+                            <option value="32">32 mm</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="rebar-section-details">
+                    Total Area: <strong id="totalRebarArea">0 mm²</strong>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>IS 456 Codal Provisions Checklist</label>
+                <div id="checklist">
+                    <div class="checklist-item pending" id="checklist-max-dia">
+                        <p>Max. Dia. of Bar <span class="droppable-clause" data-clause-target="26.5.3.1a" data-placeholder="Drag Clause Here"></span></p>
+                        <div class="status-indicator"></div>
+                    </div>
+                    <div class="checklist-item pending" id="checklist-min-reinf">
+                        <p>Min. Tension Reinf. <span class="droppable-clause" data-clause-target="26.5.1.1a" data-placeholder="Drag Clause Here"></span></p>
+                        <div class="status-indicator"></div>
+                    </div>
+                    <div class="checklist-item pending" id="checklist-max-spacing">
+                        <p>Max. Spacing <span class="droppable-clause" data-clause-target="26.3.3b" data-placeholder="Drag Clause Here"></span></p>
+                        <div class="status-indicator"></div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn" id="openISLibraryBtn">Digital IS 456 Library</button>
+            <button class="btn" id="playAudioBtn" style="filter: none; background-color: var(--bg-dark); border: 1px solid var(--neon-cyan);">
+                <span style="color: var(--neon-cyan);">🔊 Speak Status</span>
+            </button>
+        </div>
+
+        <div id="canvas-container" class="panel">
+            <canvas id="beamCanvas"></canvas>
+            <div class="beam-warning-overlay" id="beamWarningOverlay"></div>
+            <div class="canvas-overlay-buttons">
+                <button class="btn" id="toggleStressBlock">Toggle Stress Block</button>
+                <button class="btn" id="togglePourAnimation">Concrete Pour</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- IS 456 Library Modal (CRITICAL RULE 5: Modern Dialogs) -->
+    <div id="is-code-library-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn">&times;</button>
+            <h3>Digital IS 456 Library</h3>
+            <div class="code-cards-grid">
+                <div class="code-card" draggable="true" data-clause-id="26.5.3.1a" data-clause-text="Max Diameter of Main Reinforcement (26.5.3.1a)" data-clause-explanation="The diameter of main reinforcement bars in beams shall not exceed one-eighth of the total thickness of the slab or beam. This helps prevent excessive cracking and ensures proper concrete compaction around the bars.">
+                    <h4>Clause 26.5.3.1 (a)</h4>
+                    <p>Max. Diameter of Main Reinforcement</p>
+                </div>
+                <div class="code-card" draggable="true" data-clause-id="26.5.1.1a" data-clause-text="Minimum Tension Reinforcement (26.5.1.1a)" data-clause-explanation="The minimum area of tension reinforcement shall not be less than 0.85bd/fy. This provision ensures that the beam has sufficient ductility and prevents sudden brittle failure. It helps in controlling cracks and provides adequate strength.">
+                    <h4>Clause 26.5.1.1 (a)</h4>
+                    <p>Min. Tension Reinforcement</p>
+                </div>
+                <div class="code-card" draggable="true" data-clause-id="26.3.3b" data-clause-text="Maximum Spacing of Tension Reinforcement (26.3.3b)" data-clause-explanation="The horizontal distance between parallel main reinforcement bars shall not be more than 300 mm or 3 times the effective depth of the beam, whichever is less. This ensures effective crack control and proper bond between steel and concrete.">
+                    <h4>Clause 26.3.3 (b)</h4>
+                    <p>Max. Spacing of Tension Reinforcement</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audio Elements (CRITICAL RULE 10: Web Audio API) -->
+    <audio id="chimeSound" src="https://assets.mixkit.co/sfx/preview/mixkit-positive-notification-alert-bell-1662.mp3" preload="auto"></audio>
+    <audio id="warningSound" src="https://assets.mixkit.co/sfx/preview/mixkit-sci-fi-system-alert-974.mp3" preload="auto"></audio>
+    <audio id="clickSound" src="https://assets.mixkit.co/sfx/preview/mixkit-classic-click-1126.mp3" preload="auto"></audio>
+
+    <script>
+        // --- Global State Management (CRITICAL RULE: JSON Object) ---
+        const beamState = {
+            b: 300, // Beam width (mm)
+            D: 600, // Overall depth (mm)
+            c: 50,  // Clear cover (mm)
+            fck: 25, // Concrete characteristic strength (N/mm^2)
+            fy: 415, // Steel yield strength (N/mm^2)
+            tensionRebars: [], // [{ diameter: 12, count: 3 }]
+            Ast: 0, // Total steel area
+            naDepth: 0.2, // Neutral axis depth (fraction of effective depth 'd') - for visualization
+            showStressBlock: false,
+            pourProgress: 0, // 0 to 1 for pour animation
+            pourAnimating: false,
+            rebarPulsePhase: 0, // For pulse animation
+            isViolatingMaxDia: false,
+            isViolatingMinReinf: false,
+            isViolatingMaxSpacing: false,
+            clauseVerification: { // For drag-and-drop verification
+                '26.5.3.1a': { verified: false, explanation: "The diameter of main reinforcement bars in beams shall not exceed one-eighth of the total thickness of the slab or beam. This helps prevent excessive cracking and ensures proper concrete compaction around the bars." },
+                '26.5.1.1a': { verified: false, explanation: "The minimum area of tension reinforcement shall not be less than 0.85bd/fy. This provision ensures that the beam has sufficient ductility and prevents sudden brittle failure. It helps in controlling cracks and provides adequate strength." },
+                '26.3.3b': { verified: false, explanation: "The horizontal distance between parallel main reinforcement bars shall not be more than 300 mm or 3 times the effective depth of the beam, whichever is less. This ensures effective crack control and proper bond between steel and concrete." }
+            },
+            mouseX: 0, // For dimension hover
+            mouseY: 0, // For dimension hover
+            scaledStartX: 0, // Canvas drawing parameters
+            scaledStartY: 0,
+            scaledB: 0,
+            scaledD: 0,
+            scale: 1
+        };
+
+        // --- DOM Elements ---
+        const canvas = document.getElementById('beamCanvas');
+        const ctx = canvas.getContext('2d');
+        const app = document.getElementById('app');
+        const beamWarningOverlay = document.getElementById('beamWarningOverlay');
+
+        // Modals
+        const isLibraryModal = document.getElementById('is-code-library-modal');
+        const openISLibraryBtn = document.getElementById('openISLibraryBtn');
+        const closeModals = document.querySelectorAll('.close-btn');
+
+        // Beam dimension controls
+        const beamWidthSlider = document.getElementById('beamWidth');
+        const beamDepthSlider = document.getElementById('beamDepth');
+        const clearCoverSlider = document.getElementById('clearCover');
+        const beamWidthValueSpan = document.getElementById('beamWidthValue');
+        const beamDepthValueSpan = document.getElementById('beamDepthValue');
+        const clearCoverValueSpan = document.getElementById('clearCoverValue');
+
+        // Material properties controls
+        const fckSlider = document.getElementById('fck');
+        const fySlider = document.getElementById('fy');
+        const fckValueSpan = document.getElementById('fckValue');
+        const fyValueSpan = document.getElementById('fyValue');
+
+        // Rebar controls
+        const rebarCountSelect = document.getElementById('rebarCount');
+        const rebarDiameterSelect = document.getElementById('rebarDiameter');
+        const totalRebarAreaSpan = document.getElementById('totalRebarArea');
+
+        // Checklist items
+        const checklistMaxDia = document.getElementById('checklist-max-dia');
+        const checklistMinReinf = document.getElementById('checklist-min-reinf');
+        const checklistMaxSpacing = document.getElementById('checklist-max-spacing');
+
+        // Droppable clause slots
+        const droppableClauseSlots = document.querySelectorAll('.droppable-clause');
+
+        // Canvas overlay buttons
+        const toggleStressBlockBtn = document.getElementById('toggleStressBlock');
+        const togglePourAnimationBtn = document.getElementById('togglePourAnimation');
+        const playAudioBtn = document.getElementById('playAudioBtn');
+
+        // Audio Elements (CRITICAL RULE 10: Web Audio API)
+        const chimeSound = document.getElementById('chimeSound');
+        const warningSound = document.getElementById('warningSound');
+        const clickSound = document.getElementById('clickSound');
+
+        // --- Utility Functions ---
+
+        // CRITICAL RULE 2: High-DPI (Retina) Canvas Scaling
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            updateCanvas();
+        }
+
+        // Play Sound
+        function playSound(audioElement, volume = 0.7) {
+            audioElement.currentTime = 0;
+            audioElement.volume = volume;
+            audioElement.play().catch(e => console.error("Audio play failed:", e));
+        }
+
+        // Speech Synthesis (CRITICAL RULE 10: Speech Synthesis API)
+        function speak(text, rate = 1.0, pitch = 1.0) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = rate;
+                utterance.pitch = pitch;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn("Speech Synthesis not supported in this browser.");
+            }
+        }
+
+        // Calculate Effective Depth (d)
+        function calculateEffectiveDepth() {
+            // Assuming one layer of tension rebars at the bottom, c_effective = c + stirrup_dia + rebar_dia/2
+            // For simplicity in this simulation, we'll use 'c' as cover to center of rebar for effective depth
+            // If clear cover, then d = D - c - (rebar_dia/2)
+            // Let's assume 'c' is the distance from extreme tension fibre to center of rebar.
+            return beamState.D - beamState.c;
+        }
+
+        // Calculate total steel area
+        function calculateTotalAst() {
+            let totalAst = 0;
+            if (beamState.tensionRebars.length > 0) {
+                const rebar = beamState.tensionRebars[0];
+                const area = Math.PI * Math.pow(rebar.diameter / 2, 2);
+                totalAst = area * rebar.count;
+            }
+            beamState.Ast = totalAst;
+            totalRebarAreaSpan.textContent = `${totalAst.toFixed(2)} mm²`;
+        }
+
+        // --- Canvas Drawing Functions ---
+
+        // CRITICAL RULE 3: Legible Canvas Text
+        function drawTextWithBackground(text, x, y, fillColor = 'rgba(15, 23, 42, 0.8)', textColor = 'rgb(var(--text-light-rgb))', padding = 5) {
+            ctx.font = 'bold 14px Arial'; // Increased font size and bold
+            ctx.textBaseline = 'middle';
+            ctx.textAlign = 'center';
+
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            const textHeight = parseInt(ctx.font, 10) * 1.2; // Approximation, 1.2 for line height
+
+            // Draw background rectangle
+            ctx.fillStyle = fillColor;
+            ctx.fillRect(x - textWidth / 2 - padding, y - textHeight / 2 - padding, textWidth + padding * 2, textHeight + padding * 2);
+
+            // Draw text
+            ctx.fillStyle = textColor;
+            ctx.fillText(text, x, y);
+        }
+
+        function drawBeamOutline() {
+            const b = beamState.b;
+            const D = beamState.D;
+            const c = beamState.c;
+
+            const canvasWidth = canvas.width / (window.devicePixelRatio || 1);
+            const canvasHeight = canvas.height / (window.devicePixelRatio || 1);
+            const scale = Math.min(canvasWidth / (b + 150), canvasHeight / (D + 150)) * 0.8; // Scale to fit, 0.8 to leave margin
+            const scaledB = b * scale;
+            const scaledD = D * scale;
+            const scaledC = c * scale;
+
+            const startX = (canvasWidth - scaledB) / 2;
+            const startY = (canvasHeight - scaledD) / 2;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear entire canvas
+
+            // Save for future use in beamState (used by other drawing functions)
+            beamState.scaledStartX = startX;
+            beamState.scaledStartY = startY;
+            beamState.scaledB = scaledB;
+            beamState.scaledD = scaledD;
+            beamState.scale = scale;
+
+            // Concrete outline (ghost)
+            ctx.strokeStyle = 'rgba(var(--text-light-rgb), 0.3)';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]); // Dashed line
+            ctx.strokeRect(startX, startY, scaledB, scaledD);
+            ctx.setLineDash([]); // Reset to solid line
+
+            // Concrete area (fill) - for pour animation
+            if (beamState.pourAnimating) {
+                const fillHeight = scaledD * beamState.pourProgress;
+                ctx.fillStyle = `rgba(100, 100, 100, ${0.4 * beamState.pourProgress + 0.1})`; // Gradually more opaque
+                ctx.fillRect(startX, startY + scaledD - fillHeight, scaledB, fillHeight);
+            } else {
+                ctx.fillStyle = 'rgba(128, 128, 128, 0.4)'; // Static fill if not animating
+                ctx.fillRect(startX, startY, scaledB, scaledD);
+            }
+
+            // Concrete cover outline
+            ctx.strokeStyle = 'rgba(var(--text-light-rgb), 0.2)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(startX + scaledC, startY + scaledC, scaledB - 2 * scaledC, scaledD - 2 * scaledC);
+        }
+
+        function drawRebars() {
+            const { scaledStartX, scaledStartY, scaledB, scaledD, scale, c } = beamState;
+            if (!beamState.tensionRebars || beamState.tensionRebars.length === 0) return;
+
+            const { diameter, count } = beamState.tensionRebars[0];
+            const scaledRebarDiameter = diameter * scale;
+            const effectiveDepth = calculateEffectiveDepth();
+            const scaledEffectiveDepth = effectiveDepth * scale;
+
+            // Rebar center Y position (at effective depth)
+            const tensionRebarY = scaledStartY + scaledEffectiveDepth;
+
+            // Calculate spacing for rebars
+            const availableWidthForBars = scaledB - (2 * (c * scale)); // Width excluding clear cover on both sides
+            let spacing = 0;
+            if (count > 1) {
+                 spacing = (availableWidthForBars - scaledRebarDiameter) / (count - 1);
+            }
+
+            for (let i = 0; i < count; i++) {
+                const rebarX = scaledStartX + (c * scale) + scaledRebarDiameter / 2 + i * spacing;
+
+                ctx.beginPath();
+                ctx.arc(rebarX, tensionRebarY, scaledRebarDiameter / 2, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(var(--text-light-rgb), ${0.7 + Math.sin(beamState.rebarPulsePhase + i * 0.5) * 0.2})`; // Steel pulse
+                ctx.shadowBlur = 15 + Math.abs(Math.sin(beamState.rebarPulsePhase + i * 0.5)) * 10; // Pulsing glow
+                ctx.shadowColor = `rgba(var(--neon-cyan-rgb), 0.8)`;
+                ctx.fill();
+                ctx.strokeStyle = `rgba(var(--neon-cyan-rgb), 0.8)`;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset shadow
+            }
+        }
+
+        // Dynamic Leaders/Callouts
+        function drawDimensions(mouseX, mouseY) {
+            const { scaledStartX, scaledStartY, scaledB, scaledD, scale, b, D, c } = beamState;
+            if (!scaledB || !scaledD) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            const scaledMouseX = mouseX * dpr;
+            const scaledMouseY = mouseY * dpr;
+
+            const isHoveringBeam = scaledMouseX > scaledStartX && scaledMouseX < scaledStartX + scaledB &&
+                                   scaledMouseY > scaledStartY && scaledMouseY < scaledStartY + scaledD;
+
+            let hoveredDim = null;
+            const hoverThreshold = 20 * dpr; // pixels for hover detection
+
+            if (isHoveringBeam) {
+                // Check hover for 'b' (width)
+                if (scaledMouseY > scaledStartY + scaledD - hoverThreshold && scaledMouseY < scaledStartY + scaledD + hoverThreshold) {
+                    hoveredDim = 'b';
+                }
+                // Check hover for 'D' (depth)
+                if (scaledMouseX > scaledStartX - hoverThreshold && scaledMouseX < scaledStartX + hoverThreshold) {
+                    hoveredDim = 'D';
+                }
+                // Check hover for 'c' (clear cover) - top
+                if (scaledMouseY > scaledStartY && scaledMouseY < scaledStartY + (c * scale) + hoverThreshold) {
+                    hoveredDim = 'c';
+                }
+            }
+
+            // Draw 'b'
+            ctx.strokeStyle = hoveredDim === 'b' ? `rgb(var(--neon-emerald-rgb))` : 'rgba(var(--text-light-rgb),0.4)';
+            ctx.lineWidth = hoveredDim === 'b' ? 3 : 1;
+            ctx.beginPath();
+            ctx.moveTo(scaledStartX, scaledStartY + scaledD + 10 * scale);
+            ctx.lineTo(scaledStartX + scaledB, scaledStartY + scaledD + 10 * scale);
+            ctx.stroke();
+            drawTextWithBackground(`b = ${b} mm`, scaledStartX + scaledB / 2, scaledStartY + scaledD + 25 * scale);
+
+            // Draw 'D'
+            ctx.strokeStyle = hoveredDim === 'D' ? `rgb(var(--neon-emerald-rgb))` : 'rgba(var(--text-light-rgb),0.4)';
+            ctx.lineWidth = hoveredDim === 'D' ? 3 : 1;
+            ctx.beginPath();
+            ctx.moveTo(scaledStartX - 10 * scale, scaledStartY);
+            ctx.lineTo(scaledStartX - 10 * scale, scaledStartY + scaledD);
+            ctx.stroke();
+            drawTextWithBackground(`D = ${D} mm`, scaledStartX - 25 * scale, scaledStartY + scaledD / 2);
+
+            // Draw 'c' (top cover for example)
+            ctx.strokeStyle = hoveredDim === 'c' ? `rgb(var(--neon-emerald-rgb))` : 'rgba(var(--text-light-rgb),0.4)';
+            ctx.lineWidth = hoveredDim === 'c' ? 3 : 1;
+            ctx.beginPath();
+            ctx.moveTo(scaledStartX + scaledB + 10 * scale, scaledStartY);
+            ctx.lineTo(scaledStartX + scaledB + 10 * scale, scaledStartY + (c * scale));
+            ctx.stroke();
+            drawTextWithBackground(`c = ${c} mm`, scaledStartX + scaledB + 25 * scale, scaledStartY + (c * scale) / 2);
+        }
+
+        let neutralAxisDragging = false;
+        function drawStressBlockAndStrainProfile() {
+            if (!beamState.showStressBlock) return;
+
+            const { scaledStartX, scaledStartY, scaledB, scaledD, scale } = beamState;
+            const effectiveDepth = calculateEffectiveDepth();
+            const scaledEffectiveDepth = effectiveDepth * scale;
+
+            // Neutral Axis (NA)
+            const naY = scaledStartY + scaledEffectiveDepth * beamState.naDepth;
+            ctx.strokeStyle = `rgba(var(--neon-amber-rgb), 0.8)`; // Amber for NA
+            ctx.lineWidth = 2;
+            ctx.setLineDash([8, 4]);
+            ctx.beginPath();
+            ctx.moveTo(scaledStartX, naY);
+            ctx.lineTo(scaledStartX + scaledB, naY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            drawTextWithBackground(`Xu = ${(beamState.naDepth * effectiveDepth).toFixed(1)} mm`, scaledStartX + scaledB + 30 * scale, naY, 'rgba(15, 23, 42, 0.9)', 'rgb(255, 255, 0)');
+
+            // Strain Profile (Simplified triangle)
+            ctx.strokeStyle = `rgba(var(--neon-emerald-rgb), 0.8)`; // Green for strain
+            ctx.lineWidth = 2;
+            const strainLineX = scaledStartX + scaledB + 50 * scale;
+            const maxCompStrainValue = 0.0035;
+            const maxTensileStrainValue = 0.002 + (0.87 * beamState.fy / (200000)); // Simplified for visualization
+            const strainScaleFactor = 20000; // Arbitrary factor to make strain visible
+
+            ctx.beginPath();
+            ctx.moveTo(strainLineX + maxCompStrainValue * strainScaleFactor, scaledStartY); // Top extreme fibre (max compressive)
+            ctx.lineTo(strainLineX, scaledStartY); // Neutral axis on top
+            ctx.lineTo(strainLineX, naY); // Neutral axis line
+            ctx.lineTo(strainLineX - maxTensileStrainValue * strainScaleFactor, scaledStartY + scaledD); // Bottom extreme fibre (max tensile)
+            ctx.lineTo(strainLineX, naY); // Back to NA
+            ctx.stroke();
+
+            // Strain values
+            drawTextWithBackground(`${maxCompStrainValue}`, strainLineX + maxCompStrainValue * strainScaleFactor / 2, scaledStartY - 10 * scale, 'rgba(15, 23, 42, 0.9)', 'rgb(var(--text-light-rgb))');
+            drawTextWithBackground(`NA`, strainLineX - 20 * scale, naY);
+            drawTextWithBackground(`Tensile Strain`, strainLineX - maxTensileStrainValue * strainScaleFactor / 2, scaledStartY + scaledD + 10 * scale, 'rgba(15, 23, 42, 0.9)', 'rgb(var(--text-light-rgb))');
+
+
+            // Stress Block (Simplified parabolic-rectangular block)
+            const xu = beamState.naDepth * effectiveDepth;
+            const xuScaled = xu * scale;
+
+            // As per IS 456, stress block is parabolic up to 3/7 Xu, and uniform (0.446 fck) for the rest.
+            const parabolicDepth = (3/7) * xuScaled;
+            const rectangularDepth = (4/7) * xuScaled;
+            const maxStress = 0.446 * beamState.fck; // Max stress value
+
+            // Scale factor for stress diagram width for visualization
+            const stressWidthScale = scaledB / (maxStress * 1.5);
+
+            ctx.fillStyle = 'rgba(255, 165, 0, 0.5)'; // Orange for stress block
+            ctx.beginPath();
+            ctx.moveTo(scaledStartX, scaledStartY + xuScaled); // Start at NA bottom
+            ctx.lineTo(scaledStartX, scaledStartY + rectangularDepth); // Top of rectangular part
+            ctx.lineTo(scaledStartX + maxStress * stressWidthScale, scaledStartY + rectangularDepth); // Max stress width for rectangular part
+            
+            // Draw parabolic part (simplified to curve from uniform stress to zero at top)
+            ctx.bezierCurveTo(
+                scaledStartX + maxStress * stressWidthScale, scaledStartY + rectangularDepth / 2, // Control point 1
+                scaledStartX + maxStress * stressWidthScale / 2, scaledStartY, // Control point 2
+                scaledStartX, scaledStartY // End at top of beam
+            );
+            ctx.closePath();
+            ctx.fill();
+
+            // Stress values (simplified representation)
+            drawTextWithBackground(`${maxStress.toFixed(1)} N/mm²`, scaledStartX + maxStress * stressWidthScale / 2, scaledStartY + 20 * scale, 'rgba(15, 23, 42, 0.9)', 'rgb(var(--text-light-rgb))');
+
+            // Draggable NA dot for interaction
+            ctx.beginPath();
+            ctx.arc(scaledStartX + scaledB / 2, naY, 8 * (window.devicePixelRatio || 1), 0, Math.PI * 2); // Adjust radius for DPR
+            ctx.fillStyle = neutralAxisDragging ? `rgb(var(--neon-emerald-rgb))` : `rgb(var(--neon-amber-rgb))`;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.closePath();
+        }
+
+        function updateCanvas(timestamp) {
+            drawBeamOutline();
+            drawRebars();
+            drawDimensions(beamState.mouseX, beamState.mouseY); // Pass mouse coords
+            drawStressBlockAndStrainProfile();
+
+            // Animate pour
+            if (beamState.pourAnimating) {
+                beamState.pourProgress += 0.005; // Adjust speed
+                if (beamState.pourProgress >= 1) {
+                    beamState.pourProgress = 1;
+                    beamState.pourAnimating = false;
+                    togglePourAnimationBtn.classList.remove('active');
+                }
+            }
+
+            // Animate rebar pulse
+            beamState.rebarPulsePhase += 0.1;
+
+            requestAnimationFrame(updateCanvas);
+        }
+
+        // --- Interaction Logic ---
+
+        // UI Updates from beamState
+        function updateUI() {
+            beamWidthValueSpan.textContent = beamState.b;
+            beamDepthValueSpan.textContent = beamState.D;
+            clearCoverValueSpan.textContent = beamState.c;
+            fckValueSpan.textContent = beamState.fck;
+            fyValueSpan.textContent = beamState.fy;
+
+            // Update rebar counts and diameters if beamState has them
+            if (beamState.tensionRebars.length > 0) {
+                rebarCountSelect.value = beamState.tensionRebars[0].count;
+                rebarDiameterSelect.value = beamState.tensionRebars[0].diameter;
+            }
+            calculateTotalAst();
+            checkAllConstraints(); // Re-check constraints whenever UI changes
+        }
+
+        // Constraint Validation
+        function checkConstraintMaxDiameter() {
+            if (beamState.tensionRebars.length === 0) {
+                beamState.isViolatingMaxDia = false; // No rebars, not violating
+                return;
+            }
+            const rebarDiameter = beamState.tensionRebars[0].diameter;
+            const maxAllowedDia = beamState.D / 8; // Max diameter <= D/8 (IS 456 Clause 26.5.3.1 (a))
+
+            beamState.isViolatingMaxDia = (rebarDiameter > maxAllowedDia);
+        }
+
+        function checkConstraintMinReinforcement() {
+            const d = calculateEffectiveDepth();
+            if (d <= 0 || beamState.fy === 0) { // Avoid division by zero
+                beamState.isViolatingMinReinf = false;
+                return;
+            }
+            // As_min = (0.85 * b * d) / fy (IS 456 Clause 26.5.1.1 (a))
+            const minAstRequired = (0.85 * beamState.b * d) / beamState.fy;
+            beamState.isViolatingMinReinf = (beamState.Ast < minAstRequired);
+        }
+
+        function checkConstraintMaxSpacing() {
+            const d = calculateEffectiveDepth();
+            if (beamState.tensionRebars.length === 0 || beamState.tensionRebars[0].count <= 1 || d <= 0) {
+                beamState.isViolatingMaxSpacing = false;
+                return;
+            }
+
+            const { diameter, count } = beamState.tensionRebars[0];
+            const clearCoverForSpacing = beamState.c; // Using clear cover directly for calculation
+
+            // Horizontal distance between parallel main reinforcement bars shall not be more than 300 mm or 3d, whichever is less. (IS 456 Clause 26.3.3 (b))
+            const totalWidthUsedByBars = count * diameter;
+            const availableClearWidth = beamState.b - (2 * clearCoverForSpacing) - totalWidthUsedByBars;
+
+            let actualSpacing;
+            if (count > 1) {
+                actualSpacing = availableClearWidth / (count - 1);
+            } else { // Only one bar, spacing is not a constraint or considered infinite in one direction
+                actualSpacing = 0; // Effectively, not a problem if only one bar.
+            }
+
+            const maxAllowedSpacing = Math.min(300, 3 * d);
+            beamState.isViolatingMaxSpacing = (actualSpacing > maxAllowedSpacing);
+        }
+
+
+        function checkAllConstraints() {
+            checkConstraintMaxDiameter();
+            checkConstraintMinReinforcement();
+            checkConstraintMaxSpacing();
+            updateChecklistStatus();
+            applyWarningGlow();
+        }
+
+        function updateChecklistStatus() {
+            function updateItem(element, isViolating, clauseId) {
+                if (beamState.clauseVerification[clauseId].verified) {
+                    element.classList.remove('pending', 'error');
+                    element.classList.add('verified');
+                } else {
+                    element.classList.remove('verified');
+                    element.classList.add('pending');
+                }
+
+                // If violating, always show error style regardless of verification status
+                if (isViolating) {
+                    element.classList.add('error');
+                } else {
+                    element.classList.remove('error');
+                }
+            }
+
+            updateItem(checklistMaxDia, beamState.isViolatingMaxDia, '26.5.3.1a');
+            updateItem(checklistMinReinf, beamState.isViolatingMinReinf, '26.5.1.1a');
+            updateItem(checklistMaxSpacing, beamState.isViolatingMaxSpacing, '26.3.3b');
+
+            // Apply warning glow to code cards in modal if relevant constraint is violated
+            document.querySelectorAll('.code-card').forEach(card => {
+                if (beamState.isViolatingMaxDia && card.dataset.clauseId === '26.5.3.1a') card.classList.add('violated');
+                else if (beamState.isViolatingMinReinf && card.dataset.clauseId === '26.5.1.1a') card.classList.add('violated');
+                else if (beamState.isViolatingMaxSpacing && card.dataset.clauseId === '26.3.3b') card.classList.add('violated');
+                else card.classList.remove('violated');
+            });
+        }
+
+        let warningTimeout;
+        function applyWarningGlow() {
+            const hasViolation = beamState.isViolatingMaxDia || beamState.isViolatingMinReinf || beamState.isViolatingMaxSpacing;
+
+            if (hasViolation) {
+                beamWarningOverlay.classList.add('active');
+                playSound(warningSound, 0.5); // Low-frequency warning tone
+
+                // Screen shake effect (CRITICAL RULE: Visual Polish)
+                app.style.animation = 'screenshake 0.2s ease-in-out'; // Apply animation
+                clearTimeout(warningTimeout);
+                warningTimeout = setTimeout(() => {
+                    app.style.animation = ''; // Remove animation after it plays
+                    beamWarningOverlay.classList.remove('active');
+                }, 1000); // Keep overlay active for a bit longer
+            } else {
+                beamWarningOverlay.classList.remove('active');
+                app.style.animation = '';
+            }
+        }
+
+        // --- Event Listeners ---
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            beamState.tensionRebars = [{ diameter: parseInt(rebarDiameterSelect.value), count: parseInt(rebarCountSelect.value) }];
+            calculateTotalAst();
+            updateUI();
+            resizeCanvas(); // Initial canvas setup
+        });
+
+        // Beam dimension sliders
+        beamWidthSlider.addEventListener('input', (e) => {
+            beamState.b = parseInt(e.target.value);
+            beamWidthValueSpan.textContent = beamState.b;
+            checkAllConstraints();
+        });
+        beamDepthSlider.addEventListener('input', (e) => {
+            beamState.D = parseInt(e.target.value);
+            beamDepthValueSpan.textContent = beamState.D;
+            checkAllConstraints();
+        });
+        clearCoverSlider.addEventListener('input', (e) => {
+            beamState.c = parseInt(e.target.value);
+            clearCoverValueSpan.textContent = beamState.c;
+            checkAllConstraints();
+        });
+
+        // Material properties sliders
+        fckSlider.addEventListener('input', (e) => {
+            beamState.fck = parseInt(e.target.value);
+            fckValueSpan.textContent = beamState.fck;
+            checkAllConstraints();
+        });
+        fySlider.addEventListener('input', (e) => {
+            beamState.fy = parseInt(e.target.value);
+            fyValueSpan.textContent = beamState.fy;
+            checkAllConstraints();
+        });
+
+        // Rebar selection
+        rebarCountSelect.addEventListener('change', (e) => {
+            playSound(clickSound);
+            const newCount = parseInt(e.target.value);
+            beamState.tensionRebars[0].count = newCount;
+            calculateTotalAst();
+            checkAllConstraints();
+        });
+        rebarDiameterSelect.addEventListener('change', (e) => {
+            playSound(clickSound);
+            const newDiameter = parseInt(e.target.value);
+            beamState.tensionRebars[0].diameter = newDiameter;
+            calculateTotalAst();
+            checkAllConstraints();
+        });
+
+        // Modals
+        openISLibraryBtn.addEventListener('click', () => {
+            isLibraryModal.classList.add('active');
+            playSound(clickSound);
+        });
+
+        closeModals.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.target.closest('.modal-overlay').classList.remove('active');
+                playSound(clickSound);
+            });
+        });
+
+        // Click-away dismissal for modals (CRITICAL RULE 5)
+        isLibraryModal.addEventListener('click', (e) => {
+            if (e.target === isLibraryModal) {
+                isLibraryModal.classList.remove('active');
+                playSound(clickSound);
+            }
+        });
+
+        // Drag and Drop for Clause Cards (Gamified Codal Reference System)
+        document.querySelectorAll('.code-card').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                playSound(clickSound);
+                e.dataTransfer.setData('text/plain', e.target.dataset.clauseId);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+        });
+
+        droppableClauseSlots.forEach(slot => {
+            slot.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Allow drop
+                e.dataTransfer.dropEffect = 'move';
+                slot.classList.add('highlight'); // Visual feedback for droppable area
+            });
+
+            slot.addEventListener('dragleave', () => {
+                slot.classList.remove('highlight');
+            });
+
+            slot.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slot.classList.remove('highlight');
+
+                const draggedClauseId = e.dataTransfer.getData('text/plain');
+                const targetClauseId = slot.dataset.clauseTarget;
+
+                const draggedCard = document.querySelector(`.code-card[data-clause-id="${draggedClauseId}"]`);
+                if (draggedCard && draggedClauseId === targetClauseId) {
+                    slot.textContent = draggedClauseId; // Display clause number
+                    slot.classList.add('filled');
+                    slot.classList.remove('error'); // Remove error if fixed
+                    beamState.clauseVerification[targetClauseId].verified = true;
+                    playSound(chimeSound); // Success sound
+                    speak(beamState.clauseVerification[targetClauseId].explanation + ". Clause verified.");
+                    updateChecklistStatus(); // Update checklist visuals
+                } else {
+                    slot.classList.add('error'); // Show error for wrong drop
+                    playSound(warningSound, 0.5);
+                    speak("Incorrect clause. Please drag the correct clause card for this parameter.");
+                    setTimeout(() => slot.classList.remove('error'), 1500); // Remove error highlight after a short time
+                }
+            });
+        });
+
+        // Canvas interaction for NA depth (CRITICAL RULE: Interactive Beam Drafting)
+        canvas.addEventListener('mousedown', (e) => {
+            if (!beamState.showStressBlock) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / beamState.scale;
+            const mouseY = (e.clientY - rect.top) / beamState.scale;
+
+            const { scaledStartX, scaledB, scale } = beamState;
+            const effectiveDepth = calculateEffectiveDepth();
+            const naY = beamState.scaledStartY + effectiveDepth * beamState.naDepth * scale;
+
+            // Check if mouse is over the NA draggable dot
+            const dotCenterX = scaledStartX + scaledB / 2;
+            const dotCenterY = naY;
+            const dotRadius = 8 * (window.devicePixelRatio || 1);
+
+            if (Math.hypot(mouseX * scale - dotCenterX, mouseY * scale - dotCenterY) < dotRadius) {
+                neutralAxisDragging = true;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            beamState.mouseX = e.clientX - rect.left; // Store mouse position for dimensions
+            beamState.mouseY = e.clientY - rect.top;
+
+            if (neutralAxisDragging) {
+                const newMouseY = (e.clientY - rect.top) / beamState.scale;
+                const { scaledStartY, scale } = beamState;
+                const effectiveDepth = calculateEffectiveDepth();
+
+                let newNaDepthFraction = (newMouseY - scaledStartY) / (effectiveDepth * scale);
+                newNaDepthFraction = Math.max(0.01, Math.min(1.0, newNaDepthFraction)); // Constrain NA between top and effective depth
+                beamState.naDepth = newNaDepthFraction;
+            } else {
+                // Update cursor for NA dot if hovering
+                const mouseXAbs = e.clientX - rect.left;
+                const mouseYAbs = e.clientY - rect.top;
+                const { scaledStartX, scaledB, scale } = beamState;
+                const effectiveDepth = calculateEffectiveDepth();
+                const naY = beamState.scaledStartY + effectiveDepth * beamState.naDepth * scale;
+
+                const dotCenterX = scaledStartX + scaledB / 2;
+                const dotCenterY = naY;
+                const dotRadius = 8 * (window.devicePixelRatio || 1);
+
+                if (Math.hypot(mouseXAbs - dotCenterX, mouseYAbs - dotCenterY) < dotRadius && beamState.showStressBlock) {
+                    canvas.style.cursor = 'grab';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            neutralAxisDragging = false;
+            canvas.style.cursor = 'default';
+        });
+
+        // Canvas overlay buttons
+        toggleStressBlockBtn.addEventListener('click', () => {
+            playSound(clickSound);
+            beamState.showStressBlock = !beamState.showStressBlock;
+            toggleStressBlockBtn.classList.toggle('active', beamState.showStressBlock);
+            updateCanvas();
+        });
+
+        togglePourAnimationBtn.addEventListener('click', () => {
+            playSound(clickSound);
+            beamState.pourAnimating = !beamState.pourAnimating;
+            if (beamState.pourAnimating) {
+                beamState.pourProgress = 0; // Reset pour progress
+                togglePourAnimationBtn.classList.add('active');
+            } else {
+                togglePourAnimationBtn.classList.remove('active');
+                beamState.pourProgress = 1; // Ensure full fill if stopped prematurely
+            }
+        });
+
+        playAudioBtn.addEventListener('click', () => {
+            playSound(clickSound);
+            let statusMessage = "Current beam design status: ";
+            let allClausesVerified = true;
+            let currentViolations = [];
+
+            // Check if clauses are dragged and dropped
+            for (const clauseId in beamState.clauseVerification) {
+                if (!beamState.clauseVerification[clauseId].verified) {
+                    allClausesVerified = false;
+                    statusMessage += `The clause for ${beamState.clauseVerification[clauseId].explanation} is not yet dragged and verified. `;
+                }
+            }
+
+            // Report actual design violations
+            if (beamState.isViolatingMaxDia) currentViolations.push("Rebar diameter exceeds maximum allowed.");
+            if (beamState.isViolatingMinReinf) currentViolations.push("Provided tension steel area is less than minimum required.");
+            if (beamState.isViolatingMaxSpacing) currentViolations.push("Rebar spacing exceeds maximum allowed limits.");
+
+            if (allClausesVerified && currentViolations.length === 0) {
+                statusMessage = "All codal provisions are verified, and the design parameters are compliant. This design is safe and robust!";
+                playSound(chimeSound);
+            } else if (currentViolations.length > 0) {
+                if (allClausesVerified) {
+                    statusMessage = "All relevant clauses are verified, but based on your current design parameters, the following violations exist: ";
+                } else {
+                    statusMessage += " Additionally, current design parameters violate: ";
+                }
+                statusMessage += currentViolations.join(" ");
+                playSound(warningSound);
+            } else if (!allClausesVerified && currentViolations.length === 0) {
+                statusMessage += " No design violations detected with current parameters, but please verify all codal provisions by dragging the correct clauses from the library.";
+            } else if (statusMessage === "Current beam design status: ") {
+                 statusMessage = "Please adjust beam parameters and verify codal provisions to ensure a safe design.";
+            }
+
+            speak(statusMessage);
+        });
+
+        // Initialize values
+        beamWidthSlider.value = beamState.b;
+        beamDepthSlider.value = beamState.D;
+        clearCoverSlider.value = beamState.c;
+        fckSlider.value = beamState.fck;
+        fySlider.value = beamState.fy;
+        rebarCountSelect.value = 3; // Default count
+        rebarDiameterSelect.value = 12; // Default diameter
+
+        // Manually trigger initial UI update and canvas render
+        beamState.tensionRebars = [{ diameter: parseInt(rebarDiameterSelect.value), count: parseInt(rebarCountSelect.value) }];
+        calculateTotalAst();
+        updateUI();
+        resizeCanvas(); // This will also call updateCanvas
+
+        // Start the animation loop
+        requestAnimationFrame(updateCanvas);
+
+    </script>
+</body>
+</html>

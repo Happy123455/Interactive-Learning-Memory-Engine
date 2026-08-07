@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rigid Pavement Joints Simulator - Transportation Engineering</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            950: '#070a12',
+                            900: '#0b0f19',
+                            800: '#131b2e',
+                            700: '#1e293b',
+                            600: '#334155',
+                            accent: '#38bdf8',
+                            neon: '#10b981',
+                            warning: '#f59e0b',
+                            danger: '#f43f5e'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #070a12;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Glassmorphism containers */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            box-shadow: 0 12px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-card {
+            background: rgba(30, 41, 59, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .glass-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(56, 189, 248, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(56, 189, 248, 0.6);
+        }
+
+        /* Neon Glow Effects */
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(56, 189, 248, 0.4);
+        }
+        .glow-green {
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .text-glow {
+            text-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+        }
+
+        /* Drag and drop styling */
+        .dragging {
+            opacity: 0.5;
+            scale: 0.98;
+            border-color: #38bdf8 !important;
+        }
+        .drop-target-active {
+            border-color: #10b981 !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+        }
+        .drop-error {
+            animation: shake 0.4s ease-in-out;
+            border-color: #f43f5e !important;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* Pulse animation for active simulation modes */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 0.4; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .pulse-active {
+            animation: pulse-ring 2s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between overflow-hidden antialiased select-none bg-cyber-950">
+
+    <!-- TOP NAVIGATION / CONTROL HEADER -->
+    <header class="h-14 px-4 glass-panel flex items-center justify-between z-30 shrink-0 border-b border-cyan-500/20">
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-slate-900 font-extrabold shadow-lg shadow-cyan-500/30">
+                <i class="fa-solid fa-road text-lg"></i>
+            </div>
+            <div>
+                <h1 class="text-base font-bold tracking-wider text-slate-100 flex items-center gap-2">
+                    RIGID PAVEMENT JOINTS <span class="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono">CIVIL-ENG v2.4</span>
+                </h1>
+                <p class="text-[10px] text-slate-400 font-mono tracking-tight">Concrete Slab Mechanics & Construction Dynamics</p>
+            </div>
+        </div>
+
+        <!-- Joint Type Selector Buttons -->
+        <div class="flex items-center bg-slate-900/90 p-1 rounded-lg border border-slate-700/60">
+            <button id="btn-joint-contraction" onclick="selectJointType('contraction')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 bg-cyan-500 text-slate-950 shadow-md">
+                <i class="fa-solid fa-scissors text-xs"></i> Contraction
+            </button>
+            <button id="btn-joint-expansion" onclick="selectJointType('expansion')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-arrows-left-right text-xs"></i> Expansion
+            </button>
+            <button id="btn-joint-warping" onclick="selectJointType('warping')" class="px-3 py-1.5 rounded-md text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5">
+                <i class="fa-solid fa-link text-xs"></i> Warping / Tie
+            </button>
+        </div>
+
+        <!-- Global Action Controls -->
+        <div class="flex items-center space-x-2">
+            <button id="btn-xray-toggle" onclick="toggleXRay()" class="px-2.5 py-1.5 rounded-lg glass-card text-xs text-slate-300 hover:text-cyan-400 transition flex items-center gap-1.5 border-slate-700">
+                <i class="fa-solid fa-bolt text-cyan-400"></i> <span id="xray-label">X-Ray: ON</span>
+            </button>
+
+            <button id="btn-vector-toggle" onclick="toggleLoadVectors()" class="px-2.5 py-1.5 rounded-lg glass-card text-xs text-slate-300 hover:text-amber-400 transition flex items-center gap-1.5 border-slate-700">
+                <i class="fa-solid fa-vector-square text-amber-400"></i> <span id="vector-label">Vectors: OFF</span>
+            </button>
+
+            <button id="btn-speech-toggle" onclick="toggleAudioSpeech()" class="w-8 h-8 rounded-lg glass-card text-slate-300 hover:text-emerald-400 transition flex items-center justify-center border-slate-700" title="Audio Speech Narration">
+                <i id="speech-icon" class="fa-solid fa-volume-high text-emerald-400"></i>
+            </button>
+
+            <button onclick="resetSimulation()" class="w-8 h-8 rounded-lg glass-card text-slate-300 hover:text-rose-400 transition flex items-center justify-center border-slate-700" title="Reset Simulation">
+                <i class="fa-solid fa-rotate-right"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN WORKSHOP CONTAINER (STRICT GRID VIEWPORT) -->
+    <main class="flex-1 grid grid-cols-12 gap-3 p-3 overflow-hidden">
+
+        <!-- LEFT/CENTER PANEL: Interactive Cross-Section Canvas & Saw Workshop -->
+        <section class="col-span-12 lg:col-span-7 flex flex-col gap-3 h-full overflow-hidden">
+            
+            <!-- Main Canvas Glass Container -->
+            <div class="relative flex-1 glass-panel rounded-xl overflow-hidden flex flex-col border border-cyan-500/20">
+                
+                <!-- Canvas Top Bar Status -->
+                <div class="h-9 px-3 bg-slate-900/80 border-b border-slate-800 flex items-center justify-between text-xs font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="canvas-status-title" class="text-cyan-400 font-semibold uppercase tracking-wider">CONTRACTION JOINT CROSS-SECTION</span>
+                    </div>
+                    <div class="flex items-center gap-3 text-slate-400 text-[11px]">
+                        <span><i class="fa-solid fa-ruler-horizontal text-cyan-400 mr-1"></i>Slab Depth: <b id="lbl-slab-depth" class="text-slate-200">250 mm</b></span>
+                        <span><i class="fa-solid fa-weight-hanging text-amber-400 mr-1"></i>Load Efficiency: <b id="lbl-lte-val" class="text-emerald-400">94.5%</b></span>
+                    </div>
+                </div>
+
+                <!-- Interactive High-DPI Cross Section Canvas -->
+                <div class="relative flex-1 w-full h-full min-h-[260px] bg-cyber-900 cursor-crosshair">
+                    <canvas id="pavementCanvas" class="w-full h-full block"></canvas>
+                    
+                    <!-- Overlay Speech Narration Caption Box -->
+                    <div id="speech-caption-box" class="absolute bottom-3 left-3 right-3 p-2.5 rounded-lg bg-slate-900/90 border border-cyan-500/30 text-xs text-slate-200 backdrop-blur-md flex items-start gap-2.5 transition-all opacity-0 translate-y-2 pointer-events-none">
+                        <i class="fa-solid fa-circle-info text-cyan-400 text-sm mt-0.5 shrink-0"></i>
+                        <p id="speech-caption-text" class="leading-relaxed text-slate-300 font-mono">Selecting joint type...</p>
+                    </div>
+
+                    <!-- Overlay Canvas Controls -->
+                    <div class="absolute top-3 right-3 flex flex-col gap-2">
+                        <button id="btn-run-saw" onclick="triggerSawCutAnimation()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs shadow-lg shadow-cyan-600/30 flex items-center gap-1.5 transition-all">
+                            <i class="fa-solid fa-compact-disc animate-spin-slow"></i> Run Saw Cut
+                        </button>
+                        <button id="btn-wheel-load" onclick="triggerWheelPassAnimation()" class="px-3 py-1.5 rounded-lg bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white font-semibold text-xs shadow-lg shadow-amber-600/30 flex items-center gap-1.5 transition-all">
+                            <i class="fa-solid fa-truck-monster"></i> Simulate Wheel Load
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BOTTOM PANEL: Dynamic Joint Timing & Hydration Strength Canvas -->
+            <div class="h-44 glass-panel rounded-xl p-3 flex flex-col justify-between border border-cyan-500/20">
+                <div class="flex items-center justify-between text-xs mb-1">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
+                        <span class="font-bold text-slate-200 uppercase tracking-wide">Saw-Cut Timing & Hydration Window</span>
+                    </div>
+                    <div id="timing-status-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                        OPTIMAL CUTTING WINDOW (6.5 hrs)
+                    </div>
+                </div>
+
+                <!-- Timing Slider & Chart Layout -->
+                <div class="grid grid-cols-12 gap-3 flex-1 items-center">
+                    
+                    <!-- Chart Canvas -->
+                    <div class="col-span-8 h-24 relative rounded-lg bg-slate-950/80 border border-slate-800 p-1">
+                        <canvas id="strengthChartCanvas" class="w-full h-full block"></canvas>
+                    </div>
+
+                    <!-- Timing Slider Control -->
+                    <div class="col-span-4 flex flex-col justify-center space-y-2 px-1">
+                        <div class="flex justify-between text-xs font-mono">
+                            <span class="text-slate-400">Elapsed Time:</span>
+                            <span id="slider-time-val" class="text-cyan-400 font-bold">6.5 Hours</span>
+                        </div>
+                        <input id="slider-setting-time" type="range" min="1" max="24" step="0.5" value="6.5" oninput="updateSettingTime(this.value)" class="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>0h (Plastic)</span>
+                            <span class="text-emerald-400 font-semibold">4-10h (Optimal)</span>
+                            <span>24h (Hard)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: Construction Sequence, Live Inspector & Civil Specs -->
+        <section class="col-span-12 lg:col-span-5 flex flex-col h-full overflow-hidden">
+            <div class="flex-1 glass-panel rounded-xl flex flex-col overflow-hidden border border-cyan-500/20">
+                
+                <!-- Dashboard Tab Headers -->
+                <div class="flex border-b border-slate-800 bg-slate-900/90 text-xs font-semibold">
+                    <button id="tab-btn-sequence" onclick="switchTab('sequence')" class="flex-1 py-2.5 text-center text-cyan-400 border-b-2 border-cyan-400 bg-slate-800/50 flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-list-check"></i> Construction Sequence
+                    </button>
+                    <button id="tab-btn-inspector" onclick="switchTab('inspector')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-sliders"></i> Live Inspector
+                    </button>
+                    <button id="tab-btn-specs" onclick="switchTab('specs')" class="flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+                        <i class="fa-solid fa-book-bookmark"></i> Civil Specs
+                    </button>
+                </div>
+
+                <!-- TAB CONTENT 1: Construction Sequence Puzzle (Drag and Drop) -->
+                <div id="tab-content-sequence" class="flex-1 p-3 overflow-y-auto space-y-3">
+                    <div class="bg-cyan-950/40 border border-cyan-500/20 p-2.5 rounded-lg text-xs text-cyan-300 flex items-center justify-between">
+                        <span><i class="fa-solid fa-puzzle-piece mr-1.5"></i> Arrange the <b>5 construction phases</b> in precise chronological order:</span>
+                        <button onclick="resetSequencePuzzle()" class="px-2 py-1 bg-cyan-500/20 hover:bg-cyan-500/30 rounded text-[10px] text-cyan-200 border border-cyan-500/30">
+                            Reset
+                        </button>
+                    </div>
+
+                    <!-- Drop Target Slots Area -->
+                    <div class="space-y-2">
+                        <div class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                            <span>Chronological Target Slots</span>
+                            <span id="puzzle-progress-text" class="text-cyan-400">0 / 5 Completed</span>
+                        </div>
+
+                        <div id="drop-slots-container" class="space-y-1.5">
+                            <!-- Target slots will be generated by JS -->
+                        </div>
+                    </div>
+
+                    <!-- Draggable Source Cards Pool -->
+                    <div class="pt-2 border-t border-slate-800">
+                        <div class="text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">
+                            Phase Construction Cards (Drag or Tap into position)
+                        </div>
+                        <div id="source-cards-pool" class="space-y-2">
+                            <!-- Cards will be generated by JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 2: Live Parameter Inspector & Calculation Engine -->
+                <div id="tab-content-inspector" class="hidden flex-1 p-3 overflow-y-auto space-y-4">
+                    
+                    <!-- Dynamic Parameters Controls -->
+                    <div class="space-y-3 glass-card p-3 rounded-lg border border-slate-800">
+                        <h3 class="text-xs font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                            <i class="fa-solid fa-gears"></i> Structural Design Parameters
+                        </h3>
+
+                        <!-- Slab Thickness Slider -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-300">Slab Thickness ($H$):</span>
+                                <span id="val-thickness-disp" class="text-cyan-400 font-mono font-bold">250 mm</span>
+                            </div>
+                            <input type="range" id="param-thickness" min="150" max="350" step="10" value="250" oninput="updateParameters()" class="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <!-- Dowel Diameter Slider -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-300">Dowel Bar Diameter ($\phi$):</span>
+                                <span id="val-dowel-disp" class="text-cyan-400 font-mono font-bold">32 mm</span>
+                            </div>
+                            <input type="range" id="param-dowel" min="20" max="45" step="1" value="32" oninput="updateParameters()" class="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <!-- Axle Wheel Load Slider -->
+                        <div class="space-y-1">
+                            <div class="flex justify-between text-xs">
+                                <span class="text-slate-300">Single Wheel Load ($P$):</span>
+                                <span id="val-load-disp" class="text-amber-400 font-mono font-bold">40 kN</span>
+                            </div>
+                            <input type="range" id="param-load" min="20" max="80" step="5" value="40" oninput="updateParameters()" class="w-full h-1.5 bg-slate-800 rounded appearance-none cursor-pointer accent-amber-400">
+                        </div>
+                    </div>
+
+                    <!-- Parameter Calculation Output Table -->
+                    <div class="glass-card p-3 rounded-lg border border-slate-800">
+                        <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                            <i class="fa-solid fa-calculator"></i> Design Output Inspector
+                        </h3>
+                        
+                        <div class="space-y-2 text-xs font-mono">
+                            <div class="flex justify-between py-1 border-b border-slate-800">
+                                <span class="text-slate-400">Joint Type:</span>
+                                <span id="insp-joint-type" class="text-cyan-400 font-bold">Contraction (Transverse)</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-800">
+                                <span class="text-slate-400">Saw-Cut Depth ($H/4$):</span>
+                                <span id="insp-saw-depth" class="text-slate-200">62.5 mm</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-800">
+                                <span class="text-slate-400">Dowel Embedment Length:</span>
+                                <span id="insp-dowel-len" class="text-slate-200">450 mm</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-800">
+                                <span class="text-slate-400">Dowel Spacing ($S_d$):</span>
+                                <span id="insp-dowel-spacing" class="text-slate-200">300 mm c/c</span>
+                            </div>
+                            <div class="flex justify-between py-1 border-b border-slate-800">
+                                <span class="text-slate-400">Joint Reservoir (W:D Ratio):</span>
+                                <span id="insp-aspect-ratio" class="text-slate-200">1 : 1.5</span>
+                            </div>
+                            <div class="flex justify-between py-1">
+                                <span class="text-slate-400">Load Transfer Efficiency (LTE):</span>
+                                <span id="insp-lte-calculated" class="text-emerald-400 font-bold">94.5 %</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB CONTENT 3: Civil Engineering Specifications & Guidelines -->
+                <div id="tab-content-specs" class="hidden flex-1 p-3 overflow-y-auto space-y-3 text-xs text-slate-300">
+                    <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-2">
+                        <h4 class="font-bold text-cyan-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-shield-halved"></i> Contraction Joint Mechanics
+                        </h4>
+                        <p class="leading-relaxed text-slate-400">
+                            Controls transverse cracking caused by concrete shrinkage and thermal cooling. The saw-cut notch acts as a stress riser, forcing the crack to occur cleanly along the joint line.
+                        </p>
+                    </div>
+
+                    <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-2">
+                        <h4 class="font-bold text-emerald-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-arrows-left-right"></i> Expansion Joint Mechanics
+                        </h4>
+                        <p class="leading-relaxed text-slate-400">
+                            Accommodates positive thermal expansion during summer conditions to prevent crushing or blowout failures. Features a full-depth compressible filler board and expansion cap on dowel bars.
+                        </p>
+                    </div>
+
+                    <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 space-y-2">
+                        <h4 class="font-bold text-amber-400 flex items-center gap-1.5">
+                            <i class="fa-solid fa-link"></i> Warping & Longitudinal Joints
+                        </h4>
+                        <p class="leading-relaxed text-slate-400">
+                            Relieves stresses caused by moisture/temperature differentials (curling/warping). Deformed tie bars anchor adjacent lanes tightly together to prevent joint opening.
+                        </p>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Global Application State
+        const state = {
+            jointType: 'contraction', // 'contraction', 'expansion', 'warping'
+            xrayEnabled: true,
+            vectorEnabled: false,
+            speechEnabled: true,
+            soundMuted: false,
+            
+            // Physical Parameters
+            thickness: 250, // mm
+            dowelDia: 32,   // mm
+            wheelLoad: 40,  // kN
+            settingTime: 6.5, // hours
+            
+            // Saw Cut Animation State
+            sawProgress: 1.0, // 0.0 to 1.0 (1.0 = fully cut)
+            isSawing: false,
+            sawPosition: 0,
+            
+            // Load Pass Simulation State
+            wheelPos: -150,
+            isWheelPassing: false,
+
+            // Sequence Puzzle State
+            puzzleCompleted: false,
+            draggedCardId: null
+        };
+
+        // Construction Sequence Puzzle Definitions
+        const sequenceCardsData = [
+            {
+                id: 'phase-1',
+                stepNum: 1,
+                title: 'Subgrade & Dowel Basket Setup',
+                desc: 'Compacting subgrade and anchoring dowel basket assemblies at slab mid-depth (H/2).'
+            },
+            {
+                id: 'phase-2',
+                stepNum: 2,
+                title: 'Concrete Pouring & Laser Screeding',
+                desc: 'Placing, consolidating with internal vibrators, and strike-off screeding of concrete.'
+            },
+            {
+                id: 'phase-3',
+                stepNum: 3,
+                title: 'Primary Saw Cutting (Optimal Window)',
+                desc: 'Diamond saw cutting joint groove to depth H/4 within the 4 to 10 hour hydration window.'
+            },
+            {
+                id: 'phase-4',
+                stepNum: 4,
+                title: 'Reservoir Widening & Air Cleaning',
+                desc: 'Secondary saw cut for sealant reservoir and high-pressure air/water cleaning.'
+            },
+            {
+                id: 'phase-5',
+                stepNum: 5,
+                title: 'Backer Rod & Sealant Installation',
+                desc: 'Inserting compressible foam backer rod and injecting elastomeric/hot-pour sealant.'
+            }
+        ];
+
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.sawOsc = null;
+                this.sawGain = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                    if (AudioCtx) this.ctx = new AudioCtx();
+                }
+                if (this.ctx && this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playClick() {
+                if (state.soundMuted) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.04);
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.04);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.04);
+            }
+
+            playSuccessChime() {
+                if (state.soundMuted) return;
+                this.init();
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.35);
+                });
+            }
+
+            playErrorSound() {
+                if (state.soundMuted) return;
+                this.init();
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(160, this.ctx.currentTime);
+                osc.frequency.linearRampToValueAtTime(80, this.ctx.currentTime + 0.25);
+                gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.25);
+            }
+
+            startSawSound() {
+                if (state.soundMuted) return;
+                this.init();
+                if (!this.ctx || this.sawOsc) return;
+
+                this.sawOsc = this.ctx.createOscillator();
+                this.sawOsc.type = 'sawtooth';
+                this.sawOsc.frequency.setValueAtTime(120, this.ctx.currentTime);
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(650, this.ctx.currentTime);
+                filter.Q.setValueAtTime(3, this.ctx.currentTime);
+
+                this.sawGain = this.ctx.createGain();
+                this.sawGain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+
+                this.sawOsc.connect(filter);
+                filter.connect(this.sawGain);
+                this.sawGain.connect(this.ctx.destination);
+                this.sawOsc.start();
+            }
+
+            stopSawSound() {
+                if (this.sawGain && this.ctx) {
+                    this.sawGain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.1);
+                    setTimeout(() => {
+                        if (this.sawOsc) {
+                            try { this.sawOsc.stop(); } catch(e){}
+                            this.sawOsc = null;
+                        }
+                    }, 100);
+                }
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        function speakNarration(text) {
+            const captionBox = document.getElementById('speech-caption-box');
+            const captionText = document.getElementById('speech-caption-text');
+            
+            captionText.innerText = text;
+            captionBox.classList.remove('opacity-0', 'translate-y-2');
+            captionBox.classList.add('opacity-100', 'translate-y-0');
+
+            if (!state.speechEnabled || !('speechSynthesis' in window)) return;
+
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        const canvas = document.getElementById('pavementCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            renderCrossSection();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        function renderCrossSection() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const w = rect.width;
+            const h = rect.height;
+
+            ctx.clearRect(0, 0, w, h);
+
+            const midX = w / 2;
+            const groundY = h * 0.72;
+            const slabH = Math.min(140, Math.max(90, state.thickness * 0.45));
+            const slabTopY = groundY - slabH;
+
+            // 1. Draw Subgrade & Granular Subbase Layer
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, groundY, w, h - groundY);
+
+            // Subbase Hatching Pattern
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.1)';
+            ctx.lineWidth = 1;
+            for (let x = -h; x < w + h; x += 15) {
+                ctx.beginPath();
+                ctx.moveTo(x, groundY);
+                ctx.lineTo(x + 20, h);
+                ctx.stroke();
+            }
+
+            // Subbase Layer Line
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(w, groundY);
+            ctx.stroke();
+
+            // Layer Labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText('GRANULAR SUBBASE / COMPACTED SUBGRADE', 15, groundY + 22);
+
+            // 2. Draw Concrete Slabs (Slab A Left, Slab B Right)
+            const gapWidth = state.jointType === 'expansion' ? 22 : (state.jointType === 'warping' ? 4 : 3);
+            const leftSlabEnd = midX - gapWidth / 2;
+            const rightSlabStart = midX + gapWidth / 2;
+
+            // Slab A (Left)
+            ctx.fillStyle = state.xrayEnabled ? 'rgba(30, 41, 59, 0.85)' : '#1e293b';
+            ctx.fillRect(20, slabTopY, leftSlabEnd - 20, slabH);
+
+            // Slab B (Right)
+            ctx.fillRect(rightSlabStart, slabTopY, w - 20 - rightSlabStart, slabH);
+
+            // Slab Concrete Outlines
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(20, slabTopY, leftSlabEnd - 20, slabH);
+            ctx.strokeRect(rightSlabStart, slabTopY, w - 20 - rightSlabStart, slabH);
+
+            // Aggregate texture simulation inside slabs
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.15)';
+            const seedArr = [30, 70, 110, 150, 200, 260, 320, 380, 440];
+            seedArr.forEach((sx, idx) => {
+                const ay = slabTopY + 20 + (idx * 17) % (slabH - 30);
+                if (sx < leftSlabEnd - 20) {
+                    ctx.beginPath();
+                    ctx.arc(sx, ay, 4 + (idx % 3), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                if (w - sx > rightSlabStart) {
+                    ctx.beginPath();
+                    ctx.arc(w - sx, ay + 10, 5 - (idx % 2), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+
+            // 3. Render Joint Specific Hardware (Dowel / Tie Bar & Baskets)
+            const barY = slabTopY + slabH / 2;
+            const barLen = 180;
+            const barRadius = state.dowelDia * 0.18;
+
+            if (state.jointType === 'warping') {
+                // Ribbed Deformed Tie Bar (Bonded on both sides)
+                ctx.fillStyle = '#f59e0b';
+                ctx.fillRect(midX - barLen / 2, barY - barRadius, barLen, barRadius * 2);
+                
+                // Tie bar ribs
+                ctx.strokeStyle = '#b45309';
+                ctx.lineWidth = 2;
+                for (let rx = midX - barLen / 2 + 10; rx < midX + barLen / 2; rx += 12) {
+                    ctx.beginPath();
+                    ctx.moveTo(rx, barY - barRadius - 1);
+                    ctx.lineTo(rx + 4, barY + barRadius + 1);
+                    ctx.stroke();
+                }
+            } else {
+                // Smooth Dowel Bar
+                const dowelLeft = midX - barLen / 2;
+                const dowelRight = midX + barLen / 2;
+
+                // Left Half (Bonded in Slab A)
+                ctx.fillStyle = '#38bdf8';
+                ctx.fillRect(dowelLeft, barY - barRadius, barLen / 2, barRadius * 2);
+
+                // Right Half (Coated with Greased Debonding Layer)
+                ctx.fillStyle = '#10b981';
+                ctx.fillRect(midX, barY - barRadius, barLen / 2, barRadius * 2);
+
+                if (state.jointType === 'expansion') {
+                    // Expansion Cap on right end
+                    ctx.fillStyle = '#f43f5e';
+                    ctx.fillRect(dowelRight - 15, barY - barRadius - 2, 20, barRadius * 2 + 4);
+                    // Foam expansion gap inside cap
+                    ctx.fillStyle = '#fef08a';
+                    ctx.fillRect(dowelRight, barY - barRadius + 1, 12, barRadius * 2 - 2);
+                }
+
+                // Dowel Basket Wire Supports
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                // Left Support Chair
+                ctx.moveTo(dowelLeft + 20, groundY);
+                ctx.lineTo(dowelLeft + 20, barY);
+                // Right Support Chair
+                ctx.moveTo(dowelRight - 20, groundY);
+                ctx.lineTo(dowelRight - 20, barY);
+                ctx.stroke();
+            }
+
+            // 4. Saw-Cut Notch & Sealant Assembly
+            const targetSawDepth = (slabH * 0.28) * state.sawProgress;
+            const notchWidth = state.jointType === 'expansion' ? gapWidth : 8;
+
+            if (state.sawProgress > 0) {
+                // Cut Notch Region
+                ctx.clearRect(midX - notchWidth / 2, slabTopY, notchWidth, targetSawDepth);
+                ctx.fillStyle = '#070a12';
+                ctx.fillRect(midX - notchWidth / 2, slabTopY, notchWidth, targetSawDepth);
+
+                if (state.sawProgress >= 0.95) {
+                    if (state.jointType === 'expansion') {
+                        // Full Depth Joint Filler Board (Cork/Bitumen)
+                        ctx.fillStyle = '#78350f';
+                        ctx.fillRect(midX - gapWidth / 2, slabTopY + 25, gapWidth, slabH - 25);
+                    } else if (state.jointType === 'contraction') {
+                        // Controlled Crack Propagation from Saw Cut Notch down to dowel bar
+                        ctx.strokeStyle = 'rgba(56, 189, 248, 0.6)';
+                        ctx.lineWidth = 1.5;
+                        ctx.setLineDash([4, 3]);
+                        ctx.beginPath();
+                        ctx.moveTo(midX, slabTopY + targetSawDepth);
+                        ctx.lineTo(midX - 2, barY - barRadius);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                    }
+
+                    // Backer Rod (Foam cylinder)
+                    const rodY = slabTopY + targetSawDepth - 6;
+                    ctx.fillStyle = '#94a3b8';
+                    ctx.beginPath();
+                    ctx.arc(midX, rodY, notchWidth / 2, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Sealant Top Layer (Concave elastomeric polymer)
+                    ctx.fillStyle = '#0284c7';
+                    ctx.beginPath();
+                    ctx.arc(midX, slabTopY + 4, notchWidth / 2 + 1, 0, Math.PI);
+                    ctx.fill();
+                }
+            }
+
+            // 5. Saw Cutting Animation Overlay (When active)
+            if (state.isSawing) {
+                const sawX = midX - 30 + state.sawPosition * 60;
+                const sawY = slabTopY;
+
+                // Rotating Diamond Blade
+                ctx.save();
+                ctx.translate(sawX, sawY - 10);
+                ctx.rotate(Date.now() * 0.02);
+                ctx.fillStyle = '#cbd5e1';
+                ctx.beginPath();
+                ctx.arc(0, 0, 22, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#0284c7';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+                ctx.restore();
+
+                // Spark / Dust Particles
+                ctx.fillStyle = '#f59e0b';
+                for (let p = 0; p < 8; p++) {
+                    const px = sawX + (Math.random() - 0.5) * 20;
+                    const py = sawY - Math.random() * 25;
+                    ctx.fillRect(px, py, 2, 2);
+                }
+            }
+
+            // 6. Load Transfer Simulation Vector Mode
+            if (state.vectorEnabled || state.isWheelPassing) {
+                const wheelX = state.isWheelPassing ? state.wheelPos : midX - 120;
+                const wheelY = slabTopY - 24;
+
+                // Heavy Wheel Tire Visual
+                ctx.fillStyle = '#1e293b';
+                ctx.strokeStyle = '#f59e0b';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(wheelX - 25, wheelY - 25, 50, 25, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                // Load Vector Arrow (Downward Wheel Load P)
+                const loadMag = state.wheelLoad;
+                ctx.strokeStyle = '#f43f5e';
+                ctx.fillStyle = '#f43f5e';
+                ctx.lineWidth = 4;
+                ctx.beginPath();
+                ctx.moveTo(wheelX, wheelY - 45);
+                ctx.lineTo(wheelX, wheelY - 5);
+                ctx.stroke();
+                // Arrow head
+                ctx.beginPath();
+                ctx.moveTo(wheelX - 7, wheelY - 12);
+                ctx.lineTo(wheelX, wheelY - 2);
+                ctx.lineTo(wheelX + 7, wheelY - 12);
+                ctx.fill();
+
+                ctx.fillStyle = '#f43f5e';
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.fillText(`P = ${loadMag} kN`, wheelX - 25, wheelY - 50);
+
+                // Transfer Shear Force Vectors through Dowel Bar
+                if (wheelX > 50 && wheelX < w - 50) {
+                    ctx.strokeStyle = '#10b981';
+                    ctx.fillStyle = '#10b981';
+                    ctx.lineWidth = 2.5;
+
+                    // Curved force flow lines from Slab A across dowel into Slab B
+                    ctx.beginPath();
+                    ctx.moveTo(wheelX, slabTopY);
+                    ctx.quadraticCurveTo(midX, barY, midX + 90, barY + 30);
+                    ctx.stroke();
+
+                    // Downward reactive vectors on Subgrade
+                    [midX - 80, midX, midX + 80].forEach(vx => {
+                        ctx.beginPath();
+                        ctx.moveTo(vx, groundY);
+                        ctx.lineTo(vx, groundY + 18);
+                        ctx.stroke();
+                    });
+                }
+            }
+
+            // 7. X-Ray Callout Annotations
+            if (state.xrayEnabled) {
+                ctx.fillStyle = '#38bdf8';
+                ctx.font = '10px JetBrains Mono';
+                
+                if (state.jointType === 'warping') {
+                    ctx.fillText('Deformed Tie Bar (Bonded Ribs)', midX - 80, barY - 15);
+                } else {
+                    ctx.fillText('Bonded Length', midX - 85, barY - 15);
+                    ctx.fillStyle = '#10b981';
+                    ctx.fillText('Greased Sleeve (Unbonded)', midX + 15, barY - 15);
+                }
+            }
+        }
+
+        const chartCanvas = document.getElementById('strengthChartCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        function renderStrengthChart() {
+            const rect = chartCanvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            chartCanvas.width = rect.width * dpr;
+            chartCanvas.height = rect.height * dpr;
+            chartCtx.scale(dpr, dpr);
+
+            const w = rect.width;
+            const h = rect.height;
+
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Green Optimal Cutting Window Band (4h to 10h)
+            const x4h = (4 / 24) * w;
+            const x10h = (10 / 24) * w;
+            chartCtx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+            chartCtx.fillRect(x4h, 0, x10h - x4h, h);
+
+            chartCtx.strokeStyle = 'rgba(16, 185, 129, 0.4)';
+            chartCtx.lineWidth = 1;
+            chartCtx.strokeRect(x4h, 0, x10h - x4h, h);
+
+            // Concrete Strength Gain Curve (Tensile / Compressive)
+            chartCtx.strokeStyle = '#38bdf8';
+            chartCtx.lineWidth = 2.5;
+            chartCtx.beginPath();
+            for (let x = 0; x <= w; x += 3) {
+                const t = (x / w) * 24; // Hours
+                // Strength growth formula f(t)
+                const strength = Math.pow(t / (2 + t), 1.2) * (h - 20);
+                const y = h - 10 - strength;
+                if (x === 0) chartCtx.moveTo(x, y);
+                else chartCtx.lineTo(x, y);
+            }
+            chartCtx.stroke();
+
+            // Thermal Stress Curve (Rising after setting)
+            chartCtx.strokeStyle = '#f59e0b';
+            chartCtx.lineWidth = 1.5;
+            chartCtx.setLineDash([3, 3]);
+            chartCtx.beginPath();
+            for (let x = 0; x <= w; x += 3) {
+                const t = (x / w) * 24;
+                const stress = t > 4 ? Math.pow((t - 4) / 12, 1.5) * (h - 30) : 0;
+                const y = h - 10 - Math.min(h - 15, stress);
+                if (x === 0) chartCtx.moveTo(x, y);
+                else chartCtx.lineTo(x, y);
+            }
+            chartCtx.stroke();
+            chartCtx.setLineDash([]);
+
+            // Current Time Slider Marker Position
+            const curX = (state.settingTime / 24) * w;
+            chartCtx.strokeStyle = '#f43f5e';
+            chartCtx.lineWidth = 2;
+            chartCtx.beginPath();
+            chartCtx.moveTo(curX, 0);
+            chartCtx.lineTo(curX, h);
+            chartCtx.stroke();
+
+            chartCtx.fillStyle = '#f43f5e';
+            chartCtx.beginPath();
+            chartCtx.arc(curX, 8, 4, 0, Math.PI * 2);
+            chartCtx.fill();
+        }
+
+        function initSequencePuzzle() {
+            const poolContainer = document.getElementById('source-cards-pool');
+            const targetContainer = document.getElementById('drop-slots-container');
+
+            poolContainer.innerHTML = '';
+            targetContainer.innerHTML = '';
+
+            // Generate 5 Target Drop Slots
+            for (let i = 1; i <= 5; i++) {
+                const slotEl = document.createElement('div');
+                slotEl.className = 'glass-card p-2 rounded-lg border border-dashed border-slate-700 min-h-[48px] flex items-center justify-between transition-all';
+                slotEl.dataset.slotStep = i;
+                slotEl.innerHTML = `
+                    <div class="flex items-center gap-2 text-xs text-slate-500 font-mono">
+                        <span class="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center font-bold text-slate-400 text-[10px]">${i}</span>
+                        <span>Drop Phase ${i} Card Here...</span>
+                    </div>
+                `;
+
+                // Drag and Drop Event Listeners
+                slotEl.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    slotEl.classList.add('drop-target-active');
+                });
+
+                slotEl.addEventListener('dragleave', () => {
+                    slotEl.classList.remove('drop-target-active');
+                });
+
+                slotEl.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    slotEl.classList.remove('drop-target-active');
+                    handleCardDrop(state.draggedCardId, slotEl);
+                });
+
+                targetContainer.appendChild(slotEl);
+            }
+
+            // Shuffle cards for source pool
+            const shuffled = [...sequenceCardsData].sort(() => Math.random() - 0.5);
+
+            shuffled.forEach(card => {
+                const cardEl = document.createElement('div');
+                cardEl.id = card.id;
+                cardEl.draggable = true;
+                cardEl.className = 'glass-card p-2.5 rounded-lg border border-slate-700 cursor-grab active:cursor-grabbing hover:border-cyan-500/50 transition-all flex items-start gap-2.5';
+                cardEl.innerHTML = `
+                    <i class="fa-solid fa-grip-vertical text-slate-500 text-xs mt-1 shrink-0"></i>
+                    <div>
+                        <h4 class="text-xs font-bold text-slate-200">${card.title}</h4>
+                        <p class="text-[11px] text-slate-400 leading-tight mt-0.5">${card.desc}</p>
+                    </div>
+                `;
+
+                cardEl.addEventListener('dragstart', () => {
+                    state.draggedCardId = card.id;
+                    cardEl.classList.add('dragging');
+                    sound.playClick();
+                });
+
+                cardEl.addEventListener('dragend', () => {
+                    cardEl.classList.remove('dragging');
+                });
+
+                // Tap to select / drop fallback for touch devices
+                cardEl.addEventListener('click', () => {
+                    autoPlaceCardInFirstEmptySlot(card.id);
+                });
+
+                poolContainer.appendChild(cardEl);
+            });
+
+            updatePuzzleProgress();
+        }
+
+        function handleCardDrop(cardId, slotEl) {
+            const cardData = sequenceCardsData.find(c => c.id === cardId);
+            const targetStep = parseInt(slotEl.dataset.slotStep);
+
+            if (!cardData) return;
+
+            if (cardData.stepNum === targetStep) {
+                // Correct Placement!
+                sound.playSuccessChime();
+                slotEl.className = 'glass-card p-2.5 rounded-lg border border-emerald-500/60 bg-emerald-950/20 flex items-start justify-between';
+                slotEl.innerHTML = `
+                    <div class="flex items-start gap-2">
+                        <span class="w-5 h-5 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center font-bold text-[10px] shrink-0 mt-0.5"><i class="fa-solid fa-check"></i></span>
+                        <div>
+                            <h4 class="text-xs font-bold text-emerald-300">${cardData.title}</h4>
+                            <p class="text-[11px] text-slate-300 leading-tight">${cardData.desc}</p>
+                        </div>
+                    </div>
+                `;
+
+                // Remove card from source pool
+                const sourceCard = document.getElementById(cardId);
+                if (sourceCard) sourceCard.remove();
+
+                updatePuzzleProgress();
+            } else {
+                // Incorrect Placement Error
+                sound.playErrorSound();
+                slotEl.classList.add('drop-error');
+                setTimeout(() => slotEl.classList.remove('drop-error'), 500);
+            }
+        }
+
+        function autoPlaceCardInFirstEmptySlot(cardId) {
+            const emptySlots = Array.from(document.querySelectorAll('#drop-slots-container > div')).filter(s => s.dataset.slotStep && !s.querySelector('.text-emerald-300'));
+            if (emptySlots.length > 0) {
+                handleCardDrop(cardId, emptySlots[0]);
+            }
+        }
+
+        function updatePuzzleProgress() {
+            const completedCount = document.querySelectorAll('#drop-slots-container .border-emerald-500\\/60').length;
+            document.getElementById('puzzle-progress-text').innerText = `${completedCount} / 5 Completed`;
+
+            if (completedCount === 5 && !state.puzzleCompleted) {
+                state.puzzleCompleted = true;
+                sound.playSuccessChime();
+                speakNarration("Congratulations! You have correctly sequenced all five phases of rigid pavement joint construction.");
+            }
+        }
+
+        function resetSequencePuzzle() {
+            state.puzzleCompleted = false;
+            initSequencePuzzle();
+        }
+
+        function selectJointType(type) {
+            state.jointType = type;
+            sound.playClick();
+
+            // Update Header Buttons Styling
+            ['contraction', 'expansion', 'warping'].forEach(t => {
+                const btn = document.getElementById(`btn-joint-${t}`);
+                if (t === type) {
+                    btn.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 bg-cyan-500 text-slate-950 shadow-md";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-md text-xs font-semibold text-slate-300 hover:text-white transition-all flex items-center gap-1.5";
+                }
+            });
+
+            // Update Title and Speech Narration text
+            const titleMap = {
+                contraction: 'CONTRACTION JOINT CROSS-SECTION',
+                expansion: 'EXPANSION JOINT CROSS-SECTION',
+                warping: 'WARPING / LONGITUDINAL TIE JOINT'
+            };
+            document.getElementById('canvas-status-title').innerText = titleMap[type];
+
+            const speechMap = {
+                contraction: "Contraction joints control transverse shrinkage cracks. Saw-cut notch at H over 4 forces micro-cracking along the joint line while dowel bars transfer traffic loads.",
+                expansion: "Expansion joints feature full depth compressible filler boards and lubricated dowels with caps to prevent summer blowout crushing failures.",
+                warping: "Warping joints relieve slab curling stresses from temperature gradients. Deformed tie bars lock adjacent lanes tightly to prevent lane separation."
+            };
+
+            speakNarration(speechMap[type]);
+            updateParameters();
+            renderCrossSection();
+        }
+
+        function toggleXRay() {
+            state.xrayEnabled = !state.xrayEnabled;
+            document.getElementById('xray-label').innerText = `X-Ray: ${state.xrayEnabled ? 'ON' : 'OFF'}`;
+            sound.playClick();
+            renderCrossSection();
+        }
+
+        function toggleLoadVectors() {
+            state.vectorEnabled = !state.vectorEnabled;
+            document.getElementById('vector-label').innerText = `Vectors: ${state.vectorEnabled ? 'ON' : 'OFF'}`;
+            sound.playClick();
+            renderCrossSection();
+        }
+
+        function toggleAudioSpeech() {
+            state.speechEnabled = !state.speechEnabled;
+            state.soundMuted = !state.speechEnabled;
+            const icon = document.getElementById('speech-icon');
+            if (state.speechEnabled) {
+                icon.className = "fa-solid fa-volume-high text-emerald-400";
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        function updateSettingTime(val) {
+            state.settingTime = parseFloat(val);
+            document.getElementById('slider-time-val').innerText = `${state.settingTime.toFixed(1)} Hours`;
+
+            const badge = document.getElementById('timing-status-badge');
+            if (state.settingTime < 4) {
+                badge.innerText = "WARNING: POOR CUT QUALITY (Aggregate Raveling)";
+                badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-500/20 text-rose-400 border border-rose-500/30";
+            } else if (state.settingTime <= 10) {
+                badge.innerText = `OPTIMAL CUTTING WINDOW (${state.settingTime} hrs)`;
+                badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30";
+            } else {
+                badge.innerText = "WARNING: HIGH CRACK RISK (Thermal Stress Build-up)";
+                badge.className = "px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+            }
+
+            renderStrengthChart();
+        }
+
+        function updateParameters() {
+            state.thickness = parseInt(document.getElementById('param-thickness').value);
+            state.dowelDia = parseInt(document.getElementById('param-dowel').value);
+            state.wheelLoad = parseInt(document.getElementById('param-load').value);
+
+            document.getElementById('val-thickness-disp').innerText = `${state.thickness} mm`;
+            document.getElementById('val-dowel-disp').innerText = `${state.dowelDia} mm`;
+            document.getElementById('val-load-disp').innerText = `${state.wheelLoad} kN`;
+
+            document.getElementById('lbl-slab-depth').innerText = `${state.thickness} mm`;
+
+            // Dynamic Calculations
+            const sawDepth = (state.thickness / 4).toFixed(1);
+            const dowelLen = 450;
+            const lte = (98 - (state.thickness / 35) - (state.wheelLoad * 0.08)).toFixed(1);
+
+            document.getElementById('insp-joint-type').innerText = state.jointType.toUpperCase();
+            document.getElementById('insp-saw-depth').innerText = `${sawDepth} mm`;
+            document.getElementById('insp-dowel-len').innerText = `${dowelLen} mm`;
+            document.getElementById('insp-lte-calculated').innerText = `${lte} %`;
+            document.getElementById('lbl-lte-val').innerText = `${lte}%`;
+
+            renderCrossSection();
+        }
+
+        function triggerSawCutAnimation() {
+            if (state.isSawing) return;
+            state.isSawing = true;
+            state.sawProgress = 0;
+            state.sawPosition = 0;
+
+            sound.startSawSound();
+
+            const sawInterval = setInterval(() => {
+                state.sawPosition += 0.04;
+                state.sawProgress = Math.min(1.0, state.sawPosition);
+
+                renderCrossSection();
+
+                if (state.sawPosition >= 1.0) {
+                    clearInterval(sawInterval);
+                    state.isSawing = false;
+                    sound.stopSawSound();
+                    sound.playSuccessChime();
+                    renderCrossSection();
+                }
+            }, 50);
+        }
+
+        function triggerWheelPassAnimation() {
+            if (state.isWheelPassing) return;
+            state.isWheelPassing = true;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            state.wheelPos = -50;
+
+            const wheelInterval = setInterval(() => {
+                state.wheelPos += 8;
+                renderCrossSection();
+
+                if (state.wheelPos > rect.width + 50) {
+                    clearInterval(wheelInterval);
+                    state.isWheelPassing = false;
+                    renderCrossSection();
+                }
+            }, 30);
+        }
+
+        function switchTab(tabId) {
+            ['sequence', 'inspector', 'specs'].forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                const content = document.getElementById(`tab-content-${t}`);
+                if (t === tabId) {
+                    btn.className = "flex-1 py-2.5 text-center text-cyan-400 border-b-2 border-cyan-400 bg-slate-800/50 flex items-center justify-center gap-1.5 transition";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "flex-1 py-2.5 text-center text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition";
+                    content.classList.add('hidden');
+                }
+            });
+            sound.playClick();
+        }
+
+        function resetSimulation() {
+            state.jointType = 'contraction';
+            state.sawProgress = 1.0;
+            state.settingTime = 6.5;
+            document.getElementById('slider-setting-time').value = 6.5;
+            
+            selectJointType('contraction');
+            updateSettingTime(6.5);
+            resetSequencePuzzle();
+            renderCrossSection();
+            renderStrengthChart();
+            sound.playClick();
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            renderStrengthChart();
+            initSequencePuzzle();
+            updateParameters();
+            
+            // Speak initial narration
+            setTimeout(() => {
+                speakNarration("Welcome to the Rigid Pavement Joints Simulator. Select a joint type or complete the construction sequence challenge.");
+            }, 600);
+        };
+    </script>
+</body>
+</html>

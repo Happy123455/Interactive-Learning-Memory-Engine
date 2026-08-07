@@ -1,0 +1,1323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limit State Bolted Connection Simulator</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font integration -->
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;700&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  
+  <style>
+    /* Premium Cyber-Engineer Styling */
+    :root {
+      --bg-dark: #090a0f;
+      --panel-bg: rgba(17, 19, 28, 0.75);
+      --neon-cyan: #00f0ff;
+      --neon-magenta: #ff007f;
+      --neon-lime: #39ff14;
+      --border-color: rgba(255, 255, 255, 0.08);
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 240, 255, 0.05) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(255, 0, 127, 0.05) 0px, transparent 50%);
+      font-family: 'Inter', sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      color: #e2e8f0;
+    }
+
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .neon-text-cyan {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+    }
+    
+    .neon-text-magenta {
+      color: var(--neon-magenta);
+      text-shadow: 0 0 10px rgba(255, 0, 127, 0.5);
+    }
+
+    .neon-text-lime {
+      color: var(--neon-lime);
+      text-shadow: 0 0 10px rgba(57, 255, 20, 0.5);
+    }
+
+    .neon-border-cyan:focus, .neon-border-cyan.active {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+    }
+
+    .font-code {
+      font-family: 'Fira Code', monospace;
+    }
+
+    /* Custom Scrollbar for inner cards */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--neon-cyan);
+    }
+
+    /* Pulse animations */
+    @keyframes pulse-cyan {
+      0%, 100% { opacity: 0.8; box-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
+      50% { opacity: 1; box-shadow: 0 0 20px rgba(0, 240, 255, 0.6); }
+    }
+    .pulse-target {
+      animation: pulse-cyan 2s infinite;
+    }
+
+    /* Drag & Drop styling */
+    .drag-chip {
+      cursor: grab;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .drag-chip:active {
+      cursor: grabbing;
+      transform: scale(0.95);
+    }
+    .drop-zone {
+      transition: background-color 0.3s, border-color 0.3s;
+    }
+    .drop-zone.hovered {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--neon-cyan);
+    }
+
+    /* Gummy wiggle */
+    @keyframes wobble {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-4px) skewX(2deg); }
+    }
+    .wobble-hover:hover {
+      animation: wobble 0.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body class="flex flex-col h-screen select-none">
+
+  <!-- TOP HUD / HEADER -->
+  <header class="h-16 border-b border-[rgba(255,255,255,0.08)] glass-panel px-6 flex items-center justify-between z-10 flex-shrink-0">
+    <div class="flex items-center space-x-4">
+      <div class="w-3 h-3 rounded-full bg-cyan-400 animate-ping"></div>
+      <span class="font-code text-sm tracking-widest text-slate-400">PROJECT: LIMIT-STATE-BOLT-STRENGTH</span>
+      <span class="text-xs bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 px-2 py-0.5 rounded font-mono">IS 800:2007 COMPLIANT</span>
+    </div>
+    
+    <div class="flex items-center space-x-6">
+      <!-- Web Audio & Speech synthesizers toggles -->
+      <button id="btn-audio" onclick="toggleAudio()" class="flex items-center space-x-2 text-xs border border-slate-700 hover:border-cyan-400 px-3 py-1.5 rounded transition duration-200">
+        <span class="text-slate-400" id="audio-icon">🔇</span>
+        <span id="audio-status" class="text-slate-300">AUDIO OFF</span>
+      </button>
+
+      <button id="btn-narrator" onclick="toggleSpeech()" class="flex items-center space-x-2 text-xs border border-slate-700 hover:border-magenta-400 px-3 py-1.5 rounded transition duration-200">
+        <span class="text-slate-400">🗣️</span>
+        <span id="speech-status" class="text-slate-300">VOICE OFF</span>
+      </button>
+
+      <button onclick="openRulebook()" class="text-xs bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white font-bold px-4 py-1.5 rounded shadow-lg shadow-cyan-500/20 transition-all duration-200">
+        📖 CODEBOOK HELPER
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE CONTAINER -->
+  <main class="flex-1 flex overflow-hidden p-4 space-x-4">
+    
+    <!-- LEFT PANEL: CONTROL DECK (4 Cols) -->
+    <section class="w-1/4 flex flex-col space-y-4 overflow-y-auto pr-1">
+      
+      <!-- Phase / Instruction Box -->
+      <div class="glass-panel p-4 rounded-xl relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-400" id="phase-border"></div>
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold text-cyan-400 font-mono tracking-wider" id="phase-lbl">PHASE 1: SYSTEM IDENTIFICATION</span>
+          <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded" id="phase-step">1 / 3</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed" id="phase-instruction">
+          Click the core elements directly on the physical viewport to map structural locations before loading stresses.
+        </p>
+      </div>
+
+      <!-- Live Physics Controls -->
+      <div class="glass-panel p-4 rounded-xl space-y-4">
+        <h3 class="text-xs font-bold tracking-wider text-slate-400 uppercase">Interactive Variables</h3>
+        
+        <!-- Bolt Diameter Slider -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs font-mono">
+            <span class="text-slate-300">Bolt Diameter (d):</span>
+            <span class="text-cyan-400 font-bold" id="lbl-diameter">20 mm</span>
+          </div>
+          <input type="range" id="inp-diameter" min="12" max="36" step="2" value="20" class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg appearance-none">
+        </div>
+
+        <!-- Plate Thickness Slider -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs font-mono">
+            <span class="text-slate-300">Plate Thickness (t):</span>
+            <span class="text-cyan-400 font-bold" id="lbl-thickness">12 mm</span>
+          </div>
+          <input type="range" id="inp-thickness" min="6" max="30" step="2" value="12" class="w-full accent-cyan-400 bg-slate-800 h-1.5 rounded-lg appearance-none">
+        </div>
+
+        <!-- Bolt Grade selector -->
+        <div class="space-y-1">
+          <label class="text-xs text-slate-300 block font-mono">Bolt Grade (f_ub):</label>
+          <div class="grid grid-cols-3 gap-2">
+            <button onclick="setBoltGrade(4.6)" id="btn-grade-46" class="bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition">4.6 (400 MPa)</button>
+            <button onclick="setBoltGrade(8.8)" id="btn-grade-88" class="bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition">8.8 (800 MPa)</button>
+            <button onclick="setBoltGrade(10.9)" id="btn-grade-109" class="bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition">10.9 (1000 MPa)</button>
+          </div>
+        </div>
+
+        <!-- Plate Grade selector -->
+        <div class="space-y-1">
+          <label class="text-xs text-slate-300 block font-mono">Plate Material (f_u):</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button onclick="setPlateGrade(410)" id="btn-plate-410" class="bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition">Fe 410 (410 MPa)</button>
+            <button onclick="setPlateGrade(490)" id="btn-plate-490" class="bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition">Fe 490 (490 MPa)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Identification Checkbox Card -->
+      <div class="glass-panel p-4 rounded-xl flex-1 flex flex-col justify-between">
+        <div>
+          <h3 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-3">Identification Status</h3>
+          <div class="space-y-2">
+            <div id="check-head" class="flex items-center justify-between p-2 rounded bg-slate-900/50 border border-slate-800 text-xs">
+              <span class="text-slate-300 font-mono">1. Bolt Head / Thread Joint</span>
+              <span id="badge-head" class="text-xs text-orange-400 font-mono">Pending Click</span>
+            </div>
+            <div id="check-shear" class="flex items-center justify-between p-2 rounded bg-slate-900/50 border border-slate-800 text-xs">
+              <span class="text-slate-300 font-mono">2. Inter-Plate Shear Plane</span>
+              <span id="badge-shear" class="text-xs text-orange-400 font-mono">Pending Click</span>
+            </div>
+            <div id="check-plates" class="flex items-center justify-between p-2 rounded bg-slate-900/50 border border-slate-800 text-xs">
+              <span class="text-slate-300 font-mono">3. Bearing Contact Zone</span>
+              <span id="badge-plates" class="text-xs text-orange-400 font-mono">Pending Click</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="pt-4 border-t border-[rgba(255,255,255,0.08)] mt-4">
+          <button id="btn-next-phase" disabled class="w-full bg-slate-800 text-slate-500 font-bold py-2 rounded text-xs tracking-wider transition-all cursor-not-allowed">
+            COMPLETE ID PHASE FIRST
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- CENTER PANEL: HIGH-DPI CANVAS VIEWPORT (5 Cols) -->
+    <section class="flex-1 flex flex-col space-y-4">
+      
+      <!-- Interactive Sandbox Canvas Box -->
+      <div class="flex-1 glass-panel rounded-xl relative overflow-hidden flex flex-col">
+        <div class="absolute top-2 left-4 z-10 pointer-events-none">
+          <span class="text-xs bg-slate-950/80 px-2 py-1 rounded text-cyan-400 font-code border border-cyan-500/20">VISUAL SIMULATION PLAYGROUND</span>
+        </div>
+        
+        <!-- Live Stress / Force Vector overlay on top right -->
+        <div class="absolute top-2 right-4 z-10 bg-slate-950/80 p-2.5 rounded border border-white/5 font-code text-xs space-y-1">
+          <div class="flex justify-between space-x-4">
+            <span class="text-slate-400">Shear Deformation:</span>
+            <span id="val-disp" class="text-cyan-400 font-bold">0.00 mm</span>
+          </div>
+          <div class="flex justify-between space-x-4">
+            <span class="text-slate-400">Yield State:</span>
+            <span id="val-yield-state" class="text-lime-400 font-bold">STABLE</span>
+          </div>
+        </div>
+
+        <!-- HTML5 Canvas -->
+        <div class="flex-1 relative">
+          <canvas id="boltCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+        </div>
+
+        <!-- Mini dynamic info popout depending on hover -->
+        <div class="bg-slate-950/80 border-t border-[rgba(255,255,255,0.08)] px-4 py-2.5 flex items-center justify-between text-xs text-slate-400">
+          <div class="flex items-center space-x-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+            <span id="canvas-hint">Hover mouse over the joint to explore physical variables.</span>
+          </div>
+          <div id="canvas-coord" class="font-code text-[10px] text-slate-500">X: 0 | Y: 0</div>
+        </div>
+      </div>
+
+      <!-- Action Force slider (Unlocked during phase 3) -->
+      <div class="glass-panel p-4 rounded-xl flex flex-col space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center space-x-2">
+            <span class="text-xs font-bold text-slate-300 tracking-wider">APPLIED SHEAR LOAD (V_ed)</span>
+            <span class="text-[10px] bg-red-500/10 text-red-400 px-1.5 py-0.5 rounded border border-red-500/20 font-bold" id="tag-unlocked">LOCKED UNTIL ID & FORMULA SOLVED</span>
+          </div>
+          <span class="text-lg font-code font-bold text-cyan-400" id="lbl-force">0.00 kN</span>
+        </div>
+        <input type="range" id="inp-force" min="0" max="250" step="1" value="0" disabled class="w-full accent-cyan-400 bg-slate-800 h-2 rounded-lg appearance-none opacity-40 cursor-not-allowed">
+      </div>
+
+    </section>
+
+    <!-- RIGHT PANEL: CAPACITIES & DRAG-AND-DROP (3 Cols) -->
+    <section class="w-1/4 flex flex-col space-y-4">
+      
+      <!-- Battle of Capacities -->
+      <div class="glass-panel p-4 rounded-xl space-y-4">
+        <h3 class="text-xs font-bold tracking-wider text-slate-400 uppercase">Limit State Capacities</h3>
+        
+        <!-- Shear strength bar -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs font-code">
+            <span class="text-slate-300">Shear Capacity (V_dsb):</span>
+            <span class="text-cyan-400 font-bold" id="lbl-shear-cap">46.54 kN</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+            <div id="bar-shear" class="bg-gradient-to-r from-blue-500 to-cyan-400 h-full transition-all duration-300" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <!-- Bearing strength bar -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs font-code">
+            <span class="text-slate-300">Bearing Capacity (V_dpb):</span>
+            <span class="text-magenta-400 font-bold" id="lbl-bearing-cap">61.50 kN</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+            <div id="bar-bearing" class="bg-gradient-to-r from-purple-500 to-pink-500 h-full transition-all duration-300" style="width: 70%;"></div>
+          </div>
+        </div>
+
+        <!-- Tension strength bar -->
+        <div class="space-y-1">
+          <div class="flex justify-between text-xs font-code">
+            <span class="text-slate-300">Tension Capacity (T_db):</span>
+            <span class="text-yellow-400 font-bold" id="lbl-tension-cap">73.80 kN</span>
+          </div>
+          <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+            <div id="bar-tension" class="bg-gradient-to-r from-yellow-500 to-amber-400 h-full transition-all duration-300" style="width: 85%;"></div>
+          </div>
+        </div>
+
+        <!-- Controlling Failure Mechanism Display -->
+        <div class="p-3 bg-slate-900/80 border border-slate-800 rounded-lg flex items-center justify-between">
+          <div class="space-y-0.5">
+            <span class="text-[10px] text-slate-400 block tracking-widest font-mono">CONTROLLING LIMIT STATE</span>
+            <span id="lbl-controlling-mechanism" class="text-xs text-lime-400 font-bold uppercase tracking-wider font-code">SHEAR DEFORMATION</span>
+          </div>
+          <span id="lbl-controlling-val" class="text-sm font-code font-bold text-lime-400">46.54 kN</span>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Challenge Panel -->
+      <div class="flex-1 glass-panel p-4 rounded-xl flex flex-col justify-between overflow-hidden">
+        <div>
+          <h3 class="text-xs font-bold tracking-wider text-slate-400 uppercase mb-1">Drag-and-Drop Formulas</h3>
+          <p class="text-[11px] text-slate-400 leading-tight mb-4">Drag the correct coefficients to complete nominal limit states equations.</p>
+          
+          <!-- Shear Capacity Equation Area -->
+          <div class="mb-4 p-3 bg-slate-950/60 border border-white/5 rounded-lg space-y-2">
+            <span class="text-[10px] text-cyan-400 font-code font-bold tracking-wider">SHEAR DESIGN (V_nsb)</span>
+            <div class="flex items-center space-x-1 text-xs font-code">
+              <span>V_nsb = (</span>
+              <div id="slot-shear" class="drop-zone w-16 h-8 rounded border-2 border-dashed border-slate-700 flex items-center justify-center bg-slate-900 text-slate-500 font-bold transition text-xs" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'shear')">
+                ?
+              </div>
+              <span> / √3 ) × A_nb</span>
+            </div>
+          </div>
+
+          <!-- Bearing Capacity Equation Area -->
+          <div class="p-3 bg-slate-950/60 border border-white/5 rounded-lg space-y-2">
+            <span class="text-[10px] text-magenta-400 font-code font-bold tracking-wider">BEARING DESIGN (V_npb)</span>
+            <div class="flex items-center space-x-1 text-xs font-code">
+              <span>V_npb = </span>
+              <div id="slot-bearing" class="drop-zone w-16 h-8 rounded border-2 border-dashed border-slate-700 flex items-center justify-center bg-slate-900 text-slate-500 font-bold transition text-xs" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="handleDrop(event, 'bearing')">
+                ?
+              </div>
+              <span> × k_b × d × t × f_u</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Available Chips Drag Source -->
+        <div class="pt-4 border-t border-[rgba(255,255,255,0.08)] mt-4">
+          <span class="text-[10px] text-slate-400 block uppercase font-mono tracking-wider mb-2">Available Variables</span>
+          <div class="grid grid-cols-3 gap-2" id="chip-container">
+            <div id="chip-fub" draggable="true" ondragstart="dragStart(event, 'fub')" class="drag-chip bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded p-1.5 text-center text-xs font-code font-bold text-cyan-300">
+              f_ub
+            </div>
+            <div id="chip-factor" draggable="true" ondragstart="dragStart(event, '2.5')" class="drag-chip bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded p-1.5 text-center text-xs font-code font-bold text-magenta-300">
+              2.5
+            </div>
+            <div id="chip-gamma" draggable="true" ondragstart="dragStart(event, 'gamma')" class="drag-chip bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded p-1.5 text-center text-xs font-code font-bold text-yellow-300">
+              γ_m0
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- CODEBOOK / FORMULA POPUP MODAL -->
+  <div id="modal-rulebook" class="fixed inset-0 bg-black/80 backdrop-filter backdrop-blur-md hidden items-center justify-center z-50 p-6">
+    <div class="glass-panel w-full max-w-3xl rounded-2xl overflow-hidden shadow-2xl border border-white/10 flex flex-col max-h-[85vh]">
+      <!-- Modal Header -->
+      <div class="p-6 border-b border-[rgba(255,255,255,0.08)] flex justify-between items-center">
+        <div>
+          <h2 class="text-lg font-bold text-white tracking-wide">IS 800:2007 Structural Engineer's Guide</h2>
+          <p class="text-xs text-cyan-400">Section 10: Limit State of Connections (Design of Bolts)</p>
+        </div>
+        <button onclick="closeRulebook()" class="text-slate-400 hover:text-white text-xl font-bold font-mono">✕</button>
+      </div>
+
+      <!-- Modal Content (Scrollable) -->
+      <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-300 font-mono leading-relaxed">
+        
+        <!-- Nominal Shear Strength -->
+        <div class="p-4 bg-slate-900/50 border border-slate-800 rounded-xl space-y-2">
+          <h3 class="text-sm font-bold text-cyan-400 font-sans">1. Nominal Shear Strength of a Bolt ($V_{nsb}$)</h3>
+          <p class="text-xs text-slate-400">Clause 10.3.2: The nominal shear capacity of a bolt is formulated by checking the ultimate tensile strength across the failure/shear planes.</p>
+          <div class="bg-black/40 p-3 rounded font-bold text-center text-cyan-300 border border-cyan-500/20 my-2">
+            V_nsb = ( f_ub / √3 ) × [ n_n × A_nb + n_s × A_sb ]
+          </div>
+          <ul class="text-xs text-slate-400 space-y-1 pl-4 list-disc font-sans">
+            <li><strong class="text-slate-300 font-mono">f_ub:</strong> Ultimate tensile strength of the bolt.</li>
+            <li><strong class="text-slate-300 font-mono">A_nb:</strong> Net tensile shear area of the bolt at the threads (~0.78 × π/4 × d²).</li>
+            <li><strong class="text-slate-300 font-mono">n_n:</strong> Number of shear planes passing through thread section.</li>
+          </ul>
+        </div>
+
+        <!-- Nominal Bearing Capacity -->
+        <div class="p-4 bg-slate-900/50 border border-slate-800 rounded-xl space-y-2">
+          <h3 class="text-sm font-bold text-magenta-400 font-sans">2. Nominal Bearing Strength of a Bolt ($V_{npb}$)</h3>
+          <p class="text-xs text-slate-400">Clause 10.3.4: Under high tension, the bolt body pushes or shears against the edge surface of the plates.</p>
+          <div class="bg-black/40 p-3 rounded font-bold text-center text-magenta-300 border border-magenta-500/20 my-2">
+            V_npb = 2.5 × k_b × d × t × f_u
+          </div>
+          <ul class="text-xs text-slate-400 space-y-1 pl-4 list-disc font-sans">
+            <li><strong class="text-slate-300 font-mono">k_b:</strong> Bearing coefficient based on plate boundary conditions.</li>
+            <li><strong class="text-slate-300 font-mono">d:</strong> Nominal bolt diameter.</li>
+            <li><strong class="text-slate-300 font-mono">t:</strong> Thickness of thinner connected plate.</li>
+            <li><strong class="text-slate-300 font-mono">f_u:</strong> Ultimate tensile strength of the plate material.</li>
+          </ul>
+        </div>
+
+        <!-- Gummy Bear Metaphor -->
+        <div class="p-4 bg-gradient-to-r from-blue-950/20 to-purple-950/20 border border-blue-500/20 rounded-xl space-y-2 font-sans text-xs">
+          <h4 class="font-bold text-blue-400 uppercase tracking-widest">🧸 THE GUMMY BEAR METAPHOR (ELI5)</h4>
+          <p class="text-slate-300 leading-relaxed">
+            Think of a metal bolt as a dense **Gummy Bear** pinned inside two cookies (the metal plates). 
+            If you pull the top cookie right, and the bottom cookie left, the gummy bear gets squished inside!
+          </p>
+          <p class="text-slate-300 leading-relaxed mt-1">
+            If the gummy is too soft, it slices in half (<strong class="text-cyan-400 font-mono">Shear Failure</strong>). If the cookie is too crumbly, the gummy bear rips right through the edge of the cookie (<strong class="text-magenta-400 font-mono">Bearing Failure</strong>).
+          </p>
+        </div>
+
+      </div>
+
+      <!-- Footer action -->
+      <div class="p-4 bg-slate-950 border-t border-[rgba(255,255,255,0.08)] flex justify-end">
+        <button onclick="closeRulebook()" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold px-6 py-2 rounded text-xs transition duration-200">
+          I UNDERSTAND
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- INTRODUCTORY / LESSON WELCOME MODAL -->
+  <div id="modal-intro" class="fixed inset-0 bg-black/90 backdrop-filter backdrop-blur-md flex items-center justify-center z-50 p-6">
+    <div class="glass-panel w-full max-w-xl rounded-2xl p-8 border border-cyan-500/30 text-center space-y-6">
+      <div class="w-16 h-16 bg-cyan-400/10 border border-cyan-400 rounded-full flex items-center justify-center mx-auto text-3xl shadow-lg shadow-cyan-400/20 animate-pulse">
+        🔩
+      </div>
+      
+      <div class="space-y-2">
+        <h1 class="text-2xl font-extrabold text-white tracking-tight">LIMIT STATE BOLT CALCULATOR</h1>
+        <p class="text-xs text-cyan-400 uppercase tracking-widest font-mono">Gamified Structural Mechanics Sandbox</p>
+      </div>
+
+      <p class="text-sm text-slate-300 leading-relaxed">
+        Welcome to the structural validation suite. In this playground, you will study how a joint assembly reacts under tensile forces, deforming the physical boundaries of plates and connectors.
+      </p>
+
+      <div class="grid grid-cols-3 gap-3 text-xs font-mono text-slate-400">
+        <div class="p-3 bg-slate-900/50 border border-slate-800 rounded-lg">
+          <span class="block text-cyan-400 font-bold mb-1">STEP 1</span>
+          Identify Components
+        </div>
+        <div class="p-3 bg-slate-900/50 border border-slate-800 rounded-lg">
+          <span class="block text-magenta-400 font-bold mb-1">STEP 2</span>
+          Build Code Equations
+        </div>
+        <div class="p-3 bg-slate-900/50 border border-slate-800 rounded-lg">
+          <span class="block text-lime-400 font-bold mb-1">STEP 3</span>
+          Stress to Failure
+        </div>
+      </div>
+
+      <button onclick="dismissIntro()" class="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-extrabold py-3 rounded-xl tracking-wider shadow-lg shadow-cyan-500/20 transition-all duration-300">
+        INITIALIZE SYSTEM
+      </button>
+    </div>
+  </div>
+
+  <!-- SCRIPT BLOCK: INTERACTIVE PHYSICS, SOUND SYNTHESIS & SPEECH -->
+  <script>
+    // ==========================================
+    // SYSTEM STATE
+    // ==========================================
+    const state = {
+      phase: 1, // Phase 1: ID, Phase 2: Equation Challenge, Phase 3: Stress Testing
+      identified: {
+        head: false,
+        shear: false,
+        plates: false
+      },
+      equationSolved: {
+        shear: false,
+        bearing: false
+      },
+      bolt: {
+        diameter: 20, // mm
+        grade: 4.6, // nominal grade
+        fub: 400, // MPa
+        x: 0,
+        y: 0
+      },
+      plate: {
+        thickness: 12, // mm
+        fu: 410 // MPa
+      },
+      appliedForce: 0, // kN
+      capacities: {
+        shear: 0,
+        bearing: 0,
+        tension: 0,
+        controlling: 0,
+        mechanism: 'shear'
+      },
+      audioEnabled: false,
+      speechEnabled: false,
+      isExploded: false,
+      hoveredComponent: null,
+      particleEngine: []
+    };
+
+    // Synthesizer setup
+    let audioCtx = null;
+    let stressOsc = null;
+    let stressGain = null;
+
+    // Speech Synth configuration
+    const synth = window.speechSynthesis;
+
+    // ==========================================
+    // CANVAS INITIALIZATION (HIGH-DPI & RESPONSIVE)
+    // ==========================================
+    const canvas = document.getElementById('boltCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+      const rect = canvas.parentNode.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      render();
+    }
+    
+    const resizeObserver = new ResizeObserver(() => {
+      resizeCanvas();
+    });
+    resizeObserver.observe(canvas.parentNode);
+
+    // ==========================================
+    // SPEECH NARRATOR
+    // ==========================================
+    function announce(text) {
+      if (!state.speechEnabled || !synth) return;
+      synth.cancel(); // kill active Speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.1;
+      utterance.rate = 1.0;
+      synth.speak(utterance);
+    }
+
+    function toggleSpeech() {
+      state.speechEnabled = !state.speechEnabled;
+      const statusBtn = document.getElementById('speech-status');
+      if (state.speechEnabled) {
+        statusBtn.textContent = "VOICE ON";
+        statusBtn.classList.add('text-magenta-400');
+        announce("Synthesizer activated! Let's explore the limit states.");
+      } else {
+        statusBtn.textContent = "VOICE OFF";
+        statusBtn.classList.remove('text-magenta-400');
+      }
+    }
+
+    // ==========================================
+    // WEB AUDIO SYNTHESIS
+    // ==========================================
+    function toggleAudio() {
+      if (!audioCtx) {
+        // Initialize Audio Context on gesture
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Setup oscillator for applied shear stress
+        stressOsc = audioCtx.createOscillator();
+        stressGain = audioCtx.createGain();
+        
+        stressOsc.type = 'sine';
+        stressOsc.frequency.setValueAtTime(100, audioCtx.currentTime); // Low structural hum
+        stressGain.gain.setValueAtTime(0.0, audioCtx.currentTime); // Silent initially
+        
+        stressOsc.connect(stressGain);
+        stressGain.connect(audioCtx.destination);
+        stressOsc.start();
+      }
+
+      state.audioEnabled = !state.audioEnabled;
+      const audioStatus = document.getElementById('audio-status');
+      const audioIcon = document.getElementById('audio-icon');
+      
+      if (state.audioEnabled) {
+        audioStatus.textContent = "AUDIO ON";
+        audioStatus.classList.add('text-cyan-400');
+        audioIcon.textContent = "🔊";
+        // set dynamic gain
+        updateAudioSynthesis();
+      } else {
+        audioStatus.textContent = "AUDIO OFF";
+        audioStatus.classList.remove('text-cyan-400');
+        audioIcon.textContent = "🔇";
+        stressGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+      }
+    }
+
+    function playTone(freq, duration, type='sine') {
+      if (!state.audioEnabled || !audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function updateAudioSynthesis() {
+      if (!state.audioEnabled || !audioCtx) return;
+      
+      const loadRatio = state.appliedForce / Math.min(state.capacities.shear, state.capacities.bearing);
+      if (loadRatio > 0.01) {
+        // As load builds, pitch goes from 100Hz to 380Hz
+        const targetFreq = 100 + (loadRatio * 280);
+        stressOsc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+        
+        // Increase volume slightly with stress ratio
+        const volume = Math.min(0.2, loadRatio * 0.15);
+        stressGain.gain.setTargetAtTime(volume, audioCtx.currentTime, 0.1);
+      } else {
+        stressGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+      }
+    }
+
+    // ==========================================
+    // PHYSICS CALCULATIONS (IS 800)
+    // ==========================================
+    function recalculateCapacities() {
+      // 1. Single Shear Capacity (V_dsb) = (f_ub / √3) * A_nb / 1.25
+      // Net area of thread section ~ 0.78 * area of solid cylinder
+      const solidArea = (Math.PI * Math.pow(state.bolt.diameter, 2)) / 4;
+      const threadArea = 0.78 * solidArea; 
+      
+      const nominalShear = (state.bolt.fub / Math.sqrt(3)) * threadArea; // N
+      // design capacity = nominal / gamma_mb (1.25)
+      state.capacities.shear = (nominalShear / 1.25) / 1000; // in kN
+
+      // 2. Bearing Capacity (V_dpb) = 2.5 * k_b * d * t * f_u / 1.25
+      // k_b simplified is set here as 0.5 for realistic proportion
+      const kb = 0.5;
+      const nominalBearing = 2.5 * kb * state.bolt.diameter * state.plate.thickness * state.plate.fu; // N
+      state.capacities.bearing = (nominalBearing / 1.25) / 1000; // in kN
+
+      // 3. Tension Capacity (T_db) = 0.9 * f_ub * A_nb / 1.25 (simplified connection rule)
+      const nominalTension = 0.9 * state.bolt.fub * threadArea;
+      state.capacities.tension = (nominalTension / 1.25) / 1000; // in kN
+
+      // Compute controlling Limit State
+      if (state.capacities.shear < state.capacities.bearing) {
+        state.capacities.controlling = state.capacities.shear;
+        state.capacities.mechanism = 'Shear Plane Yield';
+      } else {
+        state.capacities.controlling = state.capacities.bearing;
+        state.capacities.mechanism = 'Plate Bearing Yield';
+      }
+
+      updateUI();
+    }
+
+    // Update variables labels and bar styling
+    function updateUI() {
+      document.getElementById('lbl-diameter').textContent = `${state.bolt.diameter} mm`;
+      document.getElementById('lbl-thickness').textContent = `${state.plate.thickness} mm`;
+      document.getElementById('lbl-force').textContent = `${parseFloat(state.appliedForce).toFixed(2)} kN`;
+
+      // Capacity numbers
+      document.getElementById('lbl-shear-cap').textContent = `${state.capacities.shear.toFixed(2)} kN`;
+      document.getElementById('lbl-bearing-cap').textContent = `${state.capacities.bearing.toFixed(2)} kN`;
+      document.getElementById('lbl-tension-cap').textContent = `${state.capacities.tension.toFixed(2)} kN`;
+
+      // Controlling output
+      document.getElementById('lbl-controlling-mechanism').textContent = state.capacities.mechanism;
+      document.getElementById('lbl-controlling-val').textContent = `${state.capacities.controlling.toFixed(2)} kN`;
+
+      // Graphical Progress Bars
+      const maxCap = Math.max(state.capacities.shear, state.capacities.bearing, state.capacities.tension) * 1.1;
+      document.getElementById('bar-shear').style.width = `${(state.capacities.shear / maxCap) * 100}%`;
+      document.getElementById('bar-bearing').style.width = `${(state.capacities.bearing / maxCap) * 100}%`;
+      document.getElementById('bar-tension').style.width = `${(state.capacities.tension / maxCap) * 100}%`;
+
+      // Update Slider active parameters styling
+      updateActiveGradesUI();
+    }
+
+    function updateActiveGradesUI() {
+      // Bolt Grade styling
+      [4.6, 8.8, 10.9].forEach(g => {
+        const btn = document.getElementById(`btn-grade-${g.toString().replace('.', '')}`);
+        if (state.bolt.grade === g) {
+          btn.className = "bg-cyan-500 text-slate-950 py-1.5 rounded text-xs font-bold border border-cyan-400 font-mono scale-105 transition-all duration-200";
+        } else {
+          btn.className = "bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition font-mono";
+        }
+      });
+
+      // Plate Grade styling
+      [410, 490].forEach(p => {
+        const btn = document.getElementById(`btn-plate-${p}`);
+        if (state.plate.fu === p) {
+          btn.className = "bg-magenta-500 text-slate-950 py-1.5 rounded text-xs font-bold border border-magenta-400 font-mono scale-105 transition-all duration-200";
+        } else {
+          btn.className = "bg-slate-800 hover:bg-slate-700 py-1.5 rounded text-xs font-bold border border-transparent text-slate-300 transition font-mono";
+        }
+      });
+    }
+
+    function setBoltGrade(grade) {
+      state.bolt.grade = grade;
+      state.bolt.fub = grade === 4.6 ? 400 : grade === 8.8 ? 800 : 1000;
+      playTone(330, 0.1);
+      recalculateCapacities();
+    }
+
+    function setPlateGrade(grade) {
+      state.plate.fu = grade;
+      playTone(440, 0.1);
+      recalculateCapacities();
+    }
+
+    // ==========================================
+    // PHASES AND INTERACTIONS MANAGEMENT
+    // ==========================================
+    function checkIdentificationCompletion() {
+      if (state.identified.head && state.identified.shear && state.identified.plates) {
+        const nextBtn = document.getElementById('btn-next-phase');
+        nextBtn.removeAttribute('disabled');
+        nextBtn.className = "w-full bg-gradient-to-r from-cyan-400 to-lime-400 hover:from-cyan-300 hover:to-lime-300 text-slate-950 font-extrabold py-2 rounded text-xs tracking-wider transition-all shadow-lg shadow-cyan-500/20";
+        nextBtn.textContent = "ADVANCE TO FORMULA CHALLENGE";
+        
+        announce("Identification successful! All key load areas mapped. Now, complete the formulas to unlock stress simulation.");
+      }
+    }
+
+    function advancePhase() {
+      if (state.phase === 1) {
+        state.phase = 2;
+        document.getElementById('phase-lbl').textContent = "PHASE 2: FORMULA UNLOCK";
+        document.getElementById('phase-step').textContent = "2 / 3";
+        document.getElementById('phase-instruction').textContent = "Drag components and mathematical factors into the formula drop zones on the right panel to balance structural equations.";
+        document.getElementById('phase-border').style.backgroundColor = 'var(--neon-magenta)';
+        
+        // Scroll highlight
+        playTone(554.37, 0.15, 'triangle');
+        document.getElementById('btn-next-phase').textContent = "SOLVE FORMULA PUZZLE TO START STRESS TEST";
+        document.getElementById('btn-next-phase').disabled = true;
+        document.getElementById('btn-next-phase').className = "w-full bg-slate-800 text-slate-500 font-bold py-2 rounded text-xs tracking-wider transition-all cursor-not-allowed";
+      } else if (state.phase === 2 && state.equationSolved.shear && state.equationSolved.bearing) {
+        state.phase = 3;
+        document.getElementById('phase-lbl').textContent = "PHASE 3: LOAD TESTING TO FAILURE";
+        document.getElementById('phase-step').textContent = "3 / 3";
+        document.getElementById('phase-instruction').textContent = "Drag the applied force slider on the bottom left. Increase force until stress exceeds the limit states of the lap joint!";
+        document.getElementById('phase-border').style.backgroundColor = 'var(--neon-lime)';
+        
+        // Unlock slider
+        const forceInp = document.getElementById('inp-force');
+        forceInp.removeAttribute('disabled');
+        forceInp.classList.remove('opacity-40', 'cursor-not-allowed');
+        document.getElementById('tag-unlocked').textContent = "UNLOCKED & ARMED";
+        document.getElementById('tag-unlocked').className = "text-[10px] bg-lime-500/10 text-lime-400 px-1.5 py-0.5 rounded border border-lime-500/20 font-bold animate-pulse";
+        
+        // Disable control button
+        document.getElementById('btn-next-phase').style.display = 'none';
+
+        playTone(659.25, 0.2, 'sine');
+        announce("Formulas calculated successfully! Applied force deck is armed. Gradually load the bolt to witness failure.");
+      }
+    }
+
+    document.getElementById('btn-next-phase').addEventListener('click', () => {
+      advancePhase();
+    });
+
+    // ==========================================
+    // DRAG AND DROP FORMULAS
+    // ==========================================
+    function dragStart(ev, data) {
+      ev.dataTransfer.setData("text/plain", data);
+    }
+
+    function allowDrop(ev) {
+      ev.preventDefault();
+      ev.currentTarget.classList.add('hovered');
+    }
+
+    function dragLeave(ev) {
+      ev.currentTarget.classList.remove('hovered');
+    }
+
+    function handleDrop(ev, type) {
+      ev.preventDefault();
+      const dropZone = ev.currentTarget;
+      dropZone.classList.remove('hovered');
+      
+      const droppedData = ev.dataTransfer.getData("text/plain");
+
+      if (type === 'shear') {
+        if (droppedData === 'fub') {
+          dropZone.textContent = 'f_ub';
+          dropZone.classList.remove('border-dashed', 'border-slate-700');
+          dropZone.classList.add('border-cyan-400', 'bg-cyan-500/20', 'text-cyan-400');
+          state.equationSolved.shear = true;
+          playTone(523.25, 0.15, 'sine');
+          checkEquationUnlock();
+        } else {
+          wrongChipFlash(dropZone);
+        }
+      } else if (type === 'bearing') {
+        if (droppedData === '2.5') {
+          dropZone.textContent = '2.5';
+          dropZone.classList.remove('border-dashed', 'border-slate-700');
+          dropZone.classList.add('border-magenta-400', 'bg-magenta-500/20', 'text-magenta-400');
+          state.equationSolved.bearing = true;
+          playTone(587.33, 0.15, 'sine');
+          checkEquationUnlock();
+        } else {
+          wrongChipFlash(dropZone);
+        }
+      }
+    }
+
+    function wrongChipFlash(element) {
+      playTone(180, 0.3, 'sawtooth');
+      element.classList.add('border-red-500', 'bg-red-500/10');
+      setTimeout(() => {
+        element.classList.remove('border-red-500', 'bg-red-500/10');
+      }, 500);
+    }
+
+    function checkEquationUnlock() {
+      if (state.equationSolved.shear && state.equationSolved.bearing) {
+        const nextBtn = document.getElementById('btn-next-phase');
+        nextBtn.removeAttribute('disabled');
+        nextBtn.className = "w-full bg-gradient-to-r from-magenta-500 to-lime-500 hover:from-magenta-400 hover:to-lime-400 text-slate-950 font-extrabold py-2 rounded text-xs tracking-wider transition-all shadow-lg shadow-magenta-500/20";
+        nextBtn.textContent = "COMMENCE STRESS SIMULATION";
+      }
+    }
+
+    // ==========================================
+    // PARTICLES ENGINE
+    // ==========================================
+    function createSparks(x, y, color) {
+      for (let i = 0; i < 40; i++) {
+        state.particleEngine.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 8,
+          vy: (Math.random() - 0.5) * 8,
+          radius: Math.random() * 3 + 1.5,
+          color: color,
+          alpha: 1,
+          decay: Math.random() * 0.03 + 0.015
+        });
+      }
+    }
+
+    function drawAndPhysicsParticles(wCtx) {
+      for (let i = state.particleEngine.length - 1; i >= 0; i--) {
+        const p = state.particleEngine[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+        
+        if (p.alpha <= 0) {
+          state.particleEngine.splice(i, 1);
+          continue;
+        }
+
+        wCtx.save();
+        wCtx.globalAlpha = p.alpha;
+        wCtx.shadowBlur = 8;
+        wCtx.shadowColor = p.color;
+        wCtx.fillStyle = p.color;
+        wCtx.beginPath();
+        wCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        wCtx.fill();
+        wCtx.restore();
+      }
+    }
+
+    // ==========================================
+    // CANVAS RENDERING LOOP
+    // ==========================================
+    function drawGrid(wCtx, width, height) {
+      wCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      wCtx.lineWidth = 1;
+      const step = 20;
+      for (let x = 0; x < width; x += step) {
+        wCtx.beginPath();
+        wCtx.moveTo(x, 0);
+        wCtx.lineTo(x, height);
+        wCtx.stroke();
+      }
+      for (let y = 0; y < height; y += step) {
+        wCtx.beginPath();
+        wCtx.moveTo(0, y);
+        wCtx.lineTo(width, y);
+        wCtx.stroke();
+      }
+    }
+
+    function render() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.clearRect(0, 0, w, h);
+      drawGrid(ctx, w, h);
+
+      // Math coordinates system helper
+      const cX = w / 2;
+      const cY = h / 2;
+
+      // Displacement visual multiplier
+      const loadRatio = state.appliedForce / state.capacities.controlling;
+      let disp = 0;
+      
+      if (loadRatio < 1.0) {
+        disp = loadRatio * 20; // 20px elastic travel
+        state.isExploded = false;
+        document.getElementById('val-yield-state').textContent = loadRatio > 0.8 ? "YIELD CRITICAL" : "STABLE";
+        document.getElementById('val-yield-state').className = loadRatio > 0.8 ? "text-magenta-400 font-bold" : "text-lime-400 font-bold";
+      } else {
+        disp = 60; // Locked visually after fracture
+        document.getElementById('val-yield-state').textContent = "FAILED (ULTIMATE)";
+        document.getElementById('val-yield-state').className = "text-red-500 font-bold animate-pulse";
+        
+        if (!state.isExploded) {
+          state.isExploded = true;
+          // Trigger physics snap sound & explosion particles!
+          playTone(110, 0.4, 'sawtooth');
+          playTone(200, 0.5, 'square');
+          createSparks(cX, cY, state.capacities.mechanism.includes('Shear') ? 'var(--neon-cyan)' : 'var(--neon-magenta)');
+          announce("Limit State exceeded! Ultimate collapse due to connection " + state.capacities.mechanism);
+        }
+      }
+
+      document.getElementById('val-disp').textContent = `${(disp / 5).toFixed(2)} mm`;
+
+      // ------------------------------------------
+      // DRAW CONNECTED PLATES
+      // ------------------------------------------
+      const plateThick = state.plate.thickness * 2.2; // Graphic multiplier
+      
+      // Bottom/Left Plate (Static / anchored)
+      ctx.fillStyle = 'rgba(40, 50, 75, 0.4)';
+      ctx.strokeStyle = state.hoveredComponent === 'plates' ? 'var(--neon-magenta)' : 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = 2.5;
+      
+      ctx.beginPath();
+      ctx.roundRect(50 - (disp * 0.2), cY, cX - 50, plateThick, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // Top/Right Plate (Moves under tension load)
+      ctx.fillStyle = 'rgba(50, 65, 95, 0.5)';
+      ctx.beginPath();
+      ctx.roundRect(cX - disp * 0.1, cY - plateThick, cX - 80, plateThick, 6);
+      ctx.fill();
+      ctx.stroke();
+
+      // ------------------------------------------
+      // DRAW THE BOLT (THE CORE SIMULATION TOY)
+      // ------------------------------------------
+      const bRad = state.bolt.diameter * 1.0; // scale
+      const headHeight = bRad * 0.6;
+      
+      ctx.save();
+      
+      // Handle gummy bear/bend shear deformation profile
+      const shearProfileY = cY;
+      const shearOffset = disp * 0.6; // bending delta
+
+      // Draw Top half of bolt (shifting with top plate)
+      const topPlateX = cX + disp * 0.4;
+      ctx.fillStyle = state.hoveredComponent === 'head' ? 'var(--neon-cyan)' : 'rgba(0, 240, 255, 0.6)';
+      ctx.strokeStyle = 'var(--neon-cyan)';
+      ctx.lineWidth = 2;
+
+      if (!state.isExploded) {
+        // Upper Shank Cylinder
+        ctx.beginPath();
+        ctx.moveTo(cX - bRad + shearOffset, cY - plateThick);
+        ctx.lineTo(cX + bRad + shearOffset, cY - plateThick);
+        ctx.lineTo(cX + bRad, cY);
+        ctx.lineTo(cX - bRad, cY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Upper Bolt Head
+        ctx.fillStyle = 'rgba(0, 180, 220, 0.85)';
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad*1.5 + shearOffset, cY - plateThick - headHeight, bRad*3, headHeight, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Lower Shank Cylinder (Fixed to static system bottom plate)
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.45)';
+        ctx.beginPath();
+        ctx.moveTo(cX - bRad, cY);
+        ctx.lineTo(cX + bRad, cY);
+        ctx.lineTo(cX + bRad, cY + plateThick);
+        ctx.lineTo(cX - bRad, cY + plateThick);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Lower Nut Ring
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad*1.4, cY + plateThick, bRad*2.8, headHeight, 4);
+        ctx.fill();
+        ctx.stroke();
+      } else {
+        // Bolt fully sliced/failed representation
+        // Sliced top half offset
+        ctx.fillStyle = 'rgba(255, 0, 127, 0.5)';
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.8)';
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad + 40, cY - plateThick - 10, bRad*2, plateThick, 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad*1.5 + 40, cY - plateThick - headHeight - 10, bRad*3, headHeight, 4);
+        ctx.fill();
+        ctx.stroke();
+
+        // Sliced bottom half offset
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.45)';
+        ctx.strokeStyle = 'var(--neon-cyan)';
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad - 20, cY, bRad*2, plateThick, 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.roundRect(cX - bRad*1.4 - 20, cY + plateThick, bRad*2.8, headHeight, 4);
+        ctx.fill();
+        ctx.stroke();
+      }
+      
+      ctx.restore();
+
+      // ------------------------------------------
+      // DRAW FORCE VECTORS
+      // ------------------------------------------
+      if (state.appliedForce > 0) {
+        const forceLength = Math.min(150, state.appliedForce * 0.8);
+        
+        // Right pulling Arrow on Top plate
+        ctx.strokeStyle = 'var(--neon-cyan)';
+        ctx.fillStyle = 'var(--neon-cyan)';
+        ctx.lineWidth = 4;
+        
+        ctx.beginPath();
+        const arrX = cX + 100 + disp * 0.4;
+        ctx.moveTo(arrX, cY - plateThick/2);
+        ctx.lineTo(arrX + forceLength, cY - plateThick/2);
+        ctx.stroke();
+        
+        // Arrow head
+        ctx.beginPath();
+        ctx.moveTo(arrX + forceLength, cY - plateThick/2 - 8);
+        ctx.lineTo(arrX + forceLength + 12, cY - plateThick/2);
+        ctx.lineTo(arrX + forceLength, cY - plateThick/2 + 8);
+        ctx.fill();
+
+        // Anchored react Force (Left pull on bottom plate)
+        ctx.strokeStyle = 'var(--neon-magenta)';
+        ctx.fillStyle = 'var(--neon-magenta)';
+        ctx.beginPath();
+        const lArrX = cX - 100;
+        ctx.moveTo(lArrX, cY + plateThick/2);
+        ctx.lineTo(lArrX - forceLength, cY + plateThick/2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(lArrX - forceLength, cY + plateThick/2 - 8);
+        ctx.lineTo(lArrX - forceLength - 12, cY + plateThick/2);
+        ctx.lineTo(lArrX - forceLength, cY + plateThick/2 + 8);
+        ctx.fill();
+      }
+
+      // ------------------------------------------
+      // LABEL BOXES OVER GRIDS WITH CONTRAST
+      // ------------------------------------------
+      drawContrastLabel(ctx, "Upper Tensile Plate", cX + 120, cY - plateThick * 1.5, 'rgba(0,0,0,0.7)');
+      drawContrastLabel(ctx, "Shear Interface Plane", cX - 120, cY - 2, 'rgba(0,240,255,0.15)', 'var(--neon-cyan)');
+      drawContrastLabel(ctx, "Standard Lap Joint Configuration", 120, h - 30, 'rgba(0,0,0,0.8)');
+
+      // Draw particle effects if active
+      drawAndPhysicsParticles(ctx);
+
+      // Phase 1 click targets overlays
+      if (state.phase === 1) {
+        drawPulseTarget(ctx, cX, cY - plateThick - headHeight/2, 20, state.identified.head, "Bolt Head");
+        drawPulseTarget(ctx, cX, cY, 15, state.identified.shear, "Shear Plane");
+        drawPulseTarget(ctx, cX - bRad, cY + plateThick/2, 18, state.identified.plates, "Bearing Zone");
+      }
+    }
+
+    function drawPulseTarget(wCtx, x, y, r, checked, label) {
+      wCtx.save();
+      const timeSec = Date.now() / 1000;
+      const wave = Math.abs(Math.sin(timeSec * 3)) * 8;
+      
+      wCtx.strokeStyle = checked ? 'var(--neon-lime)' : 'var(--neon-cyan)';
+      wCtx.fillStyle = checked ? 'rgba(57, 255, 20, 0.2)' : 'rgba(0, 240, 255, 0.1)';
+      wCtx.lineWidth = 2;
+      
+      wCtx.beginPath();
+      wCtx.arc(x, y, r + (checked ? 0 : wave), 0, Math.PI * 2);
+      wCtx.stroke();
+      wCtx.fill();
+
+      // Check symbol or dot
+      wCtx.fillStyle = checked ? 'var(--neon-lime)' : 'var(--neon-cyan)';
+      wCtx.beginPath();
+      wCtx.arc(x, y, 4, 0, Math.PI * 2);
+      wCtx.fill();
+
+      // Text label backdrop
+      drawContrastLabel(wCtx, `${label}: ${checked ? 'OK' : 'TAP'}`, x + r + 10, y + 4, 'rgba(9,10,15,0.85)', checked ? 'var(--neon-lime)' : 'var(--neon-cyan)');
+      
+      wCtx.restore();
+    }
+
+    function drawContrastLabel(wCtx, text, x, y, bg, borderCol=null) {
+      wCtx.save();
+      wCtx.font = "11px 'Fira Code', monospace";
+      const metrics = wCtx.measureText(text);
+      const padding = 6;
+      
+      wCtx.fillStyle = bg;
+      wCtx.roundRect(x - padding, y - 10, metrics.width + padding * 2, 16, 4);
+      wCtx.fill();
+      
+      if (borderCol) {
+        wCtx.strokeStyle = borderCol;
+        wCtx.lineWidth = 1;
+        wCtx.roundRect(x - padding, y - 10, metrics.width + padding * 2, 16, 4);
+        wCtx.stroke();
+      }
+      
+      wCtx.fillStyle = '#e2e8f0';
+      wCtx.fillText(text, x, y + 2);
+      wCtx.restore();
+    }
+
+    // Canvas Mouse Click/Hover listener for Identification mapping
+    canvas.addEventListener('click', (ev) => {
+      if (state.phase !== 1) return;
+      const rect = canvas.getBoundingClientRect();
+      const clickX = ev.clientX - rect.left;
+      const clickY = ev.clientY - rect.top;
+
+      const cX = rect.width / 2;
+      const cY = rect.height / 2;
+      const plateThick = state.plate.thickness * 2.2;
+      const bRad = state.bolt.diameter * 1.0;
+      const headHeight = bRad * 0.6;
+
+      // Check Head Click
+      const dToHead = Math.hypot(clickX - cX, clickY - (cY - plateThick - headHeight/2));
+      if (dToHead < 35 && !state.identified.head) {
+        state.identified.head = true;
+        mapBadgeIdentified('check-head', 'badge-head');
+        playTone(523, 0.2, 'sine');
+        announce("Bolt assembly identified! Standard grade " + state.bolt.grade + " carbon steel.");
+      }
+
+      // Check Shear Click
+      const dToShear = Math.hypot(clickX - cX, clickY - cY);
+      if (dToShear < 25 && !state.identified.shear) {
+        state.identified.shear = true;
+        mapBadgeIdentified('check-shear', 'badge-shear');
+        playTone(659, 0.2, 'sine');
+        announce("Shear transfer surface identified. Highly critical interface!");
+      }
+
+      // Check Bearing contact Click
+      const dToPlates = Math.hypot(clickX - (cX - bRad), clickY - (cY + plateThick/2));
+      if (dToPlates < 35 && !state.identified.plates) {
+        state.identified.plates = true;
+        mapBadgeIdentified('check-plates', 'badge-plates');
+        playTone(783, 0.2, 'sine');
+        announce("Bearing plate boundaries mapped. Evaluates tear capacity.");
+      }
+
+      checkIdentificationCompletion();
+      render();
+    });
+
+    // Helper to style successfully identified components
+    function mapBadgeIdentified(cardId, badgeId) {
+      const card = document.getElementById(cardId);
+      const badge = document.getElementById(badgeId);
+      card.className = "flex items-center justify-between p-2 rounded bg-lime-500/10 border border-lime-500/30 text-xs";
+      badge.textContent = "IDENTIFIED";
+      badge.className = "text-xs text-lime-400 font-mono font-bold animate-bounce";
+    }
+
+    // Canvas Hover Helper for context tooltip
+    canvas.addEventListener('mousemove', (ev) => {
+      const rect = canvas.getBoundingClientRect();
+      const mX = ev.clientX - rect.left;
+      const mY = ev.clientY - rect.top;
+
+      document.getElementById('canvas-coord').textContent = `X: ${Math.round(mX)} | Y: ${Math.round(mY)}`;
+
+      const cX = rect.width / 2;
+      const cY = rect.height / 2;
+      const plateThick = state.plate.thickness * 2.2;
+      const bRad = state.bolt.diameter * 1.0;
+      const headHeight = bRad * 0.6;
+
+      // Hover component logic
+      if (Math.hypot(mX - cX, mY - (cY - plateThick - headHeight/2)) < 35) {
+        state.hoveredComponent = 'head';
+        document.getElementById('canvas-hint').textContent = `Ultimate Bolt Tensile Capacity (f_ub): ${state.bolt.fub} MPa.`;
+      } else if (Math.hypot(mX - cX, mY - cY) < 25) {
+        state.hoveredComponent = 'shear';
+        document.getElementById('canvas-hint').textContent = `Calculated Net Thread Section Area: ${(0.78 * Math.PI * Math.pow(state.bolt.diameter, 2) / 4).toFixed(1)} mm²`;
+      } else if (Math.hypot(mX - (cX - bRad), mY - (cY + plateThick/2)) < 35) {
+        state.hoveredComponent = 'plates';
+        document.getElementById('canvas-hint').textContent = `Plate thickness (t): ${state.plate.thickness} mm. Yield Limit (f_u): ${state.plate.fu} MPa.`;
+      } else {
+        state.hoveredComponent = null;
+        document.getElementById('canvas-hint').textContent = "Hover mouse over the joint to explore physical variables.";
+      }
+      render();
+    });
+
+    // ==========================================
+    // SLIDERS & PARAMETER UPDATES CONTROLLERS
+    // ==========================================
+    document.getElementById('inp-diameter').addEventListener('input', (ev) => {
+      state.bolt.diameter = parseInt(ev.target.value);
+      recalculateCapacities();
+      render();
+    });
+
+    document.getElementById('inp-thickness').addEventListener('input', (ev) => {
+      state.plate.thickness = parseInt(ev.target.value);
+      recalculateCapacities();
+      render();
+    });
+
+    document.getElementById('inp-force').addEventListener('input', (ev) => {
+      state.appliedForce = parseFloat(ev.target.value);
+      updateAudioSynthesis();
+      render();
+    });
+
+    // ==========================================
+    // MODAL DIALOG CONTROLS
+    // ==========================================
+    function dismissIntro() {
+      document.getElementById('modal-intro').style.display = 'none';
+      playTone(440, 0.3, 'sine');
+      announce("Welcome to the Limit State connection lab. Begin by clicking the bolt head or joint interface components.");
+    }
+
+    function openRulebook() {
+      document.getElementById('modal-rulebook').style.display = 'flex';
+      playTone(523, 0.1, 'sine');
+    }
+
+    function closeRulebook() {
+      document.getElementById('modal-rulebook').style.display = 'none';
+      playTone(392, 0.1, 'sine');
+    }
+
+    // ==========================================
+    // INITIALIZATION RUNTIME
+    // ==========================================
+    recalculateCapacities();
+    
+    // Constant animation loop for particles/waves rendering
+    function animationLoop() {
+      render();
+      requestAnimationFrame(animationLoop);
+    }
+    requestAnimationFrame(animationLoop);
+
+  </script>
+</body>
+</html>

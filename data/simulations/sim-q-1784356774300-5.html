@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bolted Lap Joint Simulator | Cyber-Structural</title>
+<style>
+    :root {
+        --bg: #05070a;
+        --glass: rgba(255, 255, 255, 0.05);
+        --cyan: #00f2ff;
+        --purple: #bc00ff;
+        --danger: #ff0055;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { 
+        height: 100vh; width: 100vw; background: var(--bg); color: white;
+        font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex;
+    }
+    #wrapper { display: flex; width: 100%; height: 100%; padding: 20px; gap: 20px; }
+    
+    #workboard { flex: 2; position: relative; border: 1px solid rgba(0,242,255,0.2); background: radial-gradient(circle at center, #111 0%, #000 100%); border-radius: 12px; overflow: hidden; }
+    #sidebar { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+    
+    .panel { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); padding: 20px; border-radius: 12px; }
+    
+    canvas { width: 100%; height: 100%; cursor: crosshair; }
+    
+    .slot { width: 100%; height: 60px; border: 2px dashed var(--cyan); margin: 10px 0; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: all 0.3s; }
+    .bolt-drag { width: 50px; height: 50px; background: var(--purple); border-radius: 50%; cursor: grab; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+    
+    #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(20px); display: none; padding: 50px; }
+    .btn { background: var(--cyan); color: #000; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="wrapper">
+    <div id="workboard">
+        <canvas id="simCanvas"></canvas>
+    </div>
+    <div id="sidebar">
+        <div class="panel">
+            <h3>Parameters</h3>
+            <div id="drop-zone" class="slot" data-type="bolt">Drop Bolt Here</div>
+            <input type="range" id="loadSlider" min="0" max="100" value="0"> Load (P)
+            <button class="btn" onclick="speak()">Narrate Physics</button>
+            <button class="btn" onclick="toggleModal()">Codebook IS 800</button>
+        </div>
+        <div class="panel" id="stats">
+            Status: <span id="status">Stable</span>
+        </div>
+    </div>
+</div>
+
+<div id="modal">
+    <div style="color:white; max-width: 600px; margin: auto;">
+        <h2>IS 800:2007 Clauses</h2>
+        <p>Clause 10.3.3: Strength of bolts in lap joints...</p>
+        <button class="btn" onclick="toggleModal()">Close</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const loadSlider = document.getElementById('loadSlider');
+    const status = document.getElementById('status');
+    let bolts = [];
+    let load = 0;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function draw() {
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+        ctx.clearRect(0, 0, w, h);
+        
+        // Plates
+        ctx.fillStyle = '#333';
+        ctx.fillRect(w/4, h/2 - 40, w/2, 30);
+        ctx.fillRect(w/4, h/2 + 10, w/2, 30);
+        
+        // Bolts
+        bolts.forEach(b => {
+            ctx.fillStyle = load > 80 ? 'red' : 'cyan';
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 10, 0, Math.PI*2);
+            ctx.fill();
+            // Stress Vector
+            ctx.strokeStyle = 'magenta';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(b.x, b.y);
+            ctx.lineTo(b.x + (load/2), b.y);
+            ctx.stroke();
+        });
+
+        requestAnimationFrame(draw);
+    }
+
+    // Audio Engine
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSiren() {
+        const osc = audioCtx.createOscillator();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(100 + load, audioCtx.currentTime);
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    loadSlider.oninput = (e) => {
+        load = e.target.value;
+        if(load > 80) {
+            status.innerText = "CRITICAL FAILURE!";
+            playSiren();
+        } else {
+            status.innerText = "Stable";
+        }
+    };
+
+    function speak() {
+        const utter = new SpeechSynthesisUtterance("When we pull these plates, the bolts act like little gatekeepers. Let's add more to share the load!");
+        window.speechSynthesis.speak(utter);
+    }
+
+    function toggleModal() {
+        const m = document.getElementById('modal');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    canvas.addEventListener('mousedown', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        bolts.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    });
+
+    draw();
+</script>
+</body>
+</html>

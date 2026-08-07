@@ -1,0 +1,1756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pavement Layer Stack-Up! 🚧</title>
+    <style>
+        /* Global Styles */
+        :root {
+            --bg-dark: #121217;
+            --panel-bg: rgba(25, 25, 30, 0.7);
+            --neon-cyan: #00e0ff;
+            --neon-cyan-rgb: 0, 224, 255;
+            --neon-purple: #ae00ff;
+            --neon-purple-rgb: 174, 0, 255;
+            --neon-green: #2aff00;
+            --neon-green-rgb: 42, 255, 0;
+            --neon-red: #ff3300;
+            --neon-red-rgb: 255, 51, 0;
+            --text-light: #e0e0e0;
+            --border-light: rgba(255, 255, 255, 0.1);
+            --font-mono: 'Space Mono', monospace;
+            --font-sans: 'Inter', sans-serif;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;600;700&display=swap');
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            overflow: hidden; /* CRITICAL RULE: No outer body scrollbars */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        /* Neon & Glassmorphism Effects */
+        .neon-text {
+            color: var(--text-light);
+            text-shadow: 0 0 5px rgba(var(--neon-cyan-rgb), 0.7),
+                         0 0 10px rgba(var(--neon-cyan-rgb), 0.5);
+            transition: text-shadow 0.3s ease-in-out;
+        }
+        .neon-text.purple {
+             text-shadow: 0 0 5px rgba(var(--neon-purple-rgb), 0.7),
+                         0 0 10px rgba(var(--neon-purple-rgb), 0.5);
+        }
+        .neon-text.green {
+             text-shadow: 0 0 5px rgba(var(--neon-green-rgb), 0.7),
+                         0 0 10px rgba(var(--neon-green-rgb), 0.5);
+        }
+
+        .neon-border {
+            border: 1px solid rgba(var(--neon-cyan-rgb), 0.3);
+            box-shadow: 0 0 10px rgba(var(--neon-cyan-rgb), 0.2);
+            transition: box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out;
+        }
+
+        .neon-border.purple {
+            border-color: rgba(var(--neon-purple-rgb), 0.3);
+            box-shadow: 0 0 10px rgba(var(--neon-purple-rgb), 0.2);
+        }
+
+        .neon-border.green {
+            border-color: rgba(var(--neon-green-rgb), 0.3);
+            box-shadow: 0 0 10px rgba(var(--neon-green-rgb), 0.2);
+        }
+
+        .glass-panel {
+            background-color: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            padding: 1rem;
+            margin: 0.5rem;
+            position: relative;
+        }
+
+        .neon-btn {
+            background-color: rgba(var(--neon-cyan-rgb), 0.15);
+            color: var(--neon-cyan);
+            border: 1px solid var(--neon-cyan);
+            padding: 0.75rem 1.2rem;
+            border-radius: 8px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 0 8px rgba(var(--neon-cyan-rgb), 0.4);
+            outline: none;
+        }
+        .neon-btn:hover {
+            background-color: rgba(var(--neon-cyan-rgb), 0.3);
+            box-shadow: 0 0 15px rgba(var(--neon-cyan-rgb), 0.7);
+            transform: translateY(-2px);
+        }
+        .neon-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 0 5px rgba(var(--neon-cyan-rgb), 0.5);
+        }
+        .neon-btn.active {
+            background-color: var(--neon-cyan);
+            color: var(--bg-dark);
+            box-shadow: 0 0 20px var(--neon-cyan);
+            font-weight: bold;
+        }
+        .neon-btn.primary {
+            background-color: rgba(var(--neon-green-rgb), 0.25);
+            color: var(--neon-green);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 8px rgba(var(--neon-green-rgb), 0.4);
+        }
+        .neon-btn.primary:hover {
+            background-color: rgba(var(--neon-green-rgb), 0.4);
+            box-shadow: 0 0 15px rgba(var(--neon-green-rgb), 0.7);
+        }
+        .neon-btn.danger {
+            background-color: rgba(var(--neon-red-rgb), 0.25);
+            color: var(--neon-red);
+            border-color: var(--neon-red);
+            box-shadow: 0 0 8px rgba(var(--neon-red-rgb), 0.4);
+        }
+        .neon-btn.danger:hover {
+            background-color: rgba(var(--neon-red-rgb), 0.4);
+            box-shadow: 0 0 15px rgba(var(--neon-red-rgb), 0.7);
+        }
+
+
+        /* App Layout */
+        #app-container {
+            display: grid;
+            grid-template-rows: auto 1fr auto;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* CRITICAL RULE: Container containment */
+            padding: 10px;
+            gap: 10px;
+        }
+
+        #header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            margin: 0;
+        }
+
+        #header h1 {
+            font-family: var(--font-mono);
+            font-size: 2.2rem;
+        }
+
+        #challenge-selector {
+            display: flex;
+            gap: 10px;
+        }
+
+        #main-content {
+            display: grid;
+            grid-template-columns: 280px 1fr 280px;
+            gap: 15px;
+            overflow: hidden; /* Ensure sub-panels don't overflow */
+        }
+
+        #control-panel-left,
+        #info-panel-right {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto; /* Scrollable if content exceeds height */
+            padding-right: 10px; /* For scrollbar */
+        }
+        #control-panel-left::-webkit-scrollbar,
+        #info-panel-right::-webkit-scrollbar {
+            width: 8px;
+        }
+        #control-panel-left::-webkit-scrollbar-track,
+        #info-panel-right::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+            border-radius: 10px;
+        }
+        #control-panel-left::-webkit-scrollbar-thumb,
+        #info-panel-right::-webkit-scrollbar-thumb {
+            background-color: rgba(var(--neon-cyan-rgb), 0.5);
+            border-radius: 10px;
+            border: 2px solid var(--bg-dark);
+        }
+
+        #pavement-canvas-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            padding: 0;
+            margin: 0;
+            min-height: 0; /* Important for flex/grid items to shrink */
+            min-width: 0; /* Important for flex/grid items to shrink */
+        }
+
+        #pavementCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: #1a1a25; /* Canvas background */
+            border-radius: 8px; /* Match panel style */
+        }
+
+        #bottom-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 1rem 2rem;
+            gap: 15px;
+            margin: 0;
+        }
+
+        /* Layer and Thickness Cards */
+        .layer-card, .thickness-chip {
+            background-color: rgba(50, 50, 60, 0.6);
+            border: 1px solid rgba(var(--neon-cyan-rgb), 0.2);
+            border-radius: 8px;
+            padding: 0.8rem 1rem;
+            margin-bottom: 0.5rem;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            font-family: var(--font-mono);
+            font-size: 0.9rem;
+            color: var(--text-light);
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            text-align: center;
+        }
+        .layer-card:hover, .thickness-chip:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 12px rgba(var(--neon-cyan-rgb), 0.4);
+            border-color: var(--neon-cyan);
+        }
+        .layer-card:active, .thickness-chip:active {
+            cursor: grabbing;
+            transform: translateY(0) scale(1.0);
+            box-shadow: 0 0 5px rgba(var(--neon-cyan-rgb), 0.7);
+        }
+
+        /* Specific layer card styling for visual distinction */
+        .layer-card.flexible { border-color: rgba(var(--neon-cyan-rgb), 0.5); }
+        .layer-card.rigid { border-color: rgba(var(--neon-purple-rgb), 0.5); }
+        .layer-card.common { border-color: rgba(var(--neon-green-rgb), 0.5); }
+
+        .layer-card[data-layer-name*="Wearing Course"] { background-color: #3b3b4a; }
+        .layer-card[data-layer-name*="Binder Course"] { background-color: #4a4a5b; }
+        .layer-card[data-layer-name*="Base Course"] { background-color: #5a5a6c; }
+        .layer-card[data-layer-name*="Sub-base Course"] { background-color: #6c6c7d; }
+        .layer-card[data-layer-name*="Compacted Subgrade"] { background-color: #4f4f5a; border-color: var(--neon-green); }
+
+        .layer-card[data-layer-name*="PQC Slab"] { background-color: #606c88; border-color: var(--neon-purple); }
+        .layer-card[data-layer-name*="Separation Membrane"] { background-color: #8d9ab8; border-color: var(--neon-purple); }
+        .layer-card[data-layer-name*="DLC Sub-base"] { background-color: #a7b0c3; }
+        .layer-card[data-layer-name*="GSB Drainage Layer"] { background-color: #c0c8da; }
+
+
+        .layer-inventory-block .layer-card.flexible:not(.show-flexible),
+        .layer-inventory-block .layer-card.rigid:not(.show-rigid) {
+            display: none;
+        }
+
+        #layer-inventory-blocks, #thickness-chips {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+        }
+
+        /* Info Panel */
+        .stat-block p {
+            font-family: var(--font-mono);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-block p span {
+            color: var(--neon-green);
+            font-weight: bold;
+            font-size: 1.1em;
+            text-shadow: 0 0 5px rgba(var(--neon-green-rgb), 0.5);
+        }
+
+        .meter-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .progress-bar {
+            flex-grow: 1;
+            height: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            overflow: hidden;
+            border: 1px solid rgba(var(--neon-cyan-rgb), 0.2);
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(to right, var(--neon-red), #ffff00, var(--neon-green));
+            transition: width 0.5s ease-in-out;
+            border-radius: 8px;
+            box-shadow: 0 0 8px var(--neon-green);
+        }
+
+        #durability-percentage {
+            font-family: var(--font-mono);
+            font-size: 1em;
+            color: var(--neon-green);
+            min-width: 45px;
+            text-align: right;
+        }
+
+        #identification-checklist {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        #identification-checklist p {
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .status-pending { color: var(--neon-red); }
+        .status-identified { color: var(--neon-green); font-weight: bold; }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+        .modal-content {
+            background-color: var(--panel-bg);
+            border: 1px solid rgba(var(--neon-cyan-rgb), 0.5);
+            box-shadow: 0 0 20px rgba(var(--neon-cyan-rgb), 0.4);
+            border-radius: 12px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            transform: translateY(-20px);
+            transition: transform 0.3s ease;
+        }
+        .modal-overlay.visible .modal-content {
+            transform: translateY(0);
+        }
+        .modal-content h3 {
+            font-family: var(--font-mono);
+            font-size: 1.5rem;
+            color: var(--neon-cyan);
+            margin-bottom: 1rem;
+            text-shadow: 0 0 8px rgba(var(--neon-cyan-rgb), 0.5);
+        }
+        .modal-content p {
+            margin-bottom: 0.8rem;
+            line-height: 1.5;
+        }
+        .modal-content .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        .modal-content .close-btn:hover {
+            color: var(--neon-red);
+        }
+
+        .mix-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        .mix-options button {
+            background-color: rgba(40, 40, 50, 0.7);
+            border: 1px solid rgba(var(--neon-purple-rgb), 0.3);
+            color: var(--text-light);
+            padding: 0.6rem 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-family: var(--font-mono);
+        }
+        .mix-options button:hover {
+            background-color: rgba(var(--neon-purple-rgb), 0.2);
+            border-color: var(--neon-purple);
+            transform: translateX(5px);
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            #main-content {
+                grid-template-columns: 220px 1fr 220px;
+            }
+        }
+
+        @media (max-width: 992px) {
+            #main-content {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto 1fr auto;
+            }
+            #control-panel-left,
+            #info-panel-right {
+                max-height: 40vh; /* Allow scrolling for side panels */
+            }
+            #app-container {
+                grid-template-rows: auto 1fr auto;
+            }
+            #header, #bottom-bar {
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+            }
+            #header h1 {
+                font-size: 1.8rem;
+                margin-bottom: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #app-container {
+                padding: 5px;
+                gap: 5px;
+            }
+            #header {
+                padding: 0.8rem 1rem;
+            }
+            #header h1 {
+                font-size: 1.5rem;
+            }
+            .neon-btn {
+                padding: 0.6rem 1rem;
+                font-size: 0.8rem;
+            }
+            .layer-card, .thickness-chip {
+                padding: 0.6rem 0.8rem;
+                font-size: 0.8rem;
+            }
+            #control-panel-left, #info-panel-right {
+                margin: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header id="header" class="glass-panel neon-border">
+            <h1 class="neon-text">Pavement Layer Stack-Up! 🚧</h1>
+            <div id="challenge-selector" class="toggle-switch">
+                <button id="flexible-btn" class="neon-btn active" data-type="flexible">Flexible Pavement</button>
+                <button id="rigid-btn" class="neon-btn" data-type="rigid">Rigid Pavement</button>
+            </div>
+        </header>
+
+        <main id="main-content">
+            <aside id="control-panel-left" class="glass-panel neon-border">
+                <h2 class="neon-text">Layer Inventory</h2>
+                <div id="layer-inventory-blocks">
+                    <!-- Flexible Pavement Layers -->
+                    <div class="layer-card draggable flexible show-flexible" data-layer-type="flexible" data-layer-name="Wearing Course" data-default-thickness="50" data-material-texture="asphalt"><span>Wearing Course</span></div>
+                    <div class="layer-card draggable flexible show-flexible" data-layer-type="flexible" data-layer-name="Binder Course" data-default-thickness="100" data-material-texture="bitumen"><span>Binder Course</span></div>
+                    <div class="layer-card draggable flexible show-flexible" data-layer-type="flexible" data-layer-name="Base Course" data-default-thickness="150" data-material-texture="wmm"><span>Base Course</span></div>
+                    <div class="layer-card draggable flexible show-flexible" data-layer-type="flexible" data-layer-name="Sub-base Course" data-default-thickness="200" data-material-texture="gsb"><span>Sub-base Course</span></div>
+                    <div class="layer-card draggable common show-flexible show-rigid" data-layer-type="common" data-layer-name="Compacted Subgrade" data-default-thickness="500" data-material-texture="soil"><span>Compacted Subgrade</span></div>
+                    <!-- Rigid Pavement Layers -->
+                    <div class="layer-card draggable rigid" data-layer-type="rigid" data-layer-name="PQC Slab" data-default-thickness="280" data-material-texture="concrete"><span>PQC Slab</span></div>
+                    <div class="layer-card draggable rigid" data-layer-type="rigid" data-layer-name="Separation Membrane" data-default-thickness="0.15" data-material-texture="membrane"><span>Separation Membrane</span></div>
+                    <div class="layer-card draggable rigid" data-layer-type="rigid" data-layer-name="DLC Sub-base" data-default-thickness="150" data-material-texture="dlc"><span>DLC Sub-base</span></div>
+                    <div class="layer-card draggable rigid" data-layer-type="rigid" data-layer-name="GSB Drainage Layer" data-default-thickness="200" data-material-texture="gsb-drain"><span>GSB Drainage Layer</span></div>
+                </div>
+
+                <h2 class="neon-text">Thickness Chips</h2>
+                <div id="thickness-chips">
+                    <div class="thickness-chip draggable" data-thickness-value="50">50mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="100">100mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="150">150mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="200">200mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="280">280mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="500">500mm</div>
+                    <div class="thickness-chip draggable" data-thickness-value="0.15">0.15mm</div> <!-- For membrane -->
+                </div>
+            </aside>
+
+            <section id="pavement-canvas-container" class="glass-panel neon-border">
+                <canvas id="pavementCanvas"></canvas>
+            </section>
+
+            <aside id="info-panel-right" class="glass-panel neon-border">
+                <h2 class="neon-text">Road Stats</h2>
+                <div id="road-stats-display" class="stat-block">
+                    <p>Total Thickness: <span id="total-thickness">0</span> mm</p>
+                    <div class="meter-container">
+                        <label>Durability Score:</label>
+                        <div id="durability-meter" class="progress-bar">
+                            <div class="progress-fill"></div>
+                        </div>
+                        <span id="durability-percentage">0%</span>
+                    </div>
+                </div>
+
+                <h2 class="neon-text">Layer Identification Checklist</h2>
+                <div id="identification-checklist">
+                    <p>Wearing Course Mix: <span id="wc-mix-status" class="status-pending">Pending</span></p>
+                    <p>Binder Course Mix: <span id="bc-mix-status" class="status-pending">Pending</span></p>
+                </div>
+
+                <h2 class="neon-text">Pavement Standards (Hints!)</h2>
+                <button id="standards-hint-btn" class="neon-btn">Show Hints!</button>
+            </aside>
+        </main>
+
+        <footer id="bottom-bar" class="glass-panel neon-border">
+            <button id="reset-btn" class="neon-btn danger">Reset Challenge</button>
+            <button id="check-btn" class="neon-btn primary">Check My Road!</button>
+            <button id="gesture-toggle-btn" class="neon-btn">Hand Gesture Control: OFF</button>
+        </footer>
+    </div>
+
+    <!-- Modals -->
+    <div id="standards-hint-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn">&times;</button>
+            <h3 class="neon-text">Pavement Design Standards (Hints!)</h3>
+            <p class="neon-text">🏗️ Subgrade for highways needs to be at least 500mm thick for optimal stability!</p>
+            <p class="neon-text">🎈 Flexible pavements are like gummy bears, they bend and spread the load!</p>
+            <p class="neon-text">🧱 Rigid pavements are like super strong concrete slabs, very stiff!</p>
+            <p class="neon-text">🔍 Separation Membrane: This tiny layer prevents the concrete slab from sticking to the base, letting it move freely!</p>
+            <p class="neon-text">🚦 Wearing Course is the top layer; it handles traffic directly. It needs to be tough!</p>
+        </div>
+    </div>
+
+    <div id="mix-selection-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn">&times;</button>
+            <h3 class="neon-text">Select Mix Type for <span id="mix-layer-name" class="neon-text purple"></span></h3>
+            <div id="mix-options-container" class="mix-options">
+                <!-- Mix options will be injected here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const appContainer = document.getElementById('app-container');
+        const pavementCanvas = document.getElementById('pavementCanvas');
+        const ctx = pavementCanvas.getContext('2d');
+        const flexibleBtn = document.getElementById('flexible-btn');
+        const rigidBtn = document.getElementById('rigid-btn');
+        const layerInventoryBlocks = document.getElementById('layer-inventory-blocks');
+        const thicknessChipsContainer = document.getElementById('thickness-chips');
+        const resetBtn = document.getElementById('reset-btn');
+        const checkBtn = document.getElementById('check-btn');
+        const gestureToggleBtn = document.getElementById('gesture-toggle-btn');
+        const totalThicknessSpan = document.getElementById('total-thickness');
+        const durabilityMeterFill = document.querySelector('#durability-meter .progress-fill');
+        const durabilityPercentageSpan = document.getElementById('durability-percentage');
+        const wcMixStatus = document.getElementById('wc-mix-status');
+        const bcMixStatus = document.getElementById('bc-mix-status');
+        const standardsHintBtn = document.getElementById('standards-hint-btn');
+        const standardsHintModal = document.getElementById('standards-hint-modal');
+        const mixSelectionModal = document.getElementById('mix-selection-modal');
+        const mixLayerNameSpan = document.getElementById('mix-layer-name');
+        const mixOptionsContainer = document.getElementById('mix-options-container');
+
+        // Global State
+        let currentPavementType = 'flexible'; // 'flexible' or 'rigid'
+        let builtLayers = []; // [{ id, name, type, thickness, material, color, y, height, isCompacted, mixType }]
+        let isHandGestureEnabled = false;
+        let canvasScale = 1.0;
+        let cameraTargetY = 0; // Y-coordinate to zoom towards (relative to canvas height)
+        let cameraZoomStartTime = 0;
+        let isZooming = false;
+        let draggedItemData = null; // Data of the currently dragged item
+
+        // Audio & Speech Synthesis
+        let audioContext;
+        let narratorVoice;
+
+        // Constants and Flashcard Data
+        const CANVAS_WIDTH_UNITS = 800; // Conceptual units for canvas drawing
+        const CANVAS_HEIGHT_UNITS = 600;
+
+        const LAYER_COLORS = {
+            "Wearing Course": '#3b3b4a', "Binder Course": '#4a4a5b', "Base Course": '#5a5a6c', "Sub-base Course": '#6c6c7d',
+            "PQC Slab": '#606c88', "Separation Membrane": '#99a7c3', "DLC Sub-base": '#a7b0c3', "GSB Drainage Layer": '#c0c8da',
+            "Compacted Subgrade": '#4f4f5a'
+        };
+
+        const FLEXIBLE_PAVEMENT_ORDER = [
+            "Wearing Course", "Binder Course", "Base Course", "Sub-base Course", "Compacted Subgrade"
+        ];
+        const RIGID_PAVEMENT_ORDER = [
+            "PQC Slab", "Separation Membrane", "DLC Sub-base", "GSB Drainage Layer", "Compacted Subgrade"
+        ];
+
+        const LAYER_SPECS = {
+            "Wearing Course": {
+                type: 'flexible', minThickness: 30, defaultMix: 'Bituminous Concrete (BC)',
+                mixOptions: ['Bituminous Concrete (BC)', 'Semi Dense Bituminous Concrete (SDBC)', 'Premix Carpet (PC)']
+            },
+            "Binder Course": {
+                type: 'flexible', minThickness: 50, defaultMix: 'Dense Bituminous Macadam (DBM)',
+                mixOptions: ['Bituminous Macadam (BM)', 'Dense Bituminous Macadam (DBM)']
+            },
+            "Base Course": { type: 'flexible', minThickness: 150 },
+            "Sub-base Course": { type: 'flexible', minThickness: 150 },
+            "PQC Slab": { type: 'rigid', minThickness: 200 },
+            "Separation Membrane": { type: 'rigid', minThickness: 0.15 },
+            "DLC Sub-base": { type: 'rigid', minThickness: 100 },
+            "GSB Drainage Layer": { type: 'rigid', minThickness: 150 },
+            "Compacted Subgrade": { type: 'common', minThickness: 500, isCompacted: false }
+        };
+
+        const TRAFFIC_LOAD_SVG = `
+            <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <filter id="glow">
+                        <feGaussianBlur stdDeviation="3.5" result="coloredBlur"/>
+                        <feMerge>
+                            <feMergeNode in="coloredBlur"/>
+                            <feMergeNode in="SourceGraphic"/>
+                        </feMerge>
+                    </filter>
+                </defs>
+                <path d="M 10 70 L 20 70 L 30 60 L 70 60 L 80 70 L 90 70 L 90 80 L 10 80 Z" fill="#fff" stroke="#00e0ff" stroke-width="2" filter="url(#glow)"/>
+                <circle cx="25" cy="70" r="8" fill="#333" stroke="#00e0ff" stroke-width="2" filter="url(#glow)"/>
+                <circle cx="75" cy="70" r="8" fill="#333" stroke="#00e0ff" stroke-width="2" filter="url(#glow)"/>
+                <rect x="25" y="30" width="50" height="25" fill="#00e0ff" stroke="#fff" stroke-width="2" rx="5" ry="5" filter="url(#glow)"/>
+                <polygon points="40,30 50,10 60,30" fill="#00e0ff" filter="url(#glow)"/>
+                <text x="50" y="48" font-family="Arial" font-size="15" fill="#121217" text-anchor="middle" font-weight="bold">LOAD</text>
+            </svg>
+        `;
+
+        // Helper Functions
+        function resizeCanvas() {
+            const rect = pavementCanvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            pavementCanvas.width = rect.width * dpr;
+            pavementCanvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            renderCanvas(); // Redraw on resize
+        }
+
+        function speak(text) {
+            if (!window.speechSynthesis) {
+                console.warn("Speech Synthesis API not supported.");
+                return;
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = narratorVoice;
+            utterance.rate = 1.0;
+            utterance.pitch = 1.2;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        async function initAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                // Ensure audio context is resumed on user interaction
+                document.addEventListener('click', () => {
+                    if (audioContext.state === 'suspended') {
+                        audioContext.resume();
+                    }
+                }, { once: true });
+            }
+        }
+
+        function playBeep(frequency = 440, duration = 0.1) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = frequency; // value in hertz
+            gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+
+            oscillator.start();
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + duration);
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function playChime() {
+            if (!audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.2;
+            const freq1 = 880;
+            const freq2 = 1320;
+
+            const oscillator1 = audioContext.createOscillator();
+            const oscillator2 = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator1.connect(gainNode);
+            oscillator2.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator1.type = 'triangle';
+            oscillator1.frequency.setValueAtTime(freq1, now);
+            oscillator2.type = 'sine';
+            oscillator2.frequency.setValueAtTime(freq2, now);
+
+            gainNode.gain.setValueAtTime(0.0, now);
+            gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            oscillator1.start(now);
+            oscillator2.start(now);
+            oscillator1.stop(now + duration);
+            oscillator2.stop(now + duration);
+        }
+
+        function playBonk() {
+            if (!audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.3;
+            const freq = 120; // Lower frequency for a 'bonk'
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'square'; // Harsh sound
+            oscillator.frequency.setValueAtTime(freq, now);
+
+            gainNode.gain.setValueAtTime(0.0, now);
+            gainNode.gain.linearRampToValueAtTime(0.4, now + 0.02);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        let pitchOscillator = null;
+        let pitchGainNode = null;
+        function playPitchShift(value) {
+            if (!audioContext) return;
+
+            // Normalize value for frequency (e.g., thickness from 0 to 500mm)
+            const minFreq = 100;
+            const maxFreq = 800;
+            const normalizedValue = Math.min(Math.max(value, 0), 500) / 500; // Assuming max thickness 500 for normalization
+            const targetFreq = minFreq + normalizedValue * (maxFreq - minFreq);
+
+            if (!pitchOscillator) {
+                pitchOscillator = audioContext.createOscillator();
+                pitchGainNode = audioContext.createGain();
+                pitchOscillator.connect(pitchGainNode);
+                pitchGainNode.connect(audioContext.destination);
+                pitchOscillator.type = 'sawtooth';
+                pitchGainNode.gain.setValueAtTime(0.05, audioContext.currentTime); // Keep it subtle
+                pitchOscillator.start();
+            }
+
+            pitchOscillator.frequency.exponentialRampToValueAtTime(targetFreq, audioContext.currentTime + 0.1);
+        }
+
+        function stopPitchShift() {
+            if (pitchOscillator) {
+                pitchGainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + 0.1);
+                // pitchOscillator.stop(audioContext.currentTime + 0.2); // Don't stop it, just fade out gain
+                pitchOscillator = null;
+                pitchGainNode = null;
+            }
+        }
+
+        function playCelebration() {
+            if (!audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 1.0;
+            const frequencies = [261.63, 329.63, 392.00, 523.25]; // C major chord
+
+            frequencies.forEach((freq, index) => {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(freq, now + index * 0.05); // Stagger notes slightly
+
+                gainNode.gain.setValueAtTime(0.0, now + index * 0.05);
+                gainNode.gain.linearRampToValueAtTime(0.3 / frequencies.length, now + index * 0.05 + 0.05);
+                gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+                oscillator.start(now + index * 0.05);
+                oscillator.stop(now + duration);
+            });
+        }
+
+        function playThump() {
+            if (!audioContext) return;
+            const now = audioContext.currentTime;
+            const duration = 0.4;
+            const freq = 60; // Very low frequency
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(freq, now);
+
+            gainNode.gain.setValueAtTime(0.0, now);
+            gainNode.gain.linearRampToValueAtTime(0.8, now + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        }
+
+        function hexToRgb(hex) {
+            const bigint = parseInt(hex.slice(1), 16);
+            const r = (bigint >> 16) & 255;
+            const g = (bigint >> 8) & 255;
+            const b = bigint & 255;
+            return { r, g, b };
+        }
+
+        function drawTextWithBackground(text, x, y, textColor, bgColor, font, paddingX = 10, paddingY = 5) {
+            ctx.font = font;
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            const textHeight = parseInt(font, 10); // Approximation for font height
+
+            // Background box
+            ctx.fillStyle = bgColor;
+            ctx.beginPath();
+            ctx.roundRect(x - paddingX, y - textHeight - paddingY, textWidth + 2 * paddingX, textHeight + 2 * paddingY, 5);
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = textColor;
+            ctx.fillText(text, x, y);
+        }
+
+
+        // Canvas Drawing
+        function renderCanvas() {
+            const displayWidth = pavementCanvas.offsetWidth;
+            const displayHeight = pavementCanvas.offsetHeight;
+
+            ctx.clearRect(0, 0, pavementCanvas.width, pavementCanvas.height);
+            ctx.save();
+
+            // Apply camera zoom if active
+            const now = performance.now();
+            if (isZooming) {
+                const zoomDuration = 2000; // 2 seconds
+                const elapsed = now - cameraZoomStartTime;
+                const progress = Math.min(elapsed / zoomDuration, 1);
+
+                const currentScale = 1 + (canvasScale - 1) * progress;
+                // Calculate translation to keep target centered
+                const currentTranslateY = (CANVAS_HEIGHT_UNITS / 2 - cameraTargetY) * (currentScale - 1);
+
+                ctx.translate(displayWidth / 2, displayHeight / 2); // Translate to center of display
+                ctx.scale(currentScale, currentScale);
+                ctx.translate(-displayWidth / 2, -displayHeight / 2); // Translate back
+                ctx.translate(0, currentTranslateY); // Apply actual vertical translation
+                
+                if (progress >= 1) {
+                    isZooming = false;
+                } else {
+                    requestAnimationFrame(renderCanvas);
+                }
+            } else {
+                ctx.scale(canvasScale, canvasScale); // Apply current scale directly
+            }
+
+
+            // Scale canvas drawing units to actual display pixels
+            const scaleX = displayWidth / CANVAS_WIDTH_UNITS;
+            const scaleY = displayHeight / CANVAS_HEIGHT_UNITS;
+
+            // Draw Subgrade background (bottom 1/3 of the canvas)
+            const subgradeHeight = CANVAS_HEIGHT_UNITS / 3;
+            const subgradeY = CANVAS_HEIGHT_UNITS - subgradeHeight;
+            const subgradeColor = '#3f3f4a'; // Darker grey for earth
+            ctx.fillStyle = subgradeColor;
+            ctx.fillRect(0, subgradeY * scaleY, displayWidth, subgradeHeight * scaleY);
+
+            // Draw subtle texture for subgrade
+            for (let i = 0; i < 50; i++) {
+                ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.1})`;
+                ctx.fillRect(Math.random() * displayWidth, subgradeY * scaleY + Math.random() * subgradeHeight * scaleY, Math.random() * 20 + 5, Math.random() * 5 + 2);
+            }
+
+            // Draw Pavement Drop Zone
+            const dropZoneWidth = CANVAS_WIDTH_UNITS * 0.8;
+            const dropZoneHeight = CANVAS_HEIGHT_UNITS * 0.6; // For the entire pavement stack
+            const dropZoneX = (CANVAS_WIDTH_UNITS - dropZoneWidth) / 2;
+            const dropZoneY = (CANVAS_HEIGHT_UNITS - dropZoneHeight - subgradeHeight) * scaleY + (subgradeY * scaleY) / 2; // Above subgrade, vertically centered for pavement
+
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = currentPavementType === 'flexible' ? varToRgba('--neon-cyan', 0.8) : varToRgba('--neon-purple', 0.8);
+            ctx.shadowColor = currentPavementType === 'flexible' ? varToRgba('--neon-cyan', 0.7) : varToRgba('--neon-purple', 0.7);
+            ctx.shadowBlur = 15;
+
+            // Define the drop zone outline (above the subgrade)
+            const activeDropZoneY = subgradeY * scaleY - (builtLayers.length === 0 ? dropZoneHeight * scaleY : builtLayers[0].y * scaleY);
+
+            // This rect should represent the total available space for pavement layers, scaling with builtLayers
+            let pavementStackHeight = 0;
+            if (builtLayers.length > 0) {
+                pavementStackHeight = builtLayers.reduce((sum, layer) => sum + layer.height, 0);
+            }
+
+            const totalPavementDrawHeight = pavementStackHeight + (CANVAS_HEIGHT_UNITS - subgradeY); // Sum of actual layer heights + subgrade height
+
+            // Draw the drop zone above the subgrade for visual guidance
+            ctx.strokeRect(dropZoneX * scaleX, (subgradeY - pavementStackHeight) * scaleY, dropZoneWidth * scaleX, pavementStackHeight > 0 ? pavementStackHeight * scaleY : 0);
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Calculate current total height of built layers in canvas units
+            let currentStackHeight = 0;
+            if (builtLayers.length > 0) {
+                currentStackHeight = builtLayers.reduce((sum, layer) => sum + layer.thickness, 0);
+            }
+
+            // Reference point for drawing layers is the top of the subgrade
+            let currentY = subgradeY; // Start drawing from the top of the subgrade, going upwards
+
+            // Draw built layers from bottom to top
+            for (let i = builtLayers.length - 1; i >= 0; i--) {
+                const layer = builtLayers[i];
+                const layerDrawHeight = layer.thickness; // Use layer.thickness directly for drawing
+
+                currentY -= layerDrawHeight; // Adjust Y upwards for the current layer
+
+                const layerX = dropZoneX;
+                const layerWidth = dropZoneWidth;
+                const layerY = currentY;
+
+                // Update layer's actual canvas coordinates
+                layer.y = layerY; // Store top Y position
+                layer.height = layerDrawHeight; // Store actual drawing height
+
+                // Draw layer rectangle
+                ctx.fillStyle = layer.color || LAYER_COLORS[layer.name] || '#555';
+                ctx.fillRect(layerX * scaleX, layerY * scaleY, layerWidth * scaleX, layerDrawHeight * scaleY);
+
+                // Add material texture / pattern (simplified)
+                if (layer.material === 'asphalt' || layer.material === 'bitumen') {
+                    for (let j = 0; j < layerDrawHeight / 5; j++) {
+                        ctx.fillStyle = `rgba(0,0,0,${0.2 + Math.random() * 0.3})`;
+                        ctx.fillRect(layerX * scaleX, (layerY + j * 5) * scaleY, layerWidth * scaleX, 2 * scaleY);
+                    }
+                } else if (layer.material === 'concrete' || layer.material === 'dlc') {
+                    for (let j = 0; j < layerDrawHeight / 10; j++) {
+                        ctx.strokeStyle = `rgba(255,255,255,${0.1 + Math.random() * 0.2})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(layerX * scaleX, (layerY + j * 10) * scaleY);
+                        ctx.lineTo((layerX + layerWidth) * scaleX, (layerY + j * 10) * scaleY);
+                        ctx.stroke();
+                    }
+                } else if (layer.material === 'membrane') {
+                    ctx.fillStyle = 'rgba(150, 200, 255, 0.5)'; // Translucent blue
+                    ctx.fillRect(layerX * scaleX, layerY * scaleY, layerWidth * scaleX, layerDrawHeight * scaleY);
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+                    ctx.lineWidth = 1 * scaleY; // Visual line for thin membrane
+                    ctx.beginPath();
+                    ctx.moveTo(layerX * scaleX, (layerY + layerDrawHeight / 2) * scaleY);
+                    ctx.lineTo((layerX + layerWidth) * scaleX, (layerY + layerDrawHeight / 2) * scaleY);
+                    ctx.stroke();
+                } else if (layer.material === 'soil') {
+                    for (let j = 0; j < layerDrawHeight / 10; j++) {
+                        ctx.fillStyle = `rgba(0,0,0,${0.1 + Math.random() * 0.2})`;
+                        ctx.fillRect(layerX * scaleX, (layerY + j * 10) * scaleY, layerWidth * scaleX, 5 * scaleY);
+                    }
+                    if (layer.isCompacted) {
+                        ctx.strokeStyle = varToRgba('--neon-green', 0.8);
+                        ctx.lineWidth = 2;
+                        ctx.strokeRect(layerX * scaleX, layerY * scaleY, layerWidth * scaleX, layerDrawHeight * scaleY);
+                    }
+                }
+
+                // Layer pulse glow (temporary feedback)
+                if (layer.pulseAlpha > 0) {
+                    ctx.fillStyle = `rgba(${hexToRgb(LAYER_COLORS[layer.name]).r}, ${hexToRgb(LAYER_COLORS[layer.name]).g}, ${hexToRgb(LAYER_COLORS[layer.name]).b}, ${layer.pulseAlpha})`;
+                    ctx.fillRect(layerX * scaleX, layerY * scaleY, layerWidth * scaleX, layerDrawHeight * scaleY);
+                    layer.pulseAlpha -= 0.05; // Fade out
+                    requestAnimationFrame(renderCanvas); // Keep animating
+                }
+
+                // Draw text labels
+                ctx.font = `bold ${16 * (1 / canvasScale)}px ${var(--font-mono)}`; // Adjust font size for zoom
+                const labelX = (layerX + layerWidth / 2) * scaleX;
+                const labelY = (layerY + layerDrawHeight / 2 + 5) * scaleY;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                let layerText = `${layer.name}`;
+                if (layer.mixType) {
+                    layerText += ` (${layer.mixType})`;
+                }
+                layerText += ` - ${layer.thickness}mm`;
+
+                drawTextWithBackground(layerText, labelX - ctx.measureText(layerText).width / 2, labelY, varToRgba('--text-light', 1), varToRgba('--panel-bg', 0.8), ctx.font);
+
+                // Draw thickness slot / + icon for mix
+                const iconSize = 20 * (1 / canvasScale);
+                const iconX = labelX + ctx.measureText(layerText).width / 2 + 10;
+                const iconY = labelY - iconSize / 2;
+
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.fillRect(iconX, iconY, iconSize, iconSize);
+                ctx.strokeStyle = layer.hasThicknessChip ? varToRgba('--neon-green', 0.8) : varToRgba('--neon-cyan', 0.5);
+                ctx.lineWidth = 2 * (1 / canvasScale);
+                ctx.strokeRect(iconX, iconY, iconSize, iconSize);
+
+                if (LAYER_SPECS[layer.name] && LAYER_SPECS[layer.name].mixOptions) {
+                    // Draw a '+' for mix selection
+                    ctx.fillStyle = varToRgba('--neon-purple', 0.8);
+                    ctx.font = `${iconSize * 0.8}px Arial`;
+                    ctx.fillText('+', iconX + iconSize / 2, iconY + iconSize * 0.8);
+                } else if (layer.hasThicknessChip) {
+                     // Draw a checkmark for thickness applied
+                    ctx.strokeStyle = varToRgba('--neon-green', 0.8);
+                    ctx.lineWidth = 2 * (1 / canvasScale);
+                    ctx.beginPath();
+                    ctx.moveTo(iconX + iconSize * 0.2, iconY + iconSize * 0.5);
+                    ctx.lineTo(iconX + iconSize * 0.4, iconY + iconSize * 0.8);
+                    ctx.lineTo(iconX + iconSize * 0.8, iconY + iconSize * 0.2);
+                    ctx.stroke();
+                }
+
+                // Store canvas coordinates for click detection (relative to scaled canvas)
+                layer.canvasX = layerX * scaleX;
+                layer.canvasY = layerY * scaleY;
+                layer.canvasWidth = layerWidth * scaleX;
+                layer.canvasHeight = layerDrawHeight * scaleY;
+                layer.mixIconX = iconX;
+                layer.mixIconY = iconY;
+                layer.mixIconSize = iconSize;
+            }
+
+            // Draw conceptual traffic load
+            if (builtLayers.length > 0) {
+                const loadIconSize = 60 * (1 / canvasScale);
+                const loadX = (CANVAS_WIDTH_UNITS / 2 - loadIconSize / 2) * scaleX;
+                const loadY = (builtLayers[0].y * scaleY) - loadIconSize - 10; // Slightly above the top layer
+
+                const bouncyYOffset = Math.sin(performance.now() / 300) * 5 * (1 / canvasScale); // Subtle bounce
+                const loadImage = new Image();
+                loadImage.src = `data:image/svg+xml;base64,${btoa(TRAFFIC_LOAD_SVG)}`;
+                ctx.drawImage(loadImage, loadX, loadY + bouncyYOffset, loadIconSize, loadIconSize);
+
+                // Draw stress lines / load distribution cones
+                ctx.strokeStyle = varToRgba('--neon-cyan', 0.4);
+                ctx.lineWidth = 2 * (1 / canvasScale);
+                ctx.lineDashOffset = - (performance.now() / 10); // Animate dashed lines
+                ctx.setLineDash([10 * (1 / canvasScale), 5 * (1 / canvasScale)]);
+
+                const coneStartX = loadX + loadIconSize / 2;
+                let currentStressY = builtLayers[0].y * scaleY; // Start from top layer
+                let currentStressWidth = 0; // Initial width of distribution cone
+
+                for (let i = 0; i < builtLayers.length; i++) {
+                    const layer = builtLayers[i];
+                    const layerBottomY = (layer.y + layer.height) * scaleY;
+
+                    // Calculate load distribution angle based on layer stiffness (simplified)
+                    // Stiffer layers (PQC) spread load wider than asphalt or granular
+                    let spreadAngleFactor = 0.05; // Default for flexible
+                    if (layer.type === 'rigid') {
+                        spreadAngleFactor = 0.08; // Wider spread for rigid
+                    }
+                    if (layer.name === "Separation Membrane") {
+                        spreadAngleFactor = 0.02; // Very thin, minimal spread
+                    }
+
+                    const newWidth = currentStressWidth + layer.height * scaleY * spreadAngleFactor; // Spread increases with depth and factor
+
+                    ctx.beginPath();
+                    ctx.moveTo(coneStartX - currentStressWidth / 2, currentStressY);
+                    ctx.lineTo(coneStartX - newWidth / 2, layerBottomY);
+                    ctx.moveTo(coneStartX + currentStressWidth / 2, currentStressY);
+                    ctx.lineTo(coneStartX + newWidth / 2, layerBottomY);
+                    ctx.stroke();
+
+                    currentStressY = layerBottomY;
+                    currentStressWidth = newWidth;
+                }
+                ctx.setLineDash([]); // Reset line dash
+            }
+
+            ctx.restore();
+        }
+
+        // Event Handlers
+        function handleDragStart(e) {
+            playBeep(220, 0.05);
+            e.dataTransfer.setData('text/plain', JSON.stringify(e.target.dataset));
+            e.dataTransfer.effectAllowed = 'move';
+            draggedItemData = e.target.dataset;
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragEnd(e) {
+            e.target.classList.remove('dragging');
+            draggedItemData = null;
+            stopPitchShift(); // Stop any pitch-shift sounds from dragover
+            renderCanvas(); // Redraw to remove potential drop zone highlights
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault(); // Allow drop
+            e.dataTransfer.dropEffect = 'move';
+
+            const rect = pavementCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Highlight drop zone logic
+            // (Currently handled by default canvas elements, could add more specific logic here)
+
+            // Play pitch shift if it's a thickness chip and hovering over a layer
+            if (draggedItemData && draggedItemData.thicknessValue) {
+                const layerUnderMouse = getLayerAtCanvasCoords(mouseX, mouseY);
+                if (layerUnderMouse) {
+                    playPitchShift(parseFloat(draggedItemData.thicknessValue));
+                } else {
+                    stopPitchShift();
+                }
+            } else {
+                stopPitchShift();
+            }
+        }
+
+        function getLayerAtCanvasCoords(mouseX, mouseY) {
+            const dpr = window.devicePixelRatio || 1;
+            const scaledMouseX = mouseX / dpr;
+            const scaledMouseY = mouseY / dpr;
+
+            // Adjust for canvas zoom/translation if active
+            const displayWidth = pavementCanvas.offsetWidth;
+            const displayHeight = pavementCanvas.offsetHeight;
+
+            let adjustedMouseY = scaledMouseY;
+            if (isZooming) {
+                 const now = performance.now();
+                const zoomDuration = 2000;
+                const elapsed = now - cameraZoomStartTime;
+                const progress = Math.min(elapsed / zoomDuration, 1);
+                const currentScale = 1 + (canvasScale - 1) * progress;
+                const currentTranslateY = (CANVAS_HEIGHT_UNITS / 2 - cameraTargetY) * (currentScale - 1);
+                
+                adjustedMouseY = (scaledMouseY - currentTranslateY) / currentScale; // Inverse transform
+            } else {
+                adjustedMouseY = scaledMouseY / canvasScale;
+            }
+
+
+            for (const layer of builtLayers) {
+                // Layer's stored canvas coords are already scaled by dpr
+                if (adjustedMouseY >= layer.y && adjustedMouseY <= (layer.y + layer.height)) {
+                     // Check if mouseX is within layer.canvasX and layer.canvasX + layer.canvasWidth
+                     // For simplicity, we assume layers span entire drop zone width
+                    return layer;
+                }
+            }
+            return null;
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            stopPitchShift(); // Stop any pitch-shift sounds from dragover
+            const data = JSON.parse(e.dataTransfer.getData('text/plain'));
+            const rect = pavementCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (data.layerName) { // It's a layer card
+                const layerType = data.layerType;
+                const layerName = data.layerName;
+                const defaultThickness = parseFloat(data.defaultThickness);
+                const materialTexture = data.materialTexture;
+
+                // Check if it's the correct pavement type
+                if (layerType !== currentPavementType && layerType !== 'common') {
+                    playBonk();
+                    speak("Oopsie! That layer doesn't belong in this type of road!");
+                    return;
+                }
+
+                // Check for correct order
+                const targetOrder = (currentPavementType === 'flexible' ? FLEXIBLE_PAVEMENT_ORDER : RIGID_PAVEMENT_ORDER);
+                let isValidOrder = true;
+                let expectedNextLayer = null;
+
+                if (builtLayers.length === 0) {
+                    // First layer, must be the top layer of the selected pavement type or subgrade
+                    if (layerName !== targetOrder[0] && layerName !== "Compacted Subgrade") {
+                        isValidOrder = false;
+                        speak("Oopsie! You need to start with the top layer or the subgrade first!");
+                    }
+                } else {
+                    const lastBuiltLayerName = builtLayers[builtLayers.length - 1].name;
+                    const lastBuiltLayerIndex = targetOrder.indexOf(lastBuiltLayerName);
+                    const droppedLayerIndex = targetOrder.indexOf(layerName);
+
+                    if (droppedLayerIndex === -1) { // If dropped layer isn't in current pavement type order (e.g., common subgrade)
+                        if (layerName === "Compacted Subgrade" && !builtLayers.find(l => l.name === "Compacted Subgrade")) {
+                            // Subgrade can be added at the bottom
+                            isValidOrder = true;
+                        } else {
+                            isValidOrder = false;
+                            speak("Oopsie! This layer doesn't fit into our current road plan!");
+                        }
+                    } else if (lastBuiltLayerIndex === -1 && layerName === "Compacted Subgrade") {
+                        // Special case: if subgrade is added first, then other layers
+                        isValidOrder = true;
+                    } else if (droppedLayerIndex !== lastBuiltLayerIndex + 1 && layerName !== "Compacted Subgrade") {
+                        isValidOrder = false;
+                        expectedNextLayer = targetOrder[lastBuiltLayerIndex + 1];
+                    } else if (layerName === "Compacted Subgrade" && builtLayers.find(l => l.name === "Compacted Subgrade")) {
+                        isValidOrder = false;
+                        speak("Oopsie! You already have a subgrade! No need for another one!");
+                    } else if (droppedLayerIndex === lastBuiltLayerIndex + 1 && layerName === "Compacted Subgrade" && droppedLayerIndex !== targetOrder.length -1) {
+                        isValidOrder = false;
+                        speak("Oopsie! The subgrade usually comes at the very bottom, after all other pavement layers!");
+                    }
+                }
+
+                if (!isValidOrder) {
+                    playBonk();
+                    if (expectedNextLayer) {
+                        speak(`Oopsie! After ${lastBuiltLayerName}, we usually place the ${expectedNextLayer}! Try again!`);
+                    }
+                    return;
+                }
+
+                playChime();
+                speak("Fantastic! That layer is just perfect!");
+
+                const newLayer = {
+                    id: Date.now(),
+                    name: layerName,
+                    type: layerType,
+                    thickness: defaultThickness,
+                    material: materialTexture,
+                    color: LAYER_COLORS[layerName] || '#555',
+                    y: 0, height: 0, // Will be calculated in renderCanvas
+                    pulseAlpha: 1.0, // For initial glow animation
+                    isCompacted: false,
+                    mixType: LAYER_SPECS[layerName]?.defaultMix || null,
+                    hasThicknessChip: false,
+                };
+                builtLayers.push(newLayer);
+
+                // If Subgrade is dropped first, move it to the end of the array to ensure it's at the bottom
+                if (newLayer.name === "Compacted Subgrade" && builtLayers.length > 1 && builtLayers[0].name === "Compacted Subgrade") {
+                    const subgrade = builtLayers.shift();
+                    builtLayers.push(subgrade);
+                }
+                
+                // Trigger camera zoom for Separation Membrane
+                if (layerName === "Separation Membrane") {
+                    cameraZoom(newLayer.y + newLayer.height / 2, newLayer.height); // Zoom to its center
+                }
+
+            } else if (data.thicknessValue) { // It's a thickness chip
+                const dpr = window.devicePixelRatio || 1;
+                const scaledMouseY = (mouseY / dpr);
+
+                // Find which layer this thickness chip was dropped on
+                const targetLayer = getLayerAtCanvasCoords(mouseX, mouseY);
+
+                if (targetLayer) {
+                    playChime();
+                    const newThickness = parseFloat(data.thicknessValue);
+                    targetLayer.thickness = newThickness;
+                    targetLayer.hasThicknessChip = true;
+
+                    // Add visual feedback: A glow around the thickness slot
+                    // (This will be handled by renderCanvas, drawing a green border/checkmark)
+
+                    // Check if thickness is valid based on min requirements
+                    if (LAYER_SPECS[targetLayer.name] && newThickness < LAYER_SPECS[targetLayer.name].minThickness) {
+                        speak(`Uh oh! ${targetLayer.name} should be at least ${LAYER_SPECS[targetLayer.name].minThickness}mm thick!`);
+                    } else {
+                        speak(`Great job! ${newThickness}mm for ${targetLayer.name}!`);
+                    }
+                } else {
+                    playBonk();
+                    speak("Oopsie! Thickness chips go on the layers on the road!");
+                }
+            }
+            updateRoadStats();
+            renderCanvas();
+        }
+
+        function handleCanvasClick(e) {
+            const rect = pavementCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            const dpr = window.devicePixelRatio || 1;
+            const scaledMouseX = mouseX / dpr;
+            const scaledMouseY = mouseY / dpr;
+
+            let adjustedMouseY = scaledMouseY;
+            if (isZooming) {
+                 const now = performance.now();
+                const zoomDuration = 2000;
+                const elapsed = now - cameraZoomStartTime;
+                const progress = Math.min(elapsed / zoomDuration, 1);
+                const currentScale = 1 + (canvasScale - 1) * progress;
+                const currentTranslateY = (CANVAS_HEIGHT_UNITS / 2 - cameraTargetY) * (currentScale - 1);
+                adjustedMouseY = (scaledMouseY - currentTranslateY) / currentScale;
+            } else {
+                adjustedMouseY = scaledMouseY / canvasScale;
+            }
+
+            for (let i = 0; i < builtLayers.length; i++) {
+                const layer = builtLayers[i];
+                // Check if click is on the mix selection icon for this layer
+                if (
+                    layer.mixIconX && layer.mixIconY && layer.mixIconSize &&
+                    scaledMouseX >= layer.mixIconX && scaledMouseX <= (layer.mixIconX + layer.mixIconSize) &&
+                    scaledMouseY >= layer.mixIconY && scaledMouseY <= (layer.mixIconY + layer.mixIconSize)
+                ) {
+                    if (LAYER_SPECS[layer.name] && LAYER_SPECS[layer.name].mixOptions) {
+                        showMixSelectionModal(layer.id, layer.name, LAYER_SPECS[layer.name].mixOptions);
+                        return;
+                    }
+                }
+            }
+        }
+
+
+        // UI Update Functions
+        function updateUI() {
+            // Toggle active button
+            flexibleBtn.classList.remove('active');
+            rigidBtn.classList.remove('active');
+            if (currentPavementType === 'flexible') {
+                flexibleBtn.classList.add('active');
+                flexibleBtn.classList.add('neon-btn'); // Ensure it retains base styles
+                flexibleBtn.classList.remove('neon-btn-purple');
+            } else {
+                rigidBtn.classList.add('active');
+                rigidBtn.classList.add('neon-btn');
+                rigidBtn.classList.add('neon-btn-purple'); // Add specific color class if needed
+            }
+
+            // Toggle layer cards visibility
+            document.querySelectorAll('.layer-card').forEach(card => {
+                if (card.dataset.layerType === currentPavementType || card.dataset.layerType === 'common') {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            renderCanvas();
+        }
+
+        function updateRoadStats() {
+            let totalThickness = builtLayers.reduce((sum, layer) => sum + layer.thickness, 0);
+            totalThicknessSpan.textContent = totalThickness.toFixed(2); // For membrane 0.15mm
+
+            let score = 0;
+            const targetOrder = (currentPavementType === 'flexible' ? FLEXIBLE_PAVEMENT_ORDER : RIGID_PAVEMENT_ORDER);
+
+            // Points for correct layer count and initial order
+            for (let i = 0; i < builtLayers.length; i++) {
+                const layer = builtLayers[i];
+                if (targetOrder[i] === layer.name || (layer.name === "Compacted Subgrade" && i === builtLayers.length -1)) {
+                    score += 10; // Base points for correct order
+                }
+
+                // Check thickness
+                if (LAYER_SPECS[layer.name]) {
+                    if (layer.thickness >= LAYER_SPECS[layer.name].minThickness) {
+                        score += 5; // Bonus for meeting min thickness
+                    }
+                }
+
+                // Check mix type
+                if (LAYER_SPECS[layer.name] && LAYER_SPECS[layer.name].mixOptions && layer.mixType) {
+                    score += 10; // Bonus for identifying mix
+                }
+
+                // Subgrade compaction
+                if (layer.name === "Compacted Subgrade" && layer.isCompacted) {
+                    score += 15;
+                }
+            }
+            
+            // Deduct points for incorrect order, but this is prevented by drag/drop rules
+            // Max score needs to be defined
+            const maxScore = (targetOrder.length * 10) + (targetOrder.length * 5) + (2 * 10) + 15; // Layers + thickness + 2 mixes + compaction
+            let durabilityPercentage = Math.min(Math.round((score / maxScore) * 100), 100);
+
+            durabilityMeterFill.style.width = durabilityPercentage + '%';
+            durabilityPercentageSpan.textContent = durabilityPercentage + '%';
+
+            // Update mix checklist
+            const wcLayer = builtLayers.find(l => l.name === "Wearing Course");
+            if (wcLayer && wcLayer.mixType) {
+                wcMixStatus.textContent = wcLayer.mixType;
+                wcMixStatus.classList.remove('status-pending');
+                wcMixStatus.classList.add('status-identified');
+            } else {
+                wcMixStatus.textContent = 'Pending';
+                wcMixStatus.classList.remove('status-identified');
+                wcMixStatus.classList.add('status-pending');
+            }
+
+            const bcLayer = builtLayers.find(l => l.name === "Binder Course");
+            if (bcLayer && bcLayer.mixType) {
+                bcMixStatus.textContent = bcLayer.mixType;
+                bcMixStatus.classList.remove('status-pending');
+                bcMixStatus.classList.add('status-identified');
+            } else {
+                bcMixStatus.textContent = 'Pending';
+                bcMixStatus.classList.remove('status-identified');
+                bcMixStatus.classList.add('status-pending');
+            }
+        }
+
+        function resetChallenge() {
+            builtLayers = [];
+            canvasScale = 1.0;
+            cameraTargetY = 0;
+            isZooming = false;
+            updateRoadStats();
+            renderCanvas();
+            speak("Okay, let's try again from the start!");
+            wcMixStatus.textContent = 'Pending';
+            wcMixStatus.classList.remove('status-identified');
+            bcMixStatus.textContent = 'Pending';
+            bcMixStatus.classList.remove('status-identified');
+        }
+
+        function checkMyRoad() {
+            const targetOrder = (currentPavementType === 'flexible' ? FLEXIBLE_PAVEMENT_ORDER : RIGID_PAVEMENT_ORDER);
+            let allCorrect = true;
+            let feedback = [];
+
+            // 1. Check layer count
+            if (builtLayers.length !== targetOrder.length) {
+                allCorrect = false;
+                feedback.push(`You have ${builtLayers.length} layers, but need ${targetOrder.length} for a complete ${currentPavementType} pavement.`);
+            }
+
+            // 2. Check layer order (and individual layer checks)
+            for (let i = 0; i < builtLayers.length; i++) {
+                const layer = builtLayers[i];
+                const expectedLayerName = targetOrder[i];
+
+                if (layer.name !== expectedLayerName && !(layer.name === "Compacted Subgrade" && i === builtLayers.length -1)) { // Allow subgrade at last position
+                    allCorrect = false;
+                    feedback.push(`Layer ${i + 1} should be '${expectedLayerName}', but it's '${layer.name}'.`);
+                }
+
+                // Check thickness
+                if (LAYER_SPECS[layer.name]) {
+                    if (layer.thickness < LAYER_SPECS[layer.name].minThickness) {
+                        allCorrect = false;
+                        feedback.push(`${layer.name} is too thin! Minimum is ${LAYER_SPECS[layer.name].minThickness}mm.`);
+                    }
+                }
+
+                // Check mix type for relevant layers
+                if (layer.name === "Wearing Course" && (!layer.mixType || !LAYER_SPECS[layer.name].mixOptions.includes(layer.mixType))) {
+                    allCorrect = false;
+                    feedback.push(`Wearing Course mix type is not identified or incorrect.`);
+                }
+                if (layer.name === "Binder Course" && (!layer.mixType || !LAYER_SPECS[layer.name].mixOptions.includes(layer.mixType))) {
+                    allCorrect = false;
+                    feedback.push(`Binder Course mix type is not identified or incorrect.`);
+                }
+
+                // Check subgrade compaction
+                if (layer.name === "Compacted Subgrade" && !layer.isCompacted) {
+                    allCorrect = false;
+                    feedback.push(`The Subgrade needs to be compacted! Try the hand gesture!`);
+                }
+            }
+
+            if (allCorrect) {
+                playCelebration();
+                speak("Yay! You built a magnificent road! Time for tiny cars to zoom!");
+            } else {
+                playBonk();
+                speak("Almost there! One tiny adjustment and your road will be super strong!");
+                // Optionally display feedback in a modal or info panel
+                console.warn("Road Check Feedback:", feedback.join('\n'));
+            }
+        }
+
+        // Camera Zoom
+        function cameraZoom(targetCanvasY, layerHeight) {
+            canvasScale = 1.5; // Zoom in 1.5x
+            cameraTargetY = targetCanvasY;
+            cameraZoomStartTime = performance.now();
+            isZooming = true;
+            renderCanvas(); // Start animation loop
+            // Zoom out after a delay
+            setTimeout(() => {
+                const zoomOutStartTime = performance.now();
+                const initialScale = canvasScale;
+                const initialTranslateY = (CANVAS_HEIGHT_UNITS / 2 - cameraTargetY) * (canvasScale - 1);
+
+                function animateZoomOut() {
+                    const elapsed = performance.now() - zoomOutStartTime;
+                    const duration = 1500;
+                    const progress = Math.min(elapsed / duration, 1);
+
+                    canvasScale = initialScale - (initialScale - 1) * progress;
+                    // Reset translation for zoom out
+                    // cameraTargetY gradually moves to CANVAS_HEIGHT_UNITS / 2 (center)
+                    cameraTargetY = CANVAS_HEIGHT_UNITS / 2 - (CANVAS_HEIGHT_UNITS / 2 - cameraTargetY) * (1 - progress);
+
+                    if (progress < 1) {
+                        requestAnimationFrame(animateZoomOut);
+                    } else {
+                        canvasScale = 1.0;
+                        cameraTargetY = 0;
+                        isZooming = false;
+                    }
+                    renderCanvas();
+                }
+                requestAnimationFrame(animateZoomOut);
+            }, 2500); // Hold zoom for 2.5 seconds
+        }
+
+
+        // Hand Gesture Detection (Simplified for mouse sweep)
+        let lastMouseX = 0;
+        let lastMouseMoveTime = 0;
+        let mouseButtonDown = false; // To check if mouse button is held
+        const SWEEP_THRESHOLD_X = 100; // Pixels
+        const SWEEP_THRESHOLD_TIME = 200; // Milliseconds
+
+        function handleMouseDown(e) {
+            mouseButtonDown = true;
+            lastMouseX = e.clientX;
+            lastMouseMoveTime = performance.now();
+        }
+
+        function handleMouseUp() {
+            mouseButtonDown = false;
+        }
+
+        function handleMouseMove(e) {
+            if (!isHandGestureEnabled || !mouseButtonDown) return;
+
+            const rect = pavementCanvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Check if mouse is over the subgrade area (bottom 1/3 of canvas)
+            const subgradeCanvasY = pavementCanvas.height - (pavementCanvas.height / (window.devicePixelRatio || 1)) / 3;
+
+            if (mouseY > subgradeCanvasY) {
+                const deltaX = Math.abs(mouseX - lastMouseX);
+                const deltaTime = performance.now() - lastMouseMoveTime;
+
+                if (deltaX > SWEEP_THRESHOLD_X && deltaTime < SWEEP_THRESHOLD_TIME) {
+                    // Compaction gesture detected!
+                    const subgradeLayer = builtLayers.find(l => l.name === "Compacted Subgrade");
+                    if (subgradeLayer && !subgradeLayer.isCompacted) {
+                        subgradeLayer.isCompacted = true;
+                        playThump();
+                        speak("Whoosh! You're making the subgrade super strong and flat, just like flattening out play-doh!");
+                        // Add particle effect (simplified)
+                        for(let i=0; i<50; i++) {
+                            // Render a small dust particle
+                        }
+                        updateRoadStats();
+                        renderCanvas();
+                    }
+                }
+            }
+            lastMouseX = mouseX;
+            lastMouseMoveTime = performance.now();
+        }
+
+        // Modals
+        function showModal(modalElement) {
+            modalElement.classList.add('visible');
+            modalElement.querySelector('.modal-content').focus();
+        }
+
+        function hideModal(modalElement) {
+            modalElement.classList.remove('visible');
+        }
+
+        function setupModal(modalElement) {
+            const closeBtn = modalElement.querySelector('.close-btn');
+            closeBtn.addEventListener('click', () => hideModal(modalElement));
+            modalElement.addEventListener('click', (e) => {
+                if (e.target === modalElement) { // Click outside modal content
+                    hideModal(modalElement);
+                }
+            });
+        }
+
+        let currentMixLayerId = null;
+        function showMixSelectionModal(layerId, layerName, options) {
+            currentMixLayerId = layerId;
+            mixLayerNameSpan.textContent = layerName;
+            mixOptionsContainer.innerHTML = ''; // Clear previous options
+
+            options.forEach(mix => {
+                const button = document.createElement('button');
+                button.textContent = mix;
+                button.classList.add('neon-btn');
+                button.classList.add('purple');
+                button.addEventListener('click', () => {
+                    const layer = builtLayers.find(l => l.id === currentMixLayerId);
+                    if (layer) {
+                        layer.mixType = mix;
+                        speak(`${mix} selected for ${layer.name}. Excellent choice!`);
+                        updateRoadStats();
+                        renderCanvas();
+                    }
+                    hideModal(mixSelectionModal);
+                });
+                mixOptionsContainer.appendChild(button);
+            });
+            showModal(mixSelectionModal);
+        }
+
+        // Utility to convert CSS var to rgba string
+        function varToRgba(cssVar, alpha) {
+            const rgb = getComputedStyle(document.documentElement).getPropertyValue(cssVar + '-rgb');
+            if (rgb) {
+                return `rgba(${rgb}, ${alpha})`;
+            }
+            return `rgba(0, 0, 0, ${alpha})`; // Fallback
+        }
+
+        // Initialization
+        async function init() {
+            await initAudioContext(); // Initialize audio context
+            await window.speechSynthesis.getVoices(); // Populate voices
+            narratorVoice = window.speechSynthesis.getVoices().find(voice => voice.name === 'Google US English' || voice.lang === 'en-US');
+            if (!narratorVoice) narratorVoice = window.speechSynthesis.getVoices()[0]; // Fallback
+
+            resizeCanvas(); // Initial canvas setup
+            window.addEventListener('resize', resizeCanvas);
+
+            // Drag & Drop event listeners for inventory items
+            document.querySelectorAll('.draggable').forEach(item => {
+                item.setAttribute('draggable', true);
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+
+            // Drag & Drop event listeners for canvas
+            pavementCanvas.addEventListener('dragover', handleDragOver);
+            pavementCanvas.addEventListener('drop', handleDrop);
+            pavementCanvas.addEventListener('click', handleCanvasClick); // For mix selection + icon
+
+            // Button event listeners
+            flexibleBtn.addEventListener('click', () => {
+                currentPavementType = 'flexible';
+                speak("Woohoo! Now we're building a super squishy Flexible Pavement!");
+                resetChallenge();
+                updateUI();
+            });
+            rigidBtn.addEventListener('click', () => {
+                currentPavementType = 'rigid';
+                speak("Alrighty! Time for a super strong Rigid Pavement!");
+                resetChallenge();
+                updateUI();
+            });
+            resetBtn.addEventListener('click', resetChallenge);
+            checkBtn.addEventListener('click', checkMyRoad);
+            gestureToggleBtn.addEventListener('click', () => {
+                isHandGestureEnabled = !isHandGestureEnabled;
+                gestureToggleBtn.textContent = `Hand Gesture Control: ${isHandGestureEnabled ? 'ON' : 'OFF'}`;
+                gestureToggleBtn.classList.toggle('active', isHandGestureEnabled);
+                speak(`Hand gesture control is now ${isHandGestureEnabled ? 'enabled' : 'disabled'}.`);
+            });
+
+            // Mouse events for compaction gesture
+            pavementCanvas.addEventListener('mousedown', handleMouseDown);
+            pavementCanvas.addEventListener('mouseup', handleMouseUp);
+            pavementCanvas.addEventListener('mousemove', handleMouseMove);
+
+            // Standards Hint Modal
+            setupModal(standardsHintModal);
+            standardsHintBtn.addEventListener('click', () => showModal(standardsHintModal));
+
+            // Mix Selection Modal
+            setupModal(mixSelectionModal);
+
+            updateUI();
+            speak("Hello there, little road builder! Let's make some awesome roads today!");
+        }
+
+        // Run initialization when DOM is ready
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

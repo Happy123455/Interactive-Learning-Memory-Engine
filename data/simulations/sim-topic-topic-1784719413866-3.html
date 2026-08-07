@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aero-Struc Cyberlab: Doubly Reinforced Beam Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML" async></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;900&family=Rajdhani:wght@500;700&display=swap');
+
+    body {
+      background-color: #030712;
+      font-family: 'Rajdhani', sans-serif;
+      color: #f3f4f6;
+    }
+    
+    h1, h2, h3, .cyber-font {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    .glass-panel {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(6, 182, 212, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+    }
+    .glow-magenta {
+      box-shadow: 0 0 15px rgba(236, 72, 153, 0.4);
+    }
+    .glow-green {
+      box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(6, 182, 212, 0.3);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(6, 182, 212, 0.6);
+    }
+
+    /* Draggable Item styling */
+    .draggable-chip {
+      cursor: grab;
+      transition: all 0.2s ease;
+    }
+    .draggable-chip:active {
+      cursor: grabbing;
+      transform: scale(0.95);
+    }
+    
+    /* Animation Utility */
+    @keyframes pulse-fast {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    .laser-line {
+      position: relative;
+      overflow: hidden;
+    }
+    .laser-line::after {
+      content: '';
+      position: absolute;
+      top: 0; left: -100%; width: 100%; height: 2px;
+      background: linear-gradient(90deg, transparent, #06b6d4, transparent);
+      animation: laser-move 2s infinite linear;
+    }
+    @keyframes laser-move {
+      0% { left: -100%; }
+      100% { left: 100%; }
+    }
+  </style>
+</head>
+<body class="min-h-screen overflow-x-hidden p-4 flex flex-col justify-between">
+
+  <!-- TOP HUB HEADER -->
+  <header class="w-full max-w-7xl mx-auto glass-panel p-4 mb-4 rounded-xl flex flex-wrap justify-between items-center border-b-2 border-cyan-500/30">
+    <div class="flex items-center space-x-3">
+      <div class="w-10 h-10 rounded-lg bg-cyan-950 flex items-center justify-center border border-cyan-400 glow-cyan">
+        <svg class="w-6 h-6 text-cyan-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path></svg>
+      </div>
+      <div>
+        <h1 class="text-xl md:text-2xl font-black text-cyan-400 tracking-wider uppercase">Aero-Struc Cyberlab</h1>
+        <p class="text-xs text-slate-400 uppercase tracking-widest font-semibold">Doubly Reinforced Beam Design Suite (IS 456:2000)</p>
+      </div>
+    </div>
+    
+    <!-- Audio Hub Controls -->
+    <div class="flex items-center space-x-4 mt-2 md:mt-0">
+      <button onclick="toggleVoice()" id="voice-btn" class="px-3 py-1.5 rounded bg-cyan-950/80 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-slate-900 transition text-xs flex items-center gap-2 font-semibold">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+        ASSISTANT ON
+      </button>
+      <div id="status-display" class="px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-xs text-cyan-300 font-mono flex items-center gap-2">
+        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+        SYSTEM INITIALIZED
+      </div>
+    </div>
+  </header>
+
+  <!-- CENTRAL DASHBOARD WORKSPACE -->
+  <main class="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch flex-grow mb-4">
+    
+    <!-- LEFT PANEL: Problem Definition & Variables (Cols 1-3) -->
+    <section class="lg:col-span-3 glass-panel p-4 rounded-xl flex flex-col justify-between border border-slate-700/60 relative laser-line">
+      <div>
+        <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-700/60">
+          <h3 class="text-sm font-bold tracking-widest text-cyan-400 uppercase flex items-center gap-1.5">
+            <span class="w-2.5 h-2.5 bg-cyan-400 rounded-sm"></span> Workspace Mission
+          </h3>
+          <span class="text-xs bg-slate-800 text-cyan-300 px-2 py-0.5 rounded font-mono font-bold">Step <span id="current-step-badge">1</span>/6</span>
+        </div>
+        
+        <!-- Interactive Mission Prompt -->
+        <div class="bg-slate-900/80 rounded-lg p-3 border border-slate-800 text-sm leading-relaxed mb-4 text-slate-300">
+          <p class="font-semibold text-cyan-300/90 mb-2">CRITICAL STRESS MISSION:</p>
+          Analyze and verify the bending moment capacity limit of a doubly reinforced concrete section. 
+          First, click on every variable highlight inside this engineering request to capture its value:
+          <div class="mt-3 p-3 bg-slate-950/65 rounded border border-cyan-950/60 leading-relaxed font-mono text-xs">
+            "Design a rectangular beam of width 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="b" data-val="250">b = 250mm</span>, 
+            effective overall depth 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="D" data-val="500">D = 500mm</span>, 
+            under an ultimate moment capacity demand 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="Mu" data-val="180">Mu = 180 kNm</span>. 
+            Use Concrete Grade 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="fck" data-val="20">M20 (fck=20)</span> 
+            and reinforcement steel grade 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="fy" data-val="415">Fe415 (fy=415)</span>. 
+            Assume an effective cover depth 
+            <span class="clickable-var text-pink-400 font-bold underline cursor-pointer hover:bg-pink-500/10 px-1 rounded transition" data-var="dPrime" data-val="50">d' = 50mm</span>."
+          </div>
+        </div>
+
+        <!-- Extraction Checklist Status -->
+        <div class="space-y-2">
+          <h4 class="text-xs uppercase text-slate-400 font-bold tracking-widest mb-1.5">Captured Variables</h4>
+          <div id="var-checklist" class="space-y-1.5 text-xs font-mono">
+            <div class="flex items-center justify-between p-2 rounded bg-slate-950/40 border border-slate-800" id="chk-b">
+              <span>b (Width)</span><span class="status-icon text-slate-500">❌ UNKNOWN</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-950/40 border border-slate-800" id="chk-D">
+              <span>D (Overall Depth)</span><span class="status-icon text-slate-500">❌ UNKNOWN</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-950/40 border border-slate-800" id="chk-Mu">
+              <span>Mu (Factored Moment)</span><span class="status-icon text-slate-500">❌ UNKNOWN</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-950/40 border border-slate-800" id="chk-fck">
+              <span>fck (Concrete Grade)</span><span class="status-icon text-slate-500">❌ UNKNOWN</span>
+            </div>
+            <div class="flex items-center justify-between p-2 rounded bg-slate-950/40 border border-slate-800" id="chk-fy">
+              <span>fy (Steel Grade)</span><span class="status-icon text-slate-500">❌ UNKNOWN</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Dynamic Guide Assist Card -->
+      <div class="mt-4 p-3 bg-cyan-950/30 rounded-lg border border-cyan-500/20 text-xs text-cyan-300">
+        <span class="font-bold text-cyan-400 block mb-1 uppercase tracking-wider">AI ASSISTANT RADAR:</span>
+        <p id="radar-guide-msg">Click and extract all the structural design variables in the problem description text above to initialize the section.</p>
+      </div>
+    </section>
+
+    <!-- CENTER PANEL: Interactive Canvas Workspace (Cols 4-8) -->
+    <section class="lg:col-span-6 glass-panel p-4 rounded-xl flex flex-col justify-between border border-slate-700/60 relative">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-2">
+          <div class="w-2.5 h-2.5 bg-magenta bg-rose-500 rounded-full animate-ping"></div>
+          <h3 class="text-sm font-bold tracking-widest text-cyan-400 uppercase">Interactive Structural Visualizer</h3>
+        </div>
+        <!-- Zoom controls -->
+        <div class="flex space-x-1.5">
+          <button id="zoom-out" class="w-8 h-8 rounded bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center font-bold text-sm" title="Zoom Out">-</button>
+          <button id="zoom-reset" class="px-2.5 h-8 rounded bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center text-xs font-semibold">RESET</button>
+          <button id="zoom-in" class="w-8 h-8 rounded bg-slate-800 border border-slate-700 text-slate-400 hover:bg-slate-700 hover:text-white flex items-center justify-center font-bold text-sm" title="Zoom In">+</button>
+        </div>
+      </div>
+
+      <!-- Outer wrapper to limit size and center layout -->
+      <div class="relative w-full overflow-hidden bg-slate-950 rounded-lg border border-cyan-900/40" style="height: 380px;">
+        <canvas id="structural-canvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+        
+        <!-- Live Neutral Axis Depth Controller Overlay -->
+        <div class="absolute bottom-3 left-3 right-3 bg-slate-900/90 border border-slate-800 px-3 py-2 rounded flex items-center justify-between gap-4">
+          <div class="flex-grow">
+            <div class="flex justify-between text-xs font-mono text-cyan-300 mb-1">
+              <span>Adjust Neutral Axis (xu)</span>
+              <span id="xu-val-display" class="font-bold text-rose-400">xu = 216.0 mm (Balanced Limit)</span>
+            </div>
+            <input type="range" id="xu-slider" min="50" max="400" value="216" class="w-full h-1 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400" disabled>
+          </div>
+          <button id="auto-xu" class="px-2 py-1 bg-cyan-950 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500 hover:text-slate-900 text-xs rounded transition uppercase tracking-widest font-bold">Limit State</button>
+        </div>
+      </div>
+
+      <!-- Extra Physics Info Panels -->
+      <div class="grid grid-cols-3 gap-2 text-center mt-3 font-mono">
+        <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+          <span class="block text-slate-400 text-[10px] uppercase">Steel stress (fsc)</span>
+          <span id="fsc-display" class="text-sm font-bold text-amber-400">---</span>
+        </div>
+        <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+          <span class="block text-slate-400 text-[10px] uppercase">Concrete stress (fcc)</span>
+          <span id="fcc-display" class="text-sm font-bold text-emerald-400">---</span>
+        </div>
+        <div class="bg-slate-950/70 p-2 rounded border border-slate-800">
+          <span class="block text-slate-400 text-[10px] uppercase">Concrete Grade fck</span>
+          <span id="canvas-fck-display" class="text-sm font-bold text-cyan-400">---</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT PANEL: Math, IS-Codebook, Formula Assembly (Cols 9-12) -->
+    <section class="lg:col-span-3 glass-panel p-4 rounded-xl flex flex-col justify-between border border-slate-700/60">
+      
+      <!-- Mini Tabs (Codebook & Assembly) -->
+      <div class="w-full">
+        <div class="flex border-b border-slate-800 mb-3" id="tab-headers">
+          <button id="btn-tab-code" class="flex-1 py-1.5 text-xs font-semibold tracking-wider uppercase border-b-2 border-cyan-400 text-cyan-400">
+            IS 456 Codebook
+          </button>
+          <button id="btn-tab-assembly" class="flex-1 py-1.5 text-xs font-semibold tracking-wider uppercase border-b-2 border-transparent text-slate-400 hover:text-slate-200">
+            Formula Assembly
+          </button>
+        </div>
+
+        <!-- CODEBOOK TAB -->
+        <div id="tab-content-code" class="space-y-3">
+          <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800 text-xs">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="font-bold text-cyan-300">CLAUSE G-1.2 (Stress Block)</span>
+              <span class="px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 rounded text-[10px] font-bold">LOCKED</span>
+            </div>
+            <p class="text-slate-400 leading-relaxed mb-3">To analyze a doubly reinforced member, the moment of resistance must satisfy aggregate equilibrium. Drag codebook to the scan zone below to authorize analysis formulas.</p>
+            
+            <!-- Draggable IS-456 Codebook Token -->
+            <div id="codebook-token" draggable="true" class="p-3 bg-gradient-to-r from-cyan-950 to-slate-900 border border-cyan-500/40 rounded-lg shadow-lg flex items-center justify-between cursor-grab active:cursor-grabbing hover:border-cyan-400 transition">
+              <div class="flex items-center space-x-2">
+                <svg class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"></path></svg>
+                <div class="text-left">
+                  <p class="font-bold text-[11px] tracking-wide text-slate-100">IS 456:2000 CODEBOOK</p>
+                  <p class="text-[9px] text-cyan-400 font-mono">Annexure G Clause G-1.2</p>
+                </div>
+              </div>
+              <span class="text-[10px] bg-cyan-950 text-cyan-300 px-1.5 py-0.5 rounded font-bold font-mono">DRAG</span>
+            </div>
+          </div>
+
+          <!-- Codebook Drop Reader Zone -->
+          <div id="codebook-dropzone" class="p-4 border-2 border-dashed border-cyan-500/20 rounded-lg text-center bg-slate-900/30 hover:bg-slate-900/60 hover:border-cyan-500/40 transition flex flex-col items-center justify-center min-h-[90px] cursor-pointer">
+            <svg class="w-6 h-6 text-cyan-500/50 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            <p class="text-[11px] text-slate-400 uppercase tracking-widest font-bold">Codebook Scan Target Zone</p>
+            <p class="text-[9px] text-slate-500">Drop Codebook Token Here to Extract Stress Constants</p>
+          </div>
+        </div>
+
+        <!-- FORMULA ASSEMBLY TAB -->
+        <div id="tab-content-assembly" class="hidden space-y-3">
+          <div class="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+            <span class="block text-xs font-bold text-cyan-300 mb-2 uppercase">Assemble Strain Limit Formula:</span>
+            
+            <div class="p-2.5 bg-slate-900 rounded border border-slate-800 text-xs font-mono text-slate-300 flex flex-col space-y-1">
+              <span>\(\epsilon_{sc}\) at d' compression level:</span>
+              <div class="flex flex-wrap items-center gap-1.5 mt-2 bg-slate-950 p-2 rounded border border-slate-800" id="formula-slots">
+                <span class="text-slate-400 text-xs font-bold">\(\epsilon_{sc} =\)</span>
+                <div class="formula-slot w-14 h-7 border border-dashed border-slate-700 bg-slate-900/60 rounded flex items-center justify-center font-bold text-[10px]" data-correct="0.0035"></div>
+                <span>\(\times \ \ (\)</span>
+                <div class="formula-slot w-14 h-7 border border-dashed border-slate-700 bg-slate-900/60 rounded flex items-center justify-center font-bold text-[10px]" data-correct="xu_max"></div>
+                <span>\(-\)</span>
+                <div class="formula-slot w-14 h-7 border border-dashed border-slate-700 bg-slate-900/60 rounded flex items-center justify-center font-bold text-[10px]" data-correct="d_prime"></div>
+                <span>\() \ \ / \ \ \)</span>
+                <div class="formula-slot w-14 h-7 border border-dashed border-slate-700 bg-slate-900/60 rounded flex items-center justify-center font-bold text-[10px]" data-correct="xu_max"></div>
+              </div>
+            </div>
+
+            <!-- Draggable Value/Variable Chips -->
+            <div class="mt-4">
+              <span class="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Available Formula Blocks:</span>
+              <div class="flex flex-wrap gap-2" id="draggable-chips-container">
+                <div draggable="true" data-val="0.0035" class="draggable-chip px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-xs font-mono text-cyan-300 font-bold shadow-md">0.0035</div>
+                <div draggable="true" data-val="xu_max" class="draggable-chip px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-xs font-mono text-cyan-300 font-bold shadow-md">xu_max</div>
+                <div draggable="true" data-val="d_prime" class="draggable-chip px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-xs font-mono text-cyan-300 font-bold shadow-md">d'</div>
+                <div draggable="true" data-val="0.002" class="draggable-chip px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-xs font-mono text-slate-400 font-bold shadow-md">0.0020</div>
+                <div draggable="true" data-val="D" class="draggable-chip px-2.5 py-1.5 bg-slate-900 border border-slate-700 hover:border-cyan-500 rounded text-xs font-mono text-slate-400 font-bold shadow-md">D</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Capacity Verification and decomposition bar charts -->
+      <div class="mt-4 pt-3 border-t border-slate-800">
+        <h4 class="text-xs uppercase text-slate-400 font-bold tracking-widest mb-2">Moment Capacity Partition</h4>
+        <div class="space-y-2 font-mono text-[11px]">
+          <!-- Concrete Moment Limit -->
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>Limit Concrete capacity (Mu,lim)</span>
+              <span class="text-emerald-400 font-bold" id="mulim-val-display">0 kNm</span>
+            </div>
+            <div class="w-full bg-slate-950 h-2 rounded border border-slate-800 overflow-hidden">
+              <div id="mulim-bar" class="bg-gradient-to-r from-emerald-600 to-emerald-400 h-full w-0 transition-all duration-1000"></div>
+            </div>
+          </div>
+
+          <!-- Total Design Capacity -->
+          <div>
+            <div class="flex justify-between text-slate-400 mb-1">
+              <span>Compressive steel moment (Mu2)</span>
+              <span class="text-amber-400 font-bold" id="mu2-val-display">0 kNm</span>
+            </div>
+            <div class="w-full bg-slate-950 h-2 rounded border border-slate-800 overflow-hidden">
+              <div id="mu2-bar" class="bg-gradient-to-r from-amber-600 to-amber-400 h-full w-0 transition-all duration-1000"></div>
+            </div>
+          </div>
+          
+          <!-- Sum of moments indicator -->
+          <div class="flex justify-between items-center bg-slate-950 p-2 rounded border border-cyan-500/20 mt-3">
+            <span class="text-[10px] text-cyan-400 font-bold">TOTAL INTERNAL MOMENT CAPACITANCE:</span>
+            <span class="text-xs font-bold text-cyan-300" id="total-cap-display">0 kNm</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- STEP CONTROL BAR -->
+  <footer class="w-full max-w-7xl mx-auto glass-panel p-3 rounded-xl flex flex-col md:flex-row justify-between items-center gap-3 border-t-2 border-cyan-500/30">
+    <!-- Quick Status message -->
+    <div class="text-xs font-mono text-slate-400 text-center md:text-left">
+      <span class="text-cyan-400 font-bold">STATUS SYSTEM // </span>
+      <span id="system-status-msg">Initiating simulator engine... Please extract problem parameters first.</span>
+    </div>
+
+    <!-- Wizard Navigation buttons -->
+    <div class="flex items-center space-x-2">
+      <button id="btn-prev" class="px-4 py-2 rounded bg-slate-800 text-slate-400 border border-slate-700 hover:bg-slate-700 hover:text-white transition text-xs font-bold uppercase tracking-wider disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+        Prev Step
+      </button>
+      <button id="btn-next" class="px-5 py-2 rounded bg-gradient-to-r from-cyan-600 to-cyan-500 text-slate-950 hover:from-cyan-500 hover:to-cyan-400 transition text-xs font-black uppercase tracking-wider shadow-lg glow-cyan" disabled>
+        Next Step
+      </button>
+    </div>
+  </footer>
+
+  <script>
+    // --- NATIVE SOUND/AUDIO SYNTHESIS SYSTEM ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    function playBeep(freq, duration, type = "sine") {
+      try {
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.type = type;
+        gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {
+        console.warn("Audio Context blocked or not running.");
+      }
+    }
+
+    function playSuccessChime() {
+      const scale = [261.63, 329.63, 392.00, 523.25]; // C major chord arpeggio
+      scale.forEach((freq, idx) => {
+        setTimeout(() => {
+          playBeep(freq, 0.25, "sine");
+        }, idx * 100);
+      });
+    }
+
+    function playErrorBuzz() {
+      playBeep(120, 0.4, "triangle");
+    }
+
+    // Speech Assistant Synthesis
+    let isVoiceActive = true;
+    function speak(text) {
+      if (!isVoiceActive) return;
+      // Stop ongoing speech
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.pitch = 1.0;
+      utterance.rate = 1.1;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function toggleVoice() {
+      isVoiceActive = !isVoiceActive;
+      const btn = document.getElementById("voice-btn");
+      if (isVoiceActive) {
+        btn.classList.remove("border-red-500/40", "text-red-400");
+        btn.classList.add("border-cyan-500/40", "text-cyan-400");
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg> ASSISTANT ON`;
+        speak("Voice synthesis assist active.");
+      } else {
+        btn.classList.remove("border-cyan-500/40", "text-cyan-400");
+        btn.classList.add("border-red-500/40", "text-red-400");
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg> ASSISTANT OFF`;
+      }
+    }
+
+    // --- GAME / SYSTEM CALCULATIONS STATE ---
+    const STATE = {
+      currentStep: 1,
+      // Target design variables
+      extracted: {
+        b: false,
+        D: false,
+        Mu: false,
+        fck: false,
+        fy: false,
+        dPrime: true // assume initial true as we have default
+      },
+      values: {
+        b: 250,
+        D: 500,
+        Mu: 180,
+        fck: 20,
+        fy: 415,
+        dPrime: 50
+      },
+      codebookUnlocked: false,
+      formulaAssembled: false,
+      xu: 216.0, // calculated balanced NA depth
+      xu_max: 216.0,
+      epsilon_sc: 0.0,
+      fsc: 0.0,
+      fcc: 0.0,
+      Mulim: 0.0,
+      Mu2: 0.0,
+      concretePoured: false,
+      concreteAnimationTimer: 0,
+    };
+
+    // --- CANVAS DRAWING CORE GRAPHIC FRAMEWORK ---
+    const canvas = document.getElementById("structural-canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Camera/Viewport Transformations state
+    const camera = {
+      x: 0,
+      y: 0,
+      scale: 1.0,
+      targetScale: 1.0,
+      targetX: 0,
+      targetY: 0
+    };
+
+    function initCanvas() {
+      // Set size matching layout box
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      
+      // Default center focus
+      camera.x = canvas.width / 2;
+      camera.y = canvas.height / 2;
+      camera.targetX = camera.x;
+      camera.targetY = camera.y;
+    }
+
+    // Handle Resize
+    window.addEventListener('resize', () => {
+      initCanvas();
+    });
+
+    // Zooming Actions
+    document.getElementById("zoom-in").addEventListener('click', () => {
+      camera.targetScale = Math.min(camera.targetScale + 0.25, 3.0);
+      playBeep(440, 0.05);
+    });
+    document.getElementById("zoom-out").addEventListener('click', () => {
+      camera.targetScale = Math.max(camera.targetScale - 0.25, 0.5);
+      playBeep(380, 0.05);
+    });
+    document.getElementById("zoom-reset").addEventListener('click', () => {
+      camera.targetScale = 1.0;
+      camera.targetX = canvas.width / 2;
+      camera.targetY = canvas.height / 2;
+      playBeep(520, 0.1);
+    });
+
+    // Linear interpolation for smooth camera movements
+    function updateCamera() {
+      camera.scale += (camera.targetScale - camera.scale) * 0.1;
+      camera.x += (camera.targetX - camera.x) * 0.1;
+      camera.y += (camera.targetY - camera.y) * 0.1;
+    }
+
+    // Concrete Aggregate Texture Particle Array
+    const aggregates = [];
+    for(let i=0; i<60; i++) {
+      aggregates.push({
+        x: Math.random() * 120 - 60,
+        y: Math.random() * 240 - 120,
+        size: Math.random() * 4 + 2,
+        rot: Math.random() * Math.PI
+      });
+    }
+
+    // Main animation loop inside canvas
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      updateCamera();
+
+      ctx.save();
+      // Apply camera view
+      ctx.translate(camera.x, camera.y);
+      ctx.scale(camera.scale, camera.scale);
+
+      // 1. Draw Grid Background
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.04)";
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for(let x = -800; x < 800; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, -600);
+        ctx.lineTo(x, 600);
+        ctx.stroke();
+      }
+      for(let y = -600; y < 600; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(-800, y);
+        ctx.lineTo(800, y);
+        ctx.stroke();
+      }
+
+      // 2. Concrete beam shape
+      const w = 110;
+      const h = 220;
+      const xBeam = -180;
+      const yBeam = -110;
+
+      // Draw concrete outline
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.6)";
+      ctx.lineWidth = 2;
+      ctx.fillStyle = "rgba(15, 23, 42, 0.8)";
+      ctx.beginPath();
+      ctx.rect(xBeam, yBeam, w, h);
+      ctx.fill();
+      ctx.stroke();
+
+      // Aggregate Filling (Pour & Glow action state)
+      if (STATE.concretePoured) {
+        ctx.fillStyle = "rgba(100, 116, 139, 0.25)";
+        ctx.fillRect(xBeam, yBeam, w, h);
+        
+        ctx.fillStyle = "rgba(6, 182, 212, 0.15)";
+        aggregates.forEach(agg => {
+          ctx.save();
+          ctx.translate(xBeam + w/2 + agg.x, yBeam + h/2 + agg.y);
+          ctx.rotate(agg.rot);
+          ctx.beginPath();
+          // Draw mini aggregate triangle
+          ctx.moveTo(-agg.size, -agg.size);
+          ctx.lineTo(agg.size, -agg.size);
+          ctx.lineTo(0, agg.size);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        });
+      }
+
+      // Rebar positions
+      const rebarCover = 25;
+      const tensionY = yBeam + h - rebarCover;
+      const compressionY = yBeam + rebarCover;
+      const tensionXPositions = [xBeam + 25, xBeam + w/2, xBeam + w - 25];
+      const compressionXPositions = [xBeam + 25, xBeam + w - 25];
+
+      // Draw Tension Rebars (Pink/Magenta glows)
+      tensionXPositions.forEach(rx => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(rx, tensionY, 7, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(236, 72, 153, 0.4)";
+        ctx.fill();
+        ctx.strokeStyle = "#ec4899";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // Draw Compression Rebars (Amber Glows)
+      compressionXPositions.forEach(rx => {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(rx, compressionY, 6, 0, Math.PI * 2);
+        ctx.fillStyle = "rgba(245, 158, 11, 0.4)";
+        ctx.fill();
+        ctx.strokeStyle = "#f59e0b";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+      });
+
+      // 3. Concrete pour simulation particle emitter
+      if (STATE.concreteAnimationTimer > 0) {
+        STATE.concreteAnimationTimer--;
+        ctx.fillStyle = "rgba(6, 182, 212, 0.8)";
+        for (let p = 0; p < 20; p++) {
+          const px = xBeam + Math.random() * w;
+          const py = yBeam - 20 + Math.random() * (h + 40);
+          ctx.beginPath();
+          ctx.arc(px, py, Math.random() * 3 + 1, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+
+      // Dimensioning Annotations
+      ctx.font = "bold 9px Orbitron";
+      ctx.fillStyle = "rgba(6, 182, 212, 0.9)";
+      ctx.strokeStyle = "rgba(6, 182, 212, 0.4)";
+      ctx.lineWidth = 1;
+
+      // b dimension
+      ctx.beginPath();
+      ctx.moveTo(xBeam, yBeam - 12);
+      ctx.lineTo(xBeam + w, yBeam - 12);
+      ctx.stroke();
+      ctx.fillText(`b = ${STATE.values.b}mm`, xBeam + w/2 - 28, yBeam - 20);
+
+      // D dimension
+      ctx.beginPath();
+      ctx.moveTo(xBeam - 15, yBeam);
+      ctx.lineTo(xBeam - 15, yBeam + h);
+      ctx.stroke();
+      ctx.fillText(`D = ${STATE.values.D}mm`, xBeam - 65, yBeam + h/2);
+
+      // d' dimension (cover to compression bars)
+      ctx.beginPath();
+      ctx.moveTo(xBeam + w + 10, yBeam);
+      ctx.lineTo(xBeam + w + 10, compressionY);
+      ctx.stroke();
+      ctx.fillText(`d' = ${STATE.values.dPrime}mm`, xBeam + w + 15, (yBeam + compressionY)/2 + 3);
+
+      // d dimension (effective depth to tension center)
+      ctx.beginPath();
+      ctx.moveTo(xBeam - 30, yBeam);
+      ctx.lineTo(xBeam - 30, tensionY);
+      ctx.stroke();
+      ctx.fillText(`d = ${STATE.values.D - STATE.values.dPrime}mm`, xBeam - 80, (yBeam + tensionY)/2 + 3);
+
+      // Draw Strain Profile Chart (Centered dynamically to right of beam section)
+      const xDiag = 0;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xDiag, yBeam - 20);
+      ctx.lineTo(xDiag, yBeam + h + 20);
+      ctx.stroke();
+
+      // NA line
+      const naY = yBeam + (STATE.xu * (h / STATE.values.D));
+      ctx.strokeStyle = "rgba(239, 68, 68, 0.75)";
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(xBeam - 10, naY);
+      ctx.lineTo(xDiag + 120, naY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "rgba(239, 68, 68, 0.9)";
+      ctx.fillText("NEUTRAL AXIS (xu)", xDiag + 50, naY - 5);
+
+      // Strain diagram lines
+      const maxStrainConcrete = 0.0035;
+      const strainScale = 14000; // factor to scale strain values to pixel space
+      const strainTopX = xDiag + (maxStrainConcrete * strainScale);
+      
+      // Compute tension strain visually depending on dynamic slider neutral axis
+      const stressStrainHRatio = (h - (STATE.xu * (h / STATE.values.D))) / (STATE.xu * (h / STATE.values.D));
+      const tensionStrainX = xDiag - (maxStrainConcrete * stressStrainHRatio * strainScale);
+
+      // Strain limit triangle shape
+      ctx.strokeStyle = "#06b6d4";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(strainTopX, yBeam);
+      ctx.lineTo(tensionStrainX, tensionY);
+      ctx.stroke();
+
+      // Top anchor strain label
+      ctx.fillStyle = "#06b6d4";
+      ctx.fillText(`ε_cu = 0.0035`, strainTopX - 10, yBeam - 10);
+      ctx.beginPath();
+      ctx.arc(strainTopX, yBeam, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Strain at d' level (Compression steel)
+      const compSteelY = yBeam + (STATE.values.dPrime * (h / STATE.values.D));
+      const dPrimeStrainVal = maxStrainConcrete * (STATE.xu - STATE.values.dPrime) / STATE.xu;
+      const compSteelStrainX = xDiag + (dPrimeStrainVal * strainScale);
+      
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(xDiag, compSteelY);
+      ctx.lineTo(compSteelStrainX, compSteelY);
+      ctx.stroke();
+      ctx.fillStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.arc(compSteelStrainX, compSteelY, 4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillText(`ε_sc = ${dPrimeStrainVal.toFixed(5)}`, compSteelStrainX + 8, compSteelY + 3);
+
+      // 4. Parabolic Stress Block Profile (Dynamic IS-456 standard block)
+      const xStressDiag = 160;
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.beginPath();
+      ctx.moveTo(xStressDiag, yBeam - 20);
+      ctx.lineTo(xStressDiag, yBeam + h + 20);
+      ctx.stroke();
+
+      // Stress block calculation parameters
+      const stressBlockDepth = STATE.xu * (h / STATE.values.D);
+      const parabolicCutoffRatio = 4 / 7; // under standard IS-456 block
+      const parabolicDepth = stressBlockDepth * parabolicCutoffRatio;
+      const flatDepth = stressBlockDepth * (3 / 7);
+
+      ctx.fillStyle = "rgba(16, 185, 129, 0.2)";
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 2;
+
+      // Drawing combined Parabolic & Rectangular Stress shape
+      ctx.beginPath();
+      ctx.moveTo(xStressDiag, yBeam);
+      ctx.lineTo(xStressDiag + 50, yBeam); // maximum stress limit 0.446 * fck
+      ctx.lineTo(xStressDiag + 50, yBeam + flatDepth);
+      
+      // Interpolate parabolic curved profile down to Neutral Axis
+      for (let sY = yBeam + flatDepth; sY <= yBeam + stressBlockDepth; sY++) {
+        const relativeY = (sY - (yBeam + flatDepth)) / parabolicDepth;
+        const normalizedStressFactor = 1 - Math.pow((1 - relativeY), 2);
+        const stressX = xStressDiag + (50 * normalizedStressFactor);
+        ctx.lineTo(stressX, sY);
+      }
+      ctx.lineTo(xStressDiag, yBeam + stressBlockDepth);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Ultimate Compressive Force arrows
+      // C1 (Concrete Compressive force center)
+      const yc1 = yBeam + (0.42 * stressBlockDepth);
+      ctx.strokeStyle = "#10b981";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(xStressDiag - 30, yc1);
+      ctx.lineTo(xStressDiag, yc1);
+      ctx.lineTo(xStressDiag - 8, yc1 - 4);
+      ctx.moveTo(xStressDiag, yc1);
+      ctx.lineTo(xStressDiag - 8, yc1 + 4);
+      ctx.stroke();
+      ctx.fillStyle = "#10b981";
+      ctx.fillText(`C_c (Concrete Force)`, xStressDiag - 120, yc1 - 5);
+
+      // C2 (Compression Steel Force location)
+      ctx.strokeStyle = "#f59e0b";
+      ctx.beginPath();
+      ctx.moveTo(xStressDiag - 30, compSteelY);
+      ctx.lineTo(xStressDiag, compSteelY);
+      ctx.lineTo(xStressDiag - 8, compSteelY - 4);
+      ctx.moveTo(xStressDiag, compSteelY);
+      ctx.lineTo(xStressDiag - 8, compSteelY + 4);
+      ctx.stroke();
+      ctx.fillStyle = "#f59e0b";
+      ctx.fillText(`Cs (Steel Comp Force)`, xStressDiag - 125, compSteelY - 5);
+
+      ctx.restore();
+
+      // Loop canvas animation
+      requestAnimationFrame(draw);
+    }
+
+    // --- MATH COMPUTATION WORKER FOR IS 456 RULES ---
+    function performIS456Calculations() {
+      const fck = STATE.values.fck;
+      const fy = STATE.values.fy;
+      const b = STATE.values.b;
+      const D = STATE.values.D;
+      const dPrime = STATE.values.dPrime;
+      const d = D - dPrime;
+
+      // Limiting Neutral Axis depth factor (IS 456 clause)
+      let xuMaxRatio = 0.53; // Fe250
+      if (fy === 415) xuMaxRatio = 0.48;
+      else if (fy === 500) xuMaxRatio = 0.46;
+
+      STATE.xu_max = xuMaxRatio * d;
+      STATE.xu = STATE.xu_max; // Balanced initial setup
+
+      // Concrete Limit Moment capacity (Mu,lim)
+      // Mu,lim = 0.36 * fck * (xu,max / d) * (1 - 0.42 * xu,max / d) * b * d^2
+      const xRatio = STATE.xu_max / d;
+      const mulimVal = 0.36 * fck * xRatio * (1 - 0.42 * xRatio) * b * Math.pow(d, 2) / 1e6; // to kNm
+      STATE.Mulim = mulimVal;
+
+      // Difference Moment Mu2 carried by Compressive steel
+      STATE.Mu2 = Math.max(STATE.values.Mu - STATE.Mulim, 0);
+
+      // Design concrete strength at steel level
+      STATE.fcc = 0.446 * fck;
+
+      // Strain at Compression Steel level
+      STATE.epsilon_sc = 0.0035 * (STATE.xu_max - dPrime) / STATE.xu_max;
+
+      // Stress block lookups for fsc (steel compression stress) according to steel grade
+      // Standard values from IS-456 design tables
+      if (fy === 415) {
+        if (STATE.epsilon_sc >= 0.00241) STATE.fsc = 351.8;
+        else if (STATE.epsilon_sc >= 0.00192) STATE.fsc = 342.8;
+        else if (STATE.epsilon_sc >= 0.00163) STATE.fsc = 324.8;
+        else STATE.fsc = STATE.epsilon_sc * 2e5; // elastic range
+      } else if (fy === 500) {
+        if (STATE.epsilon_sc >= 0.00241) STATE.fsc = 412.0;
+        else if (STATE.epsilon_sc >= 0.00192) STATE.fsc = 398.0;
+        else STATE.fsc = STATE.epsilon_sc * 2e5;
+      } else {
+        STATE.fsc = fy / 1.15; // standard yield
+      }
+
+      // Update UI displays dynamically
+      document.getElementById("fsc-display").textContent = `${STATE.fsc.toFixed(1)} N/mm²`;
+      document.getElementById("fcc-display").textContent = `${STATE.fcc.toFixed(2)} N/mm²`;
+      document.getElementById("canvas-fck-display").textContent = `M${STATE.values.fck} Grade`;
+
+      // Draw values on screen indicators
+      document.getElementById("mulim-val-display").textContent = `${STATE.Mulim.toFixed(1)} kNm`;
+      document.getElementById("mu2-val-display").textContent = `${STATE.Mu2.toFixed(1)} kNm`;
+    }
+
+    // Update dynamic stress values depending on custom neutral axis sliders
+    function updateStressCalculationsOnSliderChange(sliderVal) {
+      STATE.xu = sliderVal;
+      const d = STATE.values.D - STATE.values.dPrime;
+      const calculatedEpsSc = 0.0035 * (STATE.xu - STATE.values.dPrime) / STATE.xu;
+      
+      let calculatedFsc = 0;
+      if (STATE.values.fy === 415) {
+        if (calculatedEpsSc >= 0.00241) calculatedFsc = 351.8;
+        else if (calculatedEpsSc >= 0.00192) calculatedFsc = 342.8;
+        else if (calculatedEpsSc >= 0.00163) calculatedFsc = 324.8;
+        else calculatedFsc = Math.max(calculatedEpsSc * 2e5, 0);
+      } else {
+        calculatedFsc = Math.max(calculatedEpsSc * 2e5, 0);
+      }
+
+      document.getElementById("xu-val-display").textContent = `xu = ${STATE.xu.toFixed(1)} mm`;
+      document.getElementById("fsc-display").textContent = `${calculatedFsc.toFixed(1)} N/mm²`;
+    }
+
+    // --- STEP BY STEP WORKSPACE ROUTING MANAGEMENT ---
+    
+    // Step 1: Extraction Event Handling
+    const varHighlights = document.querySelectorAll('.clickable-var');
+    varHighlights.forEach(el => {
+      el.addEventListener('click', () => {
+        const targetVar = el.getAttribute('data-var');
+        const targetVal = parseFloat(el.getAttribute('data-val'));
+        
+        STATE.extracted[targetVar] = true;
+        STATE.values[targetVar] = targetVal;
+        
+        // Visual indicator check update
+        el.classList.remove('text-pink-400', 'underline');
+        el.classList.add('bg-emerald-500/10', 'text-emerald-400', 'border', 'border-emerald-500/40');
+        
+        const checklistItem = document.getElementById(`chk-${targetVar}`);
+        checklistItem.querySelector('.status-icon').innerHTML = `✅ ${targetVal} ${targetVar === 'fck' || targetVar === 'fy' ? 'N/mm²' : targetVar === 'Mu' ? 'kNm' : 'mm'}`;
+        checklistItem.querySelector('.status-icon').classList.remove('text-slate-500');
+        checklistItem.querySelector('.status-icon').classList.add('text-emerald-400', 'font-bold');
+        
+        playBeep(480 + (targetVal % 100), 0.15);
+
+        // Dynamic concrete pouring action
+        if (targetVar === 'fck') {
+          STATE.concretePoured = true;
+          STATE.concreteAnimationTimer = 100;
+          speak("Concrete grade recognized. Deploying high aggregate slurry pour.");
+        } else if (targetVar === 'fy') {
+          speak("Rebar yield capacity verified.");
+        }
+
+        performIS456Calculations();
+        checkStep1Completion();
+      });
+    });
+
+    function checkStep1Completion() {
+      const allExtracted = Object.values(STATE.extracted).every(v => v === true);
+      if (allExtracted) {
+        document.getElementById("btn-next").removeAttribute('disabled');
+        document.getElementById("system-status-msg").textContent = "Step 1 complete! Click 'Next Step' to begin official IS-Codebook lookups.";
+        speak("All structural design boundaries extracted successfully. Click Next Step to proceed to the codebook analysis phase.");
+      }
+    }
+
+    // Step 2: Codebook Drag and Drop Target logic
+    const codebookToken = document.getElementById("codebook-token");
+    const dropzone = document.getElementById("codebook-dropzone");
+
+    codebookToken.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', 'is456-codebook');
+      playBeep(520, 0.05);
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('border-cyan-400', 'bg-cyan-500/10');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+      dropzone.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const data = e.dataTransfer.getData('text/plain');
+      if (data === 'is456-codebook') {
+        dropzone.classList.remove('border-cyan-400', 'bg-cyan-500/10');
+        dropzone.classList.add('border-emerald-500/30', 'bg-emerald-500/10');
+        dropzone.innerHTML = `
+          <svg class="w-6 h-6 text-emerald-400 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+          <p class="text-[11px] text-emerald-400 uppercase tracking-widest font-bold">Codebook Authorized</p>
+          <p class="text-[9px] text-slate-300">Stress Block Formulas Unlocked!</p>
+        `;
+        STATE.codebookUnlocked = true;
+        playSuccessChime();
+        speak("Codebook clearance authorized. Section G annex constants added to formula workbench.");
+        document.getElementById("btn-next").removeAttribute('disabled');
+        document.getElementById("system-status-msg").textContent = "Codebook authenticated. Transition to Formula Assembly tab via the right header panel.";
+        
+        // Automatically switch tabs
+        switchTab("assembly");
+      } else {
+        playErrorBuzz();
+      }
+    });
+
+    // Step 3: Formula Assembly Drag and Drop logic
+    const draggableChips = document.querySelectorAll('.draggable-chip');
+    const formulaSlots = document.querySelectorAll('.formula-slot');
+
+    draggableChips.forEach(chip => {
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', chip.getAttribute('data-val'));
+        playBeep(600, 0.05);
+      });
+    });
+
+    formulaSlots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('border-cyan-400', 'bg-cyan-950');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('border-cyan-400', 'bg-cyan-950');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const droppedVal = e.dataTransfer.getData('text/plain');
+        const correctVal = slot.getAttribute('data-correct');
+
+        if (droppedVal === correctVal) {
+          slot.classList.remove('border-cyan-400', 'border-dashed');
+          slot.classList.add('border-emerald-500', 'bg-emerald-500/20', 'text-emerald-400');
+          slot.textContent = droppedVal;
+          playBeep(880, 0.1);
+          checkFormulaAssemblyCompletion();
+        } else {
+          slot.classList.add('border-red-500', 'bg-red-500/10');
+          playErrorBuzz();
+          speak("Incorrect formula placement. Consult Annexure G of IS-456 for ultimate strain.");
+          setTimeout(() => {
+            slot.classList.remove('border-red-500', 'bg-red-500/10');
+          }, 1000);
+        }
+      });
+    });
+
+    function checkFormulaAssemblyCompletion() {
+      let allSlotsCorrect = true;
+      formulaSlots.forEach(slot => {
+        if (slot.textContent !== slot.getAttribute('data-correct')) {
+          allSlotsCorrect = false;
+        }
+      });
+
+      if (allSlotsCorrect) {
+        STATE.formulaAssembled = true;
+        playSuccessChime();
+        speak("Ultimate limit state strains assembled correctly. Strain calculation complete.");
+        document.getElementById("btn-next").removeAttribute('disabled');
+        document.getElementById("system-status-msg").textContent = "Formula verified! Proceeding to Step 4. Observe the localized stress blocks.";
+      }
+    }
+
+    // Tab switcher helper
+    const btnTabCode = document.getElementById("btn-tab-code");
+    const btnTabAssembly = document.getElementById("btn-tab-assembly");
+    const tabCodeContent = document.getElementById("tab-content-code");
+    const tabAssemblyContent = document.getElementById("tab-content-assembly");
+
+    btnTabCode.addEventListener('click', () => switchTab("code"));
+    btnTabAssembly.addEventListener('click', () => switchTab("assembly"));
+
+    function switchTab(tabName) {
+      if (tabName === "code") {
+        btnTabCode.classList.add("border-cyan-400", "text-cyan-400");
+        btnTabCode.classList.remove("border-transparent", "text-slate-400");
+        btnTabAssembly.classList.add("border-transparent", "text-slate-400");
+        btnTabAssembly.classList.remove("border-cyan-400", "text-cyan-400");
+        tabCodeContent.classList.remove("hidden");
+        tabAssemblyContent.classList.add("hidden");
+      } else {
+        btnTabAssembly.classList.add("border-cyan-400", "text-cyan-400");
+        btnTabAssembly.classList.remove("border-transparent", "text-slate-400");
+        btnTabCode.classList.add("border-transparent", "text-slate-400");
+        btnTabCode.classList.remove("border-cyan-400", "text-cyan-400");
+        tabAssemblyContent.classList.remove("hidden");
+        tabCodeContent.classList.add("hidden");
+      }
+      playBeep(450, 0.05);
+    }
+
+    // Navigation Step Engine Logic
+    const btnNext = document.getElementById("btn-next");
+    const btnPrev = document.getElementById("btn-prev");
+    const xuSlider = document.getElementById("xu-slider");
+    const autoXuBtn = document.getElementById("auto-xu");
+
+    btnNext.addEventListener('click', () => {
+      if (STATE.currentStep < 6) {
+        STATE.currentStep++;
+        updateWizardStep();
+      }
+    });
+
+    btnPrev.addEventListener('click', () => {
+      if (STATE.currentStep > 1) {
+        STATE.currentStep--;
+        updateWizardStep();
+      }
+    });
+
+    // Slider controls for custom strain NA manipulation
+    xuSlider.addEventListener('input', (e) => {
+      updateStressCalculationsOnSliderChange(parseFloat(e.target.value));
+    });
+
+    autoXuBtn.addEventListener('click', () => {
+      xuSlider.value = STATE.xu_max;
+      updateStressCalculationsOnSliderChange(STATE.xu_max);
+      playBeep(700, 0.1);
+    });
+
+    function updateWizardStep() {
+      // Step badge update
+      document.getElementById("current-step-badge").textContent = STATE.currentStep;
+      
+      // Reset defaults
+      btnNext.setAttribute('disabled', 'true');
+      btnPrev.removeAttribute('disabled');
+      xuSlider.setAttribute('disabled', 'true');
+
+      // Setup clean camera frame per step
+      camera.targetScale = 1.0;
+      camera.targetX = canvas.width / 2;
+      camera.targetY = canvas.height / 2;
+
+      switch(STATE.currentStep) {
+        case 1:
+          btnPrev.setAttribute('disabled', 'true');
+          checkStep1Completion();
+          document.getElementById("radar-guide-msg").textContent = "Extract all parameters inside the problem request statement. Clicking elements initializes material matrices.";
+          break;
+        case 2:
+          if (STATE.codebookUnlocked) {
+            btnNext.removeAttribute('disabled');
+          }
+          document.getElementById("radar-guide-msg").textContent = "Drag and drop the IS-456 Codebook token into the target reader zone on the right console.";
+          break;
+        case 3:
+          if (STATE.formulaAssembled) {
+            btnNext.removeAttribute('disabled');
+          }
+          document.getElementById("radar-guide-msg").textContent = "Assemble the Limit State Strain equation. Drag value blocks into the equation slots.";
+          break;
+        case 4:
+          // Localized calculation zoom into compression area
+          camera.targetScale = 1.4;
+          camera.targetX = (canvas.width / 2) + 50;
+          camera.targetY = (canvas.height / 2) + 20;
+
+          xuSlider.removeAttribute('disabled');
+          btnNext.removeAttribute('disabled');
+          
+          document.getElementById("radar-guide-msg").textContent = "Use the slider to shift the Neutral Axis (xu). Observe live parabolic stresses matching compression zone values.";
+          speak("Dynamic strain testing matrix operational. Notice the stress distribution change as the neutral axis shifts.");
+          break;
+        case 5:
+          // Moment partition visualization
+          btnNext.removeAttribute('disabled');
+          document.getElementById("radar-guide-msg").textContent = "Review moment partition bars. Concrete carries Mu,lim while remaining stress is resolved by compressive steel.";
+          
+          // Animate verification bars
+          setTimeout(() => {
+            const mulimPct = (STATE.Mulim / STATE.values.Mu) * 100;
+            const mu2Pct = (STATE.Mu2 / STATE.values.Mu) * 100;
+            document.getElementById("mulim-bar").style.width = `${Math.min(mulimPct, 100)}%`;
+            document.getElementById("mu2-bar").style.width = `${Math.min(mu2Pct, 100)}%`;
+            document.getElementById("total-cap-display").textContent = `${STATE.values.Mu.toFixed(1)} kNm`;
+            playSuccessChime();
+          }, 300);
+          break;
+        case 6:
+          // Final Decomposition layout
+          document.getElementById("radar-guide-msg").textContent = "Analysis success! The doubly reinforced section is balanced and ready for fabrication detailing.";
+          speak("Simulation complete. The beam satisfies both tensile and compressive ultimate limit capacities.");
+          
+          // Display details
+          showFinalReport();
+          break;
+      }
+    }
+
+    function showFinalReport() {
+      // Direct modal overview inside problem statement zone
+      const leftPanel = document.querySelector('section');
+      leftPanel.innerHTML = `
+        <div class="p-4 bg-slate-950/90 rounded-xl border border-emerald-500/40 text-xs font-mono">
+          <h3 class="text-emerald-400 font-bold text-center mb-3 tracking-widest uppercase">DETAILED ENGINEERING REPORT</h3>
+          <p class="text-slate-400 mb-2">PROJECT: FLEXURAL DEEP BEAM</p>
+          <div class="space-y-2 border-t border-slate-800 pt-3">
+            <div class="flex justify-between"><span>Mu (Limit standard):</span><span class="text-slate-100">${STATE.values.Mu} kNm</span></div>
+            <div class="flex justify-between"><span>Mu,lim (Concrete):</span><span class="text-slate-100">${STATE.Mulim.toFixed(1)} kNm</span></div>
+            <div class="flex justify-between"><span>Mu2 (Excess steel cap):</span><span class="text-slate-100">${STATE.Mu2.toFixed(1)} kNm</span></div>
+            <div class="flex justify-between"><span>Esc (Steel strain limit):</span><span class="text-amber-400">${STATE.epsilon_sc.toFixed(5)}</span></div>
+            <div class="flex justify-between"><span>Fsc (Yield factor):</span><span class="text-amber-400">${STATE.fsc} N/mm²</span></div>
+          </div>
+          <button onclick="window.location.reload()" class="mt-4 w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded uppercase transition text-[10px] tracking-wider text-center">Reset Simulator</button>
+        </div>
+      `;
+    }
+
+    // --- CONSOLE ENGINE STARTUP ---
+    initCanvas();
+    draw();
+    performIS456Calculations();
+  </script>
+</body>
+</html>

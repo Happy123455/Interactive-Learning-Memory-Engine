@@ -1,0 +1,1271 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doubly Reinforced Beam Design Optimizer - Step 3</title>
+    <style>
+        /* Modern Cyber Slate Theme Variables */
+        :root {
+            --bg-primary: #090d16;
+            --bg-secondary: rgba(15, 23, 42, 0.75);
+            --bg-tertiary: #1e293b;
+            --accent-cyan: #22d3ee;
+            --accent-cyan-glow: rgba(34, 211, 238, 0.45);
+            --accent-amber: #fbbf24;
+            --accent-amber-glow: rgba(251, 191, 36, 0.4);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border-color: rgba(34, 211, 238, 0.15);
+            --paper-bg: #0d1117;
+            --paper-border: #30363d;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(34, 211, 238, 0.08) 0px, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(251, 191, 36, 0.05) 0px, transparent 50%);
+        }
+
+        /* Top Bar Navigation & Controls */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 2rem;
+            background: rgba(9, 13, 22, 0.8);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-badge {
+            background: linear-gradient(135deg, var(--accent-cyan), #06b6d4);
+            color: #0f172a;
+            font-weight: 800;
+            font-size: 0.85rem;
+            padding: 0.25rem 0.6rem;
+            border-radius: 6px;
+            box-shadow: 0 0 12px var(--accent-cyan-glow);
+        }
+
+        .logo-text {
+            font-weight: 700;
+            font-size: 1.25rem;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        button.btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), #0891b2);
+            color: #090d16;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(34, 211, 238, 0.2);
+        }
+
+        button.btn-primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(34, 211, 238, 0.4);
+            filter: brightness(1.1);
+        }
+
+        button.btn-secondary {
+            background: rgba(30, 41, 59, 0.5);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        button.btn-secondary:hover {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        /* Main Dashboard Grid */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 340px 1fr 400px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphic Panel Wrapper */
+        .panel {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: border-color 0.3s;
+        }
+
+        .panel:hover {
+            border-color: rgba(34, 211, 238, 0.3);
+        }
+
+        .panel-header {
+            padding: 1rem 1.25rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.4);
+        }
+
+        .panel-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-cyan);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-body {
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            flex-grow: 1;
+        }
+
+        /* Input Controls & Sliders */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label-wrapper {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .control-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.1);
+            padding: 0.1rem 0.4rem;
+            border-radius: 4px;
+            border: 1px solid rgba(34, 211, 238, 0.2);
+        }
+
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #1e293b;
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-cyan-glow);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #e0f7fa;
+        }
+
+        .custom-slider::-webkit-slider-thumb:active {
+            transform: scale(1.3);
+        }
+
+        /* Radio Toggle Design */
+        .radio-toggle-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            background: #0f172a;
+            padding: 0.25rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .radio-toggle-item {
+            position: relative;
+        }
+
+        .radio-toggle-item input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .radio-toggle-label {
+            display: block;
+            text-align: center;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .radio-toggle-item input[type="radio"]:checked + .radio-toggle-label {
+            background: rgba(34, 211, 238, 0.15);
+            color: var(--accent-cyan);
+            box-shadow: inset 0 0 8px rgba(34, 211, 238, 0.1);
+        }
+
+        /* Live Warning Bar */
+        .warning-banner {
+            background: rgba(251, 191, 36, 0.08);
+            border: 1px solid rgba(251, 191, 36, 0.25);
+            border-radius: 10px;
+            padding: 0.85rem;
+            display: flex;
+            gap: 0.75rem;
+            align-items: flex-start;
+            margin-top: auto;
+        }
+
+        .warning-icon {
+            color: var(--accent-amber);
+            font-size: 1.2rem;
+            line-height: 1;
+        }
+
+        .warning-text {
+            font-size: 0.8rem;
+            color: #fde047;
+            line-height: 1.4;
+        }
+
+        /* Center Section: Canvas & Real-time Telemetry */
+        .telemetry-panel {
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .canvas-container {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #070a12;
+            position: relative;
+            min-height: 420px;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+        }
+
+        /* Live Stat Badges */
+        .live-metrics-bar {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1px;
+            background: var(--border-color);
+            border-top: 1px solid var(--border-color);
+        }
+
+        .metric-card {
+            background: rgba(15, 23, 42, 0.5);
+            padding: 1rem;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .metric-title {
+            font-size: 0.7rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .metric-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .metric-value.highlight-cyan {
+            color: var(--accent-cyan);
+            text-shadow: 0 0 8px var(--accent-cyan-glow);
+        }
+
+        /* Right Section: Exam Solution Sheet Pane */
+        .exam-sheet-panel {
+            background: var(--paper-bg);
+            border-color: var(--paper-border);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .exam-sheet-panel:hover {
+            border-color: #444c56;
+        }
+
+        .exam-scroll-area {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 1.5rem;
+            font-family: 'JetBrains Mono', 'Courier New', Courier, monospace;
+            font-size: 0.825rem;
+            line-height: 1.6;
+            color: #c9d1d9;
+            background-image: 
+                linear-gradient(rgba(48, 54, 61, 0.15) 1px, transparent 1px);
+            background-size: 100% 24px;
+        }
+
+        .exam-header {
+            text-align: center;
+            border-bottom: 2px dashed #30363d;
+            padding-bottom: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .exam-institution {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 0.25rem;
+        }
+
+        .exam-title {
+            font-size: 1.1rem;
+            color: var(--text-primary);
+            font-weight: bold;
+        }
+
+        .exam-step-title {
+            color: var(--accent-cyan);
+            font-weight: bold;
+            margin: 1.5rem 0 0.5rem 0;
+            border-bottom: 1px solid #30363d;
+            padding-bottom: 0.25rem;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .math-block {
+            background: rgba(30, 41, 59, 0.3);
+            border-left: 3px solid var(--accent-cyan);
+            padding: 0.75rem;
+            margin: 0.75rem 0;
+            border-radius: 0 6px 6px 0;
+        }
+
+        .math-line {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 0.25rem;
+        }
+
+        .math-expr {
+            font-weight: 600;
+        }
+
+        .math-res {
+            color: var(--accent-cyan);
+            font-weight: bold;
+        }
+
+        /* Sound Indicator Overlay */
+        .sound-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+        }
+
+        .sound-dot {
+            width: 8px;
+            height: 8px;
+            background-color: #22c55e;
+            border-radius: 50%;
+            box-shadow: 0 0 8px #22c55e;
+            display: inline-block;
+        }
+
+        .sound-dot.muted {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+        }
+
+        /* Custom Interactive Tooltip */
+        .info-button {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .info-button:hover {
+            color: var(--accent-cyan);
+        }
+
+        /* App Footer status bar */
+        footer {
+            background: #070a12;
+            border-top: 1px solid var(--border-color);
+            padding: 0.75rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* Scrollbar aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--bg-tertiary);
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--accent-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Upper Control Bar -->
+    <header>
+        <div class="logo-container">
+            <span class="logo-badge">IS 456</span>
+            <span class="logo-text">Concrete Engine</span>
+        </div>
+        
+        <div class="header-actions">
+            <div class="sound-status">
+                <span class="sound-dot" id="sound-dot-indicator"></span>
+                <span id="sound-status-text">Audio Enabled</span>
+            </div>
+            <button class="btn-secondary" id="btn-toggle-sound" onclick="app.toggleMute()">
+                🔊 Mute/Unmute
+            </button>
+            <button class="btn-primary" id="btn-narrate" onclick="app.speakScenario()">
+                🗣️ Narrate Theory
+            </button>
+            <button class="btn-secondary" style="border-color: var(--accent-amber);" id="btn-randomize" onclick="app.generateRandomScenario()">
+                🎲 Practice Scenario
+            </button>
+        </div>
+    </header>
+
+    <!-- Master Workspace -->
+    <div class="dashboard-container">
+        
+        <!-- Left Column: Input Controller Workbench -->
+        <div class="panel">
+            <div class="panel-header">
+                <span class="panel-title">⚙️ Design Sliders</span>
+                <button class="info-button" onclick="alert('Adjust sliders to update structural strain curves and calculate necessary steel cross-sectional areas in real time.')">ℹ️</button>
+            </div>
+            <div class="panel-body">
+                
+                <!-- Steel Grade Selector -->
+                <div class="control-group">
+                    <span class="control-label">Steel Reinforcement Grade (f<sub>y</sub>)</span>
+                    <div class="radio-toggle-group">
+                        <div class="radio-toggle-item">
+                            <input type="radio" id="fy-415" name="steelGrade" value="Fe415" checked onchange="app.updateInputs()">
+                            <label class="radio-toggle-label" for="fy-415">Fe 415</label>
+                        </div>
+                        <div class="radio-toggle-item">
+                            <input type="radio" id="fy-500" name="steelGrade" value="Fe500" onchange="app.updateInputs()">
+                            <label class="radio-toggle-label" for="fy-500">Fe 500</label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Slider 1: Ultimate Design Moment -->
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span class="control-label">Ultimate Moment (M<sub>u</sub>)</span>
+                        <span class="control-value" id="val-mu">--</span>
+                    </div>
+                    <input type="range" id="input-mu" min="150" max="650" step="5" class="custom-slider" oninput="app.onSliderInput(); app.updateInputs()">
+                </div>
+
+                <!-- Slider 2: Limiting Design Moment -->
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span class="control-label">Limiting Moment (M<sub>u,lim</sub>)</span>
+                        <span class="control-value" id="val-mulim">--</span>
+                    </div>
+                    <input type="range" id="input-mulim" min="100" max="450" step="5" class="custom-slider" oninput="app.onSliderInput(); app.updateInputs()">
+                </div>
+
+                <!-- Slider 3: Beam Width -->
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span class="control-label">Beam Width (b)</span>
+                        <span class="control-value" id="val-b">--</span>
+                    </div>
+                    <input type="range" id="input-b" min="200" max="400" step="10" class="custom-slider" oninput="app.onSliderInput(); app.updateInputs()">
+                </div>
+
+                <!-- Slider 4: Effective Depth -->
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span class="control-label">Effective Depth (d)</span>
+                        <span class="control-value" id="val-d">--</span>
+                    </div>
+                    <input type="range" id="input-d" min="350" max="750" step="10" class="custom-slider" oninput="app.onSliderInput(); app.updateInputs()">
+                </div>
+
+                <!-- Slider 5: Effective Cover to Compression Steel -->
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span class="control-label">Effective Cover (d')</span>
+                        <span class="control-value" id="val-dp">--</span>
+                    </div>
+                    <input type="range" id="input-dp" min="30" max="80" step="5" class="custom-slider" oninput="app.onSliderInput(); app.updateInputs()">
+                </div>
+
+                <!-- Alert Messages / Notifications System -->
+                <div class="warning-banner" id="warning-box">
+                    <span class="warning-icon">⚠️</span>
+                    <span class="warning-text" id="warning-text">Dynamic warning parameters and code rules will be displayed here as inputs are varied.</span>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- Center Column: Telemetry System and Real-time Visualizer -->
+        <div class="panel telemetry-panel">
+            <div class="panel-header">
+                <span class="panel-title">🛡️ Beam Stress & Strain Telemetry</span>
+                <span class="sound-status" style="color: var(--text-muted); font-size: 0.75rem;">Interactive Vector Diagnostics</span>
+            </div>
+            
+            <div class="canvas-container">
+                <canvas id="beamCanvas" width="650" height="420"></canvas>
+            </div>
+
+            <!-- Dynamic Telemetry Stat Metrics -->
+            <div class="live-metrics-bar">
+                <div class="metric-card">
+                    <span class="metric-title">Compression Strain (&epsilon;<sub>sc</sub>)</span>
+                    <span class="metric-value highlight-cyan" id="metric-strain">--</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Compression Stress (f<sub>sc</sub>)</span>
+                    <span class="metric-value highlight-cyan" id="metric-fsc">--</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-title">Compression Steel Required (A<sub>sc</sub>)</span>
+                    <span class="metric-value highlight-cyan" id="metric-asc">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Formal University Exam Sheet Display -->
+        <div class="panel exam-sheet-panel">
+            <div class="panel-header">
+                <span class="panel-title" style="color: #8b949e;">📝 University Exam Paper Workspace</span>
+                <span style="font-size: 0.75rem; color: #58a6ff;">Step 3 Submittals</span>
+            </div>
+            <div class="exam-scroll-area" id="exam-sheet">
+                <!-- Programmatically generated exam sheets -->
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Live Status Footer Bar -->
+    <footer>
+        <span>Interactive Civil Engineering Simulator - IS 456 Limit State Design Methodology</span>
+        <span>Version 4.2 (Production Ready)</span>
+    </footer>
+
+    <!-- Audio & Calculation Logic Script -->
+    <script>
+        // --- Web Audio API Synth Sound Engines ---
+        class AudioSynthController {
+            constructor() {
+                this.audioCtx = null;
+                this.muted = false;
+            }
+
+            init() {
+                if (!this.audioCtx) {
+                    this.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTick() {
+                if (this.muted) return;
+                this.init();
+                const now = this.audioCtx.currentTime;
+                
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1000, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.04);
+
+                gain.gain.setValueAtTime(0.04, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+
+                osc.start(now);
+                osc.stop(now + 0.04);
+            }
+
+            playChime() {
+                if (this.muted) return;
+                this.init();
+                const now = this.audioCtx.currentTime;
+
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(659.25, now); // E5
+                osc.frequency.setValueAtTime(987.77, now + 0.08); // B5
+
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(0.06, now + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+
+            playSweep() {
+                if (this.muted) return;
+                this.init();
+                const now = this.audioCtx.currentTime;
+
+                const osc = this.audioCtx.createOscillator();
+                const gain = this.audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(this.audioCtx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(1200, now + 0.3);
+
+                gain.gain.setValueAtTime(0.001, now);
+                gain.gain.linearRampToValueAtTime(0.05, now + 0.15);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+
+                osc.start(now);
+                osc.stop(now + 0.3);
+            }
+        }
+
+        // --- Core Engine Architecture & Calculations ---
+        class BeamDesignOptimizer {
+            constructor() {
+                this.audio = new AudioSynthController();
+                this.canvas = document.getElementById('beamCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                
+                // Set default design inputs
+                this.inputs = {
+                    steelGrade: 'Fe415',
+                    mu: 380,       // kNm
+                    mulim: 260,    // kNm
+                    b: 300,        // mm
+                    d: 550,        // mm
+                    dp: 50         // mm
+                };
+
+                this.lastCalculations = null;
+            }
+
+            init() {
+                // Seed input elements with defaults
+                document.getElementById('input-mu').value = this.inputs.mu;
+                document.getElementById('input-mulim').value = this.inputs.mulim;
+                document.getElementById('input-b').value = this.inputs.b;
+                document.getElementById('input-d').value = this.inputs.d;
+                document.getElementById('input-dp').value = this.inputs.dp;
+                
+                this.updateInputs();
+                this.audio.playChime();
+            }
+
+            toggleMute() {
+                this.audio.muted = !this.audio.muted;
+                const dot = document.getElementById('sound-dot-indicator');
+                const text = document.getElementById('sound-status-text');
+                if (this.audio.muted) {
+                    dot.classList.add('muted');
+                    text.innerText = "Audio Muted";
+                } else {
+                    dot.classList.remove('muted');
+                    text.innerText = "Audio Enabled";
+                    this.audio.playTick();
+                }
+            }
+
+            onSliderInput() {
+                this.audio.playTick();
+            }
+
+            generateRandomScenario() {
+                // Generate synthetically valid doubly reinforced concrete design configurations
+                const d = Math.floor(Math.random() * (680 - 450 + 1) + 450); // mm
+                const dp = Math.floor(Math.random() * (60 - 35 + 1) + 35); // mm
+                const b = Math.floor(Math.random() * (350 - 250 + 1) + 250); // mm
+                const mulim = Math.floor(Math.random() * (280 - 150 + 1) + 150); // kNm
+                const mu = Math.floor(mulim + Math.random() * (160 - 60 + 1) + 60); // Ensure Doubly Reinforced (Mu > Mulim)
+                
+                const gradeToggle = Math.random() > 0.5 ? 'Fe415' : 'Fe500';
+                document.getElementById('fy-415').checked = gradeToggle === 'Fe415';
+                document.getElementById('fy-500').checked = gradeToggle === 'Fe500';
+
+                document.getElementById('input-d').value = d;
+                document.getElementById('input-dp').value = dp;
+                document.getElementById('input-b').value = b;
+                document.getElementById('input-mulim').value = mulim;
+                document.getElementById('input-mu').value = mu;
+
+                this.audio.playSweep();
+                this.updateInputs();
+            }
+
+            updateInputs() {
+                this.inputs.steelGrade = document.querySelector('input[name="steelGrade"]:checked').value;
+                this.inputs.mu = parseFloat(document.getElementById('input-mu').value);
+                this.inputs.mulim = parseFloat(document.getElementById('input-mulim').value);
+                this.inputs.b = parseFloat(document.getElementById('input-b').value);
+                this.inputs.d = parseFloat(document.getElementById('input-d').value);
+                this.inputs.dp = parseFloat(document.getElementById('input-dp').value);
+
+                // Dynamically constrain sliders to prevent physically impossible scenarios
+                // Cover d' shouldn't be larger than ~25% of d
+                if (this.inputs.dp >= this.inputs.d * 0.25) {
+                    this.inputs.dp = Math.floor(this.inputs.d * 0.2);
+                    document.getElementById('input-dp').value = this.inputs.dp;
+                }
+
+                // Render slider feedback values
+                document.getElementById('val-mu').innerText = this.inputs.mu + " kNm";
+                document.getElementById('val-mulim').innerText = this.inputs.mulim + " kNm";
+                document.getElementById('val-b').innerText = this.inputs.b + " mm";
+                document.getElementById('val-d').innerText = this.inputs.d + " mm";
+                document.getElementById('val-dp').innerText = this.inputs.dp + " mm";
+
+                this.calculateAsc();
+            }
+
+            // IS 456 Steel Stress-Strain curve interpolator engine
+            calculateFsc(strain, grade) {
+                if (strain <= 0) return 0;
+                
+                if (grade === 'Fe415') {
+                    // Design stresses matching standard strain lookup curves (IS 456)
+                    const strains = [0, 0.00144, 0.00163, 0.00192, 0.00241, 0.00276, 0.00380];
+                    const stresses = [0, 288.0, 288.7, 306.7, 324.8, 342.8, 351.8];
+                    return this.interpolateCurve(strain, strains, stresses, 351.8);
+                } else { // Fe500
+                    const strains = [0, 0.00174, 0.00195, 0.00228, 0.00285, 0.00325, 0.00412];
+                    const stresses = [0, 347.8, 348.7, 370.3, 392.0, 413.7, 424.6];
+                    return this.interpolateCurve(strain, strains, stresses, 424.6);
+                }
+            }
+
+            interpolateCurve(val, xArr, yArr, maxVal) {
+                if (val >= xArr[xArr.length - 1]) return maxVal;
+                for (let i = 0; i < xArr.length - 1; i++) {
+                    if (val >= xArr[i] && val <= xArr[i + 1]) {
+                        const t = (val - xArr[i]) / (xArr[i + 1] - xArr[i]);
+                        return yArr[i] + t * (yArr[i + 1] - yArr[i]);
+                    }
+                }
+                return 0;
+            }
+
+            calculateAsc() {
+                const { steelGrade, mu, mulim, b, d, dp } = this.inputs;
+
+                let warningText = "System operating within optimal doubly reinforced boundaries.";
+                let hasWarnings = false;
+
+                // 1. Calculate limiting neutral axis factor k & neutral axis depth (xu_max)
+                const k_factor = steelGrade === 'Fe415' ? 0.48 : 0.46;
+                const xu_max = k_factor * d;
+
+                // 2. Compute excess moment Mu2
+                let mu2 = mu - mulim;
+                if (mu2 < 0) {
+                    mu2 = 0;
+                    warningText = "Warning: Mᵤ ≤ Mᵤ,ₗᵢₘ. Beam is technically singly reinforced. Compressive steel is redundant.";
+                    hasWarnings = true;
+                }
+
+                // 3. Compute compression steel strain
+                let strain_sc = 0;
+                if (xu_max > dp) {
+                    strain_sc = 0.0035 * (xu_max - dp) / xu_max;
+                } else {
+                    strain_sc = 0;
+                    warningText = "Error: Cover d' exceeds maximum neutral axis depth x_u,max. Compression steel is in tension zone.";
+                    hasWarnings = true;
+                }
+
+                // 4. Compute design stress (fsc)
+                const fsc = this.calculateFsc(strain_sc, steelGrade);
+
+                // 5. Calculate required area of compression steel (Asc)
+                let asc = 0;
+                if (fsc > 0 && mu2 > 0 && d > dp) {
+                    // M_u2 transformed to N-mm from kNm
+                    asc = (mu2 * 1e6) / (fsc * (d - dp));
+                }
+
+                this.lastCalculations = {
+                    xu_max,
+                    mu2,
+                    strain_sc,
+                    fsc,
+                    asc,
+                    k_factor,
+                    hasWarnings
+                };
+
+                // UI Updates
+                const warningBox = document.getElementById('warning-box');
+                const warningLabel = document.getElementById('warning-text');
+                if (hasWarnings) {
+                    warningBox.style.borderColor = 'var(--accent-amber)';
+                    warningBox.style.background = 'rgba(251, 191, 36, 0.08)';
+                    warningLabel.innerText = warningText;
+                } else {
+                    warningBox.style.borderColor = 'var(--border-color)';
+                    warningBox.style.background = 'rgba(15, 23, 42, 0.4)';
+                    warningLabel.innerText = warningText;
+                }
+
+                // Populate telemetry metrics
+                document.getElementById('metric-strain').innerText = strain_sc.toFixed(6);
+                document.getElementById('metric-fsc').innerText = fsc.toFixed(2) + " N/mm²";
+                document.getElementById('metric-asc').innerText = asc.toFixed(1) + " mm²";
+
+                this.renderVisuals();
+                this.updateExamSheet();
+            }
+
+            renderVisuals() {
+                const { b, d, dp } = this.inputs;
+                const { xu_max, strain_sc, fsc, asc } = this.lastCalculations;
+                const ctx = this.ctx;
+                const cw = this.canvas.width;
+                const ch = this.canvas.height;
+
+                ctx.clearRect(0, 0, cw, ch);
+
+                // 1. Dark tech background
+                ctx.fillStyle = '#070a12';
+                ctx.fillRect(0, 0, cw, ch);
+
+                // Subtle background grid
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.02)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < cw; i += 25) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, ch); ctx.stroke();
+                }
+                for (let j = 0; j < ch; j += 25) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(cw, j); ctx.stroke();
+                }
+
+                // Dimension calculations for canvas coordinates
+                const x_beam = 50;
+                const y_beam = 50;
+                const b_width = 160;
+                const h_height = 300; // Representing total beam height
+
+                // Scale variables to map physical millimeters to pixels
+                const mmToPx = (h_height - 40) / d; // Map effective depth to h_height - 40px padding
+
+                // 2. Draw Beam Core profile
+                ctx.fillStyle = 'rgba(30, 41, 59, 0.4)';
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+                ctx.lineWidth = 2.5;
+                ctx.fillRect(x_beam, y_beam, b_width, h_height);
+                ctx.strokeRect(x_beam, y_beam, b_width, h_height);
+
+                // 3. Draw stirrup tie cage loop
+                ctx.strokeStyle = 'rgba(148, 163, 184, 0.35)';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x_beam + 10, y_beam + 10, b_width - 20, h_height - 20);
+
+                // 4. Compression Steel (Asc) at d'
+                const y_dp = y_beam + (dp * mmToPx);
+                const ascRadius = Math.max(5, Math.min(14, 5 + asc / 220)); // Dynamic glowing size
+
+                // Horizontal alignment line for Asc
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.25)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([4, 4]);
+                ctx.beginPath(); ctx.moveTo(x_beam, y_dp); ctx.lineTo(320, y_dp); ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Draw glowing compression bars (Left and Right)
+                const drawGlowingBar = (x, y, radius) => {
+                    ctx.save();
+                    ctx.shadowColor = 'var(--accent-cyan)';
+                    ctx.shadowBlur = 12;
+                    ctx.fillStyle = 'var(--accent-cyan)';
+                    ctx.beginPath();
+                    ctx.arc(x, y, radius, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                };
+                drawGlowingBar(x_beam + 22, y_dp, ascRadius);
+                drawGlowingBar(x_beam + b_width - 22, y_dp, ascRadius);
+
+                // 5. Tension steel group at bottom (Ast) at effective depth d
+                const y_d = y_beam + (d * mmToPx);
+                ctx.fillStyle = '#475569';
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                ctx.beginPath();
+                ctx.arc(x_beam + 25, y_d, 8, 0, Math.PI * 2);
+                ctx.arc(x_beam + b_width / 2, y_d, 8, 0, Math.PI * 2);
+                ctx.arc(x_beam + b_width - 25, y_d, 8, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 6. Draw Neutral Axis (N.A.)
+                const y_na = y_beam + (xu_max * mmToPx);
+                ctx.strokeStyle = 'var(--accent-amber)';
+                ctx.shadowColor = 'var(--accent-amber-glow)';
+                ctx.shadowBlur = 6;
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([8, 4]);
+                ctx.beginPath();
+                ctx.moveTo(x_beam - 10, y_na);
+                ctx.lineTo(440, y_na);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.shadowBlur = 0; // Reset shadow
+
+                ctx.fillStyle = 'var(--accent-amber)';
+                ctx.font = 'bold 9px monospace';
+                ctx.fillText("X_u,max N.A.", x_beam - 45, y_na + 3);
+
+                // Dimension tags
+                ctx.fillStyle = 'var(--text-secondary)';
+                ctx.font = '10px monospace';
+                ctx.fillText(`b = ${b}mm`, x_beam + b_width/2 - 20, y_beam - 12);
+                
+                // Draw arrow vectors for d'
+                ctx.strokeStyle = 'var(--text-muted)';
+                ctx.beginPath();
+                ctx.moveTo(x_beam - 8, y_beam);
+                ctx.lineTo(x_beam - 8, y_dp);
+                ctx.stroke();
+                ctx.fillText(`d'=${dp}`, x_beam - 45, y_dp - 3);
+
+                // 7. Right Strain Diagram Block (Center x_offset at 340)
+                const x_diag = 350;
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x_diag, y_beam);
+                ctx.lineTo(x_diag, y_beam + h_height);
+                ctx.stroke();
+
+                // Strain diagram profiles
+                const maxConcreteStrain = 0.0035;
+                const strainScaleFactor = 22000; // Transform strain magnitude to visually readable pixel offsets
+
+                const x_top_strain = x_diag - (maxConcreteStrain * strainScaleFactor);
+                const y_top = y_beam;
+                
+                // Linear connection down through NA crossover
+                ctx.strokeStyle = 'var(--accent-cyan)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(x_top_strain, y_top);
+                ctx.lineTo(x_diag, y_na);
+                ctx.stroke();
+
+                // Plot projection down to tension region
+                const strain_t = 0.0038; // Idealized steel tension yield limit
+                const x_bot_strain = x_diag + (strain_t * strainScaleFactor);
+                ctx.strokeStyle = '#64748b';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x_diag, y_na);
+                ctx.lineTo(x_bot_strain, y_d);
+                ctx.stroke();
+
+                // Plot individual strain vectors & projections
+                ctx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
+                ctx.lineWidth = 1;
+                // Concrete strain label at top fiber
+                ctx.beginPath(); ctx.moveTo(x_top_strain, y_top); ctx.lineTo(x_diag, y_top); ctx.stroke();
+                ctx.fillStyle = 'var(--accent-cyan)';
+                ctx.fillText("ε_cu=0.0035", x_top_strain - 70, y_top + 4);
+
+                // Draw compression steel strain vector (ε_sc) at level d'
+                const x_strain_sc = x_diag - (strain_sc * strainScaleFactor);
+                ctx.strokeStyle = 'var(--accent-cyan)';
+                ctx.beginPath(); ctx.moveTo(x_strain_sc, y_dp); ctx.lineTo(x_diag, y_dp); ctx.stroke();
+                
+                // Active strain reading point
+                ctx.fillStyle = 'var(--accent-cyan)';
+                ctx.beginPath(); ctx.arc(x_strain_sc, y_dp, 3.5, 0, Math.PI * 2); ctx.fill();
+                ctx.fillText(`ε_sc=${strain_sc.toFixed(5)}`, x_strain_sc - 85, y_dp + 3);
+
+                // 8. Dynamic Stress profile block (x_offset at 520)
+                const x_stress_diag = 520;
+                ctx.strokeStyle = '#475569';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(x_stress_diag, y_beam);
+                ctx.lineTo(x_stress_diag, y_beam + h_height);
+                ctx.stroke();
+
+                // Draw stress profile of concrete block (Parabolic + Rectangular)
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.15)';
+                ctx.beginPath();
+                ctx.moveTo(x_stress_diag, y_beam);
+                ctx.lineTo(x_stress_diag - 45, y_beam); // Peak design stress limit
+                // The IS 456 stress curve: linear block down to 3/7th of NA height, parabolic curve to NA line
+                const transition_y = y_beam + ((3/7) * xu_max * mmToPx);
+                ctx.lineTo(x_stress_diag - 45, transition_y);
+                ctx.quadraticCurveTo(x_stress_diag - 45, y_na - 10, x_stress_diag, y_na);
+                ctx.lineTo(x_stress_diag, y_beam);
+                ctx.closePath();
+                ctx.fill();
+
+                // Stress point of compression steel (fsc)
+                const stressScale = 0.12; // Pixel transform scale factor
+                const x_fsc = x_stress_diag - (fsc * stressScale);
+                ctx.strokeStyle = 'var(--accent-cyan)';
+                ctx.lineWidth = 2.5;
+                ctx.beginPath(); ctx.moveTo(x_fsc, y_dp); ctx.lineTo(x_stress_diag, y_dp); ctx.stroke();
+
+                ctx.fillStyle = 'var(--accent-cyan)';
+                ctx.beginPath(); ctx.arc(x_fsc, y_dp, 4, 0, Math.PI*2); ctx.fill();
+                ctx.fillText(`f_sc=${fsc.toFixed(1)} MPa`, x_fsc - 95, y_dp + 3);
+            }
+
+            updateExamSheet() {
+                const { steelGrade, mu, mulim, d, dp, b } = this.inputs;
+                const { xu_max, mu2, strain_sc, fsc, asc, k_factor } = this.lastCalculations;
+
+                const examDiv = document.getElementById('exam-sheet');
+                
+                let markup = `
+<div class="exam-header">
+    <div class="exam-institution">Structural Design Academy (LSD)</div>
+    <div class="exam-title">IS 456:2000 EXAM ANSWER BOOKLET</div>
+</div>
+
+<div><strong>SUBJECT:</strong> Reinforced Concrete Design (Theory & Practice)</div>
+<div><strong>OBJECTIVE:</strong> Step 3 - Area of Compression Reinforcement (A<sub>sc</sub>)</div>
+<hr style="border: 0; border-top: 1px dashed #30363d; margin: 1rem 0;" />
+
+<div class="exam-step-title"><span>Step 3.1: Given Design Parameters</span> <span style="color:#58a6ff;">[Passed]</span></div>
+<div>From previous steps, the ultimate design loading calculations yielded:</div>
+<div class="math-block">
+    <div class="math-line"><span>- Design Moment (M<sub>u</sub>)</span> <span class="math-res">${mu.toFixed(1)} kNm</span></div>
+    <div class="math-line"><span>- Limiting Moment (M<sub>u,lim</sub>)</span> <span class="math-res">${mulim.toFixed(1)} kNm</span></div>
+    <div class="math-line"><span>- Tension Section Depth (d)</span> <span class="math-res">${d.toFixed(1)} mm</span></div>
+    <div class="math-line"><span>- Compression Cover (d')</span> <span class="math-res">${dp.toFixed(1)} mm</span></div>
+    <div class="math-line"><span>- Grade of Steel (f<sub>y</sub>)</span> <span class="math-res">${steelGrade} (E<sub>s</sub> = 2×10⁵ MPa)</span></div>
+</div>
+
+<div class="exam-step-title"><span>Step 3.2: Excess Flexural Action (M<sub>u2</sub>)</span></div>
+<div>The tension limit of singly reinforced cross section is exceeded. Hence, compression zone reinforcement must carry the residual moment:</div>
+<div class="math-block">
+    <div class="math-line"><span>M<sub>u2</sub> = M<sub>u</sub> - M<sub>u,lim</sub></span></div>
+    <div class="math-line"><span>M<sub>u2</sub> = ${mu.toFixed(1)} - ${mulim.toFixed(1)}</span> <span class="math-res">= ${mu2.toFixed(1)} kNm</span></div>
+</div>
+
+<div class="exam-step-title"><span>Step 3.3: Limiting Neutral Axis (x<sub>u,max</sub>)</span></div>
+<div>Based on steel yield characteristic strain for IS 456 curves:</div>
+<div>For ${steelGrade}, limiting neutral axis parameter coefficient (k) is ${k_factor}:</div>
+<div class="math-block">
+    <div class="math-line"><span>x<sub>u,max</sub> = k × d</span></div>
+    <div class="math-line"><span>x<sub>u,max</sub> = ${k_factor} × ${d}</span> <span class="math-res">= ${xu_max.toFixed(2)} mm</span></div>
+</div>
+
+<div class="exam-step-title"><span>Step 3.4: Strain calculation at Compression Steel Level (&epsilon;<sub>sc</sub>)</span></div>
+<div>Using linear strain-compatibility relationship across section fibers:</div>
+<div class="math-block">
+    <div class="math-line"><span>&epsilon;<sub>sc</sub> = 0.0035 × (x<sub>u,max</sub> - d') / x<sub>u,max</sub></span></div>
+    <div class="math-line"><span>&epsilon;<sub>sc</sub> = 0.0035 × (${xu_max.toFixed(2)} - ${dp}) / ${xu_max.toFixed(2)}</span></div>
+    <div class="math-line"><span>&epsilon;<sub>sc</sub> = 0.0035 × ${(xu_max - dp).toFixed(2)} / ${xu_max.toFixed(2)}</span> <span class="math-res">= ${strain_sc.toFixed(6)}</span></div>
+</div>
+
+<div class="exam-step-title"><span>Step 3.5: Compression Steel Stress Estimation (f<sub>sc</sub>)</span></div>
+<div>Referencing IS 456 Annexure curve lookup matching estimated &epsilon;<sub>sc</sub>:</div>
+<div class="math-block">
+    <div class="math-line"><span>Yield Strain Limit:</span> <span>&epsilon;<sub>yd</sub> = f<sub>yd</sub>/E<sub>s</sub> + 0.002</span></div>
+    <div class="math-line"><span>Interpolated Stress Value:</span> <span class="math-res">f<sub>sc</sub> = ${fsc.toFixed(2)} N/mm²</span></div>
+</div>
+
+<div class="exam-step-title"><span>Step 3.6: Required Target Compression Steel Area (A<sub>sc</sub>)</span></div>
+<div>By balancing internal compressive stress block action and excess force equilibrium:</div>
+<div class="math-block">
+    <div class="math-line"><span>A<sub>sc</sub> = M<sub>u2</sub> / [f<sub>sc</sub> × (d - d')]</span></div>
+    <div class="math-line"><span>A<sub>sc</sub> = (${mu2.toFixed(3)} × 10⁶) / [${fsc.toFixed(2)} × (${d} - ${dp})]</span></div>
+    <div class="math-line"><span>A<sub>sc</sub> = ${(mu2 * 1e6).toFixed(0)} / [${fsc.toFixed(2)} × ${(d - dp)}]</span></div>
+    <div class="math-line"><span>A<sub>sc</sub> = ${(mu2 * 1e6).toFixed(0)} / ${(fsc * (d - dp)).toFixed(2)}</span> <span class="math-res" style="color:var(--accent-cyan); font-size:1.1rem;">= ${asc.toFixed(2)} mm²</span></div>
+</div>
+
+<div style="margin-top: 1.5rem; border-top: 1px solid #30363d; padding-top: 1rem; text-align: center; color: var(--text-secondary); font-size: 0.75rem;">
+    [End of calculations. Proceed to balance tensile steel reinforcement area - Ast.]
+</div>
+                `;
+
+                examDiv.innerHTML = markup;
+            }
+
+            // Narrative TTS engine utilizing native Speech Synthesis API
+            speakScenario() {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Cease any ongoing speech
+                    
+                    const { steelGrade, mu, mulim, d, dp } = this.inputs;
+                    const { xu_max, mu2, strain_sc, fsc, asc } = this.lastCalculations;
+
+                    let voiceScript = `To design the doubly reinforced beam for the given ultimate moment of ${mu} kilonewton-meters, where the limiting moment capacity is ${mulim} kilonewton-meters, we start by calculating the excess design moment, which is ${mu2.toFixed(1)} kilonewton-meters. ` + 
+                        `Using the yield criteria for the grade ${steelGrade} reinforcement steel, the maximum depth of the neutral axis is found to be ${xu_max.toFixed(1)} millimeters. ` + 
+                        `This yields a calculated compression strain, epsilon s c, of ${strain_sc.toFixed(5)} at the steel cover depth of ${dp} millimeters. ` + 
+                        `Based on the IS four-fifty-six stress-strain profile, the design stress in the steel is ${fsc.toFixed(0)} newtons per square millimeter. ` + 
+                        `Finally, dividing the excess moment by the structural couple arm gives a target compression steel area, A s c, of ${asc.toFixed(0)} square millimeters.`;
+
+                    if (mu2 === 0) {
+                        voiceScript = `Because the ultimate moment is less than or equal to the limiting moment capacity of the concrete section, the beam behaves as a singly reinforced section. Compression steel is not active or required in this design state.`;
+                    }
+
+                    const utterance = new SpeechSynthesisUtterance(voiceScript);
+                    utterance.rate = 0.95;
+                    utterance.pitch = 1.0;
+                    
+                    const voices = window.speechSynthesis.getVoices();
+                    // Attempt to locate a professional sounding system voice
+                    const selectedVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
+                    if (selectedVoice) {
+                        utterance.voice = selectedVoice;
+                    }
+
+                    window.speechSynthesis.speak(utterance);
+                } else {
+                    alert("Text-to-speech engine is not supported natively by this web browser.");
+                }
+            }
+        }
+
+        // Initialize runtime app execution instance
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new BeamDesignOptimizer();
+            app.init();
+        });
+    </script>
+</body>
+</html>

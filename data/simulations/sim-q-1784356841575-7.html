@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Hydrology: Φ-Index & W-Index Simulator</title>
+  
+  <!-- MathJax for high-fidelity LaTeX equations -->
+  <script>
+    window.MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']]
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --panel-bg: rgba(30, 41, 59, 0.7);
+      --border-color: rgba(255, 255, 255, 0.1);
+      --neon-blue: #38bdf8;
+      --neon-orange: #fb923c;
+      --neon-pink: #ec4899;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Welcome Overlay Modal */
+    #welcome-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 23, 42, 0.95);
+      z-index: 9999;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(15px);
+      transition: opacity 0.5s ease;
+    }
+
+    .welcome-card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 600px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5), 0 0 30px rgba(56, 189, 248, 0.15);
+    }
+
+    .welcome-card h1 {
+      font-size: 2.2rem;
+      margin-bottom: 15px;
+      background: linear-gradient(135deg, var(--neon-blue), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .welcome-card p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      line-height: 1.6;
+      margin-bottom: 30px;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #0ea5e9, #d946ef);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(236, 72, 153, 0.4);
+      transition: all 0.3s ease;
+    }
+
+    .start-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 30px rgba(236, 72, 153, 0.6);
+    }
+
+    /* Navigation/Header Bar */
+    header {
+      background: rgba(15, 23, 42, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid var(--border-color);
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(90deg, var(--neon-blue), #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-controls {
+      display: flex;
+      gap: 12px;
+    }
+
+    /* Floating Action & Glass Controls */
+    .icon-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 10px 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .icon-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: var(--neon-blue);
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+
+    .icon-btn.active {
+      background: rgba(56, 189, 248, 0.2);
+      border-color: var(--neon-blue);
+    }
+
+    /* Main Grid Layout */
+    .dashboard {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 24px;
+      padding: 24px;
+      flex-grow: 1;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1024px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glassmorphic Side Panel */
+    .sidebar {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      height: fit-content;
+    }
+
+    .panel-section {
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 20px;
+    }
+
+    .panel-section:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    .section-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Parameter Controls & Sliders */
+    .control-group {
+      margin-bottom: 16px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.95rem;
+      margin-bottom: 8px;
+    }
+
+    .control-label .value {
+      font-weight: 600;
+      color: var(--neon-blue);
+    }
+
+    .slider-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--neon-blue);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+      transition: all 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Live Readouts Card */
+    .live-stats {
+      background: rgba(15, 23, 42, 0.5);
+      border-radius: 12px;
+      padding: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .stat-row:last-child {
+      border-bottom: none;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    .stat-val {
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .stat-val.target {
+      color: var(--neon-pink);
+      text-shadow: 0 0 8px rgba(236, 72, 153, 0.3);
+    }
+
+    .stat-val.match {
+      color: #10b981;
+      text-shadow: 0 0 8px rgba(16, 185, 129, 0.4);
+    }
+
+    /* Math Formula Block & Live Equations */
+    .formula-card {
+      background: rgba(236, 72, 153, 0.03);
+      border: 1px dashed rgba(236, 72, 153, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      margin-top: 10px;
+    }
+
+    .formula-title {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--neon-pink);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .live-equation {
+      overflow-x: auto;
+      font-size: 0.95rem;
+      padding: 6px 0;
+    }
+
+    /* Canvas Workspace Area */
+    .workspace {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      position: relative;
+    }
+
+    .canvas-container {
+      position: relative;
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      flex-grow: 1;
+      min-height: 500px;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.3);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .canvas-overlay-tip {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+      max-width: 320px;
+    }
+
+    .canvas-overlay-tip span {
+      display: block;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Mathematical Solver Step-by-Step Panel */
+    .solver-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 24px;
+    }
+
+    .solver-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+    }
+
+    .step-card {
+      background: rgba(15, 23, 42, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 14px;
+    }
+
+    .step-card h4 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--neon-blue);
+      margin-bottom: 8px;
+    }
+
+    .step-val {
+      font-family: monospace;
+      font-size: 0.95rem;
+      line-height: 1.5;
+    }
+
+    /* Highlight Variable classes */
+    .highlight-phi {
+      color: var(--neon-pink);
+      font-weight: bold;
+    }
+    .highlight-p {
+      color: var(--neon-orange);
+      font-weight: bold;
+    }
+    .highlight-r {
+      color: var(--neon-blue);
+      font-weight: bold;
+    }
+
+    /* Interactive UI Enhancements */
+    .success-alert {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(16, 185, 129, 0.95);
+      color: #fff;
+      padding: 20px 40px;
+      border-radius: 50px;
+      font-weight: bold;
+      font-size: 1.3rem;
+      box-shadow: 0 10px 30px rgba(16, 185, 129, 0.5);
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 500;
+      text-align: center;
+    }
+
+    .success-alert.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Welcome Overlay & Interaction Lock-breaker -->
+  <div id="welcome-overlay">
+    <div class="welcome-card">
+      <h1>Engineering Hydrology</h1>
+      <p>
+        Welcome to the <strong>Φ-Index and W-Index Simulator</strong>.<br>
+        In this module, you will interactively explore how precipitation is portioned into direct runoff and infiltration. Learn to establish the Φ-index dynamically for a <strong>22 cm storm</strong> producing a target of <strong>9 cm of direct runoff</strong>.
+      </p>
+      <button class="start-btn" onclick="startSimulation()">Initialize & Start Audio</button>
+    </div>
+  </div>
+
+  <header>
+    <h1>Φ-Index & W-Index Educational Platform</h1>
+    <div class="header-controls">
+      <button class="icon-btn active" id="btn-narrate" onclick="toggleNarration()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        Narration: On
+      </button>
+      <button class="icon-btn" onclick="resetToInitialState()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+        Reset Preset
+      </button>
+    </div>
+  </header>
+
+  <div class="dashboard">
+    <!-- Left Hand Side Bar -->
+    <div class="sidebar">
+      
+      <!-- Section 1: Target Conditions -->
+      <div class="panel-section">
+        <h3 class="section-title">Design Criteria</h3>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Target Runoff (R<sub>target</sub>)</span>
+            <span class="value" style="color: var(--neon-pink);" id="val-target-runoff">9.00 cm</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="input-target" min="1" max="18" step="0.5" value="9.0" oninput="onTargetRunoffChange(this.value)">
+          </div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Storm Duration</span>
+            <span class="value" id="val-duration">4 Hours</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="input-duration" min="2" max="6" step="1" value="4" oninput="onDurationChange(this.value)">
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Interactive Statistics -->
+      <div class="panel-section">
+        <h3 class="section-title">Infiltration Analysis</h3>
+        <div class="live-stats">
+          <div class="stat-row">
+            <span class="stat-label">Total Precipitation (P):</span>
+            <span class="stat-val highlight-p" id="stat-total-p">22.00 cm</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Calculated Runoff (R):</span>
+            <span class="stat-val highlight-r" id="stat-calc-r">0.00 cm</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Total Infiltration (F):</span>
+            <span class="stat-val" style="color: var(--neon-orange);" id="stat-total-inf">0.00 cm</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Current Φ-index:</span>
+            <span class="stat-val highlight-phi" id="stat-phi">0.00 cm/h</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Current W-index:</span>
+            <span class="stat-val" style="color: #c084fc;" id="stat-w">0.00 cm/h</span>
+          </div>
+          <div class="stat-row">
+            <span class="stat-label">Target Aligned:</span>
+            <span class="stat-val" id="stat-match">NO</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Hydrologic Formula Overlay -->
+      <div class="panel-section">
+        <h3 class="section-title">Hydrologic Formulations</h3>
+        <div class="formula-card">
+          <div class="formula-title">Φ-Index Equation</div>
+          <div class="live-equation">
+            $$R = \sum_{i=1}^{N} \max(P_i - \Phi, 0) \cdot \Delta t$$
+          </div>
+        </div>
+        <div class="formula-card" style="background: rgba(192, 132, 252, 0.03); border-color: rgba(192, 132, 252, 0.2);">
+          <div class="formula-title" style="color: #c084fc;">W-Index Equation</div>
+          <div class="live-equation">
+            $$W = \frac{P - R}{T_{total}}$$
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Hand Interactive Canvas Workspace -->
+    <div class="workspace">
+      <div class="canvas-container" id="canvas-wrapper">
+        <canvas id="stormCanvas"></canvas>
+        <div class="canvas-overlay-tip">
+          <strong>Interactive Controls:</strong>
+          <span>• Drag pink horizontal <strong class="highlight-phi">Φ line</strong> up & down to change infiltration capacity threshold.</span>
+          <span>• Click/drag tops of any <strong class="highlight-p">precipitation bars</strong> to edit rainfall intensity distribution.</span>
+        </div>
+        <div class="success-alert" id="success-banner">
+          🎉 Perfect Alignment Achieved!<br>
+          <span style="font-size: 0.95rem; font-weight: normal; opacity: 0.9;">Φ-index = 3.33 cm/h meets the direct runoff criterion.</span>
+        </div>
+      </div>
+
+      <!-- Live step-by-step Solver breakdown panel -->
+      <div class="solver-panel">
+        <h3 class="section-title">Live Calculations Step-by-Step</h3>
+        <div class="solver-grid" id="solver-steps">
+          <!-- Dynamic contents mapped here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State management
+    let state = {
+      P_values: [4.0, 8.0, 7.0, 3.0], // Initial precipitation profile (total = 22 cm)
+      duration: 4,                   // Hours
+      target_runoff: 9.0,            // Target direct runoff in cm
+      phi_index: 2.00,               // Draggable threshold boundary (cm/hour)
+      isDraggingPhi: false,
+      activeBarDragIndex: -1,
+      matchTolerance: 0.05,          // Tolerance window for visual completion
+      hasSucceeded: false,
+      narrationEnabled: true
+    };
+
+    // Canvas configuration
+    const canvas = document.getElementById('stormCanvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-wrapper');
+
+    // Drag-tracking coordinates
+    let mouseX = 0;
+    let mouseY = 0;
+
+    // Web Audio API State
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    // Audio effects
+    function playGrabSound() {
+      initAudio();
+      if (!audioCtx) return;
+      let osc = audioCtx.createOscillator();
+      let gain = audioCtx.createGain();
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(80, audioCtx.currentTime + 0.12);
+      gain.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.12);
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.12);
+    }
+
+    function playSuccessArpeggio() {
+      initAudio();
+      if (!audioCtx) return;
+      const now = audioCtx.currentTime;
+      // C Major arpeggio
+      const notes = [261.63, 329.63, 392.00, 523.25];
+      notes.forEach((freq, index) => {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + index * 0.08);
+        gain.gain.setValueAtTime(0, now + index * 0.08);
+        gain.gain.linearRampToValueAtTime(0.15, now + index * 0.08 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + index * 0.08 + 0.45);
+        osc.start(now + index * 0.08);
+        osc.stop(now + index * 0.08 + 0.5);
+      });
+    }
+
+    function playErrorSound() {
+      initAudio();
+      if (!audioCtx) return;
+      let osc1 = audioCtx.createOscillator();
+      let osc2 = audioCtx.createOscillator();
+      let gain = audioCtx.createGain();
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc1.frequency.setValueAtTime(120, audioCtx.currentTime);
+      osc2.frequency.setValueAtTime(124, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+      gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      osc1.start();
+      osc2.start();
+      osc1.stop(audioCtx.currentTime + 0.35);
+      osc2.stop(audioCtx.currentTime + 0.35);
+    }
+
+    // Speech Synthesis Narrative Audio
+    function toggleNarration() {
+      state.narrationEnabled = !state.narrationEnabled;
+      const btn = document.getElementById('btn-narrate');
+      if (state.narrationEnabled) {
+        btn.classList.add('active');
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Narration: On`;
+        speakInstructions();
+      } else {
+        btn.classList.remove('active');
+        btn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9V15h-4l-5-4v-4z"/><path d="M23 9l-6 6M17 9l6 6" stroke-linecap="round"/></svg> Narration: Off`;
+        window.speechSynthesis.cancel();
+      }
+    }
+
+    function speakInstructions() {
+      if (!state.narrationEnabled) return;
+      window.speechSynthesis.cancel(); // Stop active speaking
+
+      const speechText = "The phi-index represents the constant rate of infiltration during a storm. Currently, your custom storm totals " + 
+                         state.P_values.reduce((a,b)=>a+b, 0).toFixed(0) + " centimeters. Drag the pink horizontal line to find the sweet spot where the runoff represented by glowing blue bars exactly matches your design runoff criteria of " + state.target_runoff + " centimeters.";
+      
+      const utterance = new SpeechSynthesisUtterance(speechText);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function startSimulation() {
+      document.getElementById('welcome-overlay').style.opacity = '0';
+      setTimeout(() => {
+        document.getElementById('welcome-overlay').style.display = 'none';
+      }, 500);
+      initAudio();
+      speakInstructions();
+      updateCalculations();
+    }
+
+    function resetToInitialState() {
+      state.P_values = [4.0, 8.0, 7.0, 3.0];
+      state.duration = 4;
+      state.target_runoff = 9.0;
+      state.phi_index = 2.0;
+      state.hasSucceeded = false;
+      
+      document.getElementById('input-target').value = 9.0;
+      document.getElementById('input-duration').value = 4;
+      document.getElementById('val-target-runoff').innerText = "9.00 cm";
+      document.getElementById('val-duration').innerText = "4 Hours";
+      document.getElementById('success-banner').classList.remove('show');
+      
+      updateCalculations();
+      speakInstructions();
+    }
+
+    // Handle Input Modifications
+    function onTargetRunoffChange(val) {
+      state.target_runoff = parseFloat(val);
+      document.getElementById('val-target-runoff').innerText = state.target_runoff.toFixed(2) + " cm";
+      state.hasSucceeded = false;
+      document.getElementById('success-banner').classList.remove('show');
+      updateCalculations();
+    }
+
+    function onDurationChange(val) {
+      const newDuration = parseInt(val);
+      const prevDuration = state.duration;
+      state.duration = newDuration;
+      document.getElementById('val-duration').innerText = newDuration + " Hours";
+
+      // Scale or adjust array of precipitations to match new size
+      if (newDuration > prevDuration) {
+        // Grow and append default value
+        while (state.P_values.length < newDuration) {
+          state.P_values.push(4.0);
+        }
+      } else if (newDuration < prevDuration) {
+        // Shrink
+        state.P_values = state.P_values.slice(0, newDuration);
+      }
+      state.hasSucceeded = false;
+      document.getElementById('success-banner').classList.remove('show');
+      updateCalculations();
+    }
+
+    // Math & Solver Engine
+    function updateCalculations() {
+      let totalPrecipitation = state.P_values.reduce((sum, p) => sum + p, 0);
+      let calculatedRunoff = 0;
+      let totalInfiltration = 0;
+
+      // Calculate Direct Runoff based on current Φ
+      // R = Sum [ max(P_i - phi, 0) * dt ]
+      // Assuming dt = 1 Hour
+      const dt = 1.0; 
+      state.P_values.forEach(P => {
+        const runoffComponent = Math.max(P - state.phi_index, 0) * dt;
+        calculatedRunoff += runoffComponent;
+      });
+
+      totalInfiltration = totalPrecipitation - calculatedRunoff;
+      const w_index = totalInfiltration / state.duration;
+
+      // Update Live UI Labels
+      document.getElementById('stat-total-p').innerText = totalPrecipitation.toFixed(2) + " cm";
+      document.getElementById('stat-calc-r').innerText = calculatedRunoff.toFixed(2) + " cm";
+      document.getElementById('stat-total-inf').innerText = totalInfiltration.toFixed(2) + " cm";
+      document.getElementById('stat-phi').innerText = state.phi_index.toFixed(2) + " cm/h";
+      document.getElementById('stat-w').innerText = w_index.toFixed(2) + " cm/h";
+
+      // Evaluation & Match Trigger
+      const deviation = Math.abs(calculatedRunoff - state.target_runoff);
+      const isAligned = deviation <= state.matchTolerance;
+      const statMatch = document.getElementById('stat-match');
+      
+      if (isAligned) {
+        statMatch.innerText = "ALIGNED ✓";
+        statMatch.className = "stat-val match";
+        if (!state.hasSucceeded) {
+          state.hasSucceeded = true;
+          document.getElementById('success-banner').classList.add('show');
+          document.getElementById('success-banner').innerHTML = `🎉 Perfect Alignment Achieved!<br>
+            <span style="font-size: 0.95rem; font-weight: normal; opacity: 0.9;">
+              Φ-index of ${state.phi_index.toFixed(2)} cm/h matches the Target Runoff of ${state.target_runoff.toFixed(1)} cm.
+            </span>`;
+          playSuccessArpeggio();
+        }
+      } else {
+        statMatch.innerText = "NO";
+        statMatch.className = "stat-val target";
+        state.hasSucceeded = false;
+        document.getElementById('success-banner').classList.remove('show');
+      }
+
+      // Safeguard check
+      if (calculatedRunoff > totalPrecipitation) {
+        playErrorSound();
+      }
+
+      renderSolverBreakdown(calculatedRunoff, w_index);
+      drawCanvas();
+    }
+
+    // Render detailed visual mathematical solver breakdown cards
+    function renderSolverBreakdown(calculatedRunoff, w_index) {
+      const solverGrid = document.getElementById('solver-steps');
+      solverGrid.innerHTML = '';
+
+      // Step 1: Storm Summary Card
+      const step1 = document.createElement('div');
+      step1.className = 'step-card';
+      step1.innerHTML = `
+        <h4>1. Current Storm Info</h4>
+        <div class="step-val">
+          Precipitation (P) = ${state.P_values.map(v => v.toFixed(1)).join(' + ')} = <strong>${state.P_values.reduce((a,b)=>a+b, 0).toFixed(1)} cm</strong><br>
+          Target Runoff = <strong>${state.target_runoff.toFixed(1)} cm</strong>
+        </div>
+      `;
+      solverGrid.appendChild(step1);
+
+      // Step 2: Incremental Runoff Calculation Card
+      const step2 = document.createElement('div');
+      step2.className = 'step-card';
+      let calculationTerms = state.P_values.map((P, idx) => {
+        const excess = Math.max(P - state.phi_index, 0);
+        return `P<sub>${idx+1}</sub>: max(${P.toFixed(1)} - <span class="highlight-phi">${state.phi_index.toFixed(2)}</span>, 0) = ${excess.toFixed(2)}`;
+      }).join('<br>');
+
+      step2.innerHTML = `
+        <h4>2. Runoff Excess Breakdown</h4>
+        <div class="step-val" style="font-size: 0.85rem;">
+          ${calculationTerms}<br>
+          <strong>Total R = ${calculatedRunoff.toFixed(2)} cm</strong>
+        </div>
+      `;
+      solverGrid.appendChild(step2);
+
+      // Step 3: W-index Calculation Card
+      const step3 = document.createElement('div');
+      step3.className = 'step-card';
+      step3.innerHTML = `
+        <h4>3. W-index Determination</h4>
+        <div class="step-val">
+          W = (P - R) / Total Hours<br>
+          W = (${state.P_values.reduce((a,b)=>a+b, 0).toFixed(1)} - ${calculatedRunoff.toFixed(2)}) / ${state.duration}<br>
+          <strong>W-index = ${w_index.toFixed(2)} cm/h</strong>
+        </div>
+      `;
+      solverGrid.appendChild(step3);
+    }
+
+    // Responsive Canvas Engine
+    let canvasBounds = { x: 80, y: 50, width: 0, height: 0 };
+    const maxValY = 10; // Max Rainfall Intensity on standard scale (cm/hour)
+
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      canvasBounds.width = rect.width - canvasBounds.x - 40;
+      canvasBounds.height = rect.height - canvasBounds.y - 70;
+
+      drawCanvas();
+    }
+
+    function drawCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const width = rect.width;
+      const height = rect.height;
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Re-map internal coordinates based on window size
+      canvasBounds.width = width - canvasBounds.x - 40;
+      canvasBounds.height = height - canvasBounds.y - 70;
+
+      // Grid Axes styling
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+
+      // Draw horizontal grid line subdivisions
+      for (let i = 0; i <= maxValY; i++) {
+        const yCoord = getCanvasY(i);
+        ctx.beginPath();
+        ctx.moveTo(canvasBounds.x, yCoord);
+        ctx.lineTo(canvasBounds.x + canvasBounds.width, yCoord);
+        ctx.stroke();
+
+        // Label on Y-Axis
+        ctx.fillStyle = 'var(--text-muted)';
+        ctx.font = '11px monospace';
+        ctx.textAlign = 'right';
+        ctx.fillText(i + " cm/h", canvasBounds.x - 12, yCoord + 4);
+      }
+
+      // Draw Storm Bar Columns & Shading Regions
+      const numBars = state.P_values.length;
+      const barSpacing = 16;
+      const totalWidthForBars = canvasBounds.width - (barSpacing * (numBars + 1));
+      const singleBarWidth = totalWidthForBars / numBars;
+
+      for (let i = 0; i < numBars; i++) {
+        const barHeightValue = state.P_values[i];
+        const barLeftX = canvasBounds.x + barSpacing + i * (singleBarWidth + barSpacing);
+        const barTopY = getCanvasY(barHeightValue);
+        const zeroY = getCanvasY(0);
+
+        // Render Infiltration area (Orange: portion BELOW Φ-index threshold)
+        const infiltrationHeightValue = Math.min(barHeightValue, state.phi_index);
+        const infiltrationTopY = getCanvasY(infiltrationHeightValue);
+
+        ctx.fillStyle = 'rgba(251, 146, 60, 0.25)'; // Semitransparent orange
+        ctx.fillRect(barLeftX, infiltrationTopY, singleBarWidth, zeroY - infiltrationTopY);
+
+        // Infiltration outline
+        ctx.strokeStyle = 'rgba(251, 146, 60, 0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(barLeftX, infiltrationTopY, singleBarWidth, zeroY - infiltrationTopY);
+
+        // Render Runoff area (Blue: portion ABOVE Φ-index threshold)
+        if (barHeightValue > state.phi_index) {
+          ctx.fillStyle = 'rgba(56, 189, 248, 0.35)'; // Neon blue semi-opaque
+          ctx.fillRect(barLeftX, barTopY, singleBarWidth, infiltrationTopY - barTopY);
+
+          // Top edge glowing neon line to signify runoff excess cap
+          ctx.strokeStyle = '#38bdf8';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.moveTo(barLeftX, barTopY);
+          ctx.lineTo(barLeftX + singleBarWidth, barTopY);
+          ctx.stroke();
+        }
+
+        // Draw overall bar borders
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barLeftX, barTopY, singleBarWidth, zeroY - barTopY);
+
+        // Label precipitation value above each bar column
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(barHeightValue.toFixed(1) + " cm", barLeftX + singleBarWidth/2, barTopY - 10);
+
+        // X-Axis Hour Labels
+        ctx.fillStyle = 'var(--text-muted)';
+        ctx.font = '11px sans-serif';
+        ctx.fillText(`Hour ${i} - ${i+1}`, barLeftX + singleBarWidth/2, zeroY + 20);
+      }
+
+      // Draw Draggable Φ-index Line Threshold (Pink Neon Glow)
+      const phiY = getCanvasY(state.phi_index);
+      ctx.shadowColor = 'rgba(236, 72, 153, 0.6)';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = 'var(--neon-pink)';
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(canvasBounds.x - 10, phiY);
+      ctx.lineTo(canvasBounds.x + canvasBounds.width + 10, phiY);
+      ctx.stroke();
+      ctx.shadowBlur = 0; // Reset shadow
+
+      // Dynamic Phi handle badge
+      ctx.fillStyle = 'var(--neon-pink)';
+      ctx.fillRect(canvasBounds.x - 70, phiY - 12, 60, 24);
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`Φ-index`, canvasBounds.x - 40, phiY + 4);
+
+      // Render Axes Lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(canvasBounds.x, canvasBounds.y - 20);
+      ctx.lineTo(canvasBounds.x, canvasBounds.y + canvasBounds.height);
+      ctx.lineTo(canvasBounds.x + canvasBounds.width + 10, canvasBounds.y + canvasBounds.height);
+      ctx.stroke();
+
+      // Chart Titles
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText("Precipitation Intensity & Infiltration Profile", canvasBounds.x, canvasBounds.y - 22);
+    }
+
+    // Helper conversion math formulas mapping to screen coordinates
+    function getCanvasY(value) {
+      const scale = canvasBounds.height / maxValY;
+      return canvasBounds.y + canvasBounds.height - (value * scale);
+    }
+
+    function getValueFromY(yCoord) {
+      const scale = canvasBounds.height / maxValY;
+      const val = (canvasBounds.y + canvasBounds.height - yCoord) / scale;
+      return Math.max(0, Math.min(maxValY, val));
+    }
+
+    // Interactive Drag Mechanics
+    function findTargetBarIndex(clientX) {
+      const rect = canvas.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const numBars = state.P_values.length;
+      const barSpacing = 16;
+      const totalWidthForBars = canvasBounds.width - (barSpacing * (numBars + 1));
+      const singleBarWidth = totalWidthForBars / numBars;
+
+      for (let i = 0; i < numBars; i++) {
+        const barLeftX = canvasBounds.x + barSpacing + i * (singleBarWidth + barSpacing);
+        if (x >= barLeftX && x <= barLeftX + singleBarWidth) {
+          return i;
+        }
+      }
+      return -1;
+    }
+
+    function onPointerDown(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+      
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      // 1. Check proximity to Φ-index Horizontal line threshold
+      const phiY = getCanvasY(state.phi_index);
+      if (Math.abs(y - phiY) < 18) {
+        state.isDraggingPhi = true;
+        playGrabSound();
+        canvas.style.cursor = 'row-resize';
+        return;
+      }
+
+      // 2. Otherwise check proximity to top bounds of precipitation bars
+      const barIdx = findTargetBarIndex(clientX);
+      if (barIdx !== -1) {
+        const barTopY = getCanvasY(state.P_values[barIdx]);
+        if (Math.abs(y - barTopY) < 25) {
+          state.activeBarDragIndex = barIdx;
+          playGrabSound();
+          canvas.style.cursor = 'ns-resize';
+        }
+      }
+    }
+
+    function onPointerMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+
+      if (state.isDraggingPhi) {
+        state.phi_index = getValueFromY(y);
+        updateCalculations();
+      } else if (state.activeBarDragIndex !== -1) {
+        state.P_values[state.activeBarDragIndex] = getValueFromY(y);
+        updateCalculations();
+      } else {
+        // Dynamically style cursor handles on hover
+        const phiY = getCanvasY(state.phi_index);
+        const barIdx = findTargetBarIndex(clientX);
+        
+        if (Math.abs(y - phiY) < 12) {
+          canvas.style.cursor = 'row-resize';
+        } else if (barIdx !== -1 && Math.abs(y - getCanvasY(state.P_values[barIdx])) < 20) {
+          canvas.style.cursor = 'ns-resize';
+        } else {
+          canvas.style.cursor = 'default';
+        }
+      }
+    }
+
+    function onPointerUp() {
+      state.isDraggingPhi = false;
+      state.activeBarDragIndex = -1;
+      canvas.style.cursor = 'default';
+    }
+
+    // Attach Interactive Events
+    canvas.addEventListener('mousedown', onPointerDown);
+    canvas.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+
+    canvas.addEventListener('touchstart', (e) => {
+      onPointerDown(e);
+      e.preventDefault();
+    }, { passive: false });
+    canvas.addEventListener('touchmove', (e) => {
+      onPointerMove(e);
+      e.preventDefault();
+    }, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Initial sequence startup trigger
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      updateCalculations();
+    });
+  </script>
+</body>
+</html>

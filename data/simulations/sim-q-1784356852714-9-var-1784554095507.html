@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superelevation on a Horizontal Curve Simulation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/3.2.2/es5/tex-mml-chtml.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --neon-cyan: #06b6d4;
+            --neon-lime: #84cc16;
+            --alert-red: #ef4444;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            color: #e2e8f0;
+            margin: 0;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .math-font {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            margin-top: -6px;
+            box-shadow: 0 0 10px var(--neon-cyan);
+        }
+        
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #334155;
+            border-radius: 2px;
+        }
+
+        .toggle-btn {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .toggle-btn.active {
+            background-color: var(--neon-cyan);
+            color: #000;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+            border-color: var(--neon-cyan);
+        }
+
+        .eq-highlight {
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+        }
+        .highlight-v { color: #f472b6; text-shadow: 0 0 8px rgba(244,114,182,0.6); }
+        .highlight-r { color: #34d399; text-shadow: 0 0 8px rgba(52,211,153,0.6); }
+        .highlight-e { color: var(--neon-cyan); text-shadow: 0 0 8px rgba(6,182,212,0.6); }
+        .highlight-f { color: var(--neon-lime); text-shadow: 0 0 8px rgba(132,204,22,0.6); }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 0.5rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            cursor: crosshair;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        #stepByStep {
+            display: none;
+            animation: slideDown 0.4s ease-out forwards;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .vector-label {
+            position: absolute;
+            pointer-events: none;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px #000;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-6 lg:h-screen lg:overflow-hidden">
+
+    <header class="mb-4 flex justify-between items-center glass-panel p-4">
+        <div>
+            <h1 class="text-2xl font-bold text-white tracking-tight">Highway Curve Dynamics</h1>
+            <p class="text-sm text-slate-400">Superelevation & Lateral Friction Analysis</p>
+        </div>
+        <div class="flex gap-3">
+            <button id="btnNarrate" class="px-4 py-2 rounded-lg border border-slate-600 hover:bg-slate-700 transition flex items-center gap-2">
+                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.707.707L4.586 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.586l3.707-3.707a1 1 0 011.09-.217zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z"></path></svg>
+                Narrate
+            </button>
+        </div>
+    </header>
+
+    <main class="flex flex-col lg:flex-row gap-6 h-full min-h-[600px] lg:min-h-0 pb-4">
+        
+        <section class="w-full lg:w-3/5 flex flex-col gap-4">
+            <!-- Top Down View -->
+            <div class="glass-panel p-2 flex-1 relative flex flex-col">
+                <div class="absolute top-4 left-4 z-10 text-sm font-semibold text-slate-300 bg-slate-900/50 px-2 py-1 rounded">Top-Down View (Curve)</div>
+                <div class="canvas-container flex-1 rounded-lg overflow-hidden relative" id="topViewContainer">
+                    <canvas id="topCanvas"></canvas>
+                </div>
+            </div>
+            
+            <!-- Cross Section View -->
+            <div class="glass-panel p-2 flex-1 relative flex flex-col">
+                <div class="absolute top-4 left-4 z-10 text-sm font-semibold text-slate-300 bg-slate-900/50 px-2 py-1 rounded flex gap-2 items-center">
+                    Cross-Section (Forces)
+                    <span id="dragHint" class="text-xs text-cyan-400 font-normal hidden bg-cyan-900/30 px-2 py-0.5 rounded-full animate-pulse">Drag road to adjust angle</span>
+                </div>
+                <div class="absolute bottom-4 right-4 z-10 text-xs text-slate-400 bg-slate-900/80 px-2 py-1 rounded grid grid-cols-2 gap-x-3 gap-y-1">
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-blue-500 rounded-full"></div> Gravity (W)</div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-red-500 rounded-full"></div> Centrifugal (P)</div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-green-500 rounded-full"></div> Friction (F)</div>
+                    <div class="flex items-center gap-1"><div class="w-2 h-2 bg-white rounded-full"></div> Normal (N)</div>
+                </div>
+                <div class="canvas-container flex-1 rounded-lg overflow-hidden relative" id="crossViewContainer">
+                    <canvas id="crossCanvas"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <section class="w-full lg:w-2/5 glass-panel p-5 flex flex-col gap-6 overflow-y-auto">
+            
+            <!-- Mode Selection -->
+            <div>
+                <h2 class="text-sm font-bold uppercase tracking-wider text-slate-400 mb-3">Analysis Mode</h2>
+                <div class="grid grid-cols-3 gap-2">
+                    <button id="modeA" class="toggle-btn active border border-slate-600 py-2 px-1 rounded text-xs font-semibold" onclick="setMode('A')">Mode A: Full Friction</button>
+                    <button id="modeB" class="toggle-btn border border-slate-600 py-2 px-1 rounded text-xs font-semibold" onclick="setMode('B')">Mode B: Flat Road</button>
+                    <button id="modeM" class="toggle-btn border border-slate-600 py-2 px-1 rounded text-xs font-semibold" onclick="setMode('M')">Manual Drag</button>
+                </div>
+            </div>
+
+            <!-- Main Dynamic Equation -->
+            <div class="bg-slate-900/50 p-4 rounded-xl text-center border border-slate-700/50">
+                <div class="text-2xl math-font mb-2 tracking-widest flex justify-center items-center gap-2">
+                    <span class="eq-highlight highlight-e" id="eq-e">e</span> + 
+                    <span class="eq-highlight highlight-f" id="eq-f">f</span> = 
+                    <div class="inline-flex flex-col items-center align-middle mx-1">
+                        <span class="border-b border-white px-2"><span class="eq-highlight highlight-v" id="eq-v">V</span><sup class="text-sm">2</sup></span>
+                        <span class="px-2">127<span class="eq-highlight highlight-r" id="eq-r">R</span></span>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 mt-2">Fundamental Equation for Horizontal Curves</div>
+            </div>
+
+            <!-- Sliders -->
+            <div class="flex flex-col gap-5">
+                <!-- Velocity -->
+                <div class="group">
+                    <div class="flex justify-between text-sm mb-1">
+                        <label class="text-slate-300 font-medium">Design Speed (<span class="text-pink-400">V</span>)</label>
+                        <span class="font-mono text-pink-400 bg-pink-400/10 px-2 rounded" id="valV">50 kmph</span>
+                    </div>
+                    <input type="range" id="sliderV" min="20" max="120" step="1" value="50">
+                </div>
+
+                <!-- Radius -->
+                <div class="group">
+                    <div class="flex justify-between text-sm mb-1">
+                        <label class="text-slate-300 font-medium">Radius (<span class="text-emerald-400">R</span>)</label>
+                        <span class="font-mono text-emerald-400 bg-emerald-400/10 px-2 rounded" id="valR">100 m</span>
+                    </div>
+                    <input type="range" id="sliderR" min="50" max="500" step="10" value="100">
+                </div>
+
+                <!-- Friction -->
+                <div class="group" id="fControlGrp">
+                    <div class="flex justify-between text-sm mb-1">
+                        <label class="text-slate-300 font-medium">Design Friction (<span class="text-lime-400">f<sub>max</sub></span>)</label>
+                        <span class="font-mono text-lime-400 bg-lime-400/10 px-2 rounded" id="valF">0.15</span>
+                    </div>
+                    <input type="range" id="sliderF" min="0.05" max="0.25" step="0.01" value="0.15">
+                </div>
+            </div>
+
+            <div class="bg-slate-800/80 rounded-xl p-4 border-l-4 border-cyan-500 shadow-lg relative overflow-hidden">
+                <div class="absolute right-0 top-0 opacity-10 text-8xl font-black -mt-4 mr-2 pointer-events-none">∑F</div>
+                <div class="flex justify-between items-end mb-2 relative z-10">
+                    <div>
+                        <div class="text-xs text-cyan-400 uppercase tracking-wide font-bold mb-1" id="resTitleE">Required Superelevation (e)</div>
+                        <div class="text-3xl font-mono text-white" id="resE">0.0468</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-xs text-lime-400 uppercase tracking-wide font-bold mb-1" id="resTitleF">Developed Friction (f)</div>
+                        <div class="text-3xl font-mono text-white" id="resF">0.1500</div>
+                    </div>
+                </div>
+                
+                <div id="alertBox" class="hidden mt-3 text-xs bg-red-900/40 text-red-300 p-2 rounded border border-red-800/50 flex items-start gap-2">
+                    <svg class="w-4 h-4 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path></svg>
+                    <span id="alertText">Warning: Values exceed design limits.</span>
+                </div>
+            </div>
+
+            <button id="btnSolution" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold rounded-lg transition-colors border border-slate-500 shadow-md">
+                Show Step-by-Step Notebook Solution
+            </button>
+
+            <div id="stepByStep" class="bg-[#f8fafc] text-slate-800 p-5 rounded-xl border border-slate-300 shadow-inner overflow-hidden text-sm relative font-serif">
+                <div class="absolute top-0 left-0 w-8 h-full border-r-2 border-red-200 bg-[#f1f5f9]"></div>
+                <div class="pl-10">
+                    <h3 class="font-bold text-lg mb-2 underline decoration-slate-400">Engineering Notebook</h3>
+                    <div id="solutionContent" class="space-y-3">
+                        <!-- Content generated via JS -->
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // --- State Management ---
+        const state = {
+            mode: 'A', // A: Solve e, B: Solve f, M: Manual
+            V: 50,     // kmph
+            R: 100,    // meters
+            f_max: 0.15,
+            e: 0,
+            f: 0,
+            isDragging: false,
+            alertPlayed: false
+        };
+
+        // --- DOM Elements ---
+        const DOM = {
+            sliderV: document.getElementById('sliderV'),
+            sliderR: document.getElementById('sliderR'),
+            sliderF: document.getElementById('sliderF'),
+            valV: document.getElementById('valV'),
+            valR: document.getElementById('valR'),
+            valF: document.getElementById('valF'),
+            resE: document.getElementById('resE'),
+            resF: document.getElementById('resF'),
+            fControlGrp: document.getElementById('fControlGrp'),
+            alertBox: document.getElementById('alertBox'),
+            alertText: document.getElementById('alertText'),
+            dragHint: document.getElementById('dragHint')
+        };
+
+        // --- Web Audio API Engine ---
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.initialized = false;
+            }
+            init() {
+                if (!this.initialized) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    this.initialized = true;
+                }
+            }
+            playClick() {
+                if (!this.initialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.05);
+                gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.05);
+            }
+            playChime() {
+                if (!this.initialized) return;
+                const playTone = (freq, delay) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq;
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime + delay);
+                    gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + delay + 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + delay + 1);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + delay);
+                    osc.stop(this.ctx.currentTime + delay + 1.5);
+                };
+                playTone(523.25, 0); // C5
+                playTone(659.25, 0.1); // E5
+                playTone(783.99, 0.2); // G5
+            }
+            playAlert() {
+                if (!this.initialized) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.5);
+            }
+        }
+        const audio = new AudioEngine();
+
+        // --- Core Calculations ---
+        function updatePhysics() {
+            const { V, R, f_max } = state;
+            const term = (V * V) / (127 * R); // V^2 / 127R
+
+            if (state.mode === 'A') {
+                state.f = f_max;
+                state.e = term - f_max;
+                // In pure theory, e can be negative, but practically we might constrain it.
+                // We'll show the raw mathematical result for educational purposes.
+            } else if (state.mode === 'B') {
+                state.e = 0;
+                state.f = term;
+            } else if (state.mode === 'M') {
+                // state.e is set by drag
+                state.f = term - state.e;
+            }
+
+            checkLimits();
+            updateUI();
+            generateSolutionText();
+        }
+
+        function checkLimits() {
+            let warnings = [];
+            if (state.e > 0.10) warnings.push(`Superelevation (e=${state.e.toFixed(3)}) exceeds practical max (usually 0.07-0.10).`);
+            if (state.e < -0.05) warnings.push(`Negative e indicates adverse camber required, unsafe.`);
+            if (state.f > state.f_max && state.mode !== 'A') warnings.push(`Required friction (f=${state.f.toFixed(3)}) exceeds max design friction (${state.f_max}). Vehicle may skid!`);
+            
+            if (warnings.length > 0) {
+                DOM.alertText.innerHTML = warnings.join('<br>');
+                DOM.alertBox.classList.remove('hidden');
+                if (!state.alertPlayed) {
+                    audio.playAlert();
+                    state.alertPlayed = true;
+                }
+            } else {
+                DOM.alertBox.classList.add('hidden');
+                state.alertPlayed = false;
+            }
+        }
+
+        function updateUI() {
+            DOM.resE.textContent = state.e.toFixed(4);
+            DOM.resF.textContent = state.f.toFixed(4);
+            
+            // Highlight active variables in eq
+            document.querySelectorAll('.eq-highlight').forEach(el => el.style.opacity = '0.5');
+            document.getElementById('eq-v').style.opacity = '1';
+            document.getElementById('eq-r').style.opacity = '1';
+            
+            if(state.mode === 'A') {
+                document.getElementById('eq-e').style.opacity = '1';
+                document.getElementById('eq-e').style.textShadow = '0 0 12px rgba(6,182,212,1)';
+                document.getElementById('eq-f').style.textShadow = 'none';
+            } else if (state.mode === 'B') {
+                document.getElementById('eq-f').style.opacity = '1';
+                document.getElementById('eq-f').style.textShadow = '0 0 12px rgba(132,204,22,1)';
+                document.getElementById('eq-e').style.textShadow = 'none';
+            } else {
+                document.getElementById('eq-e').style.opacity = '1';
+                document.getElementById('eq-f').style.opacity = '1';
+            }
+        }
+
+        function setMode(mode) {
+            audio.init(); audio.playClick();
+            state.mode = mode;
+            document.querySelectorAll('.toggle-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`mode${mode}`).classList.add('active');
+            
+            if (mode === 'M') {
+                DOM.fControlGrp.style.opacity = '0.5';
+                DOM.sliderF.disabled = true;
+                DOM.dragHint.classList.remove('hidden');
+            } else {
+                DOM.fControlGrp.style.opacity = '1';
+                DOM.sliderF.disabled = false;
+                DOM.dragHint.classList.add('hidden');
+            }
+            updatePhysics();
+        }
+
+        // Event Listeners for Sliders
+        ['V', 'R', 'F'].forEach(param => {
+            const slider = DOM[`slider${param}`];
+            slider.addEventListener('input', (e) => {
+                audio.init();
+                const val = parseFloat(e.target.value);
+                state[param === 'F' ? 'f_max' : param] = val;
+                DOM[`val${param}`].textContent = param === 'V' ? `${val} kmph` : param === 'R' ? `${val} m` : val.toFixed(2);
+                updatePhysics();
+            });
+            slider.addEventListener('change', () => audio.playClick());
+        });
+
+        const topCanvas = document.getElementById('topCanvas');
+        const ctxTop = topCanvas.getContext('2d');
+        const crossCanvas = document.getElementById('crossCanvas');
+        const ctxCross = crossCanvas.getContext('2d');
+        let animationTime = 0;
+
+        function resizeCanvas() {
+            const tw = topCanvas.parentElement.clientWidth;
+            const th = topCanvas.parentElement.clientHeight;
+            topCanvas.width = tw; topCanvas.height = th;
+            
+            const cw = crossCanvas.parentElement.clientWidth;
+            const ch = crossCanvas.parentElement.clientHeight;
+            crossCanvas.width = cw; crossCanvas.height = ch;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        function drawTopView() {
+            ctxTop.clearRect(0, 0, topCanvas.width, topCanvas.height);
+            const cx = topCanvas.width / 2;
+            const cy = topCanvas.height * 0.8;
+            
+            // Visual mapping of R (50-500) to pixels
+            const minVisualR = 50;
+            const maxVisualR = topCanvas.height * 0.7;
+            const visualR = minVisualR + ((state.R - 50) / 450) * (maxVisualR - minVisualR);
+
+            // Draw Curve (Road)
+            ctxTop.beginPath();
+            ctxTop.arc(cx, cy, visualR, Math.PI, 2 * Math.PI);
+            ctxTop.lineWidth = 40;
+            ctxTop.strokeStyle = '#334155'; // Road color
+            ctxTop.stroke();
+            
+            // Center Line
+            ctxTop.beginPath();
+            ctxTop.arc(cx, cy, visualR, Math.PI, 2 * Math.PI);
+            ctxTop.lineWidth = 2;
+            ctxTop.setLineDash([10, 10]);
+            ctxTop.strokeStyle = '#cbd5e1';
+            ctxTop.stroke();
+            ctxTop.setLineDash([]);
+
+            // Draw Radius Line
+            ctxTop.beginPath();
+            ctxTop.moveTo(cx, cy);
+            ctxTop.lineTo(cx - visualR, cy);
+            ctxTop.lineWidth = 1;
+            ctxTop.strokeStyle = '#34d399';
+            ctxTop.stroke();
+            ctxTop.fillStyle = '#34d399';
+            ctxTop.fillText(`R = ${state.R}m`, cx - visualR/2 - 20, cy - 10);
+            ctxTop.beginPath();
+            ctxTop.arc(cx, cy, 4, 0, 2*Math.PI);
+            ctxTop.fill();
+
+            // Animate Car
+            // Speed mapping: V (kmph) -> angular velocity
+            const speedScale = state.V / 50; 
+            animationTime += 0.01 * speedScale * (100 / state.R); 
+            if (animationTime > Math.PI) animationTime = 0;
+            
+            const carAngle = Math.PI + animationTime;
+            const carX = cx + visualR * Math.cos(carAngle);
+            const carY = cy + visualR * Math.sin(carAngle);
+
+            // Car Blip
+            ctxTop.save();
+            ctxTop.translate(carX, carY);
+            ctxTop.rotate(carAngle + Math.PI/2);
+            ctxTop.fillStyle = '#06b6d4';
+            ctxTop.shadowColor = '#06b6d4';
+            ctxTop.shadowBlur = 10;
+            ctxTop.fillRect(-10, -15, 20, 30);
+            ctxTop.restore();
+        }
+
+        function drawCrossSection() {
+            ctxCross.clearRect(0, 0, crossCanvas.width, crossCanvas.height);
+            const cx = crossCanvas.width / 2;
+            const cy = crossCanvas.height * 0.7;
+            const roadWidth = Math.min(200, crossCanvas.width * 0.4);
+
+            // Angle from e
+            const theta = Math.atan(state.e);
+
+            // Road Ends
+            const x1 = cx - roadWidth/2;
+            const y1 = cy + (roadWidth/2) * Math.tan(theta); // Inner edge (assuming right turn, banking up to the left for visual. Wait, if turning left, banks up to the right. Let's make it bank up to the right.)
+            const x2 = cx + roadWidth/2;
+            const y2 = cy - (roadWidth/2) * Math.tan(theta); 
+
+            // Draw Ground reference
+            ctxCross.beginPath();
+            ctxCross.moveTo(10, cy);
+            ctxCross.lineTo(crossCanvas.width - 10, cy);
+            ctxCross.strokeStyle = '#475569';
+            ctxCross.lineWidth = 1;
+            ctxCross.stroke();
+
+            // Draw Road surface
+            ctxCross.beginPath();
+            ctxCross.moveTo(x1, y1);
+            ctxCross.lineTo(x2, y2);
+            ctxCross.lineWidth = 12;
+            ctxCross.lineCap = 'round';
+            ctxCross.strokeStyle = (state.isDragging) ? '#94a3b8' : '#64748b';
+            ctxCross.stroke();
+
+            // Draw Car (Center of road)
+            ctxCross.save();
+            ctxCross.translate(cx, cy);
+            ctxCross.rotate(-theta); // Rotate to align with road
+            
+            // Car body
+            ctxCross.fillStyle = '#cbd5e1';
+            const carW = 40, carH = 30;
+            ctxCross.fillRect(-carW/2, -carH - 6, carW, carH);
+            // Wheels
+            ctxCross.fillStyle = '#000';
+            ctxCross.fillRect(-carW/2 - 2, -6, 8, 6);
+            ctxCross.fillRect(carW/2 - 6, -6, 8, 6);
+            
+            // Center of mass (origin for vectors)
+            const cmY = -carH/2 - 6;
+            ctxCross.beginPath();
+            ctxCross.arc(0, cmY, 3, 0, Math.PI*2);
+            ctxCross.fillStyle = '#ef4444';
+            ctxCross.fill();
+
+            // --- Draw Force Vectors ---
+            const drawArrow = (fx, fy, tx, ty, color, label) => {
+                const headlen = 8; 
+                const dx = tx - fx; const dy = ty - fy;
+                const angle = Math.atan2(dy, dx);
+                ctxCross.beginPath();
+                ctxCross.moveTo(fx, fy); ctxCross.lineTo(tx, ty);
+                ctxCross.lineTo(tx - headlen * Math.cos(angle - Math.PI / 6), ty - headlen * Math.sin(angle - Math.PI / 6));
+                ctxCross.moveTo(tx, ty);
+                ctxCross.lineTo(tx - headlen * Math.cos(angle + Math.PI / 6), ty - headlen * Math.sin(angle + Math.PI / 6));
+                ctxCross.strokeStyle = color; ctxCross.lineWidth = 2; ctxCross.stroke();
+                
+                // Label (undo rotation for text to be upright)
+                ctxCross.save();
+                ctxCross.translate(tx + Math.cos(angle)*10, ty + Math.sin(angle)*10);
+                ctxCross.rotate(theta); // counter-rotate
+                ctxCross.fillStyle = color;
+                ctxCross.font = "10px sans-serif";
+                ctxCross.fillText(label, -5, 5);
+                ctxCross.restore();
+            };
+
+            // Un-rotate matrix to draw global vectors correctly relative to CM
+            ctxCross.restore(); 
+            ctxCross.save();
+            
+            // CM Global Position
+            const cmGlobalX = cx - cmY * Math.sin(theta);
+            const cmGlobalY = cy + cmY * Math.cos(theta);
+            
+            // 1. Gravity (W) - Straight down
+            const wLen = 60;
+            drawArrow(cmGlobalX, cmGlobalY, cmGlobalX, cmGlobalY + wLen, '#3b82f6', 'W');
+            
+            // 2. Centrifugal Force (P) - Horizontal outward (Right)
+            // Scale visually based on V^2 / R
+            const pScale = ((state.V * state.V) / state.R) * 1.5;
+            const pLen = Math.min(100, Math.max(20, pScale));
+            drawArrow(cmGlobalX, cmGlobalY, cmGlobalX + pLen, cmGlobalY, '#ef4444', 'P');
+
+            // 3. Normal Force (N) - Perpendicular to surface
+            const nLen = wLen * Math.cos(theta) + pLen * Math.sin(theta);
+            drawArrow(cmGlobalX, cmGlobalY, cmGlobalX - nLen * Math.sin(theta), cmGlobalY - nLen * Math.cos(theta), '#ffffff', 'N');
+
+            // 4. Friction (F) - Along the surface inward (Left/Down slope)
+            // Magnitude depends on state.f
+            let fLen = state.f * nLen * 3; // exaggerated for visibility
+            if (fLen > 100) fLen = 100;
+            if (fLen < -100) fLen = -100; // Negative friction means acting outward
+            const fDir = fLen >= 0 ? 1 : -1;
+            drawArrow(cmGlobalX, cmGlobalY, cmGlobalX - Math.abs(fLen) * Math.cos(theta) * fDir, cmGlobalY - Math.abs(fLen) * Math.sin(theta) * fDir, '#22c55e', 'F');
+
+            ctxCross.restore();
+        }
+
+        crossCanvas.addEventListener('mousedown', (e) => {
+            if (state.mode !== 'M') {
+                setMode('M');
+            }
+            state.isDragging = true;
+            audio.init();
+        });
+
+        window.addEventListener('mouseup', () => { state.isDragging = false; });
+
+        crossCanvas.addEventListener('mousemove', (e) => {
+            if (!state.isDragging) return;
+            const rect = crossCanvas.getBoundingClientRect();
+            const my = e.clientY - rect.top;
+            const cy = crossCanvas.height * 0.7;
+            const maxDragHeight = crossCanvas.height * 0.3;
+            
+            // Map mouse Y to an angle (-0.1 to 0.2 approx)
+            const dy = cy - my;
+            let dragE = dy / (crossCanvas.width * 0.2); 
+            
+            // Clamp e
+            if (dragE < -0.1) dragE = -0.1;
+            if (dragE > 0.25) dragE = 0.25;
+            
+            state.e = dragE;
+            updatePhysics();
+        });
+
+        // Animation Loop
+        function renderLoop() {
+            drawTopView();
+            drawCrossSection();
+            requestAnimationFrame(renderLoop);
+        }
+
+        const btnNarrate = document.getElementById('btnNarrate');
+        btnNarrate.addEventListener('click', () => {
+            audio.init();
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                let text = "";
+                if (state.mode === 'A') {
+                    text = `Mode A selected. Calculating required superelevation assuming full design friction is developed. For a speed of ${state.V} kilometers per hour and radius of ${state.R} meters, the required superelevation is ${(state.e*100).toFixed(1)} percent.`;
+                } else if (state.mode === 'B') {
+                    text = `Mode B selected. Assuming a flat curve with zero superelevation. The required coefficient of lateral friction to prevent skidding is ${state.f.toFixed(3)}.`;
+                } else {
+                    text = `Manual mode. Adjusting the road banking physically changes the reliance on lateral friction. Current superelevation is ${(state.e*100).toFixed(1)} percent, requiring a friction coefficient of ${state.f.toFixed(3)}.`;
+                }
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9;
+                window.speechSynthesis.speak(utterance);
+            }
+        });
+
+        const btnSolution = document.getElementById('btnSolution');
+        const stepByStep = document.getElementById('stepByStep');
+        const solutionContent = document.getElementById('solutionContent');
+
+        function generateSolutionText() {
+            const { V, R, f_max, e, f, mode } = state;
+            const rhs = ((V * V) / (127 * R)).toFixed(5);
+            let html = `
+                <p><strong>Given Data:</strong></p>
+                <ul class="list-disc pl-5 text-slate-700">
+                    <li>Radius of the horizontal curve ($R$) = <strong>${R} m</strong></li>
+                    <li>Design speed ($V$) = <strong>${V} kmph</strong></li>
+                    <li>Design coefficient of lateral friction ($f_{max}$) = <strong>${f_max}</strong></li>
+                </ul>
+                <p class="mt-2"><strong>Governing Formula:</strong><br>
+                The fundamental equation for designing horizontal curves in highway engineering is:<br>
+                $$e + f = \\frac{V^2}{127R}$$</p>
+            `;
+
+            if (mode === 'A') {
+                html += `
+                    <p class="mt-4 border-t border-slate-300 pt-2 text-blue-800 font-bold">(a) Calculate the superelevation required if full lateral friction is assumed to develop.</p>
+                    <p>If full lateral friction is utilized, we set $f$ to its maximum design value: $f = ${f_max}$.</p>
+                    <p><strong>Step 1:</strong> Substitute the known values into the governing formula.<br>
+                    $$e + ${f_max} = \\frac{${V}^2}{127 \\times ${R}}$$</p>
+                    <p><strong>Step 2:</strong> Calculate the right side of the equation.<br>
+                    $$e + ${f_max} = \\frac{${V*V}}{${127*R}}$$ <br>
+                    $$e + ${f_max} = ${rhs}$$</p>
+                    <p><strong>Step 3:</strong> Solve for superelevation ($e$).<br>
+                    $$e = ${rhs} - ${f_max}$$ <br>
+                    $$e = ${e.toFixed(5)}$$</p>
+                    <p class="bg-blue-100 p-2 border-l-4 border-blue-500 text-black mt-2">
+                    <strong>Answer:</strong> The required superelevation is <strong>${e.toFixed(4)}</strong> (or <strong>${(e*100).toFixed(2)}%</strong>).
+                    </p>
+                `;
+            } else if (mode === 'B') {
+                html += `
+                    <p class="mt-4 border-t border-slate-300 pt-2 text-green-800 font-bold">(b) Calculate the coefficient of friction needed if no superelevation is provided.</p>
+                    <p>If no superelevation is provided, a flat curve is assumed, meaning $e = 0$.</p>
+                    <p><strong>Step 1:</strong> Substitute $e = 0$ and the other knowns into the governing formula.<br>
+                    $$0 + f = \\frac{${V}^2}{127 \\times ${R}}$$</p>
+                    <p><strong>Step 2:</strong> Solve directly for $f$.<br>
+                    $$f = \\frac{${V*V}}{${127*R}}$$ <br>
+                    $$f = ${rhs}$$</p>
+                    <p class="bg-green-100 p-2 border-l-4 border-green-500 text-black mt-2">
+                    <strong>Answer:</strong> The coefficient of lateral friction needed is <strong>${f.toFixed(4)}</strong>.
+                    </p>
+                `;
+                if (f > f_max) {
+                    html += `<p class="italic text-red-600 mt-2">&gt; <strong>Student Note:</strong> Since ${f.toFixed(4)} is greater than the standard maximum permissible lateral friction of ${f_max}, a vehicle traveling at ${V} kmph on this flat curve would likely skid. Superelevation is strictly necessary here to maintain safety.</p>`;
+                }
+            } else {
+                html += `
+                    <p class="mt-4 border-t border-slate-300 pt-2 text-purple-800 font-bold">(c) Manual Analysis given $e = ${e.toFixed(4)}$.</p>
+                    <p><strong>Step 1:</strong> Substitute $e = ${e.toFixed(4)}$ into the equation.<br>
+                    $$${e.toFixed(4)} + f = \\frac{${V}^2}{127 \\times ${R}}$$</p>
+                    <p><strong>Step 2:</strong> Solve directly for $f$.<br>
+                    $$f = ${rhs} - ${e.toFixed(4)}$$ <br>
+                    $$f = ${f.toFixed(4)}$$</p>
+                `;
+            }
+
+            solutionContent.innerHTML = html;
+            // Retypeset MathJax
+            if (window.MathJax) {
+                MathJax.typesetPromise([solutionContent]).catch(function (err) {
+                    console.log('MathJax error: ', err.message);
+                });
+            }
+        }
+
+        btnSolution.addEventListener('click', () => {
+            audio.init();
+            audio.playChime();
+            if (stepByStep.style.display === 'block') {
+                stepByStep.style.display = 'none';
+                btnSolution.textContent = "Show Step-by-Step Notebook Solution";
+            } else {
+                stepByStep.style.display = 'block';
+                btnSolution.textContent = "Hide Solution";
+                // Scroll to view
+                stepByStep.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+
+        window.onload = () => {
+            resizeCanvas();
+            updatePhysics();
+            renderLoop();
+            
+            // Initial MathJax render
+            if (window.MathJax) {
+                MathJax.typesetPromise();
+            }
+        };
+
+    </script>
+</body>
+</html>

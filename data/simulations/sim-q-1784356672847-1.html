@@ -1,0 +1,1461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Structural Engineering Studio: WSM vs LSM Simulation</title>
+    <!-- GSAP for smooth animations -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #121212;
+            --accent-cyan: #0ff; /* Neon Cyan */
+            --accent-magenta: #f0f; /* Neon Magenta */
+            --accent-lime: #0f0; /* Neon Lime Green */
+            --text-light: #e0e0e0;
+            --text-muted: #888;
+            --glass-bg: rgba(var(--accent-cyan-rgb), 0.08); /* Adjusted for glass effect */
+            --glass-border: rgba(var(--accent-cyan-rgb), 0.3);
+            --accent-cyan-rgb: 0, 255, 255;
+            --accent-magenta-rgb: 255, 0, 255;
+            --accent-lime-rgb: 0, 255, 0;
+
+            font-family: 'Segoe UI', 'Roboto', sans-serif;
+            color: var(--text-light);
+            line-height: 1.6;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-dark);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            display: flex; /* Ensures the app container is the only child */
+            user-select: none; /* Prevent accidental text selection */
+        }
+
+        #app-container {
+            display: grid;
+            grid-template-columns: 250px 1fr; /* Sidebar width, Main stage takes rest */
+            grid-template-rows: 1fr; /* Single row for main content */
+            height: 100%;
+            width: 100%;
+            overflow: hidden; /* Important for preventing scrolls */
+        }
+
+        .panel {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            margin: 10px;
+            padding: 20px;
+            box-shadow: 0 0 15px rgba(var(--accent-cyan-rgb), 0.2);
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden; /* For glass effect */
+        }
+
+        .panel-header {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--accent-lime);
+            margin-bottom: 15px;
+            text-shadow: 0 0 5px rgba(var(--accent-lime-rgb), 0.7);
+        }
+
+        #sidebar {
+            grid-column: 1;
+            overflow-y: auto; /* Allow scrolling for long checklist */
+            padding-right: 5px; /* For scrollbar aesthetic */
+        }
+
+        #main-stage {
+            grid-column: 2;
+            display: grid;
+            grid-template-rows: 1fr 220px; /* Canvas top, Formula Drawer bottom */
+            overflow: hidden;
+        }
+
+        #simulation-canvas-container {
+            grid-row: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 10px;
+            background: rgba(0, 0, 0, 0.3); /* Slightly darker for canvas background */
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 0 15px rgba(var(--accent-magenta-rgb), 0.2);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: transparent; /* Canvas background handled by container */
+        }
+
+        #canvas-overlay-ui {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none; /* Allow clicks to pass through to canvas by default */
+        }
+
+        .canvas-label {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+            color: var(--text-light);
+            pointer-events: all; /* Make labels clickable */
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(var(--accent-cyan-rgb), 0.5);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .canvas-label:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 12px rgba(var(--accent-lime-rgb), 0.7);
+        }
+
+        #zoom-controls {
+            position: absolute;
+            bottom: 15px;
+            right: 15px;
+            display: flex;
+            gap: 10px;
+            pointer-events: all;
+        }
+
+        .control-button {
+            background: rgba(var(--accent-cyan-rgb), 0.2);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 8px rgba(var(--accent-cyan-rgb), 0.3);
+        }
+
+        .control-button:hover {
+            background: rgba(var(--accent-cyan-rgb), 0.4);
+            box-shadow: 0 0 12px rgba(var(--accent-cyan-rgb), 0.6);
+        }
+
+        .control-button:active {
+            transform: translateY(1px);
+        }
+
+        #formula-drawer {
+            grid-row: 2;
+        }
+
+        #problem-statement {
+            padding: 10px 20px;
+            font-size: 1.1em;
+            color: var(--accent-magenta);
+            text-align: center;
+            text-shadow: 0 0 5px rgba(var(--accent-magenta-rgb), 0.5);
+            margin-bottom: 10px;
+        }
+
+        .checklist {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(var(--accent-cyan-rgb), 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .checklist-item.completed {
+            background: rgba(var(--accent-lime-rgb), 0.1);
+            border-color: var(--accent-lime);
+            box-shadow: 0 0 10px rgba(var(--accent-lime-rgb), 0.5);
+        }
+
+        .checklist-item.completed .icon {
+            color: var(--accent-lime);
+        }
+
+        .checklist-item .icon {
+            font-size: 1.2em;
+            margin-right: 10px;
+            color: var(--text-muted);
+        }
+
+        .checklist-item .text {
+            flex-grow: 1;
+        }
+
+        .drag-zone {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 15px;
+            min-height: 80px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px dashed var(--accent-cyan);
+            border-radius: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: inset 0 0 10px rgba(var(--accent-cyan-rgb), 0.3);
+        }
+
+        .drag-zone.active {
+            border-color: var(--accent-lime);
+            box-shadow: inset 0 0 15px rgba(var(--accent-lime-rgb), 0.5);
+        }
+
+        .drag-chip {
+            background: rgba(var(--accent-magenta-rgb), 0.2);
+            border: 1px solid var(--accent-magenta);
+            color: var(--accent-magenta);
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: grab;
+            font-weight: bold;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 8px rgba(var(--accent-magenta-rgb), 0.3);
+            pointer-events: all;
+        }
+
+        .drag-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 12px rgba(var(--accent-magenta-rgb), 0.6);
+        }
+
+        .drag-chip.dropped {
+            cursor: default;
+            background: rgba(var(--accent-lime-rgb), 0.2);
+            border-color: var(--accent-lime);
+            color: var(--accent-lime);
+            box-shadow: 0 0 8px rgba(var(--accent-lime-rgb), 0.3);
+        }
+
+        .formula-slot {
+            min-width: 80px;
+            min-height: 40px;
+            background: rgba(var(--accent-cyan-rgb), 0.1);
+            border: 1px dashed var(--accent-cyan);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            font-size: 0.9em;
+            color: var(--text-muted);
+            transition: all 0.2s ease;
+        }
+
+        .formula-slot.active {
+            border-color: var(--accent-lime);
+            box-shadow: 0 0 10px rgba(var(--accent-lime-rgb), 0.5);
+            background: rgba(var(--accent-lime-rgb), 0.1);
+        }
+
+        .formula-display {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .capacity-display {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+            margin-top: 15px;
+            font-size: 1.1em;
+            font-weight: bold;
+        }
+
+        .capacity-box {
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(var(--accent-cyan-rgb), 0.3);
+            text-align: center;
+            flex: 1;
+            box-shadow: 0 0 10px rgba(var(--accent-cyan-rgb), 0.2);
+        }
+        .capacity-box.wsm { color: var(--accent-magenta); }
+        .capacity-box.lsm { color: var(--accent-lime); }
+
+        #method-toggle {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+            justify-content: center;
+            pointer-events: all;
+        }
+
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--accent-magenta);
+            transition: 0.4s;
+            border-radius: 34px;
+            box-shadow: 0 0 8px rgba(var(--accent-magenta-rgb), 0.5);
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: var(--text-light);
+            transition: 0.4s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider {
+            background-color: var(--accent-lime);
+            box-shadow: 0 0 8px rgba(var(--accent-lime-rgb), 0.5);
+        }
+
+        input:focus + .slider {
+            box-shadow: 0 0 1px var(--accent-lime);
+        }
+
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+
+        .toggle-label {
+            font-weight: bold;
+            color: var(--text-light);
+            text-shadow: 0 0 5px rgba(var(--accent-cyan-rgb), 0.3);
+        }
+
+        /* Modal Styles */
+        #modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        #modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: rgba(var(--accent-cyan-rgb), 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 30px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80%;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 0 25px rgba(var(--accent-cyan-rgb), 0.5);
+            animation: fadeInScale 0.3s ease-out;
+        }
+
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .modal-close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.8em;
+            color: var(--accent-magenta);
+            cursor: pointer;
+            transition: transform 0.2s ease, color 0.2s ease;
+            text-shadow: 0 0 5px rgba(var(--accent-magenta-rgb), 0.7);
+        }
+
+        .modal-close-btn:hover {
+            transform: rotate(90deg);
+            color: var(--accent-cyan);
+        }
+
+        .modal-header {
+            font-size: 1.5em;
+            color: var(--accent-lime);
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 5px rgba(var(--accent-lime-rgb), 0.7);
+        }
+
+        .modal-body p {
+            margin-bottom: 10px;
+            color: var(--text-light);
+            font-size: 0.95em;
+        }
+
+        .modal-body strong {
+            color: var(--accent-cyan);
+        }
+
+        .modal-body ul {
+            list-style: disc;
+            margin-left: 20px;
+        }
+
+        .modal-body li {
+            margin-bottom: 5px;
+        }
+
+        .is-code-snippet {
+            font-family: 'Courier New', Courier, monospace;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(var(--accent-lime-rgb), 0.3);
+            color: var(--accent-lime);
+            white-space: pre-wrap;
+            margin-top: 20px;
+            font-size: 0.85em;
+            line-height: 1.4;
+            box-shadow: inset 0 0 10px rgba(var(--accent-lime-rgb), 0.3);
+        }
+
+        /* Helper for pulsing effects */
+        .pulse-red {
+            animation: pulse-red-anim 1s infinite alternate;
+        }
+        @keyframes pulse-red-anim {
+            from { box-shadow: 0 0 0px rgba(255, 0, 0, 0.0); }
+            to { box-shadow: 0 0 20px rgba(255, 0, 0, 0.8); }
+        }
+
+        .pulse-green {
+            animation: pulse-green-anim 1s infinite alternate;
+        }
+        @keyframes pulse-green-anim {
+            from { box-shadow: 0 0 0px rgba(0, 255, 0, 0.0); }
+            to { box-shadow: 0 0 20px rgba(0, 255, 0, 0.8); }
+        }
+
+        /* Audio Controls */
+        #audio-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Left Sidebar: Checklist & Global Controls -->
+        <div id="sidebar" class="panel">
+            <div class="panel-header">Structural Studio</div>
+
+            <p id="problem-statement">
+                Why is Limit State Method more desirable than Working Stress Method for RCC design?
+            </p>
+
+            <div class="panel-header">Interactive Checklist</div>
+            <ul id="checklist" class="checklist">
+                <li id="step-identify" class="checklist-item">
+                    <span class="icon">&#9675;</span> <span class="text">Identify Beam Variables (click on canvas)</span>
+                </li>
+                <li id="step-drag-params" class="checklist-item">
+                    <span class="icon">&#9675;</span> <span class="text">Drag Variables into Formula Slot</span>
+                </li>
+                <li id="step-safety-factor" class="checklist-item">
+                    <span class="icon">&#9675;</span> <span class="text">Apply Safety Factor (drag chip)</span>
+                </li>
+                <li id="step-load-test" class="checklist-item">
+                    <span class="icon">&#9675;</span> <span class="text">Perform Load Test (drag weights)</span>
+                </li>
+                <li id="step-compare" class="checklist-item">
+                    <span class="icon">&#9675;</span> <span class="text">Compare WSM vs LSM Capacity</span>
+                </li>
+            </ul>
+
+            <div class="panel-header" style="margin-top: 20px;">Global Controls</div>
+            <div id="method-toggle">
+                <span class="toggle-label">WSM</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="methodToggleCheckbox">
+                    <span class="slider"></span>
+                </label>
+                <span class="toggle-label">LSM</span>
+            </div>
+
+            <div id="audio-controls">
+                <button class="control-button" onclick="playSpeech('Applying partial safety factors to account for material uncertainty and load variation.')">
+                    <span class="icon">&#128266;</span> Speak Factor
+                </button>
+                <button class="control-button" onclick="playClickSound()">
+                    <span class="icon">&#128266;</span> Click Test
+                </button>
+                <button class="control-button" onclick="playThrumSound()">
+                    <span class="icon">&#128266;</span> Thrum Test
+                </button>
+            </div>
+
+            <button class="control-button" style="width: 100%; margin-top: 20px;" onclick="openISCodeModal()">
+                <span class="icon">&#128218;</span> IS 456 Codebook
+            </button>
+            <button class="control-button" style="width: 100%; margin-top: 10px; background: rgba(255, 0, 0, 0.2); border-color: red;" onclick="resetSimulation()">
+                <span class="icon">&#128257;</span> Reset Simulation
+            </button>
+        </div>
+
+        <!-- Main Stage: Canvas & Formula Drawer -->
+        <div id="main-stage">
+            <div id="simulation-canvas-container">
+                <canvas id="rccCanvas"></canvas>
+                <div id="canvas-overlay-ui">
+                    <div id="zoom-controls">
+                        <button class="control-button" onclick="zoomCanvas(0.2)">+</button>
+                        <button class="control-button" onclick="zoomCanvas(-0.2)">-</button>
+                        <button class="control-button" onclick="resetView()">&#x21BA;</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Formula Drawer -->
+            <div id="formula-drawer" class="panel">
+                <div class="panel-header">Design Parameters & Load Test</div>
+
+                <div class="drag-zone" id="param-drag-zone">
+                    <div class="drag-chip" id="chip-b" draggable="true" data-value="300" data-type="b">b = 300 mm</div>
+                    <div class="drag-chip" id="chip-D" draggable="true" data-value="500" data-type="D">D = 500 mm</div>
+                    <div class="drag-chip" id="chip-fck" draggable="true" data-value="25" data-type="fck">fck = M25</div>
+                    <div class="drag-chip" id="chip-fy" draggable="true" data-value="415" data-type="fy">fy = Fe415</div>
+                    <div class="drag-chip" id="chip-sf" draggable="true" data-value="1.5" data-type="safetyFactor">Safety Factor</div>
+                </div>
+
+                <div class="formula-display">
+                    <span style="color: var(--text-light);">Design Capacity (Mu) = </span>
+                    <div class="formula-slot" id="slot-b" data-type="b">b</div>
+                    <span>x</span>
+                    <div class="formula-slot" id="slot-D" data-type="D">D</div>
+                    <span>x</span>
+                    <div class="formula-slot" id="slot-fck" data-type="fck">fck</div>
+                    <span>x</span>
+                    <div class="formula-slot" id="slot-fy" data-type="fy">fy</div>
+                    <span>/</span>
+                    <div class="formula-slot" id="slot-sf" data-type="safetyFactor">SF</div>
+                    <span style="color: var(--text-light);">= ? kN.m</span>
+                </div>
+
+                <div class="drag-zone" id="load-drag-zone">
+                    <div class="drag-chip" id="weight-10" draggable="true" data-value="10" data-type="weight">Weight 10 kN</div>
+                    <div class="drag-chip" id="weight-20" draggable="true" data-value="20" data-type="weight">Weight 20 kN</div>
+                    <div class="drag-chip" id="weight-50" draggable="true" data-value="50" data-type="weight">Weight 50 kN</div>
+                </div>
+                <div class.capacity-display>
+                    <div class="capacity-box wsm">WSM Capacity: <span id="wsm-capacity">0</span> kN.m</div>
+                    <div class="capacity-box lsm">LSM Capacity: <span id="lsm-capacity">0</span> kN.m</div>
+                </div>
+                <div class="capacity-box wsm" style="margin-top:10px; border-color: red; color:red; display:none;" id="failure-indicator">CRITICAL FAILURE!</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for IS 456 Codebook -->
+    <div id="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close-btn" onclick="closeISCodeModal()">&times;</button>
+            <h2 class="modal-header">IS 456:2000 - Plain and Reinforced Concrete - Code of Practice</h2>
+            <div class="modal-body">
+                <p><strong>Clause 5.2.2.1 - Limit State Method vs. Working Stress Method</strong></p>
+                <p>The Code recognizes two methods of design for reinforced concrete structures:</p>
+                <ul>
+                    <li><strong>Limit State Method (LSM):</strong> This method considers the structure at various limit states (e.g., collapse, serviceability) under characteristic loads and material strengths, using partial safety factors. It aims for a more realistic and economical design, utilizing material strength more effectively.</li>
+                    <li><strong>Working Stress Method (WSM):</strong> This method designs the structure to remain elastic under service loads, with stresses kept below permissible limits. It tends to be more conservative, leading to heavier and less economical sections due to its simpler, linear elastic assumptions and higher factors of safety on stresses.</li>
+                </ul>
+                <div class="is-code-snippet">
+                    <p><strong>5.2.2.1 Limit State Method</strong></p>
+                    <p>This method shall be used for general design of reinforced concrete structures. It is based on the principle that the structure must satisfy all applicable limit states at ultimate and serviceability conditions.</p>
+                    <p><strong>5.2.2.2 Working Stress Method</strong></p>
+                    <p>This method may be used in circumstances where limit state method cannot be conveniently applied, or where specified by the client or regulatory authority. However, it generally leads to uneconomical sections compared to the limit state method.</p>
+                    <p><strong>Note:</strong> Partial safety factors for loads and materials are fundamental to the Limit State Method to account for uncertainties in design parameters.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('rccCanvas');
+        const ctx = canvas.getContext('2d');
+        const appContainer = document.getElementById('app-container');
+        const methodToggleCheckbox = document.getElementById('methodToggleCheckbox');
+        const paramDragZone = document.getElementById('param-drag-zone');
+        const loadDragZone = document.getElementById('load-drag-zone');
+        const formulaSlots = document.querySelectorAll('.formula-slot');
+        const wsmCapacityDisplay = document.getElementById('wsm-capacity');
+        const lsmCapacityDisplay = document.getElementById('lsm-capacity');
+        const failureIndicator = document.getElementById('failure-indicator');
+
+        // Checklist elements
+        const checklistIdentify = document.getElementById('step-identify');
+        const checklistDragParams = document.getElementById('step-drag-params');
+        const checklistSafetyFactor = document.getElementById('step-safety-factor');
+        const checklistLoadTest = document.getElementById('step-load-test');
+        const checklistCompare = document.getElementById('step-compare');
+
+        // Modal elements
+        const modalOverlay = document.getElementById('modal-overlay');
+
+        // --- Simulation State ---
+        let simulationState = {
+            method: 'WSM', // 'WSM' or 'LSM'
+            b: 0, // Width (mm)
+            D: 0, // Depth (mm)
+            fck: 0, // Concrete Grade (MPa)
+            fy: 0, // Steel Grade (MPa)
+            Ast: 0, // Area of steel (mm^2) - Calculated based on D, b, cover for visualization
+            safetyFactorApplied: false,
+            currentLoad: 0, // kN
+            wsmCapacity: 0, // kN.m
+            lsmCapacity: 0, // kN.m
+            isFailure: false,
+            neutralAxisDepth: 0, // y_na from top
+            stressBlockVisualization: {
+                concreteStress: [], // Array of {y, stress}
+                steelStrain: [],    // Array of {y, strain}
+            },
+            zoomLevel: 1,
+            panX: 0,
+            panY: 0,
+            isDraggingCanvas: false,
+            lastPanX: 0,
+            lastPanY: 0,
+            identifiedComponents: {
+                b: false, D: false, fck: false, fy: false, tensionZone: false
+            },
+            checklist: {
+                'step-identify': false,
+                'step-drag-params': false,
+                'step-safety-factor': false,
+                'step-load-test': false,
+                'step-compare': false,
+            }
+        };
+
+        // --- Constants & Derived Properties ---
+        const COVER = 50; // Effective cover for rebars
+        const REBAR_DIAMETER = 16; // mm
+        const NUM_REBARS = 3; // Number of rebars at bottom
+        const Es = 200 * 1000; // Modulus of Elasticity for Steel (MPa)
+
+        const concreteColors = {
+            'WSM': 'rgba(100, 100, 255, 0.6)', // Blueish for WSM
+            'LSM': 'rgba(255, 165, 0, 0.6)'  // Orangeish for LSM
+        };
+        const steelColor = 'rgba(255, 0, 0, 0.8)'; // Red for steel
+
+        // --- Canvas Setup ---
+        let dpr = window.devicePixelRatio || 1;
+        let animationFrameId;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            drawSimulation();
+        }
+
+        function toCanvasCoords(x, y) {
+            // Converts simulation mm to canvas pixels, accounting for pan and zoom
+            const scale = canvas.width / (simulationState.b * dpr * simulationState.zoomLevel); // Scale based on width of beam
+            const canvasX = (x * scale) + simulationState.panX;
+            const canvasY = (y * scale) + simulationState.panY;
+            return { x: canvasX, y: canvasY };
+        }
+
+        function toSimCoords(canvasX, canvasY) {
+            // Converts canvas pixels to simulation mm, accounting for pan and zoom
+            const scale = canvas.width / (simulationState.b * dpr * simulationState.zoomLevel);
+            const simX = (canvasX - simulationState.panX) / scale;
+            const simY = (canvasY - simulationState.panY) / scale;
+            return { x: simX, y: simY };
+        }
+
+        // --- Drawing Functions ---
+        function drawBeamSection() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            if (simulationState.b === 0 || simulationState.D === 0) {
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.2)';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Drag parameters to visualize beam', 0, 0);
+                ctx.restore();
+                return;
+            }
+
+            const { b, D } = simulationState;
+            const scale = Math.min(
+                (canvas.width * 0.7) / b,
+                (canvas.height * 0.7) / D
+            );
+            
+            // Calculate center of beam relative to canvas origin
+            const beamCanvasWidth = b * scale;
+            const beamCanvasHeight = D * scale;
+            const beamOriginX = (canvas.width - beamCanvasWidth) / 2;
+            const beamOriginY = (canvas.height - beamCanvasHeight) / 2;
+
+            ctx.save();
+            ctx.translate(beamOriginX + simulationState.panX, beamOriginY + simulationState.panY);
+            ctx.scale(simulationState.zoomLevel, simulationState.zoomLevel);
+
+            // Draw concrete section
+            ctx.fillStyle = 'rgba(150, 150, 150, 0.4)';
+            ctx.strokeStyle = varToString('--accent-cyan');
+            ctx.lineWidth = 2 / simulationState.zoomLevel;
+            ctx.fillRect(0, 0, beamCanvasWidth, beamCanvasHeight);
+            ctx.strokeRect(0, 0, beamCanvasWidth, beamCanvasHeight);
+
+            // Draw rebars
+            const rebarY = (D - COVER) * scale;
+            const rebarSpacing = (b - 2 * COVER) / (NUM_REBARS - 1);
+            simulationState.Ast = 0;
+            for (let i = 0; i < NUM_REBARS; i++) {
+                const rebarX = (COVER + i * rebarSpacing) * scale;
+                const rebarRadius = (REBAR_DIAMETER / 2) * scale;
+                
+                ctx.beginPath();
+                ctx.arc(rebarX, rebarY, rebarRadius, 0, Math.PI * 2);
+                ctx.fillStyle = steelColor;
+                ctx.fill();
+                ctx.strokeStyle = varToString('--accent-magenta');
+                ctx.stroke();
+
+                if (simulationState.isFailure) {
+                    // Apply pulsing effect directly via canvas
+                    const pulse = Math.sin(Date.now() / 150) * 0.5 + 0.5; // 0 to 1
+                    ctx.shadowColor = `rgba(255, 0, 0, ${pulse})`;
+                    ctx.shadowBlur = 10 * pulse;
+                    ctx.fill();
+                    ctx.shadowBlur = 0; // Reset shadow
+                }
+                simulationState.Ast += Math.PI * (REBAR_DIAMETER / 2) ** 2;
+            }
+            
+            // Draw Neutral Axis
+            if (simulationState.neutralAxisDepth > 0) {
+                const naY = simulationState.neutralAxisDepth * scale;
+                ctx.strokeStyle = varToString('--accent-lime');
+                ctx.lineWidth = 2 / simulationState.zoomLevel;
+                ctx.beginPath();
+                ctx.moveTo(0, naY);
+                ctx.lineTo(beamCanvasWidth, naY);
+                ctx.stroke();
+
+                // NA label
+                drawCanvasText('N.A.', beamCanvasWidth + 10, naY, varToString('--accent-lime'), 'right');
+            }
+
+            // Draw Stress-Strain Block
+            drawStressStrainBlock(beamCanvasWidth, beamCanvasHeight, scale);
+
+            // Draw external loads (weight blocks)
+            if (simulationState.currentLoad > 0) {
+                const loadBlockSize = Math.min(beamCanvasWidth / 5, 50 * scale);
+                const numBlocks = Math.ceil(simulationState.currentLoad / 50); // Each block represents 50kN
+                const totalLoadWidth = numBlocks * (loadBlockSize + 5 * scale) - (5 * scale); // Total width with spacing
+                const startX = (beamCanvasWidth - totalLoadWidth) / 2;
+                const loadY = -loadBlockSize * 0.8; // Position above the beam
+
+                for (let i = 0; i < numBlocks; i++) {
+                    ctx.fillStyle = 'rgba(200, 200, 255, 0.7)';
+                    ctx.strokeStyle = varToString('--accent-cyan');
+                    ctx.lineWidth = 1 / simulationState.zoomLevel;
+                    ctx.fillRect(startX + i * (loadBlockSize + 5 * scale), loadY, loadBlockSize, loadBlockSize);
+                    ctx.strokeRect(startX + i * (loadBlockSize + 5 * scale), loadY, loadBlockSize, loadBlockSize);
+
+                    drawCanvasText(`${simulationState.currentLoad / numBlocks} kN`, startX + i * (loadBlockSize + 5 * scale) + loadBlockSize / 2, loadY + loadBlockSize / 2, varToString('--text-light'), 'center', 0.8);
+                }
+            }
+            
+            ctx.restore();
+            drawOverlayLabels(beamOriginX, beamOriginY, scale);
+        }
+
+        function drawOverlayLabels(beamOriginX, beamOriginY, scale) {
+            const { b, D } = simulationState;
+            const beamCanvasWidth = b * scale;
+            const beamCanvasHeight = D * scale;
+            const rebarY_sim = (D - COVER);
+            const rebarY_canvas = (D - COVER) * scale;
+
+            // Clear previous labels (if any)
+            document.querySelectorAll('.canvas-label').forEach(el => el.remove());
+
+            // Add labels using DOM elements for interactivity and clear text
+            const addCanvasDOMLabel = (text, simX, simY, type) => {
+                const label = document.createElement('div');
+                label.className = `canvas-label ${simulationState.identifiedComponents[type] ? 'completed' : ''}`;
+                label.textContent = text;
+                label.dataset.type = type;
+                label.style.left = `${beamOriginX + simX * scale * simulationState.zoomLevel + simulationState.panX}px`;
+                label.style.top = `${beamOriginY + simY * scale * simulationState.zoomLevel + simulationState.panY}px`;
+                label.onclick = () => handleCanvasComponentClick(type);
+                document.getElementById('canvas-overlay-ui').appendChild(label);
+            };
+            
+            // Adjust position for `b` and `D` labels to be outside the beam
+            addCanvasDOMLabel(`b: ${b}mm`, b / 2, -30, 'b'); // Above beam
+            addCanvasDOMLabel(`D: ${D}mm`, b + 30, D / 2, 'D'); // Right of beam
+            addCanvasDOMLabel(`fck: M${simulationState.fck}`, b / 2, D / 4, 'fck'); // Inside concrete
+            addCanvasDOMLabel(`fy: Fe${simulationState.fy}`, b / 2, rebarY_sim + 30, 'fy'); // Below rebars
+            addCanvasDOMLabel(`Tension Zone`, b / 2, rebarY_sim + 80, 'tensionZone'); // Clickable tension zone
+
+        }
+
+        function drawCanvasText(text, x, y, color, align = 'left', fontSizeMultiplier = 1) {
+            ctx.save();
+            ctx.font = `${14 * fontSizeMultiplier / simulationState.zoomLevel}px Arial`;
+            ctx.fillStyle = color;
+            ctx.textAlign = align;
+            ctx.textBaseline = 'middle';
+
+            // Draw text background for legibility
+            const textMetrics = ctx.measureText(text);
+            const textWidth = textMetrics.width;
+            const textHeight = 14 * fontSizeMultiplier / simulationState.zoomLevel; // Approx font height
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(
+                align === 'left' ? x : (align === 'right' ? x - textWidth : x - textWidth / 2),
+                y - textHeight / 2 - 2,
+                textWidth + 8, textHeight + 4
+            );
+            ctx.fillStyle = color;
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        function drawStressStrainBlock(beamCanvasWidth, beamCanvasHeight, scale) {
+            const { D, fck, fy, neutralAxisDepth, method, Ast } = simulationState;
+            if (neutralAxisDepth <= 0 || !fck || !fy || !Ast) return;
+
+            const d_effective = (D - COVER); // Effective depth
+            const d_effective_canvas = d_effective * scale;
+            const naY_canvas = neutralAxisDepth * scale;
+
+            ctx.save();
+            ctx.translate(beamCanvasWidth, 0); // Start drawing stress block to the right of the beam
+
+            // Strain Diagram
+            ctx.strokeStyle = varToString('--accent-magenta');
+            ctx.lineWidth = 1 / simulationState.zoomLevel;
+            ctx.beginPath();
+            ctx.moveTo(0, 0); // Top of beam
+            ctx.lineTo(20 * simulationState.zoomLevel, naY_canvas); // Neutral Axis at 0 strain
+            ctx.lineTo(0, beamCanvasHeight); // Bottom of beam (or rebar level)
+            ctx.stroke();
+
+            // Strain values (simplified visualization)
+            drawCanvasText('εc (max)', 25 * simulationState.zoomLevel, 0, varToString('--accent-magenta'), 'left', 0.7);
+            drawCanvasText('εs (max)', 25 * simulationState.zoomLevel, beamCanvasHeight, varToString('--accent-magenta'), 'left', 0.7);
+
+            // Stress Block
+            ctx.translate(30 * simulationState.zoomLevel, 0); // Further to the right
+
+            if (method === 'WSM') {
+                // WSM: Triangular concrete stress, rectangular steel stress
+                ctx.fillStyle = concreteColors.WSM;
+                ctx.beginPath();
+                ctx.moveTo(0, naY_canvas);
+                ctx.lineTo(40 * simulationState.zoomLevel, 0); // Max stress at top fiber
+                ctx.lineTo(0, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                drawCanvasText('σcbc', 45 * simulationState.zoomLevel, 0, varToString('--accent-cyan'), 'left', 0.7);
+
+                // Steel stress (rectangle at rebar level)
+                ctx.fillStyle = steelColor;
+                ctx.fillRect(0, d_effective_canvas - (10 * simulationState.zoomLevel / 2), 40 * simulationState.zoomLevel, 10 * simulationState.zoomLevel);
+                drawCanvasText('σst', 45 * simulationState.zoomLevel, d_effective_canvas, varToString('--accent-magenta'), 'left', 0.7);
+
+            } else { // LSM
+                // LSM: Parabolic-rectangular concrete stress block
+                ctx.fillStyle = concreteColors.LSM;
+                const Xu_canvas = naY_canvas;
+                const concreteStressCurvePoints = 50;
+                const maxConcreteStress = 0.446 * fck; // 0.67 fck / 1.5
+                const maxStressCanvas = 60 * simulationState.zoomLevel; // Max width of stress block visualization
+
+                ctx.beginPath();
+                ctx.moveTo(0, Xu_canvas); // Neutral axis
+                
+                // Parabolic part
+                for (let i = 0; i <= concreteStressCurvePoints; i++) {
+                    const y = Xu_canvas * (1 - i / concreteStressCurvePoints); // From NA to top
+                    const relativeY = y / Xu_canvas; // 0 at NA, 1 at top
+                    let stressWidth;
+                    if (relativeY <= 0.428) { // Up to 0.002 strain in actual diagram (Xu * 3/7)
+                        // Parabolic part (simplified visual for 3/7th of Xu)
+                        stressWidth = maxStressCanvas * (1 - (1 - relativeY * 7 / 3) ** 2);
+                    } else { // Rectangular part
+                        stressWidth = maxStressCanvas;
+                    }
+                    ctx.lineTo(stressWidth, y);
+                }
+                ctx.lineTo(maxStressCanvas, 0); // Top rectangle end
+                ctx.lineTo(0, 0); // Top start
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                drawCanvasText('0.446 fck', maxStressCanvas + 5 * simulationState.zoomLevel, 0, varToString('--accent-cyan'), 'left', 0.7);
+
+                // Steel stress (rectangular at rebar level)
+                ctx.fillStyle = steelColor;
+                ctx.fillRect(0, d_effective_canvas - (10 * simulationState.zoomLevel / 2), 40 * simulationState.zoomLevel, 10 * simulationState.zoomLevel);
+                drawCanvasText('0.87 fy', 45 * simulationState.zoomLevel, d_effective_canvas, varToString('--accent-magenta'), 'left', 0.7);
+            }
+            ctx.restore();
+        }
+
+
+        function drawEfficiencyChart() {
+            // Draw a simple bar chart comparing WSM and LSM capacities
+            // This will be overlayed on the canvas in an unused corner or a dedicated space.
+            // For now, let's keep it simple and update the text fields.
+            // If needed, I can expand this using GSAP for a dynamic bar chart.
+        }
+
+        // --- Calculation Functions ---
+        function calculateBeamCapacity() {
+            const { b, D, fck, fy, Ast, method } = simulationState;
+            if (!b || !D || !fck || !fy || !Ast) {
+                simulationState.wsmCapacity = 0;
+                simulationState.lsmCapacity = 0;
+                return;
+            }
+
+            const d = D - COVER; // Effective depth
+
+            // --- WSM Calculations (Simplified) ---
+            // Modular ratio
+            const m = (280 / (3 * fck));
+            // Critical Neutral Axis (WSM)
+            const k_wsm = (m * 0.28) / (m * 0.28 + 1); // 0.28 for M20, 0.33 for M25 (from tables, simplified as 0.28)
+            const Xu_wsm = k_wsm * d;
+
+            // Lever arm
+            const j_wsm = 1 - (k_wsm / 3);
+            
+            // Permissible stresses
+            const sigma_cbc_wsm = 0.28 * fck; // ~fck/3.5, M25 -> 7 MPa
+            const sigma_st_wsm = 0.55 * fy; // ~0.55*415 = 228 MPa for Fe415
+
+            // Moment of Resistance (WSM)
+            // If the section is balanced or under-reinforced (tension controlled)
+            simulationState.wsmCapacity = Math.min(
+                0.5 * sigma_cbc_wsm * b * Xu_wsm * (d - Xu_wsm / 3), // Concrete side
+                Ast * sigma_st_wsm * (d - Xu_wsm / 3) // Steel side
+            ) / 1e6; // Convert N.mm to kN.m
+
+            // --- LSM Calculations (Simplified) ---
+            const Xu_limit = {
+                '250': 0.53 * d,
+                '415': 0.48 * d,
+                '500': 0.46 * d
+            }[fy.toString()] || 0.48 * d; // Max Xu for different steel grades
+
+            // Find actual Neutral Axis Depth (Xu) by balancing forces
+            // Cu = 0.36 * fck * b * Xu
+            // Tu = 0.87 * fy * Ast
+            let Xu_lsm = (0.87 * fy * Ast) / (0.36 * fck * b);
+
+            if (Xu_lsm > Xu_limit) {
+                Xu_lsm = Xu_limit; // Over-reinforced, assume steel yields at Xu_limit
+            }
+            
+            // Moment of Resistance (LSM)
+            simulationState.lsmCapacity = (0.36 * fck * b * Xu_lsm * (d - 0.42 * Xu_lsm)) / 1e6; // Convert N.mm to kN.m
+            // OR Tu * (d - 0.42 * Xu_lsm)
+            // It's the same in this simplified under-reinforced scenario.
+
+            simulationState.neutralAxisDepth = method === 'WSM' ? Xu_wsm : Xu_lsm;
+
+            // Apply partial safety factors if the chip is dropped for LSM
+            if (simulationState.safetyFactorApplied && method === 'LSM') {
+                simulationState.lsmCapacity /= 1.5; // Partial safety factor for concrete/steel
+                // For simplified moment of resistance, this is equivalent to reducing material strengths
+            }
+            
+            updateCapacityDisplay();
+        }
+
+        function updateCapacityDisplay() {
+            wsmCapacityDisplay.textContent = simulationState.wsmCapacity.toFixed(2);
+            lsmCapacityDisplay.textContent = simulationState.lsmCapacity.toFixed(2);
+
+            // Update checklist step 5
+            if (simulationState.wsmCapacity > 0 && simulationState.lsmCapacity > 0 && !simulationState.checklist['step-compare']) {
+                markChecklistCompleted('step-compare');
+            }
+        }
+
+        function checkFailure() {
+            let designCapacity;
+            if (simulationState.method === 'WSM') {
+                designCapacity = simulationState.wsmCapacity;
+            } else { // LSM
+                designCapacity = simulationState.lsmCapacity;
+            }
+
+            if (simulationState.currentLoad > 0 && designCapacity > 0 && simulationState.currentLoad > designCapacity) {
+                if (!simulationState.isFailure) {
+                    playFailureAlarm();
+                    failureIndicator.style.display = 'block';
+                    failureIndicator.classList.add('pulse-red');
+                    gsap.to(failureIndicator, {duration: 0.1, scale: 1.05, repeat: 3, yoyo: true, ease: "power1.inOut"});
+                }
+                simulationState.isFailure = true;
+            } else {
+                if (simulationState.isFailure) {
+                    failureIndicator.style.display = 'none';
+                    failureIndicator.classList.remove('pulse-red');
+                    gsap.killTweensOf(failureIndicator);
+                }
+                simulationState.isFailure = false;
+            }
+        }
+
+        // --- Event Handlers ---
+        methodToggleCheckbox.addEventListener('change', (e) => {
+            simulationState.method = e.target.checked ? 'LSM' : 'WSM';
+            playClickSound();
+            calculateBeamCapacity();
+            drawSimulation();
+        });
+
+        // Drag and Drop for Parameter Chips
+        paramDragZone.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('drag-chip') && !e.target.classList.contains('dropped')) {
+                e.dataTransfer.setData('text/plain', e.target.id);
+                e.dataTransfer.effectAllowed = 'copyMove';
+                e.target.style.opacity = '0.4';
+            }
+        });
+
+        paramDragZone.addEventListener('dragend', (e) => {
+            e.target.style.opacity = '1';
+        });
+
+        formulaSlots.forEach(slot => {
+            slot.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                const draggedId = e.dataTransfer.getData('text/plain');
+                const draggedChip = document.getElementById(draggedId);
+                if (draggedChip && draggedChip.dataset.type === slot.dataset.type) {
+                    slot.classList.add('active');
+                }
+            });
+
+            slot.addEventListener('dragleave', (e) => {
+                slot.classList.remove('active');
+            });
+
+            slot.addEventListener('drop', (e) => {
+                e.preventDefault();
+                slot.classList.remove('active');
+                const draggedId = e.dataTransfer.getData('text/plain');
+                const draggedChip = document.getElementById(draggedId);
+
+                if (draggedChip && draggedChip.dataset.type === slot.dataset.type) {
+                    const value = parseFloat(draggedChip.dataset.value);
+                    const type = draggedChip.dataset.type;
+
+                    if (type === 'safetyFactor') {
+                        simulationState.safetyFactorApplied = true;
+                        markChecklistCompleted('step-safety-factor');
+                        playSpeech("Applying partial safety factors to account for material uncertainty and load variation.");
+                    } else {
+                        simulationState[type] = value;
+                    }
+                    
+                    slot.innerHTML = `<div class="drag-chip dropped">${draggedChip.textContent}</div>`;
+                    draggedChip.style.display = 'none'; // Hide original chip
+                    
+                    // Update checklist step 2
+                    const allParamsDropped = ['b', 'D', 'fck', 'fy'].every(p => simulationState[p] !== 0);
+                    if (allParamsDropped) {
+                        markChecklistCompleted('step-drag-params');
+                    }
+
+                    playClickSound();
+                    calculateBeamCapacity();
+                    drawSimulation();
+                }
+            });
+        });
+
+        // Drag and Drop for Load Weights
+        loadDragZone.addEventListener('dragstart', (e) => {
+            if (e.target.classList.contains('drag-chip')) {
+                e.dataTransfer.setData('text/plain', e.target.id);
+                e.dataTransfer.effectAllowed = 'copy';
+                e.target.style.opacity = '0.4';
+            }
+        });
+
+        loadDragZone.addEventListener('dragend', (e) => {
+            e.target.style.opacity = '1';
+        });
+
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const draggedId = e.dataTransfer.getData('text/plain');
+            if (draggedId && draggedId.startsWith('weight-')) {
+                canvas.style.cursor = 'copy';
+            }
+        });
+
+        canvas.addEventListener('dragleave', (e) => {
+            canvas.style.cursor = 'default';
+        });
+
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            canvas.style.cursor = 'default';
+            const draggedId = e.dataTransfer.getData('text/plain');
+            const draggedChip = document.getElementById(draggedId);
+
+            if (draggedChip && draggedChip.dataset.type === 'weight') {
+                const weightValue = parseFloat(draggedChip.dataset.value);
+                simulationState.currentLoad += weightValue;
+                playThrumSound();
+                markChecklistCompleted('step-load-test');
+                drawSimulation();
+                checkFailure();
+            }
+        });
+
+        // Canvas Pan & Zoom
+        canvas.addEventListener('mousedown', (e) => {
+            if (e.button === 0 && !e.target.classList.contains('canvas-label')) { // Left click
+                simulationState.isDraggingCanvas = true;
+                simulationState.lastPanX = e.clientX;
+                simulationState.lastPanY = e.clientY;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (simulationState.isDraggingCanvas) {
+                const dx = e.clientX - simulationState.lastPanX;
+                const dy = e.clientY - simulationState.lastPanY;
+                simulationState.panX += dx;
+                simulationState.panY += dy;
+                simulationState.lastPanX = e.clientX;
+                simulationState.lastPanY = e.clientY;
+                drawSimulation();
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            simulationState.isDraggingCanvas = false;
+            canvas.style.cursor = 'default';
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const scaleFactor = 1.1;
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+
+            const oldZoom = simulationState.zoomLevel;
+            if (e.deltaY < 0) { // Zoom in
+                simulationState.zoomLevel *= scaleFactor;
+            } else { // Zoom out
+                simulationState.zoomLevel /= scaleFactor;
+            }
+            simulationState.zoomLevel = Math.max(0.5, Math.min(simulationState.zoomLevel, 4)); // Clamp zoom
+
+            // Adjust pan to zoom towards mouse
+            simulationState.panX -= (mouseX - simulationState.panX) * (simulationState.zoomLevel / oldZoom - 1);
+            simulationState.panY -= (mouseY - simulationState.panY) * (simulationState.zoomLevel / oldZoom - 1);
+
+            drawSimulation();
+        });
+
+        function zoomCanvas(amount) {
+            const oldZoom = simulationState.zoomLevel;
+            simulationState.zoomLevel += amount;
+            simulationState.zoomLevel = Math.max(0.5, Math.min(simulationState.zoomLevel, 4));
+            
+            // Adjust pan to center of canvas
+            const centerX = canvas.width / (2 * dpr);
+            const centerY = canvas.height / (2 * dpr);
+            
+            simulationState.panX -= (centerX - simulationState.panX) * (simulationState.zoomLevel / oldZoom - 1);
+            simulationState.panY -= (centerY - simulationState.panY) * (simulationState.zoomLevel / oldZoom - 1);
+            
+            drawSimulation();
+            playClickSound();
+        }
+
+        function resetView() {
+            simulationState.zoomLevel = 1;
+            simulationState.panX = 0;
+            simulationState.panY = 0;
+            drawSimulation();
+            playClickSound();
+        }
+
+        function handleCanvasComponentClick(type) {
+            if (!simulationState.identifiedComponents[type]) {
+                simulationState.identifiedComponents[type] = true;
+                playClickSound();
+                drawSimulation(); // Redraw to update label color
+
+                // Check if all essential components for step 1 are identified
+                const essentialComponents = ['b', 'D', 'fck', 'fy'];
+                const allIdentified = essentialComponents.every(comp => simulationState.identifiedComponents[comp]);
+                if (allIdentified) {
+                    markChecklistCompleted('step-identify');
+                }
+            }
+            // Specific zoom for tension zone
+            if (type === 'tensionZone') {
+                 // Zoom into the bottom third of the beam
+                const { b, D } = simulationState;
+                const scale = Math.min(
+                    (canvas.width * 0.7) / b,
+                    (canvas.height * 0.7) / D
+                );
+                const beamCanvasWidth = b * scale;
+                const beamCanvasHeight = D * scale;
+                const beamOriginX = (canvas.width - beamCanvasWidth) / 2;
+                const beamOriginY = (canvas.height - beamCanvasHeight) / 2;
+
+                const targetZoom = 2;
+                const targetPanX = -(beamOriginX + beamCanvasWidth / 2 - canvas.width / 2); // Center X
+                const targetPanY = -(beamOriginY + beamCanvasHeight * 0.75 - canvas.height / 2); // Center bottom 1/4
+
+                gsap.to(simulationState, {
+                    zoomLevel: targetZoom,
+                    panX: targetPanX,
+                    panY: targetPanY,
+                    duration: 1,
+                    ease: "power2.inOut",
+                    onUpdate: drawSimulation
+                });
+            }
+        }
+
+
+        // --- Checklist Logic ---
+        function markChecklistCompleted(stepId) {
+            if (!simulationState.checklist[stepId]) {
+                simulationState.checklist[stepId] = true;
+                document.getElementById(stepId).classList.add('completed');
+                document.getElementById(stepId).querySelector('.icon').innerHTML = '&#9989;'; // Checkmark
+                playClickSound();
+            }
+        }
+        
+        // --- Web Audio API ---
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(frequency, type, duration = 0.1, gain = 0.5) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = frequency;
+            oscillator.type = type;
+            gainNode.gain.value = gain;
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function playClickSound() {
+            playSound(440, 'sine', 0.05, 0.3);
+        }
+
+        function playThrumSound() {
+            playSound(60, 'sawtooth', 0.2, 0.4);
+            playSound(65, 'sawtooth', 0.2, 0.4); // For a richer thrum
+        }
+
+        function playFailureAlarm() {
+            playSound(120, 'square', 0.8, 0.5);
+            setTimeout(() => playSound(100, 'square', 0.8, 0.5), 400);
+        }
+
+        // --- Speech Synthesis API ---
+        function playSpeech(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = 'en-US';
+                utterance.rate = 1;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                console.warn('Speech Synthesis API not supported in this browser.');
+            }
+        }
+
+        // --- Modal Logic (IS Codebook) ---
+        function openISCodeModal() {
+            modalOverlay.classList.add('visible');
+            playClickSound();
+        }
+
+        function closeISCodeModal() {
+            modalOverlay.classList.remove('visible');
+            playClickSound();
+        }
+
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                closeISCodeModal();
+            }
+        });
+
+
+        // --- Main Animation Loop ---
+        function animate() {
+            drawSimulation(); // Redraw constantly for pulsing effects, etc.
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        function drawSimulation() {
+            calculateBeamCapacity();
+            checkFailure();
+            drawBeamSection();
+        }
+
+        function resetSimulation() {
+            simulationState = {
+                method: 'WSM',
+                b: 0, D: 0, fck: 0, fy: 0, Ast: 0,
+                safetyFactorApplied: false,
+                currentLoad: 0,
+                wsmCapacity: 0, lsmCapacity: 0,
+                isFailure: false,
+                neutralAxisDepth: 0,
+                stressBlockVisualization: { concreteStress: [], steelStrain: [] },
+                zoomLevel: 1, panX: 0, panY: 0,
+                isDraggingCanvas: false, lastPanX: 0, lastPanY: 0,
+                identifiedComponents: { b: false, D: false, fck: false, fy: false, tensionZone: false },
+                checklist: {
+                    'step-identify': false,
+                    'step-drag-params': false,
+                    'step-safety-factor': false,
+                    'step-load-test': false,
+                    'step-compare': false,
+                }
+            };
+
+            // Reset UI elements
+            methodToggleCheckbox.checked = false;
+            failureIndicator.style.display = 'none';
+            failureIndicator.classList.remove('pulse-red');
+            gsap.killTweensOf(failureIndicator);
+            
+            wsmCapacityDisplay.textContent = '0';
+            lsmCapacityDisplay.textContent = '0';
+
+            // Restore drag chips
+            document.querySelectorAll('.drag-chip').forEach(chip => {
+                chip.style.display = 'block';
+                chip.classList.remove('dropped');
+            });
+            // Clear formula slots
+            formulaSlots.forEach(slot => {
+                slot.innerHTML = slot.dataset.type === 'safetyFactor' ? 'SF' : slot.dataset.type;
+            });
+
+            // Reset checklist UI
+            document.querySelectorAll('.checklist-item').forEach(item => {
+                item.classList.remove('completed');
+                item.querySelector('.icon').innerHTML = '&#9675;';
+            });
+            
+            playClickSound();
+            cancelAnimationFrame(animationFrameId);
+            resizeCanvas(); // Initial draw for the empty state
+            animate(); // Restart animation loop
+        }
+        
+        // Helper function to get CSS variable value
+        function varToString(varName) {
+            return getComputedStyle(document.documentElement).getPropertyValue(varName);
+        }
+
+        // --- Initialisation ---
+        window.addEventListener('resize', resizeCanvas);
+        window.addEventListener('load', () => {
+            resizeCanvas(); // Initial canvas setup
+            animate(); // Start the animation loop
+        });
+    </script>
+</body>
+</html>

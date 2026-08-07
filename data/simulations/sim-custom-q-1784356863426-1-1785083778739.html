@@ -1,0 +1,1390 @@
+<!DOCTYPE html>
+<html lang="en" class="dark h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rigid Pavement Design Simulator - Cyber Engineering Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Orbitron & Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;600;800;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#090d16',
+                            panel: '#0f172a',
+                            border: '#1e293b',
+                            cyan: '#00f3ff',
+                            magenta: '#ff007f',
+                            yellow: '#ffb703',
+                            green: '#10b981',
+                            red: '#ef4444'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Orbitron', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #090d16;
+            color: #f8fafc;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .cyber-glass {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(0, 243, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .cyber-glass-magenta {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 0, 127, 0.3);
+        }
+
+        .neon-border-cyan {
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.3), inset 0 0 10px rgba(0, 243, 255, 0.1);
+        }
+
+        .neon-text-cyan {
+            text-shadow: 0 0 8px rgba(0, 243, 255, 0.6);
+        }
+
+        .neon-text-magenta {
+            text-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
+        }
+
+        .drag-card {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+        }
+
+        .drag-card:active {
+            cursor: grabbing;
+            transform: scale(0.98);
+        }
+
+        .drag-card.dragging {
+            opacity: 0.5;
+            border-color: #00f3ff;
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.5);
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #00f3ff;
+            border-radius: 2px;
+        }
+
+        /* Pulse glow animation */
+        @keyframes cyberPulse {
+            0%, 100% { border-color: rgba(0, 243, 255, 0.4); box-shadow: 0 0 10px rgba(0, 243, 255, 0.2); }
+            50% { border-color: rgba(0, 243, 255, 0.9); box-shadow: 0 0 22px rgba(0, 243, 255, 0.6); }
+        }
+
+        .cyber-pulse {
+            animation: cyberPulse 2.5s infinite;
+        }
+
+        @keyframes alertPulse {
+            0%, 100% { border-color: rgba(239, 68, 68, 0.4); box-shadow: 0 0 10px rgba(239, 68, 68, 0.2); }
+            50% { border-color: rgba(239, 68, 68, 1); box-shadow: 0 0 25px rgba(239, 68, 68, 0.8); }
+        }
+
+        .alert-pulse {
+            animation: alertPulse 1s infinite;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col font-sans overflow-hidden bg-cyber-bg text-slate-100">
+
+    <!-- TOP NAVIGATION / DASHBOARD HEADER -->
+    <header class="h-16 border-b border-slate-800 bg-slate-950/80 px-6 flex items-center justify-between shrink-0 z-30">
+        <div class="flex items-center gap-4">
+            <div class="w-10 h-10 rounded-lg bg-cyan-500/10 border border-cyber-cyan flex items-center justify-center text-cyber-cyan font-mono font-bold text-xl neon-border-cyan">
+                RP
+            </div>
+            <div>
+                <h1 class="font-mono font-bold text-lg tracking-wider text-slate-100 flex items-center gap-2">
+                    RIGID PAVEMENT DESIGN <span class="text-xs px-2 py-0.5 rounded bg-cyber-cyan/10 border border-cyber-cyan/40 text-cyber-cyan">UNIT 3 SIMULATOR</span>
+                </h1>
+                <p class="text-xs text-slate-400 font-sans">Civil & Transportation Engineering // Westergaard Stress Analysis</p>
+            </div>
+        </div>
+
+        <!-- Telemetry Badges -->
+        <div class="hidden md:flex items-center gap-6">
+            <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg">
+                <span class="text-xs text-slate-400 uppercase font-mono">Structural Status:</span>
+                <span id="badge-status" class="text-xs font-mono font-bold text-cyber-yellow flex items-center gap-1.5">
+                    <span class="w-2 h-2 rounded-full bg-cyber-yellow animate-ping"></span> INCOMPLETE STACK
+                </span>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg">
+                <span class="text-xs text-slate-400 uppercase font-mono">Max Allowable Flexure:</span>
+                <span id="badge-allowable" class="text-xs font-mono font-bold text-cyber-cyan">4.50 MPa</span>
+            </div>
+            <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 px-3 py-1.5 rounded-lg">
+                <span class="text-xs text-slate-400 uppercase font-mono">Live Stress:</span>
+                <span id="badge-stress" class="text-xs font-mono font-bold text-slate-300">0.00 MPa</span>
+            </div>
+        </div>
+
+        <!-- System Controls -->
+        <div class="flex items-center gap-3">
+            <button id="btn-audio-toggle" class="p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-cyber-cyan hover:border-cyber-cyan transition" title="Toggle Audio / Narration">
+                <svg id="icon-audio-on" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path></svg>
+                <svg id="icon-audio-off" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"></path></svg>
+            </button>
+            <button id="btn-reset" class="px-3 py-1.5 text-xs font-mono font-semibold rounded-lg bg-red-500/10 border border-red-500/40 text-red-400 hover:bg-red-500/20 transition flex items-center gap-1.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                RESET STACK
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN MAIN BODY CONTAINER -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- LEFT PANEL: INVENTORY & STRUCTURAL LAYERS -->
+        <aside class="w-80 border-r border-slate-800 bg-slate-950/60 p-4 flex flex-col gap-4 z-20 shrink-0 overflow-y-auto">
+            <div>
+                <h2 class="text-xs font-mono font-bold uppercase tracking-wider text-cyber-cyan flex items-center gap-2 mb-1">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path></svg>
+                    Component Inventory
+                </h2>
+                <p class="text-xs text-slate-400">Drag components onto the construction viewport in sequence (Bottom to Top).</p>
+            </div>
+
+            <!-- Layer Cards Container -->
+            <div id="palette-container" class="space-y-2.5 flex-1">
+                <!-- Card 1: Compacted Subgrade -->
+                <div draggable="true" data-layer-id="subgrade" class="drag-card p-3 rounded-xl cyber-glass border-slate-700 hover:border-cyber-cyan flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-amber-950/60 border border-amber-600/40 flex items-center justify-center font-mono font-bold text-amber-500 text-sm">
+                            L1
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-200 group-hover:text-cyber-cyan transition">Compacted Subgrade</div>
+                            <div class="text-[10px] text-slate-400">Natural soil foundation (k = 40 MPa/m)</div>
+                        </div>
+                    </div>
+                    <span class="status-icon text-slate-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></span>
+                </div>
+
+                <!-- Card 2: Granular Sub-base (GSB) -->
+                <div draggable="true" data-layer-id="subbase" class="drag-card p-3 rounded-xl cyber-glass border-slate-700 hover:border-cyber-cyan flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-slate-800 border border-slate-500/40 flex items-center justify-center font-mono font-bold text-slate-300 text-sm">
+                            L2
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-200 group-hover:text-cyber-cyan transition">Granular Sub-base (GSB)</div>
+                            <div class="text-[10px] text-slate-400">Drainage & stress distribution (150 mm)</div>
+                        </div>
+                    </div>
+                    <span class="status-icon text-slate-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></span>
+                </div>
+
+                <!-- Card 3: Dry Lean Concrete (DLC) -->
+                <div draggable="true" data-layer-id="base" class="drag-card p-3 rounded-xl cyber-glass border-slate-700 hover:border-cyber-cyan flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-cyan-950/60 border border-cyan-700/40 flex items-center justify-center font-mono font-bold text-cyan-400 text-sm">
+                            L3
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-200 group-hover:text-cyber-cyan transition">Dry Lean Concrete (DLC)</div>
+                            <div class="text-[10px] text-slate-400">High-modulus rigid base layer (150 mm)</div>
+                        </div>
+                    </div>
+                    <span class="status-icon text-slate-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></span>
+                </div>
+
+                <!-- Card 4: Concrete Slab (PQC) -->
+                <div draggable="true" data-layer-id="slab" class="drag-card p-3 rounded-xl cyber-glass border-slate-700 hover:border-cyber-cyan flex items-center justify-between group">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-lg bg-sky-900/60 border border-sky-400/40 flex items-center justify-center font-mono font-bold text-sky-300 text-sm">
+                            L4
+                        </div>
+                        <div>
+                            <div class="text-xs font-bold text-slate-200 group-hover:text-cyber-cyan transition">Concrete Slab (PQC)</div>
+                            <div class="text-[10px] text-slate-400">Pavement Quality Concrete (280 mm)</div>
+                        </div>
+                    </div>
+                    <span class="status-icon text-slate-500"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg></span>
+                </div>
+            </div>
+
+            <!-- Auto-Assemble Shortcut Button -->
+            <button id="btn-auto-build" class="w-full py-2 px-3 rounded-xl bg-cyan-500/10 border border-cyber-cyan/40 text-cyber-cyan font-mono text-xs font-semibold hover:bg-cyber-cyan/20 transition flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                AUTO-BUILD ALL LAYERS
+            </button>
+
+            <!-- Active Layer Inspector Info Card -->
+            <div id="inspector-panel" class="cyber-glass-magenta rounded-xl p-3 border text-xs">
+                <div class="font-mono text-[11px] text-cyber-magenta font-bold uppercase mb-1 flex items-center justify-between">
+                    <span>Layer Inspector</span>
+                    <span id="inspector-id" class="text-slate-400">---</span>
+                </div>
+                <div id="inspector-title" class="font-bold text-slate-100 text-sm mb-1">Hover or Drop a Layer</div>
+                <p id="inspector-desc" class="text-slate-300 text-[11px] leading-relaxed">
+                    Select or drag structural components into the central workspace to analyze their engineering properties and load transfer behavior.
+                </p>
+                <div id="inspector-stats" class="mt-2.5 pt-2 border-t border-slate-800 grid grid-cols-2 gap-2 hidden">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-mono">Modulus (E):</span>
+                        <span id="stat-modulus" class="font-mono text-cyber-cyan text-xs font-semibold">-</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-mono">Thickness (h):</span>
+                        <span id="stat-thickness" class="font-mono text-cyber-yellow text-xs font-semibold">-</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- CENTER VIEWPORT: CANVAS & SIMULATION STAGE -->
+        <main class="flex-1 flex flex-col relative overflow-hidden bg-slate-950">
+            
+            <!-- Canvas Action Overlay Tools -->
+            <div class="absolute top-4 left-4 right-4 flex items-center justify-between z-10 pointer-events-none">
+                <!-- Mode Toggles -->
+                <div class="flex items-center gap-2 pointer-events-auto bg-slate-900/80 backdrop-blur-md p-1.5 rounded-xl border border-slate-800">
+                    <button id="btn-toggle-xray" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-300 hover:text-cyber-cyan border border-transparent hover:border-slate-700 flex items-center gap-1.5 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                        X-RAY WIREFRAME
+                    </button>
+                    <button id="btn-toggle-heatmap" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 flex items-center gap-1.5 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.364A8 8 0 016.343 7.050a8 8 0 0111.314 11.314z"></path></svg>
+                        STRESS BULB
+                    </button>
+                    <button id="btn-toggle-pavement-type" class="px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-300 hover:text-cyber-cyan border border-transparent hover:border-slate-700 flex items-center gap-1.5 transition" title="Compare Rigid Slab load bridging vs Flexible Pavement deflection">
+                        COMPARE: <span id="label-pavement-mode" class="text-cyber-cyan">RIGID SLAB</span>
+                    </button>
+                </div>
+
+                <!-- Drop Target Visual Hint -->
+                <div id="drop-prompt" class="cyber-pulse bg-slate-900/90 border border-cyber-cyan/50 text-cyber-cyan font-mono text-xs px-4 py-2 rounded-xl flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-cyber-cyan animate-ping"></span>
+                    DRAG COMPONENTS HERE TO CONSTRUCT
+                </div>
+            </div>
+
+            <!-- HTML5 High-DPI Isometric Viewport Canvas -->
+            <div id="canvas-container" class="w-full h-full relative cursor-crosshair">
+                <canvas id="simCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Floating Overlay Instructions for Dragged Axle -->
+            <div class="absolute bottom-4 left-4 bg-slate-900/80 backdrop-blur-md px-3 py-2 rounded-xl border border-slate-800 text-xs font-mono text-slate-400 flex items-center gap-3">
+                <span class="flex items-center gap-1 text-cyber-cyan font-semibold">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
+                    WHEEL LOAD:
+                </span>
+                <span>Drag Dual Wheel Axle across pavement surface to test stress distribution bulb.</span>
+            </div>
+        </main>
+
+        <!-- RIGHT PANEL: WHEEL LOAD CONTROLS & WESTERGAARD ANALYTICS -->
+        <aside class="w-80 border-l border-slate-800 bg-slate-950/60 p-4 flex flex-col gap-4 z-20 shrink-0 overflow-y-auto">
+            
+            <!-- Wheel Load Axle Control Box -->
+            <div class="cyber-glass rounded-xl p-3.5 border-slate-800">
+                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-cyber-cyan flex items-center justify-between mb-3">
+                    <span class="flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        Axle Load Control
+                    </span>
+                    <span id="val-load-kn" class="font-mono text-cyber-yellow font-bold text-sm">80.0 kN</span>
+                </h3>
+
+                <!-- Load Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between text-[11px] text-slate-400">
+                        <span>Legal Limit (80 kN)</span>
+                        <span>Overload (180 kN)</span>
+                    </div>
+                    <input type="range" id="slider-wheel-load" min="40" max="180" value="80" step="5" class="w-full accent-cyber-cyan bg-slate-800 rounded-lg h-2 cursor-pointer">
+                </div>
+
+                <div class="mt-3 pt-3 border-t border-slate-800/80 grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-mono">Tire Pressure (p):</span>
+                        <span class="font-mono text-slate-200 font-semibold">0.80 MPa</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-slate-400 block font-mono">Contact Area (A):</span>
+                        <span id="val-contact-area" class="font-mono text-slate-200 font-semibold">1000 cm²</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Westergaard Stress Analysis Gauges -->
+            <div class="cyber-glass rounded-xl p-3.5 border-slate-800 flex-1 flex flex-col gap-3">
+                <h3 class="text-xs font-mono font-bold uppercase tracking-wider text-cyber-magenta flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                    Westergaard Analytics
+                </h3>
+
+                <!-- Interior Stress Progress Bar -->
+                <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400 font-mono">Interior Tensile Stress ($\sigma_i$)</span>
+                        <span id="val-stress-interior" class="font-mono font-bold text-cyber-cyan">0.00 MPa</span>
+                    </div>
+                    <div class="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
+                        <div id="bar-stress" class="h-full bg-cyber-cyan transition-all duration-300" style="width: 0%;"></div>
+                    </div>
+                </div>
+
+                <!-- Radius of Relative Stiffness (l) -->
+                <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-mono">Rel. Stiffness Radius ($l$):</div>
+                    <div id="val-stiffness-l" class="text-sm font-mono font-bold text-slate-200">0.00 mm</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">Formula: $l = \left[ \frac{E \cdot h^3}{12 (1 - \nu^2) k} \right]^{1/4}$</div>
+                </div>
+
+                <!-- Peak Subgrade Reaction Pressure -->
+                <div class="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800">
+                    <div class="text-[10px] text-slate-400 font-mono">Subgrade Pressure ($p_{sg}$):</div>
+                    <div id="val-subgrade-p" class="text-sm font-mono font-bold text-cyber-green">0.000 MPa</div>
+                    <div id="subgrade-status-msg" class="text-[10px] text-slate-400 mt-0.5">Slab bridging protects subgrade from deformation.</div>
+                </div>
+
+                <!-- Theory Box -->
+                <div class="p-2.5 rounded-lg bg-cyan-950/20 border border-cyber-cyan/20 text-[11px] text-slate-300 leading-relaxed mt-auto">
+                    <span class="font-bold text-cyber-cyan block mb-0.5">Rigid Load Distribution:</span>
+                    Unlike flexible asphalt pavements, rigid concrete slabs act as beam grids with high flexural strength ($E \approx 30,000 \text{ MPa}$), bridging wheel loads over a wide area.
+                </div>
+            </div>
+
+            <!-- Heatmap Legend -->
+            <div class="cyber-glass rounded-xl p-3 border-slate-800">
+                <div class="text-[10px] font-mono text-slate-400 uppercase mb-1.5 flex justify-between">
+                    <span>Stress Bulb Heatmap</span>
+                    <span>Intensity</span>
+                </div>
+                <div class="h-3 rounded-md w-full" style="background: linear-gradient(to right, rgba(0, 243, 255, 0.1), rgba(16, 185, 129, 0.6), rgba(255, 183, 3, 0.8), rgba(239, 68, 68, 0.95));"></div>
+                <div class="flex justify-between text-[9px] font-mono text-slate-400 mt-1">
+                    <span>0.0 MPa</span>
+                    <span>2.2 MPa</span>
+                    <span>> 4.5 MPa</span>
+                </div>
+            </div>
+        </aside>
+
+    </div>
+
+    <script>
+        // ============================================================================
+        // 1. GLOBAL SIMULATION STATE & SPECIFICATIONS
+        // ============================================================================
+        const LAYER_SPECS = {
+            subgrade: {
+                id: 'subgrade',
+                name: 'Compacted Subgrade',
+                shortName: 'Subgrade',
+                thickness: 500, // mm
+                E: 50, // MPa
+                k: 40, // MPa/m
+                colorTop: '#3a2e2b',
+                colorFront: '#2a1f1c',
+                colorSide: '#211816',
+                accentColor: '#d97706',
+                functionDesc: 'Provides uniform structural foundation and drainage support for the pavement system.',
+                audioSpeech: 'Compacted Subgrade placed. Provides uniform structural foundation and prevents differential subgrade settlement.'
+            },
+            subbase: {
+                id: 'subbase',
+                name: 'Granular Sub-base (GSB)',
+                shortName: 'GSB Base',
+                thickness: 150, // mm
+                E: 150, // MPa
+                k: 70, // MPa/m
+                colorTop: '#475569',
+                colorFront: '#334155',
+                colorSide: '#1e293b',
+                accentColor: '#94a3b8',
+                functionDesc: 'Prevents pumping of fine subgrade soils, facilitates drainage, and provides frost protection.',
+                audioSpeech: 'Granular Sub-base placed. Acts as a drainage filter layer and prevents soil pumping under cyclic heavy wheel loads.'
+            },
+            base: {
+                id: 'base',
+                name: 'Dry Lean Concrete (DLC)',
+                shortName: 'DLC Base',
+                thickness: 150, // mm
+                E: 15000, // MPa
+                k: 180, // MPa/m
+                colorTop: '#0891b2',
+                colorFront: '#0e7490',
+                colorSide: '#155e75',
+                accentColor: '#00f3ff',
+                functionDesc: 'High-modulus bound base providing a uniform, non-erodible working platform for the PQC slab.',
+                audioSpeech: 'Dry Lean Concrete layer assembled. Offers high elastic modulus and a rigid non-erodible base layer.'
+            },
+            slab: {
+                id: 'slab',
+                name: 'Concrete Slab (PQC)',
+                shortName: 'PQC Slab',
+                thickness: 280, // mm
+                E: 30000, // MPa
+                poisson: 0.15,
+                k: 300, // Combined reaction
+                colorTop: '#0284c7',
+                colorFront: '#0369a1',
+                colorSide: '#075985',
+                accentColor: '#38bdf8',
+                functionDesc: 'Pavement Quality Concrete slab. High flexural strength slab bridging wheel loads across large areas.',
+                audioSpeech: 'Pavement Quality Concrete slab completed. High flexural rigidity enables load bridging via slab bending action.'
+            }
+        };
+
+        // State Machine
+        const state = {
+            placedLayers: [], // Order of placed layer IDs
+            audioEnabled: true,
+            xrayMode: false,
+            showHeatmap: true,
+            pavementMode: 'rigid', // 'rigid' or 'flexible'
+            wheelLoadKn: 80, // kN
+            wheelXRatio: 0.5, // 0.0 to 1.0 along slab span
+            isDraggingWheel: false,
+            mousePos: { x: 0, y: 0 },
+            draggedPaletteItem: null,
+            // Westergaard Outputs
+            calculatedStress: 0,
+            calculatedDeflection: 0,
+            relStiffnessL: 0,
+            subgradePressure: 0,
+            isOverloaded: false
+        };
+
+        // ============================================================================
+        // 2. WEB AUDIO API & SPEECH SYNTHESIS ENGINE
+        // ============================================================================
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) audioCtx = new AudioContext();
+            }
+            if (audioCtx && audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function playSnapSound() {
+            if (!state.audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.12);
+
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.15);
+        }
+
+        function playSuccessChime() {
+            if (!state.audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+            freqs.forEach((f, idx) => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.value = f;
+
+                const startTime = audioCtx.currentTime + idx * 0.08;
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.35);
+
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start(startTime);
+                osc.stop(startTime + 0.35);
+            });
+        }
+
+        function playWarningPulse() {
+            if (!state.audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(110, audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(75, audioCtx.currentTime + 0.25);
+
+            gain.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+        }
+
+        function playClickSound() {
+            if (!state.audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.03);
+        }
+
+        function speakNarration(text) {
+            if (!state.audioEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel(); // cancel pending
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+            
+            // Try selecting clean english voice
+            const voices = window.speechSynthesis.getVoices();
+            const engVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Male')));
+            if (engVoice) utterance.voice = engVoice;
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // ============================================================================
+        // 3. WESTERGAARD RIGID PAVEMENT MATHEMATICAL MODEL
+        // ============================================================================
+        function updateStressAnalytics() {
+            const hasSlab = state.placedLayers.includes('slab');
+            const hasDLC = state.placedLayers.includes('base');
+            const hasGSB = state.placedLayers.includes('subbase');
+            const hasSubgrade = state.placedLayers.includes('subgrade');
+
+            // Effective modulus of subgrade reaction k (MPa/m)
+            let k = 40;
+            if (hasSubgrade) k = 40;
+            if (hasGSB) k = 70;
+            if (hasDLC) k = 180;
+            if (hasSlab && hasDLC && hasGSB) k = 300;
+
+            const P = state.wheelLoadKn * 1000; // N
+            const h = LAYER_SPECS.slab.thickness / 1000; // meters (0.28m)
+            const E = LAYER_SPECS.slab.E * 1e6; // Pa (30 GPa)
+            const nu = LAYER_SPECS.slab.poisson;
+            const k_pa = k * 1e6 / 1000; // N/m^3
+
+            // Radius of relative stiffness l = [ (E * h^3) / (12 * (1 - nu^2) * k) ]^0.25
+            const l = Math.pow((E * Math.pow(h, 3)) / (12 * (1 - Math.pow(nu, 2)) * k_pa), 0.25);
+            state.relStiffnessL = l * 1000; // mm
+
+            // Contact radius 'a' assuming tire pressure 0.8 MPa
+            const p_tire = 0.8 * 1e6; // Pa
+            const a = Math.sqrt(P / (Math.PI * p_tire)); // meters
+
+            let stress = 0;
+            let deflection = 0;
+
+            if (hasSlab) {
+                if (state.pavementMode === 'rigid') {
+                    // Westergaard Interior Tensile Stress Formula (Simplified)
+                    // sigma = 0.316 * (P / h^2) * [ log10(h) - 4 * log10(a) + ... ]
+                    const b = (a < 1.724 * h) ? Math.sqrt(1.6 * a * a + h * h) - 0.675 * h : a;
+                    const stressPa = (0.316 * P / (h * h)) * (Math.log10(E * Math.pow(h, 3) / (k_pa * Math.pow(b, 4))) - 0.12);
+                    stress = Math.max(0, stressPa / 1e6); // MPa
+
+                    // Interior Deflection delta = P / (8 * k * l^2)
+                    deflection = (P / (8 * k_pa * l * l)) * 1000; // mm
+                } else {
+                    // Flexible pavement comparison mode (No slab bridging, high direct subgrade stress)
+                    stress = (P / (Math.PI * Math.pow(0.3, 2))) / 1e6 * 0.4; 
+                    deflection = 3.5 * (P / 80000); // Higher local strain
+                }
+            } else {
+                // Stack incomplete -> stress concentrated directly on soil
+                stress = (P / 100000); 
+                deflection = 5.0;
+            }
+
+            // Subgrade Pressure (Attenuation through stack)
+            let attenuation = 0.05; // Rigid slab absorbs 95% of peak stress
+            if (!hasSlab) attenuation += 0.45;
+            if (!hasDLC) attenuation += 0.25;
+            if (!hasGSB) attenuation += 0.15;
+            if (state.pavementMode === 'flexible') attenuation = 0.42;
+
+            state.subgradePressure = (P / (Math.PI * Math.pow(a + 0.3, 2)) * attenuation) / 1e6; // MPa
+            state.calculatedStress = stress;
+            state.calculatedDeflection = deflection;
+
+            // Check Overload condition (> 4.5 MPa flexural limit)
+            const maxAllowable = 4.50;
+            const wasOverloaded = state.isOverloaded;
+            state.isOverloaded = (stress > maxAllowable);
+
+            if (state.isOverloaded && !wasOverloaded) {
+                playWarningPulse();
+            }
+
+            // Update UI Gauges
+            document.getElementById('val-load-kn').innerText = `${state.wheelLoadKn.toFixed(1)} kN`;
+            document.getElementById('val-contact-area').innerText = `${Math.round(Math.PI * a * a * 10000)} cm²`;
+            document.getElementById('val-stress-interior').innerText = `${stress.toFixed(2)} MPa`;
+            document.getElementById('val-stiffness-l').innerText = `${Math.round(state.relStiffnessL)} mm`;
+            document.getElementById('val-subgrade-p').innerText = `${state.subgradePressure.toFixed(3)} MPa`;
+            document.getElementById('badge-stress').innerText = `${stress.toFixed(2)} MPa`;
+
+            const barPercent = Math.min(100, (stress / maxAllowable) * 100);
+            const barEl = document.getElementById('bar-stress');
+            barEl.style.width = `${barPercent}%`;
+            
+            if (state.isOverloaded) {
+                barEl.className = 'h-full bg-red-500 transition-all duration-300';
+                document.getElementById('badge-stress').className = 'text-xs font-mono font-bold text-red-400 animate-pulse';
+            } else {
+                barEl.className = 'h-full bg-cyber-cyan transition-all duration-300';
+                document.getElementById('badge-stress').className = 'text-xs font-mono font-bold text-cyber-cyan';
+            }
+
+            // Update Header Stack Status Badge
+            const badgeStatus = document.getElementById('badge-status');
+            if (state.placedLayers.length === 4) {
+                badgeStatus.className = 'text-xs font-mono font-bold text-cyber-green flex items-center gap-1.5';
+                badgeStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-cyber-green"></span> FULL RIGID STACK';
+            } else {
+                badgeStatus.className = 'text-xs font-mono font-bold text-cyber-yellow flex items-center gap-1.5';
+                badgeStatus.innerHTML = '<span class="w-2 h-2 rounded-full bg-cyber-yellow animate-ping"></span> INCOMPLETE STACK';
+            }
+        }
+
+        // ============================================================================
+        // 4. HIGH-DPI ISOMETRIC CANVAS RENDERER
+        // ============================================================================
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        let dpr = window.devicePixelRatio || 1;
+        let viewWidth = 0;
+        let viewHeight = 0;
+
+        function resizeCanvas() {
+            dpr = window.devicePixelRatio || 1;
+            viewWidth = container.clientWidth;
+            viewHeight = container.clientHeight;
+
+            canvas.width = viewWidth * dpr;
+            canvas.height = viewHeight * dpr;
+            canvas.style.width = `${viewWidth}px`;
+            canvas.style.height = `${viewHeight}px`;
+
+            ctx.scale(dpr, dpr);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Isometric / Projection helper variables
+        const isoAngle = Math.PI / 6; // 30 deg isometric skew
+        const cosIso = Math.cos(isoAngle);
+        const sinIso = Math.sin(isoAngle);
+
+        function project3D(x, y, z, originX, originY) {
+            // Isometric mapping
+            const isoX = originX + (x - y) * cosIso * 0.85;
+            const isoY = originY + (x + y) * sinIso * 0.45 - z;
+            return { x: isoX, y: isoY };
+        }
+
+        function renderScene() {
+            ctx.clearRect(0, 0, viewWidth, viewHeight);
+
+            // Origin position for stack base
+            const originX = viewWidth * 0.48;
+            const originY = viewHeight * 0.58;
+
+            // Dimensions of 3D Pavement Block
+            const blockLength = Math.min(viewWidth * 0.45, 480); // X-axis (span)
+            const blockWidth = Math.min(viewWidth * 0.28, 260);  // Y-axis (width)
+            
+            // Draw Subgrade base grid background
+            drawCyberGrid(originX, originY, blockLength, blockWidth);
+
+            // Render Stack Layers from Bottom to Top
+            const allLayerIds = ['subgrade', 'subbase', 'base', 'slab'];
+            let currentZ = 0;
+
+            allLayerIds.forEach((layerId) => {
+                const isPlaced = state.placedLayers.includes(layerId);
+                const spec = LAYER_SPECS[layerId];
+                // Scale layer thickness visually
+                const layerH = (spec.thickness / 500) * 45 + 18; 
+
+                if (isPlaced) {
+                    draw3DLayerBlock(spec, originX, originY, currentZ, blockLength, blockWidth, layerH);
+                    currentZ += layerH;
+                }
+            });
+
+            // Draw Wheel Load Tool & Dual Axle on Slab Top (if slab is placed)
+            const hasSlab = state.placedLayers.includes('slab');
+            const topZ = currentZ;
+
+            if (hasSlab) {
+                // Wheel load X-coordinate on slab
+                const wheelX = blockLength * state.wheelXRatio;
+                const wheelY = blockWidth * 0.5;
+
+                // Draw Stress Bulb Heatmap propagating down
+                if (state.showHeatmap) {
+                    drawStressBulbHeatmap(originX, originY, wheelX, wheelY, topZ, blockLength, blockWidth);
+                }
+
+                // Draw Dual Wheel Axle Model
+                drawWheelAxle(originX, originY, wheelX, wheelY, topZ);
+
+                // Draw Deflection Curve Line
+                drawDeflectionLine(originX, originY, topZ, blockLength, blockWidth);
+            }
+
+            // Draw Leader Callout Annotations
+            drawLeaderLines(originX, originY, blockLength, blockWidth);
+
+            requestAnimationFrame(renderScene);
+        }
+
+        // Draw Cyberpunk Ground Grid Lines
+        function drawCyberGrid(ox, oy, len, wid) {
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.08)';
+            ctx.lineWidth = 1;
+
+            const gridSteps = 10;
+            for (let i = 0; i <= gridSteps; i++) {
+                const p1 = project3D(i * (len / gridSteps), 0, -20, ox, oy);
+                const p2 = project3D(i * (len / gridSteps), wid, -20, ox, oy);
+                ctx.beginPath();
+                ctx.moveTo(p1.x, p1.y);
+                ctx.lineTo(p2.x, p2.y);
+                ctx.stroke();
+
+                const p3 = project3D(0, i * (wid / gridSteps), -20, ox, oy);
+                const p4 = project3D(len, i * (wid / gridSteps), -20, ox, oy);
+                ctx.beginPath();
+                ctx.moveTo(p3.x, p3.y);
+                ctx.lineTo(p4.x, p4.y);
+                ctx.stroke();
+            }
+        }
+
+        // Render an Isometric 3D Layer Block
+        function draw3DLayerBlock(spec, ox, oy, startZ, len, wid, h) {
+            const z0 = startZ;
+            const z1 = startZ + h;
+
+            // 8 Vertices
+            const v000 = project3D(0, 0, z0, ox, oy);
+            const v100 = project3D(len, 0, z0, ox, oy);
+            const v110 = project3D(len, wid, z0, ox, oy);
+            const v010 = project3D(0, wid, z0, ox, oy);
+
+            const v001 = project3D(0, 0, z1, ox, oy);
+            const v101 = project3D(len, 0, z1, ox, oy);
+            const v111 = project3D(len, wid, z1, ox, oy);
+            const v011 = project3D(0, wid, z1, ox, oy);
+
+            const alpha = state.xrayMode ? 0.35 : 0.9;
+
+            // 1. Top Face
+            ctx.fillStyle = spec.colorTop;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(v001.x, v001.y);
+            ctx.lineTo(v101.x, v101.y);
+            ctx.lineTo(v111.x, v111.y);
+            ctx.lineTo(v011.x, v011.y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Concrete Texture Grid or Grain for Top Face
+            ctx.strokeStyle = state.xrayMode ? spec.accentColor : 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = state.xrayMode ? 1.5 : 0.8;
+            ctx.stroke();
+
+            // 2. Front Face
+            ctx.fillStyle = spec.colorFront;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(v010.x, v010.y);
+            ctx.lineTo(v110.x, v110.y);
+            ctx.lineTo(v111.x, v111.y);
+            ctx.lineTo(v011.x, v011.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = spec.accentColor;
+            ctx.globalAlpha = 0.6;
+            ctx.stroke();
+
+            // 3. Side Cut Face
+            ctx.fillStyle = spec.colorSide;
+            ctx.globalAlpha = alpha;
+            ctx.beginPath();
+            ctx.moveTo(v100.x, v100.y);
+            ctx.lineTo(v110.x, v110.y);
+            ctx.lineTo(v111.x, v111.y);
+            ctx.lineTo(v101.x, v101.y);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.globalAlpha = 1.0;
+
+            // If X-Ray Mode: Render Internal Dowel / Tie Bars inside PQC Slab
+            if (state.xrayMode && spec.id === 'slab') {
+                ctx.strokeStyle = '#00f3ff';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 4]);
+
+                // Dowel bars along X-axis
+                for (let yOffset = 30; yOffset < wid; yOffset += 40) {
+                    const pStart = project3D(20, yOffset, z0 + h * 0.5, ox, oy);
+                    const pEnd = project3D(len - 20, yOffset, z0 + h * 0.5, ox, oy);
+                    ctx.beginPath();
+                    ctx.moveTo(pStart.x, pStart.y);
+                    ctx.lineTo(pEnd.x, pEnd.y);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+        }
+
+        // Draw Westergaard Stress Bulb / Pressure Heatmap
+        function drawStressBulbHeatmap(ox, oy, wx, wy, topZ, blockLen, blockWid) {
+            const center3D = project3D(wx, wy, topZ, ox, oy);
+            const loadRatio = state.wheelLoadKn / 180;
+            
+            // Rigid slab dissipates stress horizontally wide; Flexible slab concentrates stress narrowly
+            const isRigid = (state.pavementMode === 'rigid');
+            const spreadX = isRigid ? 140 * (1 + loadRatio * 0.4) : 70;
+            const depthY = isRigid ? 120 : 180;
+
+            const grad = ctx.createRadialGradient(
+                center3D.x, center3D.y, 5,
+                center3D.x, center3D.y + depthY * 0.6, spreadX
+            );
+
+            if (state.isOverloaded) {
+                grad.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+                grad.addColorStop(0.4, 'rgba(255, 183, 3, 0.6)');
+                grad.addColorStop(0.8, 'rgba(16, 185, 129, 0.25)');
+                grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            } else {
+                grad.addColorStop(0, 'rgba(0, 243, 255, 0.8)');
+                grad.addColorStop(0.3, 'rgba(16, 185, 129, 0.5)');
+                grad.addColorStop(0.7, 'rgba(255, 183, 3, 0.25)');
+                grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            }
+
+            ctx.save();
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(center3D.x, center3D.y + depthY * 0.4, spreadX, depthY, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Load Vectors / Dispersion Rays
+            if (state.xrayMode) {
+                const rayCount = 7;
+                ctx.lineWidth = 1.5;
+                for (let i = 0; i < rayCount; i++) {
+                    const angle = (Math.PI / (rayCount - 1)) * i;
+                    const rx = center3D.x + Math.cos(angle) * spreadX * 0.8;
+                    const ry = center3D.y + Math.sin(angle) * depthY * 0.8;
+
+                    ctx.strokeStyle = state.isOverloaded ? '#ef4444' : '#00f3ff';
+                    ctx.setLineDash([3, 3]);
+                    ctx.beginPath();
+                    ctx.moveTo(center3D.x, center3D.y);
+                    ctx.lineTo(rx, ry);
+                    ctx.stroke();
+                }
+                ctx.setLineDash([]);
+            }
+
+            ctx.restore();
+        }
+
+        // Draw Interactive Truck Axle & Dual Wheels
+        function drawWheelAxle(ox, oy, wx, wy, topZ) {
+            const wheelPos = project3D(wx, wy, topZ, ox, oy);
+
+            ctx.save();
+            // Axle Shaft
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(wheelPos.x - 28, wheelPos.y - 12);
+            ctx.lineTo(wheelPos.x + 28, wheelPos.y + 12);
+            ctx.stroke();
+
+            // Wheels (Left & Right Tire Pairs)
+            const tireOffsets = [-26, 26];
+            tireOffsets.forEach(off => {
+                const tx = wheelPos.x + off;
+                const ty = wheelPos.y + (off * 0.45);
+
+                // Tire Outer Rubber
+                ctx.fillStyle = '#0f172a';
+                ctx.strokeStyle = state.isDraggingWheel ? '#00f3ff' : '#475569';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(tx, ty, 10, 18, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Metallic Rim Center
+                ctx.fillStyle = state.isOverloaded ? '#ef4444' : '#00f3ff';
+                ctx.beginPath();
+                ctx.ellipse(tx, ty, 4, 7, -Math.PI / 6, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Downward Wheel Load Arrow Indicator
+            const arrowLen = Math.min(70, 30 + (state.wheelLoadKn / 180) * 40);
+            ctx.strokeStyle = state.isOverloaded ? '#ef4444' : '#ffb703';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(wheelPos.x, wheelPos.y - arrowLen);
+            ctx.lineTo(wheelPos.x, wheelPos.y - 4);
+            ctx.stroke();
+
+            // Arrow Head
+            ctx.fillStyle = state.isOverloaded ? '#ef4444' : '#ffb703';
+            ctx.beginPath();
+            ctx.moveTo(wheelPos.x, wheelPos.y - 2);
+            ctx.lineTo(wheelPos.x - 6, wheelPos.y - 14);
+            ctx.lineTo(wheelPos.x + 6, wheelPos.y - 14);
+            ctx.closePath();
+            ctx.fill();
+
+            // Wheel Load Text Badge over Axle
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+            ctx.strokeStyle = state.isOverloaded ? '#ef4444' : '#00f3ff';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.roundRect(wheelPos.x - 38, wheelPos.y - arrowLen - 26, 76, 20, 6);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 10px Orbitron, monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${state.wheelLoadKn} kN LOAD`, wheelPos.x, wheelPos.y - arrowLen - 12);
+
+            ctx.restore();
+        }
+
+        // Draw Real-time Bending Deflection Line along Front Edge
+        function drawDeflectionLine(ox, oy, topZ, blockLen, blockWid) {
+            ctx.save();
+            ctx.strokeStyle = state.isOverloaded ? '#ef4444' : '#00f3ff';
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            const pointsCount = 30;
+            const targetXRatio = state.wheelXRatio;
+
+            for (let i = 0; i <= pointsCount; i++) {
+                const r = i / pointsCount;
+                const x = r * blockLen;
+                const y = blockWid; // Front edge
+
+                // Elastic Deflection Curve Shape
+                const dist = Math.abs(r - targetXRatio);
+                const maxDef = state.calculatedDeflection * 6.0; // Scaled visually
+                const defOffset = maxDef * Math.exp(-dist * dist * 18);
+
+                const p = project3D(x, y, topZ - defOffset, ox, oy);
+                if (i === 0) ctx.moveTo(p.x, p.y);
+                else ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Draw Dynamic Annotations & Leader Callout Lines
+        function drawLeaderLines(ox, oy, blockLen, blockWid) {
+            let currentZ = 0;
+            const allLayerIds = ['subgrade', 'subbase', 'base', 'slab'];
+
+            ctx.save();
+            allLayerIds.forEach((layerId) => {
+                if (!state.placedLayers.includes(layerId)) return;
+                const spec = LAYER_SPECS[layerId];
+                const layerH = (spec.thickness / 500) * 45 + 18;
+
+                const midZ = currentZ + layerH * 0.5;
+                const edgePoint = project3D(0, blockWid * 0.5, midZ, ox, oy);
+
+                // Callout Line extending left
+                const lineEndX = edgePoint.x - 70;
+                const lineEndY = edgePoint.y - 10;
+
+                ctx.strokeStyle = spec.accentColor;
+                ctx.lineWidth = 1.2;
+                ctx.beginPath();
+                ctx.moveTo(edgePoint.x, edgePoint.y);
+                ctx.lineTo(edgePoint.x - 30, edgePoint.y);
+                ctx.lineTo(lineEndX, lineEndY);
+                ctx.stroke();
+
+                // Target Circle Dot
+                ctx.fillStyle = spec.accentColor;
+                ctx.beginPath();
+                ctx.arc(edgePoint.x, edgePoint.y, 3.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Text Badge Tag
+                ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+                ctx.strokeStyle = spec.accentColor;
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.roundRect(lineEndX - 130, lineEndY - 12, 125, 22, 6);
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.font = '600 10px Inter, sans-serif';
+                ctx.textAlign = 'right';
+                ctx.fillText(spec.shortName, lineEndX - 12, lineEndY + 2);
+
+                currentZ += layerH;
+            });
+            ctx.restore();
+        }
+
+        // ============================================================================
+        // 5. DRAG & DROP SYSTEM AND USER INTERACTION LOGIC
+        // ============================================================================
+        function setupDragAndDrop() {
+            const paletteCards = document.querySelectorAll('.drag-card');
+            const dropPrompt = document.getElementById('drop-prompt');
+
+            paletteCards.forEach(card => {
+                const layerId = card.dataset.layerId;
+
+                // Drag Start
+                card.addEventListener('dragstart', (e) => {
+                    state.draggedPaletteItem = layerId;
+                    card.classList.add('dragging');
+                    e.dataTransfer.setData('text/plain', layerId);
+                    playClickSound();
+                });
+
+                // Drag End
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                    state.draggedPaletteItem = null;
+                });
+
+                // Mouse hover on card updates inspector
+                card.addEventListener('mouseenter', () => {
+                    updateInspector(layerId);
+                });
+            });
+
+            // Canvas Drop Zone Handlers
+            container.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropPrompt.classList.add('border-cyber-cyan', 'scale-105');
+            });
+
+            container.addEventListener('dragleave', () => {
+                dropPrompt.classList.remove('scale-105');
+            });
+
+            container.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropPrompt.classList.remove('scale-105');
+                const layerId = e.dataTransfer.getData('text/plain') || state.draggedPaletteItem;
+                if (layerId) {
+                    placeLayer(layerId);
+                }
+            });
+
+            // Interactive Wheel Dragging on Canvas
+            canvas.addEventListener('mousedown', handleCanvasPointerDown);
+            canvas.addEventListener('mousemove', handleCanvasPointerMove);
+            window.addEventListener('mouseup', handleCanvasPointerUp);
+
+            // Touch support for mobile devices
+            canvas.addEventListener('touchstart', (e) => {
+                if (e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    handleCanvasPointerDown({ clientX: touch.clientX, clientY: touch.clientY });
+                }
+            });
+
+            canvas.addEventListener('touchmove', (e) => {
+                if (e.touches.length > 0) {
+                    const touch = e.touches[0];
+                    handleCanvasPointerMove({ clientX: touch.clientX, clientY: touch.clientY });
+                }
+            });
+
+            window.addEventListener('touchend', handleCanvasPointerUp);
+        }
+
+        // Place layer in stack with magnetic snap sound & speech
+        function placeLayer(layerId) {
+            if (!LAYER_SPECS[layerId]) return;
+
+            if (!state.placedLayers.includes(layerId)) {
+                state.placedLayers.push(layerId);
+                
+                // Audio & Speech Feedback
+                playSnapSound();
+                setTimeout(() => {
+                    speakNarration(LAYER_SPECS[layerId].audioSpeech);
+                }, 150);
+
+                // Check if full stack completed
+                if (state.placedLayers.length === 4) {
+                    setTimeout(playSuccessChime, 600);
+                }
+
+                updatePaletteCardUI(layerId);
+                updateInspector(layerId);
+                updateStressAnalytics();
+            }
+        }
+
+        function updatePaletteCardUI(layerId) {
+            const card = document.querySelector(`.drag-card[data-layer-id="${layerId}"]`);
+            if (card) {
+                card.classList.add('border-cyber-cyan', 'bg-cyan-950/20');
+                const statusIcon = card.querySelector('.status-icon');
+                if (statusIcon) {
+                    statusIcon.className = 'status-icon text-cyber-cyan';
+                    statusIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                }
+            }
+        }
+
+        function updateInspector(layerId) {
+            const spec = LAYER_SPECS[layerId];
+            if (!spec) return;
+
+            document.getElementById('inspector-id').innerText = spec.id.toUpperCase();
+            document.getElementById('inspector-title').innerText = spec.name;
+            document.getElementById('inspector-desc').innerText = spec.functionDesc;
+
+            const statsEl = document.getElementById('inspector-stats');
+            statsEl.classList.remove('hidden');
+            document.getElementById('stat-modulus').innerText = `${spec.E.toLocaleString()} MPa`;
+            document.getElementById('stat-thickness').innerText = `${spec.thickness} mm`;
+        }
+
+        // Handle Canvas Wheel Axle Dragging
+        function handleCanvasPointerDown(e) {
+            if (!state.placedLayers.includes('slab')) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+
+            // Check proximity to wheel axle
+            const originX = viewWidth * 0.48;
+            const originY = viewHeight * 0.58;
+            const blockLength = Math.min(viewWidth * 0.45, 480);
+            const blockWidth = Math.min(viewWidth * 0.28, 260);
+
+            const wheelPos = project3D(blockLength * state.wheelXRatio, blockWidth * 0.5, 90, originX, originY);
+            const dist = Math.hypot(clickX - wheelPos.x, clickY - wheelPos.y);
+
+            if (dist < 60) {
+                state.isDraggingWheel = true;
+                playClickSound();
+            }
+        }
+
+        function handleCanvasPointerMove(e) {
+            if (!state.isDraggingWheel) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+
+            const originX = viewWidth * 0.48;
+            const blockLength = Math.min(viewWidth * 0.45, 480);
+
+            // Compute relative ratio 0.15 to 0.85 along span
+            let newRatio = (mouseX - (originX - blockLength * 0.4)) / blockLength;
+            newRatio = Math.max(0.12, Math.min(0.88, newRatio));
+
+            state.wheelXRatio = newRatio;
+            updateStressAnalytics();
+        }
+
+        function handleCanvasPointerUp() {
+            if (state.isDraggingWheel) {
+                state.isDraggingWheel = false;
+                playClickSound();
+            }
+        }
+
+        // ============================================================================
+        // 6. EVENT BINDINGS & BUTTON CONTROLS
+        // ============================================================================
+        function setupUIControls() {
+            // Slider for Axle Wheel Load
+            const slider = document.getElementById('slider-wheel-load');
+            slider.addEventListener('input', (e) => {
+                state.wheelLoadKn = parseFloat(e.target.value);
+                updateStressAnalytics();
+            });
+
+            // Toggle X-Ray Button
+            const btnXray = document.getElementById('btn-toggle-xray');
+            btnXray.addEventListener('click', () => {
+                state.xrayMode = !state.xrayMode;
+                btnXray.className = state.xrayMode ? 
+                    'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-cyber-cyan text-slate-950 flex items-center gap-1.5 transition' : 
+                    'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-300 hover:text-cyber-cyan border border-transparent hover:border-slate-700 flex items-center gap-1.5 transition';
+                playClickSound();
+            });
+
+            // Toggle Heatmap Button
+            const btnHeatmap = document.getElementById('btn-toggle-heatmap');
+            btnHeatmap.addEventListener('click', () => {
+                state.showHeatmap = !state.showHeatmap;
+                btnHeatmap.className = state.showHeatmap ? 
+                    'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold bg-cyber-cyan/10 text-cyber-cyan border border-cyber-cyan/30 flex items-center gap-1.5 transition' : 
+                    'px-3 py-1.5 rounded-lg text-xs font-mono font-semibold text-slate-400 hover:text-slate-200 border border-transparent flex items-center gap-1.5 transition';
+                playClickSound();
+            });
+
+            // Toggle Rigid vs Flexible Mode Comparison
+            const btnPavementType = document.getElementById('btn-toggle-pavement-type');
+            const labelPavementMode = document.getElementById('label-pavement-mode');
+            btnPavementType.addEventListener('click', () => {
+                state.pavementMode = (state.pavementMode === 'rigid') ? 'flexible' : 'rigid';
+                labelPavementMode.innerText = state.pavementMode.toUpperCase() + (state.pavementMode === 'flexible' ? ' ASPHALT' : ' SLAB');
+                updateStressAnalytics();
+                playClickSound();
+
+                speakNarration(state.pavementMode === 'flexible' ? 
+                    "Switched to Flexible Pavement mode. Flexible pavements lack slab bending rigidity, concentrating higher stress directly onto subgrade." : 
+                    "Switched to Rigid Concrete Pavement mode. High flexural modulus bridges axle load across a wide base surface.");
+            });
+
+            // Auto Build All Layers Button
+            const btnAutoBuild = document.getElementById('btn-auto-build');
+            btnAutoBuild.addEventListener('click', () => {
+                const order = ['subgrade', 'subbase', 'base', 'slab'];
+                order.forEach((id, index) => {
+                    setTimeout(() => {
+                        placeLayer(id);
+                    }, index * 300);
+                });
+            });
+
+            // Reset Stack Button
+            const btnReset = document.getElementById('btn-reset');
+            btnReset.addEventListener('click', () => {
+                state.placedLayers = [];
+                state.isOverloaded = false;
+                
+                document.querySelectorAll('.drag-card').forEach(card => {
+                    card.classList.remove('border-cyber-cyan', 'bg-cyan-950/20');
+                    const statusIcon = card.querySelector('.status-icon');
+                    if (statusIcon) {
+                        statusIcon.className = 'status-icon text-slate-500';
+                        statusIcon.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>';
+                    }
+                });
+
+                document.getElementById('inspector-title').innerText = 'Hover or Drop a Layer';
+                document.getElementById('inspector-desc').innerText = 'Select or drag structural components into the central workspace to analyze their engineering properties.';
+                document.getElementById('inspector-stats').classList.add('hidden');
+
+                updateStressAnalytics();
+                playClickSound();
+            });
+
+            // Audio Mute/Unmute Toggle
+            const btnAudio = document.getElementById('btn-audio-toggle');
+            const iconOn = document.getElementById('icon-audio-on');
+            const iconOff = document.getElementById('icon-audio-off');
+
+            btnAudio.addEventListener('click', () => {
+                state.audioEnabled = !state.audioEnabled;
+                if (state.audioEnabled) {
+                    iconOn.classList.remove('hidden');
+                    iconOff.classList.add('hidden');
+                    initAudio();
+                } else {
+                    iconOn.classList.add('hidden');
+                    iconOff.classList.remove('hidden');
+                    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                }
+            });
+        }
+
+        // ============================================================================
+        // 7. INITIALIZATION BOOTSTRAP
+        // ============================================================================
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            setupDragAndDrop();
+            setupUIControls();
+            updateStressAnalytics();
+
+            // Kick off animation render loop
+            requestAnimationFrame(renderScene);
+        });
+    </script>
+</body>
+</html>

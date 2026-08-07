@@ -1,0 +1,1554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transpiration & Evapotranspiration Simulation</title>
+    <style>
+        :root {
+            --bg-primary: #0b0f19;
+            --bg-secondary: #1e293b;
+            --bg-tertiary: #0f172a;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent-blue: #3b82f6;
+            --accent-emerald: #10b981;
+            --accent-orange: #f59e0b;
+            --accent-rose: #f43f5e;
+            --border: #334155;
+            --led-glow: 0 0 10px rgba(59, 130, 246, 0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--bg-secondary);
+            border-bottom: 1px solid var(--border);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            color: var(--accent-emerald);
+            animation: pulse-slow 3s infinite alternate;
+        }
+
+        .title-block h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
+        .title-block p {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .global-controls {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* --- Main Layout --- */
+        .simulation-container {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 12px;
+            padding: 12px;
+            height: calc(100vh - 110px); /* adjusted for header and footer */
+            min-height: 0;
+        }
+
+        /* --- Card Styles --- */
+        .panel {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+        }
+
+        .panel-header {
+            background-color: var(--bg-tertiary);
+            padding: 8px 14px;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.75px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: var(--text-muted);
+        }
+
+        .panel-content {
+            padding: 12px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        /* --- Custom Controls / Inputs --- */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(51, 65, 85, 0.5);
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .control-label .value {
+            font-family: monospace;
+            color: var(--accent-blue);
+        }
+
+        .input-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--border);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .input-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--accent-blue);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(59, 130, 246, 0.6);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        .input-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        /* Colors for different sliders */
+        #solar-slider::-webkit-slider-thumb { background: var(--accent-orange); box-shadow: 0 0 8px rgba(245, 158, 11, 0.6); }
+        #moisture-slider::-webkit-slider-thumb { background: var(--accent-blue); box-shadow: 0 0 8px rgba(59, 130, 246, 0.6); }
+        #stomata-slider::-webkit-slider-thumb { background: var(--accent-emerald); box-shadow: 0 0 8px rgba(16, 185, 129, 0.6); }
+        #wind-slider::-webkit-slider-thumb { background: var(--text-muted); box-shadow: 0 0 8px rgba(148, 163, 184, 0.6); }
+
+        /* --- Buttons --- */
+        .btn {
+            background-color: var(--bg-tertiary);
+            color: var(--text-main);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--border);
+            border-color: var(--text-muted);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-primary {
+            background-color: var(--accent-blue);
+            border-color: transparent;
+        }
+
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+
+        .btn-emerald {
+            background-color: var(--accent-emerald);
+            border-color: transparent;
+        }
+
+        .btn-emerald:hover {
+            background-color: #059669;
+        }
+
+        /* --- Readout Box --- */
+        .readout-box {
+            background-color: var(--bg-tertiary);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .readout-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .readout-val {
+            font-family: monospace;
+            font-weight: bold;
+            color: var(--text-main);
+        }
+
+        .readout-val.highlight-green { color: var(--accent-emerald); }
+        .readout-val.highlight-blue { color: var(--accent-blue); }
+        .readout-val.highlight-orange { color: var(--accent-orange); }
+
+        /* --- Digital Display Panel (Lysimeter Weight) --- */
+        .scale-display {
+            background: #020617;
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            position: relative;
+            box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.8);
+        }
+
+        .scale-display::before {
+            content: "LYSIMETER LOAD CELL";
+            position: absolute;
+            top: 4px;
+            left: 8px;
+            font-size: 0.55rem;
+            color: var(--text-muted);
+            letter-spacing: 0.5px;
+        }
+
+        .digital-value {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #10b981;
+            text-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+            margin-top: 8px;
+        }
+
+        .digital-unit {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Canvas Center Container --- */
+        .canvas-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        #main-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Overlaid floating widgets on canvas */
+        .canvas-overlay-ui {
+            position: absolute;
+            pointer-events: none;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .drag-indicator {
+            position: absolute;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px dashed var(--accent-blue);
+            padding: 4px 8px;
+            border-radius: 4px;
+            pointer-events: none;
+            transition: opacity 0.2s;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* --- Right Hand Dashboard (Graphs & Insights) --- */
+        .chart-wrapper {
+            position: relative;
+            height: 160px;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: rgba(15, 23, 42, 0.6);
+            overflow: hidden;
+        }
+
+        #chart-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* --- Exam Insight Box --- */
+        .insight-card {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.9) 100%);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--accent-orange);
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .insight-header {
+            font-weight: 700;
+            color: var(--accent-orange);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .insight-formula {
+            background-color: var(--bg-tertiary);
+            padding: 6px;
+            border-radius: 4px;
+            text-align: center;
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 0.85rem;
+            color: var(--text-main);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* --- Footer Ticker --- */
+        footer {
+            background-color: var(--bg-secondary);
+            border-top: 1px solid var(--border);
+            padding: 8px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            font-size: 0.75rem;
+            z-index: 10;
+        }
+
+        .ticker-label {
+            background-color: var(--accent-orange);
+            color: var(--bg-primary);
+            padding: 2px 8px;
+            font-weight: bold;
+            border-radius: 3px;
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            flex-shrink: 0;
+            letter-spacing: 0.5px;
+        }
+
+        .ticker-content {
+            white-space: nowrap;
+            overflow: hidden;
+            box-sizing: border-box;
+            width: 100%;
+            position: relative;
+        }
+
+        .ticker-text {
+            display: inline-block;
+            padding-left: 100%;
+            animation: ticker 35s linear infinite;
+        }
+
+        /* --- Modals / Interactive Popups --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(2, 6, 17, 0.85);
+            backdrop-filter: blur(8px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+
+        .modal {
+            background-color: var(--bg-secondary);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            width: 520px;
+            max-width: 90vw;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .modal-header {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-emerald);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-body {
+            font-size: 0.85rem;
+            line-height: 1.6;
+            color: var(--text-muted);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modal-body strong {
+            color: var(--text-main);
+        }
+
+        .instruction-grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 8px 12px;
+            margin: 10px 0;
+            background: rgba(15, 23, 42, 0.5);
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .grid-num {
+            background-color: var(--accent-blue);
+            color: white;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.7rem;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 8px;
+        }
+
+        .hide {
+            display: none !important;
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        /* Audio Indicator */
+        .sound-status {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.65rem;
+            color: var(--accent-emerald);
+        }
+
+        .sound-wave {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 10px;
+        }
+
+        .wave-bar {
+            width: 2px;
+            background-color: var(--accent-emerald);
+            border-radius: 1px;
+            animation: sound-pulse 0.5s ease-in-out infinite alternate;
+        }
+
+        .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+        .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+
+        /* --- Keyframes --- */
+        @keyframes ticker {
+            0% { transform: translate3d(0, 0, 0); }
+            100% { transform: translate3d(-100%, 0, 0); }
+        }
+
+        @keyframes sound-pulse {
+            0% { height: 2px; }
+            100% { height: 10px; }
+        }
+
+        @keyframes pulse-slow {
+            0% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1.05); opacity: 1; }
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+
+        /* Quick custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-tertiary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- --- Header Area --- -->
+    <header>
+        <div class="logo-area">
+            <svg class="logo-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <div class="title-block">
+                <h1>Transpiros-ET</h1>
+                <p>Interactive Plant-Soil Water Interface Simulator</p>
+            </div>
+        </div>
+        <div class="global-controls">
+            <button class="btn btn-emerald" id="irrigate-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                Irrigate (+Inflow)
+            </button>
+            <button class="btn" id="voice-explain-btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"/></svg>
+                Explain Concept
+            </button>
+            <div class="sound-status hide" id="sound-indicator">
+                <span style="font-size: 0.6rem; color: var(--text-muted);">Synth SFX:</span>
+                <div class="sound-wave">
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                    <div class="wave-bar"></div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- --- Main Container Grid --- -->
+    <div class="simulation-container">
+        
+        <!-- --- Left Panel: Controls --- -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Environmental Controls</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+            </div>
+            <div class="panel-content">
+                
+                <!-- Solar Slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Solar Radiation (R<sub>n</sub>)</span>
+                        <span class="value" id="solar-val">650 W/m²</span>
+                    </div>
+                    <input type="range" class="input-slider" id="solar-slider" min="0" max="1000" value="650">
+                    <span style="font-size:0.6rem; color:var(--text-muted)">Determines potential energy inputs. Draggable via Sun.</span>
+                </div>
+
+                <!-- Soil Moisture Slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Soil Moisture (&theta;)</span>
+                        <span class="value" id="moisture-val">38 %</span>
+                    </div>
+                    <input type="range" class="input-slider" id="moisture-slider" min="5" max="100" value="38">
+                    <span style="font-size:0.6rem; color:var(--text-muted)">Limits actual transpiration rate at wilting point (15%).</span>
+                </div>
+
+                <!-- Stomatal Conductance Slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Stomatal Aperture (g<sub>s</sub>)</span>
+                        <span class="value" id="stomata-val">75 %</span>
+                    </div>
+                    <input type="range" class="input-slider" id="stomata-slider" min="0" max="100" value="75">
+                    <span style="font-size:0.6rem; color:var(--text-muted)">Physiological resistance valve operated by plant.</span>
+                </div>
+
+                <!-- Wind Speed Slider -->
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Wind Speed (u)</span>
+                        <span class="value" id="wind-val">2.5 m/s</span>
+                    </div>
+                    <input type="range" class="input-slider" id="wind-slider" min="0" max="10" step="0.1" value="2.5">
+                    <span style="font-size:0.6rem; color:var(--text-muted)">Modulates boundary layer thickness.</span>
+                </div>
+
+                <!-- Digital Scales readout -->
+                <div class="scale-display">
+                    <div class="digital-value" id="lysimeter-mass">58.420</div>
+                    <div class="digital-unit">LYSIMETER MASS (kg)</div>
+                </div>
+
+                <!-- Inflow Drainage stats -->
+                <div class="readout-box">
+                    <div class="readout-row">
+                        <span>Current Drainage:</span>
+                        <span class="readout-val" id="drainage-val">0.00 L/hr</span>
+                    </div>
+                    <div class="readout-row">
+                        <span>Inflow (Irrigation):</span>
+                        <span class="readout-val highlight-green" id="inflow-val">0.00 kg</span>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- --- Center Panel: Canvas Visualizer --- -->
+        <div class="panel canvas-container">
+            <canvas id="main-canvas"></canvas>
+            <div id="probe-tooltip" class="drag-indicator">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <div style="font-size:0.65rem; font-family: monospace;" id="probe-tooltip-text">Moisture Probe Depth: 0cm</div>
+            </div>
+        </div>
+
+        <!-- --- Right Panel: Charts & Insights --- -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>Real-Time Energetics</span>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+            </div>
+            <div class="panel-content">
+                
+                <div class="chart-wrapper">
+                    <canvas id="chart-canvas"></canvas>
+                </div>
+
+                <!-- Quick Flux Stats -->
+                <div class="readout-box">
+                    <div class="readout-row">
+                        <span>Potential ET (PET):</span>
+                        <span class="readout-val highlight-orange" id="pet-val">6.8 mm/d</span>
+                    </div>
+                    <div class="readout-row">
+                        <span>Actual ET (AET):</span>
+                        <span class="readout-val highlight-blue" id="aet-val">4.2 mm/d</span>
+                    </div>
+                    <div class="readout-row" style="border-top:1px dashed var(--border); padding-top:4px; margin-top:2px;">
+                        <span>Transpiration (T):</span>
+                        <span class="readout-val highlight-green" id="t-val">3.1 mm/d</span>
+                    </div>
+                    <div class="readout-row">
+                        <span>Soil Evaporation (E):</span>
+                        <span class="readout-val" id="e-val">1.1 mm/d</span>
+                    </div>
+                </div>
+
+                <!-- Exam Insight / Flashcard -->
+                <div class="insight-card">
+                    <div class="insight-header">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"/></svg>
+                        Hydrology Core Concept
+                    </div>
+                    <p style="color:var(--text-main); font-weight:600;">How does a Lysimeter capture ET?</p>
+                    <p>A Lysimeter physical scale isolated system permits the direct calculation of total ET based on Mass Balance principles over time:</p>
+                    <div class="insight-formula">
+                        ET = &Delta;S + I - D
+                    </div>
+                    <p style="color:var(--text-muted); font-size:0.7rem;">Where <strong>&Delta;S</strong> is change in storage (weight difference), <strong>I</strong> is inflow water, and <strong>D</strong> is gravity-drained surplus water.</p>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- --- Footer Ticker Bar --- -->
+    <footer>
+        <div class="ticker-label">Exam Tip</div>
+        <div class="ticker-content">
+            <div class="ticker-text">
+                When soil moisture falls below the <strong>Permanent Wilting Point (15% in this model)</strong>, plant water tension is too great, guard cells turgidity drops, stomata close, and T drops to zero. • Lysimeters measure actual ET directly by mass balance without physical disturbance. • PET is atmosphere's pure demand; AET is the actual hydrological volume released. • High wind increases boundary layer shear, spiking evaporation from leaves.
+            </div>
+        </div>
+    </footer>
+
+    <!-- --- Startup Modal Overlay --- -->
+    <div class="modal-overlay" id="intro-modal">
+        <div class="modal">
+            <div class="modal-header">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                Transpiros-ET Lab Environment
+            </div>
+            <div class="modal-body">
+                <p>Welcome to the premium interactive Plant-Water Hydrological lab interface. You are manipulating a high-fidelity <strong>weighing lysimeter</strong> system capturing the plant-soil-atmosphere boundary layer.</p>
+                
+                <strong>Dynamic Elements & Instructions:</strong>
+                <div class="instruction-grid">
+                    <div class="grid-num">1</div>
+                    <div><strong>Interactive Sun:</strong> Click and drag the Sun on canvas to dynamically scale solar radiation and heating directly.</div>
+                    
+                    <div class="grid-num">2</div>
+                    <div><strong>Soil Hydrology Probe:</strong> Drag the metal cylinder probe into different depths of the soil core to measure real-time saturation gradients.</div>
+                    
+                    <div class="grid-num">3</div>
+                    <div><strong>Scale System:</strong> Click the <strong>"Irrigate"</strong> button to add water weight, inducing drainage if saturation exceeds system capacity.</div>
+                    
+                    <div class="grid-num">4</div>
+                    <div><strong>Acoustic Feedback:</strong> Interactive synthesizers generate dynamic dynamic acoustic feedback mapping leaf pore transpiration and drainage drips.</div>
+                </div>
+
+                <p style="font-size:0.75rem; color:var(--accent-orange);">*Pressing the button below activates browser Web Audio Synthesis & Speech Synthesis API nodes.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="start-btn">Initialize Simulation Engine</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- --- Core Simulation Script --- -->
+    <script>
+        // --- Web Audio Synthesizer Class ---
+        class HydrologySynth {
+            constructor() {
+                this.ctx = null;
+                this.hissOsc = null;
+                this.hissGain = null;
+                this.lpf = null;
+                this.initialized = false;
+            }
+
+            init() {
+                try {
+                    const AudioContext = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContext();
+                    
+                    // Base Hiss Synth for Transpiration flow
+                    this.hissGain = this.ctx.createGain();
+                    this.hissGain.gain.value = 0.02;
+
+                    this.lpf = this.ctx.createBiquadFilter();
+                    this.lpf.type = "lowpass";
+                    this.lpf.frequency.value = 200;
+
+                    // Generate custom white/brownish noise
+                    const bufferSize = 2 * this.ctx.sampleRate;
+                    const noiseBuffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                    const output = noiseBuffer.getChannelData(0);
+                    for (let i = 0; i < bufferSize; i++) {
+                        output[i] = Math.random() * 2 - 1;
+                    }
+                    
+                    const noiseNode = this.ctx.createBufferSource();
+                    noiseNode.buffer = noiseBuffer;
+                    noiseNode.loop = true;
+
+                    // Route Nodes
+                    noiseNode.connect(this.lpf);
+                    this.lpf.connect(this.hissGain);
+                    this.hissGain.connect(this.ctx.destination);
+                    
+                    noiseNode.start();
+                    this.initialized = true;
+                    document.getElementById('sound-indicator').classList.remove('hide');
+                } catch (e) {
+                    console.warn("Audio context not initialized", e);
+                }
+            }
+
+            updateHiss(fluxRatio) {
+                if (!this.initialized) return;
+                // Scale lowpass filter cutoff based on actual ET flux ratio (0 to 1)
+                const baseFreq = 150;
+                const targetFreq = baseFreq + (fluxRatio * 1400);
+                this.lpf.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.25);
+                
+                // Keep sound comfortable but correlated to the system
+                const targetVolume = 0.01 + (fluxRatio * 0.05);
+                this.hissGain.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.2);
+            }
+
+            playDrip() {
+                if (!this.initialized) return;
+                // Synthesize immediate metallic-sounding water drop
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gainNode = this.ctx.createGain();
+
+                osc.type = "sine";
+                osc.frequency.setValueAtTime(1400, now);
+                osc.frequency.exponentialRampToValueAtTime(300, now + 0.12);
+
+                gainNode.gain.setValueAtTime(0.08, now);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                osc.connect(gainNode);
+                gainNode.connect(this.ctx.destination);
+
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
+
+        // Initialize state variables
+        const state = {
+            solarRadiation: 650,    // W/m²
+            soilMoisture: 38,       // %
+            stomataWidth: 75,       // %
+            windSpeed: 2.5,         // m/s
+            lysimeterMass: 58.420,  // kg
+            cumulativeInflow: 0.0,  // kg
+            drainage: 0.0,          // kg/hr
+            pet: 0.0,               // mm/day
+            aet: 0.0,               // mm/day
+            transpiration: 0.0,     // mm/day
+            evaporation: 0.0,       // mm/day
+            probeActive: false,
+            probeX: 520,
+            probeY: 280,
+            sunX: 300,
+            sunY: 60,
+            draggingSun: false,
+            draggingProbe: false,
+            timeStep: 0,
+            graphHistory: [],
+            maxHistorySize: 100
+        };
+
+        const synth = new HydrologySynth();
+
+        // Canvas element setup
+        const canvas = document.getElementById('main-canvas');
+        const ctx = canvas.getContext('2d');
+        const chartCanvas = document.getElementById('chart-canvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        // Resize function for keeping canvas crisp
+        function resizeCanvases() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            const chartContainer = chartCanvas.parentElement;
+            chartCanvas.width = chartContainer.clientWidth;
+            chartCanvas.height = chartContainer.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // --- Physics Engine: Hydrological Calculations ---
+        function runPhysics() {
+            state.timeStep++;
+
+            // Solar radiation mapping bounds
+            const solarFract = state.solarRadiation / 1000;
+            const windFract = state.windSpeed / 10;
+            const stomFract = state.stomataWidth / 100;
+            const moistFract = state.soilMoisture / 100;
+
+            // 1. Potential Evapotranspiration (PET) - Penman-Monteith relative simplification
+            // Combined energy term (radiation) and aerodynamic term (wind)
+            state.pet = (solarFract * 7.5) + (windFract * 2.5) + 0.5;
+
+            // 2. Canopy Transpiration (T)
+            // Stomatal closure severely limits T; extreme low soil moisture causes vascular cavitation limit
+            let soilStress = 1.0;
+            const wiltingPoint = 0.15;
+            const fieldCapacity = 0.70;
+
+            if (moistFract < wiltingPoint) {
+                soilStress = 0.0;
+            } else if (moistFract < fieldCapacity) {
+                // Linear drop off of extraction capacity between Field Capacity and WP
+                soilStress = (moistFract - wiltingPoint) / (fieldCapacity - wiltingPoint);
+            }
+
+            // Ideal potential transpiration is dictated by atmospheric demand & stomatal posture
+            state.transpiration = state.pet * 0.65 * stomFract * soilStress;
+
+            // 3. Soil Surface Evaporation (E)
+            // Free surface evaporation scales directly with radiation, wind, and soil moisture saturation
+            state.evaporation = state.pet * 0.35 * moistFract * (1 - (stomFract * 0.4)); // canopy shading decreases soil E
+
+            // 4. Actual Evapotranspiration (AET)
+            state.aet = state.transpiration + state.evaporation;
+            if (state.aet > state.pet) state.aet = state.pet; // Conservation threshold
+
+            // 5. Drainage logic (Surplus gravimetric water release)
+            if (state.soilMoisture > 82) {
+                state.drainage = (state.soilMoisture - 82) * 0.18; // mm/hr equivalent
+                // Drainage physically reduces soil moisture content
+                state.soilMoisture -= (state.drainage * 0.0035);
+                if (state.timeStep % 35 === 0) {
+                    synth.playDrip();
+                }
+            } else {
+                state.drainage = 0.0;
+            }
+
+            // 6. Dynamic soil water depletion from ET demand
+            const etDepletion = (state.aet * 0.00015);
+            state.soilMoisture = Math.max(5, state.soilMoisture - etDepletion);
+
+            // Update UI slider values as depletion occurs
+            document.getElementById('moisture-slider').value = Math.round(state.soilMoisture);
+
+            // Calculate precise physical mass based on base vessel layout:
+            // Base dry weight = 45.0 kg. Water storage holds up to ~20.0 kg.
+            const dryMass = 48.0;
+            const waterMass = (state.soilMoisture / 100) * 15.0;
+            state.lysimeterMass = dryMass + waterMass + state.cumulativeInflow;
+
+            // Audio integration mapping
+            const maxExpectedFlux = 10.0;
+            synth.updateHiss(state.aet / maxExpectedFlux);
+
+            // Append to telemetry history for graphing
+            if (state.timeStep % 8 === 0) {
+                state.graphHistory.push({
+                    pet: state.pet,
+                    aet: state.aet,
+                    t: state.transpiration,
+                    e: state.evaporation
+                });
+                if (state.graphHistory.length > state.maxHistorySize) {
+                    state.graphHistory.shift();
+                }
+            }
+        }
+
+        // --- Render Main Visuals ---
+        function drawVisualizer() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Environment Grid Elements
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.2)';
+            ctx.lineWidth = 1;
+            const gridSize = 40;
+            for (let x = 0; x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            const centerX = canvas.width / 2;
+            const groundY = 320;
+
+            // --- Draw Background Atmosphere ---
+            // Sun ray glow
+            if (state.solarRadiation > 100) {
+                const gradient = ctx.createRadialGradient(state.sunX, state.sunY, 15, state.sunX, state.sunY, state.solarRadiation * 0.35);
+                gradient.addColorStop(0, `rgba(245, 158, 11, ${0.15 * (state.solarRadiation/1000)})`);
+                gradient.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(state.sunX, state.sunY, state.solarRadiation * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Wind Streamlines
+            if (state.windSpeed > 0.5) {
+                ctx.strokeStyle = `rgba(148, 163, 184, ${state.windSpeed / 15})`;
+                ctx.lineWidth = 2;
+                const step = state.timeStep * (state.windSpeed * 0.5);
+                for (let i = 0; i < 4; i++) {
+                    const py = 100 + i * 45;
+                    ctx.beginPath();
+                    ctx.moveTo(0, py);
+                    // Draw wavy wind pattern
+                    for (let px = 0; px < canvas.width; px += 20) {
+                        const wave = Math.sin((px + step) * 0.02) * 8;
+                        ctx.lineTo(px, py + wave);
+                    }
+                    ctx.stroke();
+                }
+            }
+
+            // --- Draw Lysimeter Mechanics ---
+            // Draw scale base
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.rect(centerX - 120, groundY + 120, 240, 25);
+            ctx.fill();
+            ctx.stroke();
+
+            // Load Cell Springs / Mounts
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(centerX - 80, groundY + 100); ctx.lineTo(centerX - 80, groundY + 120);
+            ctx.moveTo(centerX + 80, groundY + 100); ctx.lineTo(centerX + 80, groundY + 120);
+            ctx.stroke();
+
+            // Lysimeter Outer Tank (Metallic)
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.rect(centerX - 100, groundY - 10, 200, 110);
+            ctx.fill();
+            ctx.stroke();
+
+            // Soil Core Fill
+            // Soil color shifts depending on hydration (darker when wet)
+            const redChannel = Math.floor(65 + (state.soilMoisture * 0.2));
+            const greenChannel = Math.floor(45 + (state.soilMoisture * 0.15));
+            const blueChannel = Math.floor(30 + (state.soilMoisture * 0.1));
+            ctx.fillStyle = `rgb(${redChannel}, ${greenChannel}, ${blueChannel})`;
+            ctx.beginPath();
+            ctx.rect(centerX - 95, groundY - 5, 190, 100);
+            ctx.fill();
+
+            // Draw root system lines
+            ctx.strokeStyle = 'rgba(217, 119, 6, 0.45)';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            // Primary tap root
+            ctx.moveTo(centerX, groundY - 5);
+            ctx.quadraticCurveTo(centerX + 10, groundY + 40, centerX - 5, groundY + 80);
+            // Lateral rootlets
+            ctx.moveTo(centerX, groundY + 20); ctx.lineTo(centerX - 45, groundY + 40);
+            ctx.moveTo(centerX, groundY + 25); ctx.lineTo(centerX + 50, groundY + 35);
+            ctx.moveTo(centerX + 5, groundY + 45); ctx.lineTo(centerX - 35, groundY + 70);
+            ctx.moveTo(centerX + 5, groundY + 50); ctx.lineTo(centerX + 40, groundY + 75);
+            ctx.stroke();
+
+            // --- Draw Plant Canopy Structure ---
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.moveTo(centerX, groundY - 5);
+            ctx.lineTo(centerX, groundY - 100); // Stem
+            ctx.stroke();
+
+            // Draw Branches & Leaves
+            ctx.fillStyle = '#059669';
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = 2;
+
+            const drawLeaf = (lx, ly, rx, ry, rotation) => {
+                ctx.save();
+                ctx.translate(lx, ly);
+                ctx.rotate(rotation);
+                ctx.beginPath();
+                ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            };
+
+            // Complex Canopy geometry
+            drawLeaf(centerX - 30, groundY - 45, 28, 12, -Math.PI / 6);
+            drawLeaf(centerX + 35, groundY - 55, 30, 14, Math.PI / 5);
+            drawLeaf(centerX - 40, groundY - 80, 32, 14, -Math.PI / 12);
+            drawLeaf(centerX + 40, groundY - 95, 26, 11, Math.PI / 4);
+            drawLeaf(centerX, groundY - 110, 22, 34, -Math.PI / 2);
+
+            // --- Micro-inset: Stomata magnification frame ---
+            const insetX = 90;
+            const insetY = 90;
+            const insetR = 42;
+
+            ctx.save();
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.8)';
+            ctx.fillStyle = '#0f172a';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(insetX, insetY, insetR, 0, Math.PI*2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.clip(); // Clip contents within magnifier
+
+            // Draw simple stomatal guard cells
+            const openFract = state.stomataWidth / 100;
+            ctx.strokeStyle = '#10b981';
+            ctx.fillStyle = `rgba(16, 185, 129, ${0.1 + (openFract * 0.4)})`;
+            ctx.lineWidth = 3;
+
+            // Guard Cell Left
+            ctx.beginPath();
+            ctx.ellipse(insetX - 8 - (openFract * 6), insetY, 14, 25, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Guard Cell Right
+            ctx.beginPath();
+            ctx.ellipse(insetX + 8 + (openFract * 6), insetY, 14, 25, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Inner dark aperture pore
+            ctx.fillStyle = '#020617';
+            ctx.beginPath();
+            ctx.ellipse(insetX, insetY, Math.max(0, openFract * 12), 20, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // Label Magnifier
+            ctx.fillStyle = varColor('--text-muted');
+            ctx.font = '700 8px monospace';
+            ctx.fillText("STOMATA CORE", insetX - 28, insetY + insetR + 12);
+
+            // --- Draw Animated Water Vapor Flux Arrows ---
+            const drawFlowArrows = (x, y, rate, color, density) => {
+                if (rate <= 0.1) return;
+                ctx.save();
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = 1.5 + (rate * 0.3);
+
+                const count = Math.min(6, Math.max(2, Math.floor(rate * density)));
+                for (let i = 0; i < count; i++) {
+                    const offX = Math.sin((state.timeStep * 0.05) + i * 2) * 15;
+                    // stagger start heights
+                    const arrowY = y - ((state.timeStep * 1.5 + (i * 25)) % 65);
+                    const curX = x + offX + ((i - count/2) * 22);
+
+                    // Fade arrow based on height decay
+                    const alpha = (arrowY < (y - 65)) ? 0 : (1 - (y - arrowY) / -65);
+                    ctx.globalAlpha = Math.max(0, alpha);
+
+                    // Draw classic arrow head vector
+                    ctx.beginPath();
+                    ctx.moveTo(curX, arrowY);
+                    ctx.lineTo(curX, arrowY - 12);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(curX - 4, arrowY - 8);
+                    ctx.lineTo(curX, arrowY - 12);
+                    ctx.lineTo(curX + 4, arrowY - 8);
+                    ctx.fill();
+                }
+                ctx.restore();
+            };
+
+            // Draw Transpiration arrows (Cyan/Blue) from canopy
+            drawFlowArrows(centerX, groundY - 90, state.transpiration, '#60a5fa', 1.2);
+
+            // Draw Soil Evaporation arrows (Red/Orange) from soil surface
+            drawFlowArrows(centerX - 50, groundY - 10, state.evaporation * 0.5, '#fb923c', 1.8);
+            drawFlowArrows(centerX + 50, groundY - 10, state.evaporation * 0.5, '#fb923c', 1.8);
+
+            // --- Draw Drainage Water Drops (if active) ---
+            if (state.drainage > 0) {
+                ctx.fillStyle = '#3b82f6';
+                const dropInterval = 25;
+                const frameMod = Math.round(35 - Math.min(25, state.drainage * 10));
+                if (state.timeStep % frameMod < 6) {
+                    const dropY = groundY + 110 + (state.timeStep % frameMod) * 4;
+                    ctx.beginPath();
+                    ctx.arc(centerX - 80, dropY, 3, 0, Math.PI * 2);
+                    ctx.arc(centerX + 80, dropY, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // --- Draw Draggable Sun Asset ---
+            ctx.fillStyle = '#f59e0b';
+            ctx.beginPath();
+            ctx.arc(state.sunX, state.sunY, 15, 0, Math.PI * 2);
+            ctx.fill();
+            // Draw interactive ring handle overlay
+            ctx.strokeStyle = state.draggingSun ? '#3b82f6' : 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(state.sunX, state.sunY, 21, 0, Math.PI * 2);
+            ctx.stroke();
+
+            // Label Draggable Sun
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = '700 9px sans-serif';
+            ctx.fillText("SUN", state.sunX - 9, state.sunY + 4);
+
+            // --- Draw Draggable Probe Asset ---
+            ctx.save();
+            ctx.translate(state.probeX, state.probeY);
+            // Probe handle/casing
+            ctx.fillStyle = '#94a3b8';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.rect(-6, -30, 12, 60);
+            ctx.fill();
+            ctx.stroke();
+            // Metal tip highlights
+            ctx.fillStyle = '#e2e8f0';
+            ctx.beginPath();
+            ctx.rect(-6, 25, 12, 5);
+            ctx.fill();
+            // Draw custom cord lines back to standard point
+            ctx.restore();
+
+            ctx.strokeStyle = 'rgba(148, 163, 184, 0.5)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(state.probeX, state.probeY - 30);
+            ctx.quadraticCurveTo(canvas.width - 40, canvas.height - 80, canvas.width - 20, canvas.height - 20);
+            ctx.stroke();
+
+            // Render HUD target ring if Probe is located within the soil profile boundary
+            const probeInSoil = (state.probeX > centerX - 95 && state.probeX < centerX + 95 &&
+                                 state.probeY > groundY - 5 && state.probeY < groundY + 95);
+            if (probeInSoil) {
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 3]);
+                ctx.beginPath();
+                ctx.arc(state.probeX, state.probeY, 20, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        // --- Render Real-Time Energetics Graph ---
+        function drawTelemetryGraph() {
+            chartCtx.clearRect(0, 0, chartCanvas.width, chartCanvas.height);
+
+            const w = chartCanvas.width;
+            const h = chartCanvas.height;
+            const padLeft = 32;
+            const padRight = 10;
+            const padTop = 15;
+            const padBottom = 20;
+
+            const graphW = w - padLeft - padRight;
+            const graphH = h - padTop - padBottom;
+
+            // Draw internal bounds grid
+            chartCtx.strokeStyle = 'rgba(51, 65, 85, 0.25)';
+            chartCtx.lineWidth = 1;
+            for (let i = 0; i <= 4; i++) {
+                const yVal = padTop + (graphH / 4) * i;
+                chartCtx.beginPath();
+                chartCtx.moveTo(padLeft, yVal);
+                chartCtx.lineTo(w - padRight, yVal);
+                chartCtx.stroke();
+            }
+
+            // Draw Y-Axis unit markings (0 to 12 mm/day scale standard)
+            chartCtx.fillStyle = '#64748b';
+            chartCtx.font = '8px monospace';
+            chartCtx.textAlign = 'right';
+            for (let i = 0; i <= 4; i++) {
+                const markerVal = ((1 - i / 4) * 12).toFixed(1);
+                chartCtx.fillText(markerVal, padLeft - 6, padTop + (graphH / 4) * i + 3);
+            }
+
+            const history = state.graphHistory;
+            if (history.length < 2) return;
+
+            const maxScale = 12.0;
+
+            const getX = (idx) => padLeft + (idx / (state.maxHistorySize - 1)) * graphW;
+            const getY = (val) => padTop + graphH - (Math.min(maxScale, val) / maxScale) * graphH;
+
+            // Plot lines function
+            const drawPlotLine = (field, color, lineWidth) => {
+                chartCtx.strokeStyle = color;
+                chartCtx.lineWidth = lineWidth;
+                chartCtx.beginPath();
+                chartCtx.moveTo(getX(0), getY(history[0][field]));
+                for (let i = 1; i < history.length; i++) {
+                    chartCtx.lineTo(getX(i), getY(history[i][field]));
+                }
+                chartCtx.stroke();
+            };
+
+            // Potential ET (Orange)
+            drawPlotLine('pet', '#f59e0b', 2);
+            // Actual ET (Blue)
+            drawPlotLine('aet', '#3b82f6', 2.5);
+            // Transpiration (Green)
+            drawPlotLine('t', '#10b981', 1.2);
+
+            // Labels
+            chartCtx.fillStyle = '#94a3b8';
+            chartCtx.font = '700 8px sans-serif';
+            chartCtx.textAlign = 'left';
+            chartCtx.fillText("PET (mm/d)", padLeft + 8, padTop + 10);
+            chartCtx.fillStyle = '#f59e0b';
+            chartCtx.fillRect(padLeft, padTop + 4, 5, 5);
+
+            chartCtx.fillStyle = '#94a3b8';
+            chartCtx.fillText("AET (mm/d)", padLeft + 90, padTop + 10);
+            chartCtx.fillStyle = '#3b82f6';
+            chartCtx.fillRect(padLeft + 82, padTop + 4, 5, 5);
+        }
+
+        // --- Helper: Retrieve root color values ---
+        function varColor(cssVar) {
+            return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+        }
+
+        // --- Mouse and Touch Event Handlers ---
+        function getCanvasCoords(e, domCanvas) {
+            const rect = domCanvas.getBoundingClientRect();
+            const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+            // Map raw client screen position directly back to high density canvas rendering scale coordinate
+            return {
+                x: ((clientX - rect.left) / rect.width) * domCanvas.width,
+                y: ((clientY - rect.top) / rect.height) * domCanvas.height
+            };
+        }
+
+        function setupDragAndDrop() {
+            const handleStart = (coords) => {
+                const distSun = Math.hypot(coords.x - state.sunX, coords.y - state.sunY);
+                const distProbe = Math.hypot(coords.x - state.probeX, coords.y - state.probeY);
+
+                if (distSun < 30) {
+                    state.draggingSun = true;
+                } else if (distProbe < 35) {
+                    state.draggingProbe = true;
+                }
+            };
+
+            const handleMove = (coords) => {
+                if (state.draggingSun) {
+                    state.sunX = Math.max(20, Math.min(canvas.width - 20, coords.x));
+                    state.sunY = Math.max(20, Math.min(220, coords.y));
+
+                    // Direct proportional link: height position scales Solar Radiation input
+                    const rawFract = 1.0 - (state.sunY / 220);
+                    state.solarRadiation = Math.round(rawFract * 1000);
+                    document.getElementById('solar-slider').value = state.solarRadiation;
+                } else if (state.draggingProbe) {
+                    state.probeX = Math.max(10, Math.min(canvas.width - 10, coords.x));
+                    state.probeY = Math.max(10, Math.min(canvas.height - 10, coords.y));
+
+                    // Evaluate probe parameters if nested in soil profile bounds
+                    const centerX = canvas.width / 2;
+                    const groundY = 320;
+                    const probeInSoil = (state.probeX > centerX - 95 && state.probeX < centerX + 95 &&
+                                         state.probeY > groundY - 5 && state.probeY < groundY + 95);
+
+                    const tooltip = document.getElementById('probe-tooltip');
+                    if (probeInSoil) {
+                        const relativeDepthCm = Math.round(((state.probeY - groundY) / 100) * 80);
+                        // Moisture gradients slightly drier near immediate soil boundary surface
+                        const localGradient = 0.85 + ((relativeDepthCm / 80) * 0.15);
+                        const localMoist = Math.min(100, Math.round(state.soilMoisture * localGradient));
+
+                        tooltip.style.opacity = '1';
+                        tooltip.style.left = `${(state.probeX / canvas.width) * 100}%`;
+                        tooltip.style.top = `${(state.probeY / canvas.height) * 100 - 15}%`;
+                        document.getElementById('probe-tooltip-text').innerHTML = `Soil depth: ${relativeDepthCm}cm | Saturation: ${localMoist}%`;
+                    } else {
+                        tooltip.style.opacity = '0';
+                    }
+                }
+            };
+
+            const handleEnd = () => {
+                state.draggingSun = false;
+                state.draggingProbe = false;
+            };
+
+            // Desktop Mouse Listeners
+            canvas.addEventListener('mousedown', (e) => handleStart(getCanvasCoords(e, canvas)));
+            window.addEventListener('mousemove', (e) => handleMove(getCanvasCoords(e, canvas)));
+            window.addEventListener('mouseup', handleEnd);
+
+            // Mobile Touch Listeners
+            canvas.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                handleStart(getCanvasCoords(e, canvas));
+            });
+            window.addEventListener('touchmove', (e) => {
+                handleMove(getCanvasCoords(e, canvas));
+            });
+            window.addEventListener('touchend', handleEnd);
+        }
+
+        // --- Core UI Binder ---
+        function initInterface() {
+            // Slider Input Connectors
+            document.getElementById('solar-slider').addEventListener('input', (e) => {
+                state.solarRadiation = parseInt(e.target.value);
+                // Synchronize graphic Sun position along predefined parabolic trajectory
+                state.sunX = 120 + ((state.solarRadiation / 1000) * (canvas.width - 240));
+                state.sunY = 220 - ((state.solarRadiation / 1000) * 160);
+            });
+
+            document.getElementById('moisture-slider').addEventListener('input', (e) => {
+                state.soilMoisture = parseInt(e.target.value);
+            });
+
+            document.getElementById('stomata-slider').addEventListener('input', (e) => {
+                state.stomataWidth = parseInt(e.target.value);
+            });
+
+            document.getElementById('wind-slider').addEventListener('input', (e) => {
+                state.windSpeed = parseFloat(e.target.value);
+            });
+
+            // "Irrigate" button adds direct water weight (inflow metric)
+            document.getElementById('irrigate-btn').addEventListener('click', () => {
+                state.cumulativeInflow += 2.5; // add 2.5 kg water equivalence
+                state.soilMoisture = Math.min(100, state.soilMoisture + 18);
+                document.getElementById('moisture-slider').value = state.soilMoisture;
+                document.getElementById('inflow-val').innerHTML = `${state.cumulativeInflow.toFixed(2)} kg`;
+                synth.playDrip();
+                setTimeout(() => synth.playDrip(), 120);
+                setTimeout(() => synth.playDrip(), 240);
+            });
+
+            // Start up overlay closer
+            document.getElementById('start-btn').addEventListener('click', () => {
+                document.getElementById('intro-modal').classList.add('hide');
+                synth.init();
+            });
+
+            // Interactive Text Speech Synthesizer
+            document.getElementById('voice-explain-btn').addEventListener('click', speakStateAnalysis);
+        }
+
+        // --- Speech Narration Engine ---
+        function speakStateAnalysis() {
+            if (!('speechSynthesis' in window)) {
+                alert("Speech synthesis not supported in this browser.");
+                return;
+            }
+
+            // Cancel ongoing utterances
+            window.speechSynthesis.cancel();
+
+            let textToSpeak = "";
+
+            if (state.soilMoisture < 15) {
+                textToSpeak = "Alert. The soil core moisture index has dropped below fifteen percent permanent wilting point. Plant root cells cannot physically generate high enough suction tension. Stomata must lock shut to prevent dehydration, lowering transpiration rate directly to zero.";
+            } else if (state.stomataWidth < 15) {
+                textToSpeak = "The plant's guard cells have lost turgor pressure, closing the stomatal aperture. While this cuts off transpiration loss to defend storage water, it severely halts dynamic carbon dioxide absorption, interrupting primary agricultural photosynthesis.";
+            } else if (state.solarRadiation > 800 && state.soilMoisture > 50) {
+                textToSpeak = "Excellent conditions. Solar radiation exceeds eight hundred watts. Energy potential is massive. Soil moisture is plentiful, allowing the plant canopy to freely transpire at absolute peak potential. This evaporative process naturally cools the leaves.";
+            } else {
+                textToSpeak = `System balance status update. Current potential evapotranspiration is computed at ${state.pet.toFixed(1)} millimeters per day. Because of physiological barriers and localized boundary layers, actual evapotranspiration settles at ${state.aet.toFixed(1)} millimeters per day. Weighing scales confirm lysimeter mass tracks at ${state.lysimeterMass.toFixed(2)} kilograms.`;
+            }
+
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            utterance.rate = 1.05;
+            utterance.pitch = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Update loop for text telemetry values
+        function updateDOMReadouts() {
+            document.getElementById('solar-val').innerHTML = `${state.solarRadiation} W/m²`;
+            document.getElementById('moisture-val').innerHTML = `${Math.round(state.soilMoisture)} %`;
+            document.getElementById('stomata-val').innerHTML = `${state.stomataWidth} %`;
+            document.getElementById('wind-val').innerHTML = `${state.windSpeed.toFixed(1)} m/s`;
+
+            document.getElementById('lysimeter-mass').innerHTML = state.lysimeterMass.toFixed(3);
+            document.getElementById('drainage-val').innerHTML = `${(state.drainage * 0.2).toFixed(2)} L/hr`;
+
+            document.getElementById('pet-val').innerHTML = `${state.pet.toFixed(1)} mm/d`;
+            document.getElementById('aet-val').innerHTML = `${state.aet.toFixed(1)} mm/d`;
+            document.getElementById('t-val').innerHTML = `${state.transpiration.toFixed(1)} mm/d`;
+            document.getElementById('e-val').innerHTML = `${state.evaporation.toFixed(1)} mm/d`;
+        }
+
+        // --- Main Animation Loop Frame ---
+        function loop() {
+            runPhysics();
+            drawVisualizer();
+            drawTelemetryGraph();
+            updateDOMReadouts();
+            requestAnimationFrame(loop);
+        }
+
+        // Initialize execution on screen load
+        window.onload = () => {
+            resizeCanvases();
+            initInterface();
+            setupDragAndDrop();
+            
+            // Set initial position coordinates
+            state.sunX = 350;
+            state.sunY = 80;
+            state.probeX = canvas.width - 100;
+            state.probeY = 180;
+
+            requestAnimationFrame(loop);
+        };
+    </script>
+</body>
+</html>

@@ -1,0 +1,1646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cyber-Engineering Studio: Macadam Pavement Simulator (WBM vs WMM)</title>
+  
+  <!-- Inter Font & Lucide Icons -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/lucide/0.263.0/umd/lucide.min.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #0a0b10;
+      --panel-bg: rgba(16, 20, 35, 0.65);
+      --panel-border: rgba(0, 255, 242, 0.15);
+      --panel-border-glow: rgba(0, 255, 242, 0.4);
+      --neon-cyan: #00fff2;
+      --neon-green: #39ff14;
+      --neon-orange: #ff9f1c;
+      --neon-red: #ff3838;
+      --text-main: #e2e8f0;
+      --text-muted: #718096;
+      --font-mono: 'JetBrains Mono', 'Share Tech Mono', monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: var(--font-mono);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(0, 255, 242, 0.03) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(57, 255, 20, 0.03) 0%, transparent 40%);
+    }
+
+    /* Header styling */
+    header {
+      height: 60px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--panel-border);
+      background: rgba(10, 11, 16, 0.8);
+      backdrop-filter: blur(10px);
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 24px;
+      height: 24px;
+      color: var(--neon-cyan);
+      filter: drop-shadow(0 0 5px var(--neon-cyan));
+    }
+
+    .brand-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-cyber {
+      background: rgba(0, 255, 242, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--neon-cyan);
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: var(--font-mono);
+      transition: all 0.2s ease;
+    }
+
+    .btn-cyber:hover {
+      background: rgba(0, 255, 242, 0.15);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 8px rgba(0, 255, 242, 0.3);
+    }
+
+    .btn-cyber.active {
+      background: rgba(57, 255, 20, 0.1);
+      border-color: var(--neon-green);
+      color: var(--neon-green);
+    }
+
+    /* Main Grid Layout */
+    .app-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* Sidebars and Panes */
+    .pane {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid var(--panel-border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .pane-right {
+      border-right: none;
+      border-left: 1px solid var(--panel-border);
+    }
+
+    .pane-header {
+      padding: 16px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(16, 20, 35, 0.8);
+    }
+
+    .pane-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--neon-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pane-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Scrollbars */
+    .pane-content::-webkit-scrollbar {
+      width: 6px;
+    }
+    .pane-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .pane-content::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 242, 0.1);
+      border-radius: 3px;
+    }
+    .pane-content::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 242, 0.3);
+    }
+
+    /* Checklist Panel */
+    .checklist-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .checklist-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 6px;
+      padding: 12px;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      transition: all 0.3s ease;
+    }
+
+    .checklist-item.active {
+      border-color: rgba(0, 255, 242, 0.4);
+      background: rgba(0, 255, 242, 0.02);
+    }
+
+    .checklist-item.completed {
+      border-color: rgba(57, 255, 20, 0.4);
+      background: rgba(57, 255, 20, 0.02);
+    }
+
+    .status-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid var(--text-muted);
+      margin-top: 2px;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .checklist-item.active .status-dot {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .checklist-item.completed .status-dot {
+      border-color: var(--neon-green);
+      background: var(--neon-green);
+      box-shadow: 0 0 8px var(--neon-green);
+    }
+
+    .checklist-details {
+      flex: 1;
+    }
+
+    .checklist-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .checklist-desc {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    /* Draggable items & packaging */
+    .draggables-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .draggable-packet {
+      background: rgba(0, 255, 242, 0.03);
+      border: 1px solid rgba(0, 255, 242, 0.15);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      cursor: grab;
+      text-align: center;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .draggable-packet:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 255, 242, 0.08);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 255, 242, 0.15);
+    }
+
+    .draggable-packet:active {
+      cursor: grabbing;
+    }
+
+    .packet-icon {
+      width: 32px;
+      height: 32px;
+      color: var(--neon-cyan);
+    }
+
+    .packet-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+    }
+
+    /* Central Visualizer Pane */
+    .viewport {
+      display: flex;
+      flex-direction: column;
+      background: #06070a;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Interactive Overlay Panel over Canvas */
+    .canvas-overlay-ui {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      right: 16px;
+      display: flex;
+      justify-content: space-between;
+      pointer-events: none;
+    }
+
+    .hud-card {
+      background: rgba(10, 11, 16, 0.85);
+      border: 1px solid var(--panel-border);
+      padding: 12px 16px;
+      border-radius: 6px;
+      backdrop-filter: blur(8px);
+      pointer-events: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .hud-title {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+
+    .hud-value {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--neon-cyan);
+    }
+
+    /* Codebook & Modals */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 6, 10, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: rgba(16, 20, 35, 0.95);
+      border: 1px solid var(--panel-border-glow);
+      border-radius: 12px;
+      width: 650px;
+      max-width: 90vw;
+      box-shadow: 0 0 30px rgba(0, 255, 242, 0.2);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .modal-header {
+      padding: 20px;
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .modal-body {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 60vh;
+      overflow-y: auto;
+    }
+
+    .clause-card {
+      border: 1px solid rgba(0, 255, 242, 0.1);
+      background: rgba(0, 255, 242, 0.02);
+      border-radius: 6px;
+      padding: 12px;
+      cursor: grab;
+      transition: all 0.2s ease;
+    }
+
+    .clause-card:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 255, 242, 0.06);
+    }
+
+    .clause-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--neon-cyan);
+      margin-bottom: 4px;
+    }
+
+    .clause-desc {
+      font-size: 0.75rem;
+      color: var(--text-main);
+      line-height: 1.4;
+    }
+
+    /* Equation Drop Zones */
+    .equation-board {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .drop-zone-wrapper {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .drop-zone-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+    }
+
+    .equation-slots {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px dashed rgba(0, 255, 242, 0.2);
+      min-height: 54px;
+    }
+
+    .equation-slots.dragover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 255, 242, 0.05);
+    }
+
+    .equation-slots.success {
+      border-color: var(--neon-green);
+      background: rgba(57, 255, 20, 0.05);
+    }
+
+    /* Chart Block */
+    .chart-container {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      height: 140px;
+      position: relative;
+    }
+
+    /* Controls Panel */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .control-value {
+      color: var(--neon-cyan);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 6px var(--neon-cyan);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Tab Controller */
+    .tab-controller {
+      display: flex;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 4px;
+      border-radius: 6px;
+      border: 1px solid var(--panel-border);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: rgba(0, 255, 242, 0.1);
+      color: var(--neon-cyan);
+    }
+
+    /* Footer Stats Bar */
+    .footer-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 40px;
+      background: rgba(10, 11, 16, 0.9);
+      border-top: 1px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+    }
+
+    .footer-stat {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--neon-green);
+      box-shadow: 0 0 6px var(--neon-green);
+    }
+
+    /* Info Tooltip */
+    .info-bubble {
+      background: rgba(0, 255, 242, 0.05);
+      border: 1px solid rgba(0, 255, 242, 0.15);
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: #94a3b8;
+    }
+
+    .mic-view-lock {
+      border: 1px solid var(--neon-orange);
+      color: var(--neon-orange);
+      background: rgba(255, 159, 28, 0.05);
+      padding: 6px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      text-align: center;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cybernetic Header -->
+  <header>
+    <div class="brand">
+      <i data-lucide="layers" class="brand-logo"></i>
+      <span class="brand-title">MACADAM PAVEMENT DESIGN STUDIO</span>
+    </div>
+    <div class="header-actions">
+      <button class="btn-cyber" id="voiceBtn" onclick="toggleVoice()">
+        <i data-lucide="volume-2"></i> AUDIO NARRATOR
+      </button>
+      <button class="btn-cyber" onclick="triggerIntroVoice()">
+        <i data-lucide="help-circle"></i> REPLAY INSTRUCTIONS
+      </button>
+      <button class="btn-cyber active" id="codebookBtn" onclick="toggleModal(true)">
+        <i data-lucide="book-open"></i> IRC SPECIFICATIONS
+      </button>
+    </div>
+  </header>
+
+  <!-- App Body Layout -->
+  <div class="app-container">
+
+    <!-- Left Sidebar: Construction Stage Controller -->
+    <div class="pane">
+      <div class="pane-header">
+        <span class="pane-title"><i data-lucide="list-checks"></i> STAGE SEQUENCER</span>
+        <button class="btn-cyber" onclick="resetSimulator()" style="font-size: 0.7rem; padding: 4px 8px;">
+          <i data-lucide="rotate-ccw"></i> RESET
+        </button>
+      </div>
+      <div class="pane-content">
+        <div class="info-bubble">
+          Compare <strong>WBM (Water Bound Macadam)</strong> and <strong>WMM (Wet Mix Macadam)</strong> laying steps. Choose a construction step below or drag-and-drop the resources to build the pavement layers.
+        </div>
+
+        <div class="checklist-container">
+          <!-- Step 1 -->
+          <div class="checklist-item" id="step-0">
+            <div class="status-dot"></div>
+            <div class="checklist-details">
+              <div class="checklist-title">1. Subgrade Preparation</div>
+              <div class="checklist-desc">Establish and compact subgrade base to 98% dry density.</div>
+            </div>
+          </div>
+
+          <!-- Step 2 -->
+          <div class="checklist-item" id="step-1">
+            <div class="status-dot"></div>
+            <div class="checklist-details">
+              <div class="checklist-title">2. Aggregate Placement</div>
+              <div class="checklist-desc">WBM: Lay dry stone. WMM: Lay wet-mixed dynamic matrix.</div>
+            </div>
+          </div>
+
+          <!-- Step 3 -->
+          <div class="checklist-item" id="step-2">
+            <div class="status-dot"></div>
+            <div class="checklist-details">
+              <div class="checklist-title">3. Screenings & Moisture</div>
+              <div class="checklist-desc">WBM: Apply stone screenings & spray water. WMM: Pre-mixed, ready.</div>
+            </div>
+          </div>
+
+          <!-- Step 4 -->
+          <div class="checklist-item" id="step-3">
+            <div class="status-dot"></div>
+            <div class="checklist-details">
+              <div class="checklist-title">4. Compaction & Curing</div>
+              <div class="checklist-desc">Run three-wheeled heavy roller to achieve structural interlock.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="control-group" style="margin-top: 10px;">
+          <div class="control-label">
+            <span>COMPACTION ENERGY</span>
+            <span class="control-value" id="compactionValue">50%</span>
+          </div>
+          <input type="range" id="compactionRange" min="10" max="100" value="50" oninput="updateCompaction(this.value)">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>MOISTURE RATIO</span>
+            <span class="control-value" id="moistureValue">4.5%</span>
+          </div>
+          <input type="range" id="moistureRange" min="1" max="10" step="0.5" value="4.5" oninput="updateMoisture(this.value)">
+        </div>
+
+        <div class="tab-controller" style="margin-top: auto;">
+          <button class="tab-btn active" id="btnWBM" onclick="switchLaneView('WBM')">WBM LANE ONLY</button>
+          <button class="tab-btn" id="btnWMM" onclick="switchLaneView('WMM')">WMM LANE ONLY</button>
+          <button class="tab-btn" id="btnSplit" onclick="switchLaneView('SPLIT')">SPLIT ENGINE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Center Sandbox: Dual Lane Pavement Canvas & Interlocks -->
+    <div class="viewport">
+      <div class="canvas-overlay-ui">
+        <div class="hud-card">
+          <span class="hud-title">ACTIVE ROAD MODE</span>
+          <span class="hud-value" id="hudLaneType">SPLIT ANALYSIS</span>
+        </div>
+        <div class="hud-card" style="align-items: flex-end;">
+          <span class="hud-title">INTERLOCK INTEGRITY</span>
+          <span class="hud-value" id="hudIntegrity" style="color: var(--neon-green);">0.0%</span>
+        </div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="roadCanvas"></canvas>
+      </div>
+
+      <!-- Quick Interactive Toggles -->
+      <div style="position: absolute; bottom: 50px; left: 16px; display: flex; gap: 10px; pointer-events: auto;">
+        <button class="btn-cyber" id="vectorToggle" onclick="toggleForceVectors()">
+          <i data-lucide="trending-down"></i> FORCE VECTORS
+        </button>
+        <button class="btn-cyber" id="zoomToggle" onclick="toggleMicroZoom()">
+          <i data-lucide="zoom-in"></i> MICROSCOPIC ZOOMS
+        </button>
+      </div>
+    </div>
+
+    <!-- Right Sidebar: Asset Palette, Equations & Graphs -->
+    <div class="pane pane-right">
+      <div class="pane-header">
+        <span class="pane-title"><i data-lucide="box"></i> PACKET MATRIX</span>
+      </div>
+      <div class="pane-content">
+        <span class="control-label" style="margin-bottom: -8px;">DRAG ASSETS TO ROADS</span>
+        <div class="draggables-grid">
+          <div class="draggable-packet" draggable="true" id="pack-coarse" ondragstart="drag(event)">
+            <i data-lucide="hexagon" class="packet-icon"></i>
+            <span class="packet-label">90mm Coarse Stone</span>
+          </div>
+          <div class="draggable-packet" draggable="true" id="pack-screen" ondragstart="drag(event)">
+            <i data-lucide="snowflake" class="packet-icon"></i>
+            <span class="packet-label">Dry Screening</span>
+          </div>
+          <div class="draggable-packet" draggable="true" id="pack-water" ondragstart="drag(event)">
+            <i data-lucide="droplet" class="packet-icon"></i>
+            <span class="packet-label">Water Spray</span>
+          </div>
+          <div class="draggable-packet" draggable="true" id="pack-wmm-mix" ondragstart="drag(event)">
+            <i data-lucide="layers-3" class="packet-icon" style="color: var(--neon-green);"></i>
+            <span class="packet-label">WMM Pre-Mix</span>
+          </div>
+        </div>
+
+        <!-- Formula Drop Area -->
+        <div class="equation-board">
+          <div class="drop-zone-wrapper">
+            <div class="drop-zone-label" id="formulaLabel">Active Formula Target: WBM Void filling</div>
+            <div class="equation-slots" id="dropZoneFormula" ondragover="allowDrop(event)" ondragleave="dragLeaveSlot(event)" ondrop="dropFormula(event)">
+              <span style="color: var(--text-muted); font-size: 0.75rem; pointer-events: none;">Drag relevant material here to match formulation</span>
+            </div>
+          </div>
+          <div class="info-bubble" id="equationHint" style="font-size: 0.65rem;">
+            WBM Void formula relies on sequentially inserting Dry Stone, then Stone Dust Screening, then Wet Rolling.
+          </div>
+        </div>
+
+        <!-- Real-Time Analytical Graph -->
+        <div class="control-group">
+          <span class="control-label">DYNAMIC PERFORMANCE (STABILITY VS MOISTURE)</span>
+          <div class="chart-container">
+            <canvas id="chartCanvas"></canvas>
+          </div>
+        </div>
+
+        <div class="mic-view-lock" id="unlockAlert" style="display: none;">
+          🔒 UNLOCK STABILITY RATIO BY APPLIYING PROPER COMPACTION & WATER
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Footer Stats -->
+  <div class="footer-bar">
+    <div class="footer-stat">
+      <div class="stat-indicator"></div>
+      <span>SYS STATUS: COMPILING INTERLOCK MATRIX</span>
+    </div>
+    <div class="footer-stat">
+      <span>IRC REFERENCE: SEC-400 (MORT&H)</span>
+    </div>
+    <div class="footer-stat" id="fpsDisplay">
+      <span>FPS: 60</span>
+    </div>
+  </div>
+
+  <!-- Codebook Modal (IRC SPECIFICATIONS) -->
+  <div class="modal-overlay" id="codebookModal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="pane-title" style="font-size: 1.1rem;"><i data-lucide="book-open"></i> IRC & IS-CODE REFERENCE DESK</span>
+        <button class="btn-cyber" onclick="toggleModal(false)"><i data-lucide="x"></i> CLOSE</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 10px;">
+          Drag specification clauses out of this handbook into your workplace layout to unlock advanced computation and construction algorithms.
+        </p>
+
+        <div class="clause-card" draggable="true" id="clause-wbm" ondragstart="drag(event)">
+          <div class="clause-title">IRC:19-2005 (Water Bound Macadam Specification)</div>
+          <div class="clause-desc">
+            Governs use of coarse aggregate, screenings, and binding material. Prescribes dry rolling first, followed by screenings application, wet rolling, and dynamic void filling. Maximum loose layer thickness 100mm.
+          </div>
+        </div>
+
+        <div class="clause-card" draggable="true" id="clause-wmm" ondragstart="drag(event)">
+          <div class="clause-title">IRC:109-2015 (Wet Mix Macadam Specification)</div>
+          <div class="clause-desc">
+            Prescribes graded aggregates ranging from 4.75mm to 40mm blended with targeted moisture (OMC: 5-7%) in a mixing plant before laying. Minimum thickness 75mm. Rapid compaction prevents dry segregation.
+          </div>
+        </div>
+
+        <div class="clause-card" draggable="true" id="clause-subgrade" ondragstart="drag(event)">
+          <div class="clause-title">Section 401: MoRT&H (Subgrade Specifications)</div>
+          <div class="clause-desc">
+            Requires compacting subgrade layer to 98% relative compaction using heavy vibratory rollers to maintain a load bearing base for Macadam configurations.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System & Audio Context Setup
+    let audioCtx = null;
+    let voiceSynth = window.speechSynthesis;
+    let isVoiceActive = true;
+
+    // Simulation States
+    let currentLaneView = 'SPLIT'; // 'WBM', 'WMM', 'SPLIT'
+    let currentStep = 0; // 0: Subgrade, 1: Aggregate, 2: Screen/Water, 3: Compaction
+    let showForceVectors = true;
+    let showMicroZoom = true;
+
+    // Compaction & Moisture settings
+    let compactionRatio = 0.5;
+    let moistureRatio = 0.045;
+
+    // Progress Trackers for Lanes
+    const laneState = {
+      WBM: {
+        subgradeCompacted: false,
+        coarseAggLaid: false,
+        screeningsLaid: false,
+        watered: false,
+        compactedPercent: 0,
+        unlocked: false,
+        clogged: false,
+        stability: 10
+      },
+      WMM: {
+        subgradeCompacted: false,
+        mixLaid: false,
+        compactedPercent: 0,
+        unlocked: false,
+        stability: 10
+      }
+    };
+
+    // Particles system
+    let particles = [];
+    let zoomParticleScale = 1.0;
+
+    // Canvases
+    let roadCanvas, ctx;
+    let chartCanvas, chartCtx;
+
+    // Sound Synthesizers
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playSynthBeep(freq, type, duration) {
+      if (!audioCtx) return;
+      try {
+        let osc = audioCtx.createOscillator();
+        let gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        osc.type = type || 'sine';
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playSuccessChime() {
+      initAudio();
+      setTimeout(() => playSynthBeep(440, 'triangle', 0.2), 0);
+      setTimeout(() => playSynthBeep(554, 'triangle', 0.2), 100);
+      setTimeout(() => playSynthBeep(659, 'triangle', 0.3), 200);
+      setTimeout(() => playSynthBeep(880, 'sine', 0.4), 300);
+    }
+
+    function playErrorThud() {
+      initAudio();
+      playSynthBeep(120, 'sawtooth', 0.35);
+    }
+
+    function toggleVoice() {
+      isVoiceActive = !isVoiceActive;
+      const btn = document.getElementById('voiceBtn');
+      if (isVoiceActive) {
+        btn.classList.add('active');
+        speakText("Audio narrator reactivated.");
+      } else {
+        btn.classList.remove('active');
+        if (voiceSynth) voiceSynth.cancel();
+      }
+    }
+
+    function speakText(text) {
+      if (!isVoiceActive || !voiceSynth) return;
+      voiceSynth.cancel();
+      let utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 0.95;
+      utterance.pitch = 1.0;
+      voiceSynth.speak(utterance);
+    }
+
+    function triggerIntroVoice() {
+      speakText("Welcome to the Pavement Design Studio. Compare the structural integrity of WBM and WMM by assembling the pavement layers. Start by dragging the relevant spec clause to unlock the simulation.");
+    }
+
+    // Modal Manager
+    function toggleModal(show) {
+      const modal = document.getElementById('codebookModal');
+      if (show) {
+        modal.classList.add('active');
+        playSynthBeep(350, 'sine', 0.15);
+      } else {
+        modal.classList.remove('active');
+        playSynthBeep(250, 'sine', 0.1);
+      }
+    }
+
+    // Drag-Drop System
+    function drag(ev) {
+      ev.dataTransfer.setData("text", ev.target.id);
+      playSynthBeep(600, 'sine', 0.05);
+    }
+
+    function allowDrop(ev) {
+      ev.preventDefault();
+      ev.currentTarget.classList.add('dragover');
+    }
+
+    function dragLeaveSlot(ev) {
+      ev.currentTarget.classList.remove('dragover');
+    }
+
+    function dropFormula(ev) {
+      ev.preventDefault();
+      const dropZone = ev.currentTarget;
+      dropZone.classList.remove('dragover');
+      const dataId = ev.dataTransfer.getData("text");
+      
+      // Handle Drops
+      if (dataId === 'pack-coarse' && currentStep === 1) {
+        handleCorrectDrop(dropZone, "Coarse Aggregate Added", "WBM Stage 1 Complete.");
+        laneState.WBM.coarseAggLaid = true;
+        progressSequencer();
+      } else if (dataId === 'pack-wmm-mix' && currentStep === 1) {
+        handleCorrectDrop(dropZone, "WMM Mix Processed", "WMM Mix laid perfectly.");
+        laneState.WMM.mixLaid = true;
+        progressSequencer();
+      } else if (dataId === 'pack-screen' && currentStep === 2) {
+        if (!laneState.WBM.coarseAggLaid) {
+          triggerErrorState("Sequence Error! Lay coarse stones first.");
+          return;
+        }
+        handleCorrectDrop(dropZone, "Dry Screenings Dispersed", "Screenings locking voids.");
+        laneState.WBM.screeningsLaid = true;
+        checkStep2Complete();
+      } else if (dataId === 'pack-water' && currentStep === 2) {
+        if (!laneState.WBM.screeningsLaid) {
+          triggerErrorState("Apply dry stone dust screenings before spraying water.");
+          return;
+        }
+        handleCorrectDrop(dropZone, "Moisture Infiltrated", "Water activated slurry hydration.");
+        laneState.WBM.watered = true;
+        checkStep2Complete();
+      } else {
+        triggerErrorState("Incorrect element for current sequencing step.");
+      }
+    }
+
+    function handleCorrectDrop(zone, textVal, speakVal) {
+      playSuccessChime();
+      zone.innerHTML = `<span style="color: var(--neon-green); font-size: 0.8rem; font-weight: 700;">✓ ${textVal}</span>`;
+      zone.classList.add('success');
+      speakText(speakVal);
+      spawnParticlesAtDrop();
+    }
+
+    function triggerErrorState(msg) {
+      playErrorThud();
+      speakText(msg);
+      const zone = document.getElementById('dropZoneFormula');
+      zone.style.borderColor = 'var(--neon-red)';
+      zone.style.background = 'rgba(255, 56, 56, 0.05)';
+      zone.innerHTML = `<span style="color: var(--neon-red); font-size: 0.75rem; font-weight: 700;">⚠ ${msg}</span>`;
+      setTimeout(() => {
+        zone.style.borderColor = '';
+        zone.style.background = '';
+        updateDropZoneText();
+      }, 3500);
+    }
+
+    function updateDropZoneText() {
+      const zone = document.getElementById('dropZoneFormula');
+      zone.classList.remove('success');
+      
+      let text = "Drag next dynamic component here";
+      let hint = "";
+      
+      if (currentStep === 0) {
+        text = "Drag 'Section 401 Subgrade' specification from IRC Desk";
+        hint = "Initialize subgrade matrix layout by unlocking specification rules.";
+      } else if (currentStep === 1) {
+        text = "Drag '90mm Coarse' (WBM) or 'WMM Pre-Mix' (WMM) packet";
+        hint = "Apply granular stone layer as structural foundation framework.";
+      } else if (currentStep === 2) {
+        if (!laneState.WBM.screeningsLaid) {
+          text = "Drag 'Dry Screening' to fill coarse structural voids";
+        } else if (!laneState.WBM.watered) {
+          text = "Drag 'Water Spray' to activate the wet dynamic aggregate slurry";
+        } else {
+          text = "Proceed to Compaction Layer";
+        }
+        hint = "Water Bound Macadam locks by dynamic slurry binding. WMM is pre-mixed and skips this field step!";
+      } else if (currentStep === 3) {
+        text = "Laying complete. Increase Compaction slider.";
+        hint = "Deploy dynamic heavy rollers. Increase roller tonnage via Left Panel.";
+      }
+      
+      zone.innerHTML = `<span style="color: var(--text-muted); font-size: 0.7rem; pointer-events: none;">${text}</span>`;
+      document.getElementById('equationHint').innerText = hint;
+    }
+
+    function checkStep2Complete() {
+      if (laneState.WBM.screeningsLaid && laneState.WBM.watered) {
+        progressSequencer();
+      }
+    }
+
+    function progressSequencer() {
+      document.getElementById(`step-${currentStep}`).classList.remove('active');
+      document.getElementById(`step-${currentStep}`).classList.add('completed');
+      currentStep++;
+      if (currentStep > 3) currentStep = 3;
+      
+      document.getElementById(`step-${currentStep}`).classList.add('active');
+      updateDropZoneText();
+    }
+
+    function resetSimulator() {
+      playSynthBeep(200, 'sine', 0.2);
+      currentStep = 0;
+      laneState.WBM = { subgradeCompacted: false, coarseAggLaid: false, screeningsLaid: false, watered: false, compactedPercent: 0, unlocked: false, clogged: false, stability: 10 };
+      laneState.WMM = { subgradeCompacted: false, mixLaid: false, compactedPercent: 0, unlocked: false, stability: 10 };
+      
+      document.querySelectorAll('.checklist-item').forEach(el => {
+        el.className = 'checklist-item';
+      });
+      document.getElementById('step-0').classList.add('active');
+      
+      compactionRatio = 0.5;
+      moistureRatio = 0.045;
+      document.getElementById('compactionRange').value = 50;
+      document.getElementById('moistureRange').value = 4.5;
+      document.getElementById('compactionValue').innerText = '50%';
+      document.getElementById('moistureValue').innerText = '4.5%';
+      
+      updateDropZoneText();
+      speakText("Simulator reset. Drag subgrade specifications to begin layout.");
+    }
+
+    // Slider inputs
+    function updateCompaction(val) {
+      compactionRatio = val / 100;
+      document.getElementById('compactionValue').innerText = `${val}%`;
+      playSynthBeep(150 + compactionRatio * 200, 'sine', 0.05);
+
+      if (currentStep === 0) {
+        laneState.WBM.subgradeCompacted = true;
+        laneState.WMM.subgradeCompacted = true;
+        progressSequencer();
+      } else if (currentStep === 3) {
+        laneState.WBM.compactedPercent = compactionRatio * 100;
+        laneState.WMM.compactedPercent = compactionRatio * 100;
+        
+        // Calculate structural stability based on compaction and moisture
+        calculateStability();
+      }
+    }
+
+    function updateMoisture(val) {
+      moistureRatio = val / 100;
+      document.getElementById('moistureValue').innerText = `${val}%`;
+      playSynthBeep(250 + moistureRatio * 1000, 'sine', 0.05);
+      calculateStability();
+    }
+
+    function calculateStability() {
+      // WBM optimal moisture is usually high slurry (WBM relies on water consolidation)
+      // WMM optimal moisture is very strict (OMC ~ 5.5%)
+      let optimalWMM = 0.055;
+      let wmmDiff = Math.abs(moistureRatio - optimalWMM);
+      
+      laneState.WMM.stability = Math.max(10, 95 - (wmmDiff * 400) - (1 - compactionRatio) * 50);
+      laneState.WBM.stability = Math.max(10, 80 - Math.abs(moistureRatio - 0.075) * 200 - (1 - compactionRatio) * 40);
+      
+      if (laneState.WBM.stability > 75 || laneState.WMM.stability > 85) {
+        document.getElementById('unlockAlert').style.display = 'none';
+      }
+    }
+
+    // Toggle displays
+    function toggleForceVectors() {
+      showForceVectors = !showForceVectors;
+      document.getElementById('vectorToggle').classList.toggle('active', showForceVectors);
+      playSynthBeep(350, 'triangle', 0.1);
+    }
+
+    function toggleMicroZoom() {
+      showMicroZoom = !showMicroZoom;
+      document.getElementById('zoomToggle').classList.toggle('active', showMicroZoom);
+      playSynthBeep(350, 'triangle', 0.1);
+    }
+
+    function switchLaneView(view) {
+      currentLaneView = view;
+      document.getElementById('btnWBM').classList.toggle('active', view === 'WBM');
+      document.getElementById('btnWMM').classList.toggle('active', view === 'WMM');
+      document.getElementById('btnSplit').classList.toggle('active', view === 'SPLIT');
+      document.getElementById('hudLaneType').innerText = view === 'SPLIT' ? "SPLIT ANALYSIS" : `${view} ANALYSIS`;
+      
+      playSynthBeep(400, 'sine', 0.08);
+      speakText(`Switched view to ${view === 'SPLIT' ? "Split analyzer" : view + " single profile"}`);
+    }
+
+    // Setup Canvas with proper scaling
+    function resizeCanvas() {
+      const rect = roadCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      roadCanvas.width = rect.width * dpr;
+      roadCanvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+
+    function resizeChart() {
+      const rect = chartCanvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      chartCanvas.width = rect.width * dpr;
+      chartCanvas.height = rect.height * dpr;
+      chartCtx.scale(dpr, dpr);
+    }
+
+    // Setup drag-and-drop from modal handbook to unlock sequence
+    document.addEventListener("dragover", function(event) {
+      event.preventDefault();
+    });
+
+    document.addEventListener("drop", function(event) {
+      event.preventDefault();
+      const dataId = event.dataTransfer.getData("text");
+      
+      if (dataId.startsWith("clause-")) {
+        // Drop on center screen to unlock base clauses
+        playSuccessChime();
+        if (dataId === "clause-wbm") laneState.WBM.unlocked = true;
+        if (dataId === "clause-wmm") laneState.WMM.unlocked = true;
+        toggleModal(false);
+        speakText("Specification Clause synchronized. Operational limits verified.");
+        
+        if (currentStep === 0) {
+          progressSequencer();
+        }
+      }
+    });
+
+    // Particle Spawning helper
+    function spawnParticlesAtDrop() {
+      for (let i = 0; i < 40; i++) {
+        particles.push({
+          x: Math.random() * roadCanvas.clientWidth,
+          y: roadCanvas.clientHeight * 0.3,
+          vx: (Math.random() - 0.5) * 4,
+          vy: Math.random() * 3 + 2,
+          radius: Math.random() * 3 + 1,
+          color: 'rgba(0, 255, 242, 0.8)',
+          life: 1.0,
+          decay: Math.random() * 0.02 + 0.01
+        });
+      }
+    }
+
+    // Main Draw Engine
+    function startSimulationLoop() {
+      function loop() {
+        drawRoadCanvas();
+        drawPerformanceChart();
+        updateAndRenderParticles();
+        requestAnimationFrame(loop);
+      }
+      requestAnimationFrame(loop);
+    }
+
+    function updateAndRenderParticles() {
+      const rect = roadCanvas.getBoundingClientRect();
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+        
+        // Render inside canvas bounds
+        ctx.save();
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+    }
+
+    // Drawing the Dual Roads
+    function drawRoadCanvas() {
+      if (!roadCanvas) return;
+      const w = roadCanvas.width / (window.devicePixelRatio || 1);
+      const h = roadCanvas.height / (window.devicePixelRatio || 1);
+      
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Grid lines background (Aesthetic cyber layout)
+      ctx.strokeStyle = "rgba(0, 255, 242, 0.03)";
+      ctx.lineWidth = 1;
+      const gridSize = 30;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Determine splitting bounds
+      let partitions = [];
+      if (currentLaneView === 'SPLIT') {
+        partitions = [
+          { name: 'WATER BOUND MACADAM (WBM)', xStart: 0, xEnd: w/2, state: laneState.WBM, type: 'WBM' },
+          { name: 'WET MIX MACADAM (WMM)', xStart: w/2, xEnd: w, state: laneState.WMM, type: 'WMM' }
+        ];
+      } else if (currentLaneView === 'WBM') {
+        partitions = [
+          { name: 'WATER BOUND MACADAM (WBM)', xStart: 0, xEnd: w, state: laneState.WBM, type: 'WBM' }
+        ];
+      } else {
+        partitions = [
+          { name: 'WET MIX MACADAM (WMM)', xStart: 0, xEnd: w, state: laneState.WMM, type: 'WMM' }
+        ];
+      }
+
+      // Drawing partitions
+      partitions.forEach((part, index) => {
+        const pWidth = part.xEnd - part.xStart;
+        const pHeight = h;
+        
+        // Draw Lane background header labels
+        ctx.save();
+        ctx.font = "bold 10px 'Share Tech Mono'";
+        ctx.fillStyle = "rgba(0, 255, 242, 0.7)";
+        ctx.fillText(part.name, part.xStart + 20, 30);
+        ctx.restore();
+
+        // Layer boundaries
+        const ySubgrade = pHeight * 0.75;
+        const yBase = pHeight * 0.45;
+        const yTop = pHeight * 0.45 - (15 * compactionRatio);
+
+        // Subgrade drawing (Soil Profile)
+        ctx.save();
+        let gradSub = ctx.createLinearGradient(0, ySubgrade, 0, pHeight);
+        gradSub.addColorStop(0, '#1c1815');
+        gradSub.addColorStop(1, '#0e0b09');
+        ctx.fillStyle = gradSub;
+        ctx.fillRect(part.xStart, ySubgrade, pWidth, pHeight - ySubgrade);
+        
+        // Subgrade visual density patterns
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+        ctx.lineWidth = 1;
+        for (let ix = part.xStart + 10; ix < part.xEnd; ix += 25) {
+          ctx.beginPath();
+          ctx.arc(ix, ySubgrade + 20, 2, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+
+        // 1. Coarse Aggregate or Pre-Mix placement rendering
+        if (part.type === 'WBM' && part.state.coarseAggLaid) {
+          // Draw WBM interlocking skeleton
+          ctx.save();
+          ctx.fillStyle = '#2d3748';
+          ctx.strokeStyle = 'rgba(0, 255, 242, 0.3)';
+          
+          let stoneColumns = Math.ceil(pWidth / 35);
+          let stoneRows = 3;
+          let rGapX = pWidth / stoneColumns;
+          let rGapY = (ySubgrade - yBase) / stoneRows;
+
+          for (let r = 0; r < stoneRows; r++) {
+            for (let c = 0; c < stoneColumns; c++) {
+              let sX = part.xStart + (c * rGapX) + (r % 2 ? 10 : 0) + 15;
+              let sY = ySubgrade - (r * rGapY) - 15 + (compactionRatio * 10);
+              
+              // Draw Angular Stone geometry (Interlocking WBM framework)
+              ctx.beginPath();
+              ctx.moveTo(sX, sY - 12);
+              ctx.lineTo(sX + 15, sY - 5);
+              ctx.lineTo(sX + 10, sY + 12);
+              ctx.lineTo(sX - 12, sY + 8);
+              ctx.lineTo(sX - 15, sY - 5);
+              ctx.closePath();
+              ctx.fill();
+              ctx.stroke();
+
+              // Draw fine particle screenings inside voids (if WBM screenings applied)
+              if (part.state.screeningsLaid) {
+                ctx.fillStyle = 'rgba(160, 174, 192, 0.9)';
+                ctx.beginPath();
+                ctx.arc(sX + 16, sY + 6, 4, 0, Math.PI*2);
+                ctx.arc(sX - 16, sY - 6, 3, 0, Math.PI*2);
+                ctx.fill();
+              }
+            }
+          }
+          ctx.restore();
+        }
+
+        if (part.type === 'WMM' && part.state.mixLaid) {
+          // WMM is uniform matrix with smaller aggregate gradations (highly compact & pre-mixed)
+          ctx.save();
+          let gradMix = ctx.createLinearGradient(0, yBase, 0, ySubgrade);
+          gradMix.addColorStop(0, '#4a5568');
+          gradMix.addColorStop(1, '#1a202c');
+          ctx.fillStyle = gradMix;
+          ctx.fillRect(part.xStart, yBase, pWidth, ySubgrade - yBase);
+
+          // Draw dynamic high-density gravel cluster dots
+          ctx.fillStyle = '#cbd5e0';
+          for (let i = 0; i < 150; i++) {
+            let px = part.xStart + (Math.sin(i * 123.4) * 0.5 + 0.5) * pWidth;
+            let py = yBase + (Math.cos(i * 543.21) * 0.5 + 0.5) * (ySubgrade - yBase);
+            let r = (i % 3 === 0) ? 6 : (i % 2 === 0) ? 4 : 2;
+            
+            ctx.beginPath();
+            ctx.arc(px, py, r, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Slurry wet rolling overlay
+        if (part.type === 'WBM' && part.state.watered) {
+          ctx.save();
+          ctx.fillStyle = 'rgba(0, 255, 242, 0.08)';
+          ctx.fillRect(part.xStart, yBase, pWidth, ySubgrade - yBase);
+          ctx.restore();
+        }
+
+        // Draw Force vectors representing load spread (Toggleable Overlay)
+        if (showForceVectors && (part.state.coarseAggLaid || part.state.mixLaid)) {
+          ctx.save();
+          ctx.strokeStyle = part.type === 'WBM' ? 'var(--neon-orange)' : 'var(--neon-green)';
+          ctx.lineWidth = 2;
+          
+          let wheelX = part.xStart + pWidth/2;
+          let wheelY = yBase - 40;
+
+          // Draw tire profile pushing downward
+          ctx.fillStyle = '#1a202c';
+          ctx.fillRect(wheelX - 35, wheelY, 70, 20);
+
+          if (part.type === 'WBM') {
+            // WBM distributes stress via point-to-point jagged contact paths
+            ctx.beginPath();
+            ctx.moveTo(wheelX, wheelY + 20);
+            ctx.lineTo(wheelX - 25, yBase + 10);
+            ctx.lineTo(wheelX - 10, yBase + 40);
+            ctx.lineTo(wheelX - 45, ySubgrade);
+            
+            ctx.moveTo(wheelX, wheelY + 20);
+            ctx.lineTo(wheelX + 25, yBase + 15);
+            ctx.lineTo(wheelX + 15, yBase + 45);
+            ctx.lineTo(wheelX + 55, ySubgrade);
+            ctx.stroke();
+
+            // Interlock stress vectors labels
+            ctx.fillStyle = 'rgba(255, 159, 28, 0.85)';
+            ctx.font = '8px monospace';
+            ctx.fillText("HIGH POINT CONTACT PRESSURE", wheelX - 60, wheelY - 5);
+          } else {
+            // WMM distributes stress cleanly (parabolic load bulb due to soil matrix)
+            ctx.beginPath();
+            ctx.moveTo(wheelX, wheelY + 20);
+            
+            // Draw parabolic vector lines
+            for (let angle = 30; angle <= 150; angle += 20) {
+              let rad = angle * Math.PI / 180;
+              ctx.moveTo(wheelX, wheelY + 20);
+              ctx.lineTo(wheelX + Math.cos(rad) * 90, ySubgrade);
+            }
+            ctx.stroke();
+
+            ctx.fillStyle = 'rgba(57, 255, 20, 0.85)';
+            ctx.font = '8px monospace';
+            ctx.fillText("UNIFORM MATRIX LOAD BULB", wheelX - 55, wheelY - 5);
+          }
+          ctx.restore();
+        }
+
+        // Draw Split partition divider
+        if (index === 0 && currentLaneView === 'SPLIT') {
+          ctx.strokeStyle = 'var(--panel-border-glow)';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          ctx.moveTo(part.xEnd, 0);
+          ctx.lineTo(part.xEnd, pHeight);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+
+        // Microscopic Zoom circular lenses (Toggled)
+        if (showMicroZoom) {
+          const lensRadius = 60;
+          const lensX = part.xStart + pWidth - 80;
+          const lensY = h * 0.4;
+          
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(lensX, lensY, lensRadius, 0, Math.PI * 2);
+          ctx.clip();
+
+          // Render micro zoomed aggregates inside lens
+          ctx.fillStyle = '#090d16';
+          ctx.fillRect(lensX - lensRadius, lensY - lensRadius, lensRadius * 2, lensRadius * 2);
+
+          // Render scale factors
+          if (part.type === 'WBM') {
+            // Draw angular big rocks locking
+            ctx.strokeStyle = 'var(--neon-orange)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(lensX - lensRadius, lensY - lensRadius, lensRadius * 2, lensRadius * 2);
+
+            ctx.fillStyle = '#3a4a63';
+            ctx.beginPath();
+            ctx.arc(lensX - 20, lensY - 15, 28, 0, Math.PI * 2);
+            ctx.arc(lensX + 25, lensY + 20, 32, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Point contact void lines
+            ctx.strokeStyle = 'var(--neon-red)';
+            ctx.beginPath();
+            ctx.arc(lensX + 5, lensY + 2, 5, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.fillStyle = 'var(--neon-orange)';
+            ctx.font = '7px monospace';
+            ctx.fillText("VOID VOID VOID", lensX - 30, lensY);
+          } else {
+            // Draw fully unified graded blend matrix
+            ctx.strokeStyle = 'var(--neon-green)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(lensX - lensRadius, lensY - lensRadius, lensRadius * 2, lensRadius * 2);
+
+            ctx.fillStyle = '#4a5568';
+            ctx.beginPath();
+            ctx.arc(lensX - 30, lensY - 20, 20, 0, Math.PI * 2);
+            ctx.arc(lensX + 20, lensY + 15, 24, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Fine aggregates filling perfectly
+            ctx.fillStyle = 'var(--neon-green)';
+            for (let dot = 0; dot < 40; dot++) {
+              let dx = lensX + Math.sin(dot) * 45;
+              let dy = lensY + Math.cos(dot * 12) * 45;
+              ctx.beginPath();
+              ctx.arc(dx, dy, 3, 0, Math.PI * 2);
+              ctx.fill();
+            }
+
+            ctx.fillStyle = 'var(--neon-green)';
+            ctx.font = '7px monospace';
+            ctx.fillText("UNIFIED MATRIX", lensX - 30, lensY);
+          }
+
+          ctx.restore();
+
+          // Outer chrome around lens
+          ctx.save();
+          ctx.strokeStyle = 'rgba(0, 255, 242, 0.4)';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(lensX, lensY, lensRadius, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // Scale Indicator tag
+          ctx.fillStyle = 'rgba(10, 11, 16, 0.9)';
+          ctx.fillRect(lensX - 25, lensY + lensRadius - 10, 50, 14);
+          ctx.fillStyle = 'var(--neon-cyan)';
+          ctx.font = 'bold 7px monospace';
+          ctx.fillText("SCALE: 10X", lensX - 20, lensY + lensRadius);
+          ctx.restore();
+        }
+      });
+
+      // Update Top level HUD
+      let primaryState = currentLaneView === 'SPLIT' ? laneState.WMM : laneState[currentLaneView];
+      document.getElementById('hudIntegrity').innerText = `${Math.floor(primaryState.stability)}.0%`;
+      document.getElementById('hudIntegrity').style.color = primaryState.stability > 70 ? 'var(--neon-green)' : 'var(--neon-orange)';
+    }
+
+    // Performance Graph showing load-bearing curves
+    function drawPerformanceChart() {
+      if (!chartCanvas) return;
+      const w = chartCanvas.width / (window.devicePixelRatio || 1);
+      const h = chartCanvas.height / (window.devicePixelRatio || 1);
+      
+      chartCtx.clearRect(0, 0, w, h);
+
+      // Draw boundary border
+      chartCtx.strokeStyle = 'rgba(0, 255, 242, 0.15)';
+      chartCtx.lineWidth = 1;
+      chartCtx.strokeRect(0, 0, w, h);
+
+      // Draw axis references
+      chartCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      chartCtx.beginPath();
+      chartCtx.moveTo(25, 10);
+      chartCtx.lineTo(25, h - 20);
+      chartCtx.lineTo(w - 10, h - 20);
+      chartCtx.stroke();
+
+      // Axis labels
+      chartCtx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      chartCtx.font = '7px monospace';
+      chartCtx.fillText("STABILITY", 5, 20);
+      chartCtx.fillText("OPTIMAL MOISTURE RANGE", w - 100, h - 5);
+
+      // Draw Curves
+      // WMM Curve (Highly sensitive peaking around optimal 5.5% moisture ratio)
+      chartCtx.strokeStyle = 'var(--neon-green)';
+      chartCtx.lineWidth = 2;
+      chartCtx.beginPath();
+      for (let xPos = 25; xPos < w - 10; xPos++) {
+        let moisturePct = ((xPos - 25) / (w - 35)) * 10; // scale 0 to 10%
+        let dev = Math.abs(moisturePct - 5.5);
+        let stabilityY = (h - 30) - (Math.max(10, 85 - (dev * 18) - (1 - compactionRatio) * 30));
+        
+        if (xPos === 25) chartCtx.moveTo(xPos, stabilityY);
+        else chartCtx.lineTo(xPos, stabilityY);
+      }
+      chartCtx.stroke();
+
+      // WBM Curve (WBM is more tolerant of excess moisture, flat slope curve)
+      chartCtx.strokeStyle = 'var(--neon-orange)';
+      chartCtx.beginPath();
+      for (let xPos = 25; xPos < w - 10; xPos++) {
+        let moisturePct = ((xPos - 25) / (w - 35)) * 10;
+        let stabilityY = (h - 30) - (Math.max(10, 60 - Math.abs(moisturePct - 7.5) * 8 - (1 - compactionRatio) * 20));
+        
+        if (xPos === 25) chartCtx.moveTo(xPos, stabilityY);
+        else chartCtx.lineTo(xPos, stabilityY);
+      }
+      chartCtx.stroke();
+
+      // Draw current dynamic intersection point (crosshair tracker)
+      let currentX = 25 + (moistureRatio * 10) * (w - 35);
+      chartCtx.strokeStyle = 'var(--neon-cyan)';
+      chartCtx.setLineDash([2, 2]);
+      chartCtx.beginPath();
+      chartCtx.moveTo(currentX, 10);
+      chartCtx.lineTo(currentX, h - 20);
+      chartCtx.stroke();
+      chartCtx.setLineDash([]);
+    }
+
+    // Window Init handlers
+    window.onload = () => {
+      roadCanvas = document.getElementById('roadCanvas');
+      ctx = roadCanvas.getContext('2d');
+      chartCanvas = document.getElementById('chartCanvas');
+      chartCtx = chartCanvas.getContext('2d');
+
+      // Initialize sizes
+      resizeCanvas();
+      resizeChart();
+      
+      // Hook event handlers
+      window.addEventListener('resize', () => {
+        resizeCanvas();
+        resizeChart();
+      });
+
+      // SVG Lucide instantiation helper
+      lucide.createIcons();
+
+      // Start animations
+      startSimulationLoop();
+
+      // Initial interactive instruction prompt
+      updateDropZoneText();
+      setTimeout(() => {
+        triggerIntroVoice();
+      }, 1000);
+    };
+  </script>
+</body>
+</html>

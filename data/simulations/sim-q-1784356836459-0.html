@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Cyber-Toybox Structural Steel Simulator</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Google Fonts: Fredoka (Playful) & Orbitron (Cyber/Tech) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Orbitron:wght@400;700;900&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            fredoka: ['Fredoka', 'sans-serif'],
+            orbitron: ['Orbitron', 'sans-serif'],
+            space: ['Space Grotesk', 'sans-serif'],
+          },
+          colors: {
+            cyberCyan: '#00f0ff',
+            neonPink: '#ff007f',
+            brightLime: '#39ff14',
+            sunsetGold: '#ffaa00',
+            darkBg: '#0d0f14',
+            glassBg: 'rgba(25, 30, 40, 0.75)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom premium styling & glassmorphism effects */
+    body {
+      background-color: #0d0f14;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(255, 0, 127, 0.08) 0px, transparent 50%);
+    }
+
+    .glass-panel {
+      background: rgba(20, 24, 35, 0.7);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-panel-cyan {
+      border: 1px solid rgba(0, 240, 255, 0.2);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.05);
+    }
+
+    .glass-panel-pink {
+      border: 1px solid rgba(255, 0, 127, 0.2);
+      box-shadow: 0 0 15px rgba(255, 0, 127, 0.05);
+    }
+
+    /* Elegant custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.4);
+    }
+
+    /* Interactive Toy Animations */
+    .toy-card {
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      cursor: grab;
+    }
+    .toy-card:active {
+      cursor: grabbing;
+      transform: scale(0.95) rotate(-3deg);
+    }
+
+    @keyframes pulse-cyan {
+      0%, 100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+      50% { box-shadow: 0 0 20px rgba(0, 240, 255, 0.5); }
+    }
+    .pulse-glow-cyan {
+      animation: pulse-cyan 2s infinite;
+    }
+
+    @keyframes pulse-pink {
+      0%, 100% { box-shadow: 0 0 10px rgba(255, 0, 127, 0.2); }
+      50% { box-shadow: 0 0 20px rgba(255, 0, 127, 0.5); }
+    }
+    .pulse-glow-pink {
+      animation: pulse-pink 2s infinite;
+    }
+
+    /* Target overlay pulse for Drag-n-Drop */
+    .drag-hover-zone {
+      border: 2px dashed #00f0ff;
+      background: rgba(0, 240, 255, 0.05);
+    }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col p-4 font-space text-slate-100 select-none">
+
+  <!-- ================= HEADER SECTION ================= -->
+  <header class="flex justify-between items-center mb-3 shrink-0 glass-panel p-3 rounded-2xl border-b border-white/10">
+    <div class="flex items-center gap-3">
+      <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-cyberCyan to-neonPink flex items-center justify-center shadow-lg">
+        <span class="text-xl font-bold text-darkBg font-orbitron">S</span>
+      </div>
+      <div>
+        <h1 class="text-xl font-black tracking-tight font-orbitron bg-clip-text text-transparent bg-gradient-to-r from-cyberCyan via-indigo-300 to-neonPink">
+          STEEL TOYBOX
+        </h1>
+        <p class="text-[10px] text-slate-400 font-medium tracking-wider uppercase font-space">
+          Interactive Structural Mechanics &amp; Physics Lab
+        </p>
+      </div>
+    </div>
+
+    <!-- Live Gummy Bear Toggle & Audio Initiators -->
+    <div class="flex items-center gap-4">
+      <!-- Gummy Bear Switch -->
+      <button id="gummyBtn" class="px-3 py-1.5 rounded-lg border border-neonPink/30 bg-neonPink/10 hover:bg-neonPink/20 transition flex items-center gap-2 text-xs font-bold font-fredoka">
+        <span class="h-3.5 w-3.5 rounded-full bg-neonPink inline-block animate-ping"></span>
+        <span>Gummy Bear Mode: <span id="gummyStatus" class="text-neonPink uppercase">OFF</span></span>
+      </button>
+
+      <!-- Audio Unlock Indicator -->
+      <button id="audioInitBtn" class="px-3 py-1.5 rounded-lg border border-cyberCyan/30 bg-cyberCyan/10 hover:bg-cyberCyan/20 transition flex items-center gap-2 text-xs font-bold font-orbitron">
+        <span id="audioStatusDot" class="h-2 w-2 rounded-full bg-amber-500"></span>
+        <span id="audioStatusText">ENABLE SYNTHS</span>
+      </button>
+
+      <!-- Mister Steel Voice Controller -->
+      <button id="voiceNarrateBtn" class="px-3 py-1.5 rounded-lg border border-brightLime/30 bg-brightLime/10 hover:bg-brightLime/20 transition flex items-center gap-2 text-xs font-bold font-fredoka">
+        🔊 <span class="text-brightLime">MISTER STEEL VOICE</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ================= MAIN LAYOUT GRID ================= -->
+  <div class="flex-1 grid grid-cols-12 gap-4 min-h-0 w-full">
+
+    <!-- LEFT PANEL: CONTROL TOWER (30%) -->
+    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
+      
+      <!-- Real-time Controls -->
+      <div class="glass-panel rounded-2xl p-4 flex-1 flex flex-col justify-between min-h-0 border-l-4 border-cyberCyan">
+        <div>
+          <h2 class="text-sm font-bold font-orbitron tracking-wider text-cyberCyan mb-4 flex items-center gap-2">
+            ⚙️ CONTROL TOWER
+          </h2>
+          
+          <div class="space-y-4">
+            <!-- Parameter: Weight Load -->
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-slate-300 font-medium">Applied Load (Weight)</span>
+                <span id="loadValDisplay" class="font-bold text-cyberCyan font-orbitron">0 kN</span>
+              </div>
+              <input type="range" id="loadSlider" min="0" max="150" value="0" step="5" class="w-full accent-cyberCyan bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer">
+              <div class="flex justify-between text-[9px] text-slate-500 mt-1">
+                <span>0 kN (Feather)</span>
+                <span>150 kN (Titan)</span>
+              </div>
+            </div>
+
+            <!-- Parameter: Temperature -->
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-slate-300 font-medium">Thermal Temperature</span>
+                <span id="tempValDisplay" class="font-bold text-amber-500 font-orbitron">20 °C</span>
+              </div>
+              <input type="range" id="tempSlider" min="20" max="800" value="20" step="10" class="w-full accent-amber-500 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer">
+              <div class="flex justify-between text-[9px] text-slate-500 mt-1">
+                <span>20 °C (Ambient)</span>
+                <span>800 °C (Dragon Fire)</span>
+              </div>
+            </div>
+
+            <!-- Parameter: Corrosion / Rust -->
+            <div>
+              <div class="flex justify-between items-center text-xs mb-1">
+                <span class="text-slate-300 font-medium">Corrosion (Rust Rate)</span>
+                <span id="rustValDisplay" class="font-bold text-amber-800 font-orbitron">0 %</span>
+              </div>
+              <input type="range" id="rustSlider" min="0" max="100" value="0" step="1" class="w-full accent-amber-800 bg-slate-800 rounded-lg appearance-none h-2 cursor-pointer">
+              <div class="flex justify-between text-[9px] text-slate-500 mt-1">
+                <span>0% (Protected)</span>
+                <span>100% (Decayed)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Steel Health Report -->
+        <div class="mt-4 pt-4 border-t border-white/5 space-y-2">
+          <h3 class="text-[11px] font-bold font-orbitron text-slate-400 tracking-wider">REAL-TIME STEEL HEALTH REPORT</h3>
+          
+          <div class="grid grid-cols-2 gap-2">
+            <div class="bg-slate-900/50 p-2 rounded-lg border border-white/5">
+              <p class="text-[9px] text-slate-400">Elastic Modulus (E)</p>
+              <p id="healthModulus" class="text-xs font-bold font-orbitron text-brightLime">200 GPa</p>
+            </div>
+            <div class="bg-slate-900/50 p-2 rounded-lg border border-white/5">
+              <p class="text-[9px] text-slate-400">Span Deflection (Y)</p>
+              <p id="healthDeflection" class="text-xs font-bold font-orbitron text-cyberCyan">0.0 mm</p>
+            </div>
+            <div class="bg-slate-900/50 p-2 rounded-lg border border-white/5">
+              <p class="text-[9px] text-slate-400">Structure State</p>
+              <p id="healthState" class="text-xs font-bold font-orbitron text-slate-200">Perfect</p>
+            </div>
+            <div class="bg-slate-900/50 p-2 rounded-lg border border-white/5">
+              <p class="text-[9px] text-slate-400">Paint Protection</p>
+              <p id="healthPaint" class="text-xs font-bold font-orbitron text-indigo-400">None</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER PANEL: THE PLAYGROUND (60% COLLAPSED TO 50%) -->
+    <main class="col-span-6 flex flex-col gap-3 min-h-0">
+      
+      <!-- High-DPI Interactive Physics Canvas -->
+      <div id="canvasContainer" class="relative flex-1 glass-panel rounded-2xl overflow-hidden flex flex-col border border-white/10 pulse-glow-cyan">
+        <!-- Floating State Indicators -->
+        <div class="absolute top-4 left-4 z-10 pointer-events-none flex gap-2">
+          <span class="px-2.5 py-1 rounded bg-slate-900/80 border border-cyberCyan/30 text-[10px] font-orbitron text-cyberCyan flex items-center gap-1">
+            <span class="h-1.5 w-1.5 rounded-full bg-cyberCyan animate-pulse"></span> SIMULATOR ACTIVE
+          </span>
+          <span id="canvasWarningLabel" class="px-2.5 py-1 rounded bg-slate-900/80 border border-neonPink/30 text-[10px] font-orbitron text-neonPink flex items-center gap-1 hidden">
+            ⚠️ FIRE WEAKENING
+          </span>
+        </div>
+
+        <div class="absolute top-4 right-4 z-10 pointer-events-none text-right">
+          <p class="text-[10px] text-slate-400 font-orbitron">Mousetrack Displacement</p>
+          <p id="mouseStressDisplay" class="text-sm font-bold text-cyberCyan font-orbitron">0.00 N/m²</p>
+        </div>
+
+        <!-- Canvas -->
+        <canvas id="physicsCanvas" class="w-full flex-1 bg-gradient-to-b from-[#0f121a] to-[#090b0f] block cursor-crosshair"></canvas>
+
+        <!-- Dynamic ELI5 Quote HUD Bubble -->
+        <div class="absolute bottom-4 left-4 right-4 bg-slate-950/90 border border-white/10 p-3 rounded-xl flex items-start gap-3 pointer-events-none transition duration-300">
+          <div class="text-2xl mt-0.5">🤖</div>
+          <div>
+            <h4 class="text-[10px] font-bold font-orbitron text-cyberCyan tracking-wider uppercase">Mister Steel Explains:</h4>
+            <p id="eli5BubbleText" class="text-xs text-slate-200 leading-relaxed font-fredoka">
+              Click the interactive toys below and drag them onto the beam, or use your cursor to bend me like a mechanical arch!
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Drag & Drop Toybox Shelf -->
+      <div class="glass-panel rounded-2xl p-3 shrink-0 flex flex-col gap-2 border-b-4 border-amber-500">
+        <h3 class="text-xs font-bold font-orbitron text-amber-500 tracking-wider">🧳 STRUCTURAL TOYBOX (DRAG TO THE BEAM)</h3>
+        
+        <div class="grid grid-cols-5 gap-3">
+          <!-- Toy: Elephant -->
+          <div draggable="true" id="toy-elephant" class="toy-card bg-slate-900/80 border border-slate-700/80 p-2 rounded-xl flex flex-col items-center text-center select-none active:scale-95">
+            <span class="text-2xl">🐘</span>
+            <span class="text-[11px] font-bold font-fredoka text-white mt-1">Elephant</span>
+            <span class="text-[8px] text-cyberCyan uppercase font-space font-semibold mt-0.5">Heavy Load</span>
+          </div>
+
+          <!-- Toy: Fire Dragon -->
+          <div draggable="true" id="toy-dragon" class="toy-card bg-slate-900/80 border border-slate-700/80 p-2 rounded-xl flex flex-col items-center text-center select-none active:scale-95">
+            <span class="text-2xl">🐲</span>
+            <span class="text-[11px] font-bold font-fredoka text-white mt-1">Fire Dragon</span>
+            <span class="text-[8px] text-neonPink uppercase font-space font-semibold mt-0.5">Thermal Softening</span>
+          </div>
+
+          <!-- Toy: Rainy Cloud -->
+          <div draggable="true" id="toy-cloud" class="toy-card bg-slate-900/80 border border-slate-700/80 p-2 rounded-xl flex flex-col items-center text-center select-none active:scale-95">
+            <span class="text-2xl">🌧️</span>
+            <span class="text-[11px] font-bold font-fredoka text-white mt-1">Rainy Cloud</span>
+            <span class="text-[8px] text-amber-700 uppercase font-space font-semibold mt-0.5">Corrosion Attack</span>
+          </div>
+
+          <!-- Toy: Paint Shield -->
+          <div draggable="true" id="toy-shield" class="toy-card bg-slate-900/80 border border-slate-700/80 p-2 rounded-xl flex flex-col items-center text-center select-none active:scale-95">
+            <span class="text-2xl">🛡️</span>
+            <span class="text-[11px] font-bold font-fredoka text-white mt-1">Paint Shield</span>
+            <span class="text-[8px] text-brightLime uppercase font-space font-semibold mt-0.5">Anti-Rust Coat</span>
+          </div>
+
+          <!-- Toy: Seismic Shake -->
+          <div draggable="true" id="toy-earthquake" class="toy-card bg-slate-900/80 border border-slate-700/80 p-2 rounded-xl flex flex-col items-center text-center select-none active:scale-95">
+            <span class="text-2xl">🫨</span>
+            <span class="text-[11px] font-bold font-fredoka text-white mt-1">Earthquake</span>
+            <span class="text-[8px] text-sunsetGold uppercase font-space font-semibold mt-0.5">Ductility Tester</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL: CHALLENGE DECK & CONCEPTS (30%) -->
+    <aside class="col-span-3 flex flex-col gap-3 min-h-0">
+      
+      <!-- Curiosity Goals Checklist -->
+      <div class="glass-panel rounded-2xl p-4 flex-1 flex flex-col min-h-0 border-r-4 border-neonPink">
+        <h2 class="text-sm font-bold font-orbitron tracking-wider text-neonPink mb-3 flex items-center gap-2">
+          🎯 CURIOSITY DECK
+        </h2>
+
+        <div id="goalsContainer" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+          <!-- Goal 1 -->
+          <div id="goal-melt" class="bg-slate-900/50 border border-white/5 p-2.5 rounded-xl transition duration-300">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" disabled id="chk-melt" class="mt-1 h-3.5 w-3.5 accent-brightLime">
+              <div>
+                <p class="text-xs font-bold text-white font-fredoka">Goal 1: Meltdown!</p>
+                <p class="text-[9px] text-slate-400">Heat the steel structure up past 500 °C until the metal gets soft and squishy!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Goal 2 -->
+          <div id="goal-rust" class="bg-slate-900/50 border border-white/5 p-2.5 rounded-xl transition duration-300">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" disabled id="chk-rust" class="mt-1 h-3.5 w-3.5 accent-brightLime">
+              <div>
+                <p class="text-xs font-bold text-white font-fredoka">Goal 2: Rusted Decay</p>
+                <p class="text-[9px] text-slate-400">Increase corrosion (Rust) above 75% to experience unprotected steel fatigue.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Goal 3 -->
+          <div id="goal-titan" class="bg-slate-900/50 border border-white/5 p-2.5 rounded-xl transition duration-300">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" disabled id="chk-titan" class="mt-1 h-3.5 w-3.5 accent-brightLime">
+              <div>
+                <p class="text-xs font-bold text-white font-fredoka">Goal 3: Titan Load</p>
+                <p class="text-[9px] text-slate-400">Add weight load up above 100 kN. See the spring system deform!</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Goal 4 -->
+          <div id="goal-shield" class="bg-slate-900/50 border border-white/5 p-2.5 rounded-xl transition duration-300">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" disabled id="chk-shield" class="mt-1 h-3.5 w-3.5 accent-brightLime">
+              <div>
+                <p class="text-xs font-bold text-white font-fredoka">Goal 4: Iron Guard</p>
+                <p class="text-[9px] text-slate-400">Use Paint Shield spray to completely seal and protect the structural span.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Goal 5 -->
+          <div id="goal-quake" class="bg-slate-900/50 border border-white/5 p-2.5 rounded-xl transition duration-300">
+            <div class="flex items-start gap-2">
+              <input type="checkbox" disabled id="chk-quake" class="mt-1 h-3.5 w-3.5 accent-brightLime">
+              <div>
+                <p class="text-xs font-bold text-white font-fredoka">Goal 5: Quake Tester</p>
+                <p class="text-[9px] text-slate-400">Simulate a high magnitude earthquake and let ductility handle the load waves!</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Interactive Concept Cards -->
+      <div class="glass-panel rounded-2xl p-4 flex-1 flex flex-col min-h-0 border-r-4 border-sunsetGold">
+        <h2 class="text-sm font-bold font-orbitron tracking-wider text-sunsetGold mb-3">
+          📚 CONCEPT STUDY CODES
+        </h2>
+        <div class="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+          <div class="bg-slate-900/50 p-2.5 rounded-xl cursor-pointer hover:border-sunsetGold/40 transition border border-white/5" onclick="triggerConceptSpeech('strength')">
+            <p class="font-bold text-cyberCyan font-fredoka flex justify-between">
+              <span>💪 High Strength Limit</span>
+              <span>Advantage</span>
+            </p>
+            <p class="text-[10px] text-slate-400 mt-1">Carries huge weights relative to member size. Reduced architectural bulk.</p>
+          </div>
+
+          <div class="bg-slate-900/50 p-2.5 rounded-xl cursor-pointer hover:border-sunsetGold/40 transition border border-white/5" onclick="triggerConceptSpeech('ductility')">
+            <p class="font-bold text-brightLime font-fredoka flex justify-between">
+              <span>🌀 Exceptional Ductility</span>
+              <span>Advantage</span>
+            </p>
+            <p class="text-[10px] text-slate-400 mt-1">Steel deforms heavily instead of snapping abruptly. Critical for seismic zones.</p>
+          </div>
+
+          <div class="bg-slate-900/50 p-2.5 rounded-xl cursor-pointer hover:border-sunsetGold/40 transition border border-white/5" onclick="triggerConceptSpeech('fire')">
+            <p class="font-bold text-neonPink font-fredoka flex justify-between">
+              <span>🔥 Fire Weakness</span>
+              <span>Disadvantage</span>
+            </p>
+            <p class="text-[10px] text-slate-400 mt-1">Unprotected steel loses its structural modulus rapidly when heated above 500°C.</p>
+          </div>
+
+          <div class="bg-slate-900/50 p-2.5 rounded-xl cursor-pointer hover:border-sunsetGold/40 transition border border-white/5" onclick="triggerConceptSpeech('rust')">
+            <p class="font-bold text-amber-700 font-fredoka flex justify-between">
+              <span>💧 Corrosion Risk</span>
+              <span>Disadvantage</span>
+            </p>
+            <p class="text-[10px] text-slate-400 mt-1">Rust eating through steel profiles, calling for protective coatings or paint.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- ================= DIALOGS & OVERLAYS ================= -->
+  <!-- Synth & Interaction Activator Modal -->
+  <div id="modalOverlay" class="fixed inset-0 bg-darkBg/90 backdrop-blur-md z-50 flex items-center justify-center p-4 transition duration-300">
+    <div class="glass-panel glass-panel-cyan p-8 rounded-3xl max-w-lg w-full text-center space-y-6">
+      <div class="h-16 w-16 mx-auto rounded-full bg-gradient-to-tr from-cyberCyan to-brightLime flex items-center justify-center text-3xl">
+        🏗️
+      </div>
+      <div>
+        <h2 class="text-2xl font-black font-orbitron text-cyberCyan">STEEL TOYBOX SIMULATOR</h2>
+        <p class="text-xs text-slate-400 tracking-widest uppercase font-mono mt-1">High-fidelity cyber engineering physics lab</p>
+      </div>
+      <p class="text-sm text-slate-300 leading-relaxed font-fredoka">
+        Initialize state-of-the-art interactive graphics, simulated seismic models, and our customizable, real-time dynamic audio synthesizer engine!
+      </p>
+      <button id="modalStartBtn" class="w-full py-4 rounded-xl bg-gradient-to-r from-cyberCyan to-brightLime hover:opacity-90 text-darkBg font-black font-orbitron tracking-wider text-sm shadow-xl transition-transform hover:scale-105">
+        START THE EXPERIENCE
+      </button>
+      <p class="text-[10px] text-slate-500">
+        Requires Chrome, Edge, or Safari for fully integrated Speech Synthesis API &amp; Web Audio effects.
+      </p>
+    </div>
+  </div>
+
+  <!-- ================= DETAILED SIMULATOR JAVASCRIPT ================= -->
+  <script>
+    // ================= GLOBAL CONFIGURATION & STATE =================
+    const STATE = {
+      isGummyMode: false,
+      isAudioInitialized: false,
+      isVoiceEnabled: true,
+      load: 0,              // in kN
+      temperature: 20,      // in °C
+      rust: 0,              // in %
+      isPainted: false,
+      seismicAmplitude: 0,  // Active earthquake shake displacement
+      seismicTimer: 0,
+      
+      // Material Properties (Steel vs Gummy)
+      nominalElasticModulus: 200, // GPa (Standard A36 Structural Steel)
+      gummyElasticModulus: 15,    // GPa (Super ductile elastic jelly)
+      effectiveModulus: 200,
+
+      // Interaction points
+      mouseDragActive: false,
+      mouseDragForce: 0,
+      mouseWorldX: 0,
+      mouseWorldY: 0,
+
+      // Spring state of the beam
+      beamDeflection: 0,
+      beamVelocity: 0,
+      beamAcceleration: 0,
+      beamMidpointY: 0, // Current real pixel bending displacement
+      beamTargetY: 0,
+      
+      // Particle vectors
+      particles: [],
+      
+      // Accomplished list
+      goals: {
+        melt: false,
+        rust: false,
+        titan: false,
+        shield: false,
+        quake: false
+      }
+    };
+
+    // DOM References
+    const canvas = document.getElementById('physicsCanvas');
+    const ctx = canvas.getContext('2d');
+    const canvasContainer = document.getElementById('canvasContainer');
+
+    const loadSlider = document.getElementById('loadSlider');
+    const tempSlider = document.getElementById('tempSlider');
+    const rustSlider = document.getElementById('rustSlider');
+
+    const loadValDisplay = document.getElementById('loadValDisplay');
+    const tempValDisplay = document.getElementById('tempValDisplay');
+    const rustValDisplay = document.getElementById('rustValDisplay');
+
+    const healthModulus = document.getElementById('healthModulus');
+    const healthDeflection = document.getElementById('healthDeflection');
+    const healthState = document.getElementById('healthState');
+    const healthPaint = document.getElementById('healthPaint');
+
+    const gummyBtn = document.getElementById('gummyBtn');
+    const gummyStatus = document.getElementById('gummyStatus');
+    const audioInitBtn = document.getElementById('audioInitBtn');
+    const voiceNarrateBtn = document.getElementById('voiceNarrateBtn');
+    const audioStatusDot = document.getElementById('audioStatusDot');
+    const audioStatusText = document.getElementById('audioStatusText');
+    const canvasWarningLabel = document.getElementById('canvasWarningLabel');
+    const eli5BubbleText = document.getElementById('eli5BubbleText');
+    const mouseStressDisplay = document.getElementById('mouseStressDisplay');
+
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalStartBtn = document.getElementById('modalStartBtn');
+
+    // ================= HIGH-DPI CANVAS ADAPTER =================
+    function resizeCanvas() {
+      const rect = canvasContainer.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial call
+
+    // ================= SYNTH AUDIO ENGINE =================
+    class StructuralSynth {
+      constructor() {
+        this.ctx = null;
+        this.masterGain = null;
+        this.groanOsc = null;
+        this.groanGain = null;
+        this.sizzleOsc = null;
+        this.sizzleGain = null;
+      }
+
+      init() {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        this.ctx = new AudioContextClass();
+        this.masterGain = this.ctx.createGain();
+        this.masterGain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+        this.masterGain.connect(this.ctx.destination);
+
+        // 1. Structural Groan Synth (Continuous low pitch)
+        this.groanOsc = this.ctx.createOscillator();
+        this.groanOsc.type = 'triangle';
+        this.groanOsc.frequency.setValueAtTime(80, this.ctx.currentTime);
+        
+        this.groanGain = this.ctx.createGain();
+        this.groanGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+        this.groanOsc.connect(this.groanGain);
+        this.groanGain.connect(this.masterGain);
+        this.groanOsc.start();
+
+        // 2. Sizzle/Fire sound system
+        this.sizzleOsc = this.ctx.createOscillator();
+        this.sizzleOsc.type = 'sawtooth';
+        this.sizzleOsc.frequency.setValueAtTime(220, this.ctx.currentTime);
+
+        this.sizzleGain = this.ctx.createGain();
+        this.sizzleGain.gain.setValueAtTime(0, this.ctx.currentTime);
+
+        this.sizzleFilter = this.ctx.createBiquadFilter();
+        this.sizzleFilter.type = 'bandpass';
+        this.sizzleFilter.frequency.setValueAtTime(1200, this.ctx.currentTime);
+
+        this.sizzleOsc.connect(this.sizzleFilter);
+        this.sizzleFilter.connect(this.sizzleGain);
+        this.sizzleGain.connect(this.masterGain);
+        this.sizzleOsc.start();
+
+        STATE.isAudioInitialized = true;
+        audioStatusDot.classList.remove('bg-amber-500');
+        audioStatusDot.classList.add('bg-brightLime');
+        audioStatusText.innerText = "SYNTHS ACTIVE";
+      }
+
+      setGroan(intensity) {
+        if (!this.ctx) return;
+        // Pitch ramps up from 80Hz to 280Hz depending on deflection/load
+        const targetFreq = 80 + intensity * 150;
+        const targetVol = Math.min(0.12, intensity * 0.15);
+        this.groanOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.05);
+        this.groanGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.05);
+      }
+
+      setSizzle(intensity) {
+        if (!this.ctx) return;
+        const targetVol = Math.min(0.08, intensity * 0.06);
+        const targetFreq = 180 + intensity * 300;
+        this.sizzleOsc.frequency.setTargetAtTime(targetFreq, this.ctx.currentTime, 0.05);
+        this.sizzleGain.gain.setTargetAtTime(targetVol, this.ctx.currentTime, 0.05);
+      }
+
+      triggerSuccessChime() {
+        if (!this.ctx) return;
+        // Arpeggiated happy synthesizer chime
+        const notes = [261.63, 329.63, 392.00, 523.25]; // C E G C
+        notes.forEach((freq, idx) => {
+          const osc = this.ctx.createOscillator();
+          const gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + idx * 0.1);
+          gain.gain.setValueAtTime(0.1, this.ctx.currentTime + idx * 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + idx * 0.1 + 0.4);
+          osc.connect(gain);
+          gain.connect(this.masterGain);
+          osc.start(this.ctx.currentTime + idx * 0.1);
+          osc.stop(this.ctx.currentTime + idx * 0.1 + 0.5);
+        });
+      }
+
+      triggerPlop() {
+        if (!this.ctx) return;
+        // Low soft bounce sound
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(110, this.ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.25);
+        gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.25);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start();
+        osc.stop(this.ctx.currentTime + 0.3);
+      }
+    }
+
+    const synth = new StructuralSynth();
+
+    // Trigger Master initialization via custom controls
+    audioInitBtn.addEventListener('click', () => {
+      if (!STATE.isAudioInitialized) {
+        synth.init();
+      }
+    });
+
+    // ================= NATIVE VOICE ENGINE =================
+    const MisterSteelSpeech = {
+      queue: [],
+      speaking: false,
+      
+      speak(text) {
+        if (!STATE.isVoiceEnabled) {
+          eli5BubbleText.innerText = text;
+          return;
+        }
+
+        eli5BubbleText.innerText = text;
+        
+        // Cancel active Speech
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.1; // Fast-paced and energetic
+        utterance.pitch = STATE.isGummyMode ? 1.5 : 1.25; // Squeaky vs slightly metallic
+        
+        // Try finding a suitable english voice
+        const voices = window.speechSynthesis.getVoices();
+        const niceVoice = voices.find(v => v.lang.includes('en-US') || v.lang.includes('en-GB'));
+        if (niceVoice) {
+          utterance.voice = niceVoice;
+        }
+
+        window.speechSynthesis.speak(utterance);
+      }
+    };
+
+    function triggerConceptSpeech(type) {
+      if (!STATE.isAudioInitialized) synth.init();
+      switch (type) {
+        case 'strength':
+          MisterSteelSpeech.speak("Mister Steel holds huge, hefty elephants without buckling! He says: My strong molecular lattice makes me a powerhouse of strength!");
+          break;
+        case 'ductility':
+          MisterSteelSpeech.speak("Whoa! Feel the wobble! Ductility means instead of breaking instantly in an earthquake, I bend, stretch, and protect everyone inside!");
+          break;
+        case 'fire':
+          MisterSteelSpeech.speak("Yikes! Extreme fire is my kryptonite! Once I get above five hundred degrees, my strong bonds soften like warm chewy caramel!");
+          break;
+        case 'rust':
+          MisterSteelSpeech.speak("Oh no! Moisture and wet air cause chemical rust! This brown crusty stuff eats away my strength, unless you apply paint shielding!");
+          break;
+      }
+    }
+
+    // ================= TOYBOX DRAG AND DROP HANDLING =================
+    const toyCards = document.querySelectorAll('.toy-card');
+    let draggedToyId = null;
+
+    toyCards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        draggedToyId = e.target.closest('.toy-card').id;
+        e.dataTransfer.setData('text/plain', draggedToyId);
+        // Play small indicator sound
+        if (!STATE.isAudioInitialized) synth.init();
+      });
+    });
+
+    canvasContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      canvasContainer.classList.add('drag-hover-zone');
+    });
+
+    canvasContainer.addEventListener('dragleave', () => {
+      canvasContainer.classList.remove('drag-hover-zone');
+    });
+
+    canvasContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      canvasContainer.classList.remove('drag-hover-zone');
+      
+      const toyId = e.dataTransfer.getData('text/plain');
+      
+      // Calculate drops coordinates relative to canvas
+      const rect = canvas.getBoundingClientRect();
+      const dropX = e.clientX - rect.left;
+      const dropY = e.clientY - rect.top;
+
+      applyToyAction(toyId, dropX, dropY);
+    });
+
+    function applyToyAction(toyId, x, y) {
+      if (!STATE.isAudioInitialized) synth.init();
+      
+      switch (toyId) {
+        case 'toy-elephant':
+          loadSlider.value = parseInt(loadSlider.value) + 40;
+          updateLoad(loadSlider.value);
+          spawnParticles('spark', x, y, 20);
+          synth.triggerPlop();
+          MisterSteelSpeech.speak("Boof! A heavy elephant stepped on the beam! Look at how elastic steel bends and absorbs the kinetic force!");
+          break;
+
+        case 'toy-dragon':
+          tempSlider.value = 600;
+          updateTemp(600);
+          spawnParticles('fire', x, y, 40);
+          MisterSteelSpeech.speak("Yikes! The Fire Dragon is breathing flames on me! My material modulus is dropping! I'm melting!");
+          break;
+
+        case 'toy-cloud':
+          rustSlider.value = parseInt(rustSlider.value) + 25;
+          updateRust(rustSlider.value);
+          spawnParticles('rust', x, y, 30);
+          MisterSteelSpeech.speak("Oh, rain clouds! Sputter, sputter! Water causes corrosion and rust, weakening the span!");
+          break;
+
+        case 'toy-shield':
+          STATE.isPainted = true;
+          rustSlider.value = 0;
+          updateRust(0);
+          spawnParticles('paint', x, y, 35);
+          synth.triggerSuccessChime();
+          MisterSteelSpeech.speak("Hooray! The Paint Shield covers me! The glowing protective paint prevents moisture from creating rust!");
+          checkGoalCompletion('shield');
+          break;
+
+        case 'toy-earthquake':
+          triggerEarthquake();
+          break;
+      }
+    }
+
+    function triggerEarthquake() {
+      STATE.seismicTimer = 180; // 3 seconds at 60fps
+      MisterSteelSpeech.speak("Rumble rumble! Earthquakes shake structural frames. See how ductile steel deforms without catastrophic structural collapse!");
+      checkGoalCompletion('quake');
+    }
+
+    // ================= CONTROL SLIDER UPDATES =================
+    function updateLoad(val) {
+      STATE.load = parseInt(val);
+      loadSlider.value = val;
+      loadValDisplay.innerText = `${val} kN`;
+      
+      if (STATE.load > 100) {
+        checkGoalCompletion('titan');
+      }
+    }
+
+    function updateTemp(val) {
+      STATE.temperature = parseInt(val);
+      tempSlider.value = val;
+      tempValDisplay.innerText = `${val} °C`;
+      
+      if (STATE.temperature > 500) {
+        checkGoalCompletion('melt');
+      }
+    }
+
+    function updateRust(val) {
+      STATE.rust = parseInt(val);
+      rustSlider.value = val;
+      rustValDisplay.innerText = `${val} %`;
+      
+      if (STATE.rust > 75) {
+        checkGoalCompletion('rust');
+      }
+    }
+
+    loadSlider.addEventListener('input', (e) => updateLoad(e.target.value));
+    tempSlider.addEventListener('input', (e) => updateTemp(e.target.value));
+    rustSlider.addEventListener('input', (e) => {
+      updateRust(e.target.value);
+      if (STATE.isPainted && e.target.value > 0) {
+        STATE.isPainted = false; // Breaking coating
+      }
+    });
+
+    // ================= PHYSICS & PARTICLES ENGINE =================
+    function updatePhysics() {
+      // 1. Calculate Effective Elasticity based on temp and rust
+      const nominalE = STATE.isGummyMode ? STATE.gummyElasticModulus : STATE.nominalElasticModulus;
+      
+      // Softening effect curve based on temp
+      // At 20°C: softening factor is 1.0. At 600°C: drop significantly
+      let thermalSoftening = 1.0;
+      if (STATE.temperature > 100) {
+        const deltaT = STATE.temperature - 100;
+        thermalSoftening = Math.max(0.15, 1.0 - (deltaT * 0.0012));
+      }
+
+      // Corrosion degradation
+      const corrosionDamage = 1.0 - (STATE.rust * 0.004);
+
+      STATE.effectiveModulus = nominalE * thermalSoftening * corrosionDamage;
+
+      // 2. Beam spring deflection math
+      // Deflection equation scale: Y = Load / E_effective
+      const scaleMultiplier = STATE.isGummyMode ? 2.8 : 1.2;
+      const staticTargetDeflection = (STATE.load * scaleMultiplier) / (STATE.effectiveModulus * 0.2);
+
+      // Earthquake input
+      let seismicOffset = 0;
+      if (STATE.seismicTimer > 0) {
+        STATE.seismicTimer--;
+        STATE.seismicAmplitude = Math.sin(STATE.seismicTimer * 0.4) * 20 * (STATE.seismicTimer / 180);
+        seismicOffset = STATE.seismicAmplitude;
+        
+        // Spawn sparks of ductility during quake
+        if (Math.random() < 0.15) {
+          spawnParticles('spark', Math.random() * canvas.width/2 + canvas.width/4, 200, 3);
+        }
+      }
+
+      // Interactive user mouse bend
+      let manualForce = 0;
+      if (STATE.mouseDragActive) {
+        manualForce = (STATE.mouseWorldY - 150) * 0.4;
+      }
+
+      STATE.beamTargetY = 150 + staticTargetDeflection + seismicOffset + manualForce;
+
+      // Spring dynamics
+      const k = STATE.isGummyMode ? 0.06 : 0.15; // Spring constant
+      const damping = STATE.isGummyMode ? 0.94 : 0.85; // Bouncy jelly vs heavy metal damping
+
+      STATE.beamAcceleration = (STATE.beamTargetY - STATE.beamDeflection) * k;
+      STATE.beamVelocity += STATE.beamAcceleration;
+      STATE.beamVelocity *= damping;
+      STATE.beamDeflection += STATE.beamVelocity;
+
+      // Continuous Synth audio tuning
+      const deflectionMagnitude = Math.abs(STATE.beamDeflection - 150);
+      synth.setGroan(deflectionMagnitude / 100);
+
+      const sizzleFactor = (STATE.temperature / 800) * 0.5 + (STATE.rust / 100) * 0.5;
+      synth.setSizzle(sizzleFactor);
+
+      // Update Health displays
+      healthModulus.innerText = `${STATE.effectiveModulus.toFixed(1)} GPa`;
+      healthDeflection.innerText = `${(deflectionMagnitude * 1.5).toFixed(1)} mm`;
+      healthPaint.innerText = STATE.isPainted ? "Coated (Immune)" : "None";
+      
+      let condition = "Perfect";
+      healthState.className = "text-xs font-bold font-orbitron";
+      if (STATE.rust > 40) {
+        condition = "Corroded";
+        healthState.classList.add('text-amber-600');
+      } else if (STATE.temperature > 500) {
+        condition = "Thermal Melt";
+        healthState.classList.add('text-neonPink');
+      } else if (STATE.isGummyMode) {
+        condition = "Gummy Jelly";
+        healthState.classList.add('text-pink-400');
+      } else {
+        condition = "Strong Steel";
+        healthState.classList.add('text-brightLime');
+      }
+      healthState.innerText = condition;
+
+      // Update temperature fire warnings
+      if (STATE.temperature > 400) {
+        canvasWarningLabel.classList.remove('hidden');
+      } else {
+        canvasWarningLabel.classList.add('hidden');
+      }
+    }
+
+    // ================= PARTICLE PHYSICS =================
+    class Particle {
+      constructor(type, x, y) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 4;
+        this.vy = (Math.random() - 0.5) * 4;
+        this.size = Math.random() * 6 + 2;
+        this.alpha = 1.0;
+        this.color = '#fff';
+
+        if (type === 'fire') {
+          this.color = `hsl(${Math.random() * 30 + 15}, 100%, 60%)`;
+          this.vy = -Math.random() * 3 - 1;
+        } else if (type === 'rust') {
+          this.color = `hsl(${Math.random() * 15 + 20}, 70%, 35%)`;
+          this.vy = Math.random() * 2 + 0.5;
+        } else if (type === 'paint') {
+          this.color = `hsl(${Math.random() * 40 + 170}, 100%, 65%)`;
+        } else if (type === 'spark') {
+          this.color = '#39ff14';
+          this.vx = (Math.random() - 0.5) * 8;
+          this.vy = (Math.random() - 0.5) * 8;
+        }
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= 0.02;
+        if (this.type === 'rust') {
+          // Fall downwards like dirt
+          this.vy += 0.05;
+        }
+      }
+
+      draw(c) {
+        c.save();
+        c.globalAlpha = this.alpha;
+        c.fillStyle = this.color;
+        c.beginPath();
+        c.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    function spawnParticles(type, x, y, count) {
+      for (let i = 0; i < count; i++) {
+        STATE.particles.push(new Particle(type, x, y));
+      }
+    }
+
+    // ================= CANVAS DRAW LOOP =================
+    function render() {
+      // Clear Screen
+      ctx.fillStyle = '#090b0f';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw cyber background grids with minor stress bending deformation
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.03)';
+      ctx.lineWidth = 1;
+      const gridSpacing = 30;
+      
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+
+      for (let x = 0; x < width; x += gridSpacing) {
+        ctx.beginPath();
+        for (let y = 0; y < height; y += 10) {
+          // Warp vertical gridlines slightly around center deflection
+          const dx = x - width / 2;
+          const dy = y - 150;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          let warpX = x;
+          if (dist < 180) {
+            const factor = (1 - (dist / 180));
+            warpX += (STATE.beamDeflection - 150) * factor * 0.15;
+          }
+          if (y === 0) ctx.moveTo(warpX, y);
+          else ctx.lineTo(warpX, y);
+        }
+        ctx.stroke();
+      }
+
+      // Draw support stanchions on left and right
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = '#323949';
+      
+      // Left Support
+      ctx.beginPath();
+      ctx.moveTo(40, 150);
+      ctx.lineTo(20, 210);
+      ctx.lineTo(60, 210);
+      ctx.closePath();
+      ctx.fillStyle = '#171a22';
+      ctx.fill();
+      ctx.stroke();
+
+      // Right Support
+      ctx.beginPath();
+      ctx.moveTo(width - 40, 150);
+      ctx.lineTo(width - 60, 210);
+      ctx.lineTo(width - 20, 210);
+      ctx.closePath();
+      ctx.fillStyle = '#171a22';
+      ctx.fill();
+      ctx.stroke();
+
+      // ================= DRAW THE BEAM =================
+      const beamL = width - 80;
+      const segments = 60;
+      const beamDefX = width / 2;
+
+      ctx.save();
+      
+      // Determine coloring based on mode, temperature, and corrosion
+      let beamColor = 'url(#metalGrad)';
+      let beamStroke = '#00f0ff';
+      
+      const rustRatio = STATE.rust / 100;
+      const heatRatio = Math.max(0, (STATE.temperature - 20) / 780);
+
+      // Gradient Setup
+      const beamGradient = ctx.createLinearGradient(40, 0, width - 40, 0);
+      if (STATE.isGummyMode) {
+        beamGradient.addColorStop(0, `hsla(330, 95%, 60%, 0.8)`);
+        beamGradient.addColorStop(0.5, `hsla(280, 95%, 70%, 0.8)`);
+        beamGradient.addColorStop(1, `hsla(330, 95%, 60%, 0.8)`);
+        beamStroke = '#ff007f';
+      } else {
+        // Base Steel
+        let baseR = Math.floor(30 + heatRatio * 200 + rustRatio * 70);
+        let baseG = Math.floor(210 - heatRatio * 180 - rustRatio * 150);
+        let baseB = Math.floor(255 - heatRatio * 230 - rustRatio * 200);
+        
+        beamStroke = `rgb(${baseR}, ${baseG}, ${baseB})`;
+        beamGradient.addColorStop(0, '#1c2331');
+        beamGradient.addColorStop(0.5, `rgb(${baseR - 10}, ${baseG - 30}, ${baseB - 30})`);
+        beamGradient.addColorStop(1, '#1c2331');
+      }
+
+      ctx.fillStyle = beamGradient;
+      ctx.strokeStyle = beamStroke;
+      ctx.lineWidth = STATE.isGummyMode ? 14 : 10;
+
+      // Plot elastic structural curve (Midpoint parabolic bending approximation)
+      ctx.beginPath();
+      for (let i = 0; i <= segments; i++) {
+        const segX = 40 + (beamL / segments) * i;
+        
+        // Parabolic equation tracking midpoint deflection
+        const relX = (segX - 40) / beamL; // 0 to 1
+        const deltaY = (STATE.beamDeflection - 150) * 16 * (Math.pow(relX, 2) * Math.pow(1 - relX, 2));
+
+        const nodeY = 150 + deltaY;
+
+        if (i === 0) ctx.moveTo(segX, nodeY);
+        else ctx.lineTo(segX, nodeY);
+      }
+      ctx.stroke();
+
+      // Top flange details of wide-flange I-beam
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = STATE.isPainted ? '#39ff14' : 'rgba(255,255,255,0.1)';
+      ctx.beginPath();
+      for (let i = 0; i <= segments; i++) {
+        const segX = 40 + (beamL / segments) * i;
+        const relX = (segX - 40) / beamL;
+        const deltaY = (STATE.beamDeflection - 150) * 16 * (Math.pow(relX, 2) * Math.pow(1 - relX, 2));
+        
+        // Offset upwards for flange thickness
+        const nodeY = 142 + deltaY;
+        if (i === 0) ctx.moveTo(segX, nodeY);
+        else ctx.lineTo(segX, nodeY);
+      }
+      ctx.stroke();
+
+      // Connect top and bottom flanges visually if not in gummy bear mode
+      if (!STATE.isGummyMode) {
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.05)';
+        ctx.beginPath();
+        for (let i = 0; i <= segments; i++) {
+          const segX = 40 + (beamL / segments) * i;
+          const relX = (segX - 40) / beamL;
+          const deltaY = (STATE.beamDeflection - 150) * 16 * (Math.pow(relX, 2) * Math.pow(1 - relX, 2));
+          ctx.lineTo(segX, 142 + deltaY);
+        }
+        for (let i = segments; i >= 0; i--) {
+          const segX = 40 + (beamL / segments) * i;
+          const relX = (segX - 40) / beamL;
+          const deltaY = (STATE.beamDeflection - 150) * 16 * (Math.pow(relX, 2) * Math.pow(1 - relX, 2));
+          ctx.lineTo(segX, 158 + deltaY);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+
+      // Draw heavy elephant indicator block if loaded
+      if (STATE.load > 20) {
+        ctx.save();
+        ctx.translate(width / 2, STATE.beamDeflection - 25);
+        ctx.fillStyle = '#ffaa00';
+        ctx.beginPath();
+        ctx.arc(0, 0, 14, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#0d0f14';
+        ctx.font = '10px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('kN', 0, 0);
+        ctx.restore();
+      }
+
+      ctx.restore();
+
+      // ================= DRAW PARTICLES =================
+      STATE.particles = STATE.particles.filter(p => p.alpha > 0);
+      STATE.particles.forEach(p => {
+        p.update();
+        p.draw(ctx);
+      });
+
+      // Ambient system spawns (Fire/Rust clouds active)
+      if (STATE.temperature > 300) {
+        spawnParticles('fire', Math.random() * width, height - 10, 1);
+      }
+      if (STATE.rust > 10 && Math.random() < 0.2) {
+        spawnParticles('rust', Math.random() * width, 10, 1);
+      }
+    }
+
+    // ================= LOOPING FRAME SYNC =================
+    function frame() {
+      updatePhysics();
+      render();
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    // ================= POINTER SWEEPING MANUAL BENDING =================
+    canvas.addEventListener('mousedown', (e) => {
+      if (!STATE.isAudioInitialized) synth.init();
+      
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Trigger tracking if mouse is near center of the span vertical line
+      if (Math.abs(mouseX - rect.width / 2) < 200 && Math.abs(mouseY - 150) < 100) {
+        STATE.mouseDragActive = true;
+        STATE.mouseWorldX = mouseX;
+        STATE.mouseWorldY = mouseY;
+        spawnParticles('spark', mouseX, mouseY, 15);
+      }
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (STATE.mouseDragActive) {
+        STATE.mouseWorldX = mouseX;
+        STATE.mouseWorldY = mouseY;
+        
+        // Calculate artificial stress readout value
+        const deltaStrain = Math.abs(mouseY - 150) * 12500;
+        mouseStressDisplay.innerText = `${deltaStrain.toLocaleString()} N/m²`;
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (STATE.mouseDragActive) {
+        STATE.mouseDragActive = false;
+        mouseStressDisplay.innerText = "0.00 N/m²";
+      }
+    });
+
+    // Touch Support for Mobile / Tablets
+    canvas.addEventListener('touchstart', (e) => {
+      if (!STATE.isAudioInitialized) synth.init();
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const mouseX = touch.clientX - rect.left;
+      const mouseY = touch.clientY - rect.top;
+
+      if (Math.abs(mouseX - rect.width / 2) < 200 && Math.abs(mouseY - 150) < 100) {
+        STATE.mouseDragActive = true;
+        STATE.mouseWorldX = mouseX;
+        STATE.mouseWorldY = mouseY;
+        spawnParticles('spark', mouseX, mouseY, 15);
+      }
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const mouseX = touch.clientX - rect.left;
+      const mouseY = touch.clientY - rect.top;
+
+      if (STATE.mouseDragActive) {
+        STATE.mouseWorldX = mouseX;
+        STATE.mouseWorldY = mouseY;
+        const deltaStrain = Math.abs(mouseY - 150) * 12500;
+        mouseStressDisplay.innerText = `${deltaStrain.toLocaleString()} N/m²`;
+      }
+    });
+
+    canvas.addEventListener('touchend', () => {
+      STATE.mouseDragActive = false;
+      mouseStressDisplay.innerText = "0.00 N/m²";
+    });
+
+    // ================= INTERACTIVE MODES =================
+    // Gummy Bear Mode Toggle
+    gummyBtn.addEventListener('click', () => {
+      STATE.isGummyMode = !STATE.isGummyMode;
+      gummyStatus.innerText = STATE.isGummyMode ? "ON" : "OFF";
+      
+      if (STATE.isGummyMode) {
+        gummyStatus.className = "text-brightLime uppercase font-bold";
+        gummyBtn.classList.remove('border-neonPink/30', 'bg-neonPink/10');
+        gummyBtn.classList.add('border-brightLime/30', 'bg-brightLime/10');
+        MisterSteelSpeech.speak("Squish! Gummy Bear mode is ACTIVE! Look how ultra stretchy and bouncy my structures become. We transformed from rigid structural carbon into bouncy gelatin!");
+      } else {
+        gummyStatus.className = "text-neonPink uppercase font-bold";
+        gummyBtn.classList.remove('border-brightLime/30', 'bg-brightLime/10');
+        gummyBtn.classList.add('border-neonPink/30', 'bg-neonPink/10');
+        MisterSteelSpeech.speak("Clank! Solid carbon steel is back. The structural elastic modulus is fully restored to two hundred gigapascals!");
+      }
+      
+      // Plop audio FX
+      if (STATE.isAudioInitialized) synth.triggerPlop();
+    });
+
+    // Voice Toggle
+    voiceNarrateBtn.addEventListener('click', () => {
+      STATE.isVoiceEnabled = !STATE.isVoiceEnabled;
+      if (STATE.isVoiceEnabled) {
+        voiceNarrateBtn.innerHTML = "🔊 <span class='text-brightLime'>MISTER STEEL VOICE: ON</span>";
+        MisterSteelSpeech.speak("Hooray, I can talk! Turn on your speakers to hear structural mechanical design advice!");
+      } else {
+        voiceNarrateBtn.innerHTML = "🔇 <span class='text-slate-400'>MISTER STEEL VOICE: OFF</span>";
+        window.speechSynthesis.cancel();
+      }
+    });
+
+    // Modal start triggering audio context
+    modalStartBtn.addEventListener('click', () => {
+      synth.init();
+      modalOverlay.classList.add('opacity-0');
+      setTimeout(() => {
+        modalOverlay.classList.add('hidden');
+      }, 300);
+      
+      // Initial playful greeting
+      MisterSteelSpeech.speak("Hey there! Welcome to the Steel Toybox! I'm Mister Steel. Drag toys from the bottom shelf onto me, adjust the sliders, and let's explore building science together!");
+    });
+
+    // ================= GAMIFIED GOALS VERIFICATION =================
+    function checkGoalCompletion(id) {
+      if (STATE.goals[id]) return; // Already solved
+      
+      let element = null;
+      let checkbox = null;
+
+      if (id === 'melt' && STATE.temperature >= 500) {
+        STATE.goals.melt = true;
+        element = document.getElementById('goal-melt');
+        checkbox = document.getElementById('chk-melt');
+      } else if (id === 'rust' && STATE.rust >= 75) {
+        STATE.goals.rust = true;
+        element = document.getElementById('goal-rust');
+        checkbox = document.getElementById('chk-rust');
+      } else if (id === 'titan' && STATE.load >= 100) {
+        STATE.goals.titan = true;
+        element = document.getElementById('goal-titan');
+        checkbox = document.getElementById('chk-titan');
+      } else if (id === 'shield' && STATE.isPainted) {
+        STATE.goals.shield = true;
+        element = document.getElementById('goal-shield');
+        checkbox = document.getElementById('chk-shield');
+      } else if (id === 'quake' && STATE.seismicTimer > 0) {
+        STATE.goals.quake = true;
+        element = document.getElementById('goal-quake');
+        checkbox = document.getElementById('chk-quake');
+      }
+
+      if (element && checkbox) {
+        checkbox.checked = true;
+        element.classList.remove('bg-slate-900/50', 'border-white/5');
+        element.classList.add('bg-brightLime/10', 'border-brightLime', 'pulse-glow-cyan');
+        
+        // Spark effect
+        spawnParticles('spark', canvas.width / 2, 150, 40);
+        synth.triggerSuccessChime();
+        MisterSteelSpeech.speak(`Fantastic! You unlocked the ${id} curiosity challenge goal!`);
+      }
+    }
+  </script>
+</body>
+</html>

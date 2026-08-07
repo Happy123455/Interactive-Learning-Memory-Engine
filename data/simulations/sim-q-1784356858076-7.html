@@ -1,0 +1,1504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregate Impact Test Simulation - Cyber Laboratory</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --accent-cyan: #22d3ee;
+            --accent-cyan-glow: rgba(34, 211, 238, 0.3);
+            --accent-rose: #f43f5e;
+            --accent-rose-glow: rgba(244, 63, 94, 0.3);
+            --accent-emerald: #10b981;
+            --accent-emerald-glow: rgba(16, 185, 129, 0.3);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: var(--font-family);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Background grid overlay */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: linear-gradient(rgba(34, 211, 238, 0.03) 1px, transparent 1px),
+                              linear-gradient(90deg, rgba(34, 211, 238, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            z-index: -1;
+            pointer-events: none;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent-cyan), #06b6d4);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 15px var(--accent-cyan-glow);
+            font-weight: bold;
+            color: var(--bg-color);
+        }
+
+        .logo-text h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-text p {
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 600;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .btn-toggle {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+
+        .btn-toggle:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan-glow);
+        }
+
+        .btn-toggle.active {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+        }
+
+        /* Main Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Shared Glass Panel Styling */
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            backdrop-filter: blur(12px);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            transition: border-color 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 0.75rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-subtitle {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            margin-top: -0.75rem;
+        }
+
+        /* Controls Panel Specifics */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+
+        .control-val {
+            color: var(--accent-cyan);
+            font-family: monospace;
+        }
+
+        .range-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #1e293b;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .range-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan);
+            transition: scale 0.1s ease;
+        }
+
+        .range-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Specimen Drag & Drop Area */
+        .drag-container {
+            border: 2px dashed rgba(34, 211, 238, 0.3);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.3s ease;
+            background: rgba(34, 211, 238, 0.02);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .drag-container:active {
+            cursor: grabbing;
+        }
+
+        .drag-container.drag-over {
+            border-color: var(--accent-cyan);
+            background: rgba(34, 211, 238, 0.1);
+            box-shadow: 0 0 20px var(--accent-cyan-glow);
+        }
+
+        .drag-icon {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            display: inline-block;
+            transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .drag-container:hover .drag-icon {
+            transform: translateY(-5px);
+        }
+
+        .drag-container p {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+        }
+
+        .drag-container strong {
+            color: var(--text-primary);
+        }
+
+        /* Material Tray / Items styling */
+        .sample-tray {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+
+        .sample-item {
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: grab;
+            position: relative;
+            transition: all 0.2s;
+        }
+
+        .sample-item:hover {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 10px var(--accent-cyan-glow);
+        }
+
+        /* Main Simulator Viewport */
+        .viewport-panel {
+            position: relative;
+            min-height: 450px;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+        }
+
+        #sim-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Action triggers */
+        .trigger-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 1rem;
+            border-top: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.9);
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan), #0891b2);
+            color: #0f172a;
+            border: none;
+            padding: 0.85rem;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px var(--accent-cyan-glow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 211, 238, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary:disabled {
+            background: #334155;
+            color: #64748b;
+            cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 0.85rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: var(--text-secondary);
+        }
+
+        /* Analytical / Math / Chart Panel */
+        .chart-box {
+            height: 180px;
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        #chart-canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Latex-style Math Renderer block */
+        .math-block {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .math-title {
+            font-size: 0.75rem;
+            color: var(--accent-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            align-self: flex-start;
+            font-weight: 600;
+        }
+
+        .formula-container {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-family: 'Cambria', 'Georgia', serif;
+            font-style: italic;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            user-select: none;
+        }
+
+        .fraction {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            font-size: 0.9em;
+            padding: 0 0.25rem;
+            vertical-align: middle;
+        }
+
+        .fraction .numerator {
+            border-bottom: 1px solid var(--text-primary);
+            padding-bottom: 2px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .fraction .denominator {
+            padding-top: 2px;
+            text-align: center;
+            width: 100%;
+        }
+
+        .live-value {
+            color: var(--accent-rose);
+            font-weight: bold;
+            font-style: normal;
+        }
+
+        /* Data table showing variables */
+        .var-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+
+        .var-table th, .var-table td {
+            padding: 0.5rem;
+            text-align: left;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .var-table th {
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .var-table td strong {
+            font-family: monospace;
+            color: var(--accent-cyan);
+        }
+
+        /* Overlay indicator messages in Canvas */
+        .canvas-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            border-radius: 8px;
+            padding: 0.5rem 0.75rem;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--accent-cyan);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        .pulsing-dot {
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent-cyan);
+            border-radius: 50%;
+            animation: pulse-glow 1.5s infinite;
+        }
+
+        @keyframes pulse-glow {
+            0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 8px rgba(34, 211, 238, 0); }
+            100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(34, 211, 238, 0); }
+        }
+
+        /* Guide instructions popup */
+        .step-info-card {
+            background: rgba(34, 211, 238, 0.05);
+            border-left: 4px solid var(--accent-cyan);
+            padding: 1rem;
+            border-radius: 4px 12px 12px 4px;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: var(--text-secondary);
+        }
+
+        .step-info-card strong {
+            color: var(--text-primary);
+            display: block;
+            margin-bottom: 0.25rem;
+        }
+
+        /* Drag representation class */
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        /* Standard responsive fixes for canvases */
+        canvas {
+            display: block;
+        }
+
+        /* Sieve dynamic area */
+        .sieve-results {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .sieve-stat {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        .sieve-stat .lbl {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+            margin-bottom: 0.25rem;
+            text-transform: uppercase;
+        }
+
+        .sieve-stat .val {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+
+        .badge-success { background: rgba(16, 185, 129, 0.1); color: var(--accent-emerald); border: 1px solid var(--accent-emerald); }
+        .badge-warning { background: rgba(245, 158, 11, 0.1); color: #f59e0b; border: 1px solid #f59e0b; }
+        .badge-danger { background: rgba(244, 63, 94, 0.1); color: var(--accent-rose); border: 1px solid var(--accent-rose); }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-area">
+            <div class="logo-icon">A</div>
+            <div class="logo-text">
+                <h1>Aggregate Impact Lab</h1>
+                <p>Cybernetic Materials Testing Facility</p>
+            </div>
+        </div>
+        <div class="header-controls">
+            <button class="btn-toggle active" id="btn-narrator" title="Narrate testing phases with audio output">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                Narrator On
+            </button>
+            <button class="btn-toggle" id="btn-sound" title="Synthesized impact sounds">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+                Audio SFX
+            </button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Control / Settings Column -->
+        <div class="panel">
+            <div class="panel-title">1. Specimen Parameters</div>
+            <div class="panel-subtitle">Setup material constraints & sample sizing</div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Oven-Dried Weight (W₁)</span>
+                    <span class="control-val" id="weight-lbl">350.0 g</span>
+                </div>
+                <input type="range" class="range-slider" id="input-weight" min="300" max="400" step="1" value="350">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Hammer Drop Height</span>
+                    <span class="control-val" id="height-lbl">380 mm</span>
+                </div>
+                <input type="range" class="range-slider" id="input-height" min="300" max="450" step="5" value="380">
+            </div>
+
+            <div class="control-group">
+                <div class="control-label">
+                    <span>Aggregates Class</span>
+                    <span class="control-val" style="color: var(--accent-emerald);">Trap Rock (Tough)</span>
+                </div>
+            </div>
+
+            <div class="panel-title" style="margin-top: 0.5rem;">2. Loading Area</div>
+            <div class="panel-subtitle">Drag aggregate particles box into testing apparatus</div>
+
+            <div class="drag-container" id="draggable-sample" draggable="true">
+                <div class="drag-icon" id="specimen-icon">💎</div>
+                <p>Drag specimen tray into <strong>testing chamber</strong></p>
+                <div class="sample-tray">
+                    <div style="font-size: 0.75rem; background: rgba(255,255,255,0.05); padding: 0.25rem 0.5rem; border-radius: 4px; border: 1px solid var(--border-color)">Oven-Dried (W₁)</div>
+                </div>
+            </div>
+
+            <div class="step-info-card" id="narrator-subtitles">
+                <strong>Lab Assistant Instruction</strong>
+                Drag the aggregate specimen directly into the simulator's collection cup to prepare the impact sequence.
+            </div>
+        </div>
+
+        <!-- Simulation Viewport Column -->
+        <div class="panel viewport-panel">
+            <div class="panel-title">
+                <span>Testing Chamber View</span>
+                <span class="pulsing-dot" style="margin-left:0.5rem;"></span>
+            </div>
+            
+            <div class="canvas-container" id="canvas-container">
+                <div class="canvas-overlay" id="overlay-msg">
+                    <div class="pulsing-dot"></div>
+                    <span id="overlay-text">Awaiting specimen insertion</span>
+                </div>
+                <canvas id="sim-canvas"></canvas>
+            </div>
+
+            <div class="trigger-bar">
+                <button class="btn-secondary" id="btn-reset">Reset Lab</button>
+                <button class="btn-primary" id="btn-strike" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:inline-block; vertical-align:middle; margin-right:4px;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                    Release Hammer
+                </button>
+            </div>
+        </div>
+
+        <!-- Mathematical Analysis Column -->
+        <div class="panel">
+            <div class="panel-title">3. Dynamic Real-time Calculations</div>
+            <div class="panel-subtitle">Deformation vs Impact Energy Curve</div>
+
+            <div class="chart-box">
+                <canvas id="chart-canvas"></canvas>
+            </div>
+
+            <div class="math-block">
+                <div class="math-title">Formula Representation</div>
+                <div class="formula-container">
+                    <span>AIV (%)</span>
+                    <span>=</span>
+                    <span class="fraction">
+                        <span class="numerator">W₂</span>
+                        <span class="denominator">W₁</span>
+                    </span>
+                    <span>× 100</span>
+                    <span>=</span>
+                    <span class="live-value" id="math-output">-- %</span>
+                </div>
+            </div>
+
+            <div class="panel-title">4. Material Sieve Recovery</div>
+            <div class="sieve-results">
+                <div class="sieve-stat">
+                    <div class="lbl">Total Mass (W₁)</div>
+                    <div class="val" id="stat-w1">350.0g</div>
+                </div>
+                <div class="sieve-stat">
+                    <div class="lbl">Sieved (W₂ &lt; 2.36mm)</div>
+                    <div class="val" id="stat-w2">0.0g</div>
+                </div>
+            </div>
+
+            <table class="var-table">
+                <thead>
+                    <tr>
+                        <th>Material Parameter</th>
+                        <th>Standard Value</th>
+                        <th>Experimental Result</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Hammer Weight</td>
+                        <td>14.0 kg</td>
+                        <td><strong>14.0 kg</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Impact Energy</td>
+                        <td>380 mm (standard)</td>
+                        <td id="table-energy">-- J</td>
+                    </tr>
+                    <tr>
+                        <td>Toughness Status</td>
+                        <td>Sieve Check</td>
+                        <td><span class="badge badge-warning" id="rating-badge">Unfinished</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script>
+        // High fidelity architecture using modular structure
+
+        // ------------------
+        // AUDIO & SYNTH ENGINE
+        // ------------------
+        class AudioManager {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playClick() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.12);
+            }
+
+            playSlider() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(200, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.06);
+            }
+
+            playCrash() {
+                if (!this.enabled) return;
+                this.init();
+
+                // Low thud synth
+                const osc = this.ctx.createOscillator();
+                const lowGain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(90, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(10, this.ctx.currentTime + 0.4);
+                
+                lowGain.gain.setValueAtTime(0.8, this.ctx.currentTime);
+                lowGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.4);
+                
+                osc.connect(lowGain);
+                lowGain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.45);
+
+                // High-velocity white-noise debris sound
+                const bufferSize = this.ctx.sampleRate * 0.35;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noiseNode = this.ctx.createBufferSource();
+                noiseNode.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 600;
+                filter.Q.value = 1.2;
+
+                const noiseGain = this.ctx.createGain();
+                noiseGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+
+                noiseNode.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(this.ctx.destination);
+
+                noiseNode.start();
+            }
+        }
+
+        // ------------------
+        // NARRATOR / VOICE ENGINE
+        // ------------------
+        class Narrator {
+            constructor() {
+                this.enabled = true;
+                this.subtitleEl = document.getElementById('narrator-subtitles');
+            }
+
+            speak(text) {
+                // Update screen helper text (subtitles)
+                if (this.subtitleEl) {
+                    this.subtitleEl.innerHTML = `<strong>Lab Assistant</strong> ${text}`;
+                }
+
+                if (!this.enabled || !window.speechSynthesis) return;
+                window.speechSynthesis.cancel(); // Stop ongoing voices
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.95;
+                utterance.pitch = 1.0;
+                
+                // Try finding a nice system voice
+                const voices = window.speechSynthesis.getVoices();
+                const premiumVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural") || v.name.includes("Microsoft Zira"));
+                if (premiumVoice) {
+                    utterance.voice = premiumVoice;
+                }
+                
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        // ------------------
+        // PHYSICS & RENDERING ENGINE (CANVAS)
+        // ------------------
+        class PhysicsEngine {
+            constructor(canvasId, onHitCallback) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.onHit = onHitCallback;
+
+                this.hammerY = 40; // Starts top
+                this.guideHeightVal = 380; // Default height representation
+                this.isDropping = false;
+                this.velocity = 0;
+                this.gravity = 0.8;
+                this.hasAggregate = false;
+                this.particles = [];
+                this.vectors = [];
+                this.screenshake = 0;
+                
+                // Set sizes
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+                
+                this.animate();
+            }
+
+            resize() {
+                const parent = this.canvas.parentElement;
+                this.canvas.width = parent.clientWidth * window.devicePixelRatio;
+                this.canvas.height = parent.clientHeight * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.width = parent.clientWidth;
+                this.height = parent.clientHeight;
+            }
+
+            loadAggregate() {
+                this.hasAggregate = true;
+                this.particles = [];
+                const originX = this.width / 2;
+                const originY = this.height - 40;
+                
+                // Seed some rock particles inside the test cylinder
+                for (let i = 0; i < 42; i++) {
+                    this.particles.push({
+                        offsetX: (Math.random() - 0.5) * 34,
+                        offsetY: (Math.random() - 0.5) * 15 - 5,
+                        radius: Math.random() * 4 + 4,
+                        color: `hsl(${190 + Math.random() * 30}, 10%, ${40 + Math.random() * 20}%)`,
+                        shapeAngle: Math.random() * Math.PI * 2,
+                        cracked: false
+                    });
+                }
+            }
+
+            dropHammer() {
+                this.isDropping = true;
+                this.velocity = 0.5;
+            }
+
+            reset() {
+                this.hammerY = this.height - 180 - (this.guideHeightVal * 0.4);
+                this.isDropping = false;
+                this.velocity = 0;
+                this.hasAggregate = false;
+                this.particles = [];
+                this.vectors = [];
+                this.screenshake = 0;
+            }
+
+            updateHeight(val) {
+                this.guideHeightVal = val;
+                if (!this.isDropping) {
+                    // Adjust starting hammer position visual
+                    this.hammerY = this.height - 180 - (val * 0.4);
+                }
+            }
+
+            animate() {
+                requestAnimationFrame(() => this.animate());
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                if (this.screenshake > 0.1) {
+                    this.ctx.save();
+                    const dx = (Math.random() - 0.5) * this.screenshake;
+                    const dy = (Math.random() - 0.5) * this.screenshake;
+                    this.ctx.translate(dx, dy);
+                    this.screenshake *= 0.9;
+                }
+
+                this.drawApparatus();
+                
+                if (this.screenshake > 0.1) {
+                    this.ctx.restore();
+                }
+            }
+
+            drawApparatus() {
+                const centerX = this.width / 2;
+                const bottomY = this.height - 30;
+
+                // 1. Structure Base Plinth
+                this.ctx.fillStyle = '#1e293b';
+                this.ctx.strokeStyle = '#334155';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                this.ctx.roundRect(centerX - 90, bottomY, 180, 20, 4);
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                // 2. Guide Rails / Pillars
+                this.ctx.strokeStyle = '#475569';
+                this.ctx.lineWidth = 6;
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX - 45, bottomY);
+                this.ctx.lineTo(centerX - 45, 50);
+                this.ctx.moveTo(centerX + 45, bottomY);
+                this.ctx.lineTo(centerX + 45, 50);
+                this.ctx.stroke();
+
+                // Guide Scale indicators (glowing tick lines)
+                this.ctx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.font = '8px monospace';
+                this.ctx.fillStyle = 'var(--text-secondary)';
+                for (let h = 0; h <= 150; h += 30) {
+                    const tickY = bottomY - 60 - h;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(centerX - 50, tickY);
+                    this.ctx.lineTo(centerX - 45, tickY);
+                    this.ctx.stroke();
+                    this.ctx.fillText(`${(h * 2.5).toFixed(0)}mm`, centerX - 85, tickY + 3);
+                }
+
+                // 3. Mold / Aggregates Cup
+                this.ctx.fillStyle = '#0f172a';
+                this.ctx.strokeStyle = '#64748b';
+                this.ctx.lineWidth = 4;
+                this.ctx.beginPath();
+                this.ctx.roundRect(centerX - 30, bottomY - 35, 60, 35, [0, 0, 8, 8]);
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                // Highlight neon top of cup
+                this.ctx.strokeStyle = 'rgba(34, 211, 238, 0.6)';
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX - 30, bottomY - 35);
+                this.ctx.lineTo(centerX + 30, bottomY - 35);
+                this.ctx.stroke();
+
+                // Draw Specimen Particles in cup if filled
+                if (this.hasAggregate) {
+                    this.particles.forEach(p => {
+                        this.ctx.fillStyle = p.color;
+                        this.ctx.save();
+                        this.ctx.translate(centerX + p.offsetX, bottomY - 20 + p.offsetY);
+                        this.ctx.rotate(p.shapeAngle);
+                        
+                        this.ctx.beginPath();
+                        if (p.cracked) {
+                            // Draw smaller shattered fragment shapes
+                            this.ctx.moveTo(-p.radius, -p.radius/2);
+                            this.ctx.lineTo(p.radius/2, -p.radius);
+                            this.ctx.lineTo(p.radius/2, p.radius/2);
+                        } else {
+                            // Solid rocky polygon shape
+                            this.ctx.moveTo(-p.radius, 0);
+                            this.ctx.lineTo(-p.radius/2, -p.radius);
+                            this.ctx.lineTo(p.radius/2, -p.radius);
+                            this.ctx.lineTo(p.radius, 0);
+                            this.ctx.lineTo(p.radius/2, p.radius);
+                        }
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    });
+                }
+
+                // 4. Hammer Kinematics & Physics update
+                const targetY = bottomY - 35 - 30; // Collision boundary Y
+                
+                if (this.isDropping) {
+                    this.velocity += this.gravity;
+                    this.hammerY += this.velocity;
+                    
+                    if (this.hammerY >= targetY) {
+                        this.hammerY = targetY;
+                        this.isDropping = false;
+                        this.velocity = 0;
+                        this.triggerImpact();
+                    }
+                }
+
+                // Draw Hammer
+                this.ctx.fillStyle = 'linear-gradient(to right, #475569, #1e293b)';
+                this.ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                this.ctx.lineWidth = 2.5;
+                this.ctx.beginPath();
+                this.ctx.roundRect(centerX - 24, this.hammerY, 48, 30, 4);
+                this.ctx.fill();
+                this.ctx.stroke();
+
+                // Hammer design accents
+                this.ctx.fillStyle = '#64748b';
+                this.ctx.fillRect(centerX - 8, this.hammerY - 12, 16, 12);
+                
+                // Dynamic Glowing energy line on hammer
+                this.ctx.strokeStyle = varColor('--accent-cyan');
+                this.ctx.shadowBlur = 10;
+                this.ctx.shadowColor = varColor('--accent-cyan');
+                this.ctx.lineWidth = 1.5;
+                this.ctx.beginPath();
+                this.ctx.moveTo(centerX - 20, this.hammerY + 15);
+                this.ctx.lineTo(centerX + 20, this.hammerY + 15);
+                this.ctx.stroke();
+                this.ctx.shadowBlur = 0; // reset glow
+
+                // 5. Draw force vector arrows on collision
+                this.vectors.forEach((v, index) => {
+                    this.ctx.strokeStyle = v.color;
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(centerX + v.x, bottomY - 35);
+                    this.ctx.lineTo(centerX + v.x + v.dx * v.life, bottomY - 35 + v.dy * v.life);
+                    this.ctx.stroke();
+                    
+                    // Simple arrowhead
+                    const tipX = centerX + v.x + v.dx * v.life;
+                    const tipY = bottomY - 35 + v.dy * v.life;
+                    this.ctx.fillStyle = v.color;
+                    this.ctx.beginPath();
+                    this.ctx.arc(tipX, tipY, 4, 0, Math.PI*2);
+                    this.ctx.fill();
+
+                    v.life += 0.12;
+                    if (v.life > 1) {
+                        this.vectors.splice(index, 1);
+                    }
+                });
+            }
+
+            triggerImpact() {
+                this.screenshake = 18;
+                
+                // Crush visual particles
+                this.particles.forEach(p => {
+                    if (Math.random() > 0.4) {
+                        p.cracked = true;
+                        p.offsetY += 4; // Compact downwards
+                        p.color = '#475569'; // Silt down
+                    }
+                });
+
+                // Spawn radial force vectors
+                for (let angle = 0.1; angle < Math.PI; angle += 0.4) {
+                    const power = 35 + (this.guideHeightVal * 0.12);
+                    this.vectors.push({
+                        x: (angle - Math.PI/2) * 12,
+                        dx: Math.cos(angle - Math.PI) * power,
+                        dy: Math.sin(angle - Math.PI) * power,
+                        life: 0.1,
+                        color: angle < Math.PI/2 ? 'var(--accent-rose)' : 'var(--accent-cyan)'
+                    });
+                }
+
+                // Send collision event back to controller
+                if (this.onHit) {
+                    this.onHit();
+                }
+            }
+        }
+
+        // Helper to grab CSS color variables easily
+        function varColor(name) {
+            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        }
+
+        // ------------------
+        // CHART CONTROLLER
+        // ------------------
+        class DynamicChart {
+            constructor(canvasId) {
+                this.canvas = document.getElementById(canvasId);
+                this.ctx = this.canvas.getContext('2d');
+                this.data = [];
+                this.width = this.canvas.width;
+                this.height = this.canvas.height;
+                
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+
+            resize() {
+                const parent = this.canvas.parentElement;
+                this.canvas.width = parent.clientWidth * window.devicePixelRatio;
+                this.canvas.height = parent.clientHeight * window.devicePixelRatio;
+                this.ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                this.width = parent.clientWidth;
+                this.height = parent.clientHeight;
+                this.draw();
+            }
+
+            reset() {
+                this.data = [];
+                this.draw();
+            }
+
+            populateData(maxEnergy, AIVValue) {
+                this.data = [];
+                // Build a bell-like energy/deformation response curve
+                const points = 35;
+                for (let i = 0; i <= points; i++) {
+                    const deformation = (i / points) * 6; // Max 6mm
+                    const scaleFactor = Math.sin((i / points) * Math.PI);
+                    const energy = scaleFactor * (maxEnergy * 1.8) * (1 - (AIVValue * 0.005));
+                    
+                    this.data.push({ x: deformation, y: energy });
+                }
+                this.draw();
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.width, this.height);
+
+                // Margin sizes
+                const mx = 40;
+                const my = 25;
+                const w = this.width - mx - 15;
+                const h = this.height - my - 15;
+
+                // Draw Grid
+                this.ctx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+                this.ctx.lineWidth = 1;
+                for (let col = 0; col <= 5; col++) {
+                    const gx = mx + (col / 5) * w;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(gx, my);
+                    this.ctx.lineTo(gx, my + h);
+                    this.ctx.stroke();
+                }
+                for (let row = 0; row <= 4; row++) {
+                    const gy = my + (row / 4) * h;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(mx, gy);
+                    this.ctx.lineTo(mx + w, gy);
+                    this.ctx.stroke();
+                }
+
+                // Axes lines
+                this.ctx.strokeStyle = '#475569';
+                this.ctx.lineWidth = 1.5;
+                this.ctx.beginPath();
+                this.ctx.moveTo(mx, my);
+                this.ctx.lineTo(mx, my + h);
+                this.ctx.lineTo(mx + w, my + h);
+                this.ctx.stroke();
+
+                // Labels
+                this.ctx.fillStyle = '#64748b';
+                this.ctx.font = '8px monospace';
+                this.ctx.fillText("Deformation (mm)", mx + w/2 - 40, my + h + 13);
+                
+                this.ctx.save();
+                this.ctx.translate(12, my + h/2 + 25);
+                this.ctx.rotate(-Math.PI / 2);
+                this.ctx.fillText("Energy (Joule)", 0, 0);
+                this.ctx.restore();
+
+                if (this.data.length === 0) {
+                    // Instruction message inside empty graph
+                    this.ctx.fillStyle = '#475569';
+                    this.ctx.font = '10px sans-serif';
+                    this.ctx.fillText("No Live Test Output", mx + w/2 - 50, my + h/2);
+                    return;
+                }
+
+                // Plot Curve
+                this.ctx.strokeStyle = 'var(--accent-cyan)';
+                this.ctx.lineWidth = 2.5;
+                this.ctx.beginPath();
+
+                const maxXVal = 6;
+                const maxYVal = 80;
+
+                this.data.forEach((p, idx) => {
+                    const cx = mx + (p.x / maxXVal) * w;
+                    const cy = my + h - (p.y / maxYVal) * h;
+                    
+                    if (idx === 0) {
+                        this.ctx.moveTo(cx, cy);
+                    } else {
+                        this.ctx.lineTo(cx, cy);
+                    }
+                });
+                this.ctx.stroke();
+
+                // Dynamic Area filling under graph
+                this.ctx.lineTo(mx + w, my + h);
+                this.ctx.lineTo(mx, my + h);
+                this.ctx.fillStyle = 'rgba(34, 211, 238, 0.05)';
+                this.ctx.fill();
+            }
+        }
+
+        // ------------------
+        // APPLICATION CONTROLLER
+        // ------------------
+        class UIController {
+            constructor() {
+                this.audio = new AudioManager();
+                this.narrator = new Narrator();
+                this.chart = new DynamicChart('chart-canvas');
+                this.physics = new PhysicsEngine('sim-canvas', () => this.handleImpactEvent());
+
+                // State
+                this.isSpecimenLoaded = false;
+                this.w1 = 350.0;
+                this.height = 380;
+                this.aiv = 0;
+                this.w2 = 0;
+
+                this.bindEvents();
+                
+                // Initialize voices & guide assistant
+                setTimeout(() => {
+                    this.narrator.speak('Welcome to the Aggregate Impact Test simulation. Drag the specimen into the cup to begin.');
+                }, 800);
+            }
+
+            bindEvents() {
+                // Sliders
+                const wInput = document.getElementById('input-weight');
+                wInput.addEventListener('input', (e) => {
+                    this.w1 = parseFloat(e.target.value);
+                    document.getElementById('weight-lbl').innerText = `${this.w1.toFixed(1)} g`;
+                    document.getElementById('stat-w1').innerText = `${this.w1.toFixed(1)}g`;
+                    this.audio.playSlider();
+                    this.updateCalculations();
+                });
+
+                const hInput = document.getElementById('input-height');
+                hInput.addEventListener('input', (e) => {
+                    this.height = parseInt(e.target.value);
+                    document.getElementById('height-lbl').innerText = `${this.height} mm`;
+                    this.audio.playSlider();
+                    this.physics.updateHeight(this.height);
+                    this.updateCalculations();
+                });
+
+                // Controls Toggles
+                document.getElementById('btn-sound').addEventListener('click', (e) => {
+                    const active = e.currentTarget.classList.toggle('active');
+                    this.audio.enabled = active;
+                    this.audio.playClick();
+                });
+
+                document.getElementById('btn-narrator').addEventListener('click', (e) => {
+                    const active = e.currentTarget.classList.toggle('active');
+                    this.narrator.enabled = active;
+                    if (active) {
+                        e.currentTarget.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            Narrator On`;
+                        this.narrator.speak('Voice assistant ready.');
+                    } else {
+                        e.currentTarget.innerHTML = `
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 17A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+                            Narrator Off`;
+                    }
+                });
+
+                // Drag and Drop
+                const dragZone = document.getElementById('draggable-sample');
+                const dropTarget = document.getElementById('canvas-container');
+
+                dragZone.addEventListener('dragstart', (e) => {
+                    dragZone.classList.add('dragging');
+                });
+
+                dragZone.addEventListener('dragend', () => {
+                    dragZone.classList.remove('dragging');
+                });
+
+                dropTarget.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    dropTarget.classList.add('drag-over');
+                });
+
+                dropTarget.addEventListener('dragleave', () => {
+                    dropTarget.classList.remove('drag-over');
+                });
+
+                dropTarget.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    dropTarget.classList.remove('drag-over');
+                    this.loadSpecimen();
+                });
+
+                // Touch and Click alternative loading mechanisms for accessibility
+                dragZone.addEventListener('click', () => {
+                    this.loadSpecimen();
+                });
+
+                // Action Buttons
+                document.getElementById('btn-strike').addEventListener('click', () => {
+                    this.audio.playClick();
+                    document.getElementById('btn-strike').disabled = true;
+                    this.physics.dropHammer();
+                    this.narrator.speak('Releasing 14 kilogram hammer assembly.');
+                });
+
+                document.getElementById('btn-reset').addEventListener('click', () => {
+                    this.audio.playClick();
+                    this.resetLab();
+                });
+            }
+
+            loadSpecimen() {
+                if (this.isSpecimenLoaded) return;
+                
+                this.isSpecimenLoaded = true;
+                this.physics.loadAggregate();
+                this.audio.playClick();
+
+                // UI Changes
+                document.getElementById('btn-strike').disabled = false;
+                document.getElementById('draggable-sample').style.opacity = '0.3';
+                document.getElementById('draggable-sample').style.pointerEvents = 'none';
+                
+                // Overlay text
+                document.getElementById('overlay-text').innerText = 'Chamber Armed. Ready for release';
+                
+                this.narrator.speak('Material loaded into receiving cup. Adjust hammer height using the slider, then press release.');
+            }
+
+            handleImpactEvent() {
+                // Triggers audio crash synth
+                this.audio.playCrash();
+
+                // Calculations based on height & material characteristics
+                // Base AIV is built out of formula + slight random variance
+                const basePercent = (this.height / 380) * 12.4; 
+                this.w2 = (basePercent / 100) * this.w1;
+                
+                this.updateCalculations();
+                this.physics.updateHeight(this.height); // aligns hammer height visual
+
+                // Chart updates
+                const calculatedEnergy = 14.0 * 9.81 * (this.height / 1000); // PE = mgh
+                this.chart.populateData(calculatedEnergy, this.aiv);
+
+                // Update dynamic layout indicators
+                document.getElementById('overlay-text').innerText = 'Impact Complete';
+                
+                // Narrator classification summary
+                let rating = 'Exceptionally Tough';
+                let classificationClass = 'badge-success';
+                
+                if (this.aiv > 30) {
+                    rating = 'Weak (Unsuitable)';
+                    classificationClass = 'badge-danger';
+                } else if (this.aiv > 20) {
+                    rating = 'Satisfactory';
+                    classificationClass = 'badge-warning';
+                } else if (this.aiv > 10) {
+                    rating = 'Strong';
+                }
+
+                const badge = document.getElementById('rating-badge');
+                badge.innerText = rating;
+                badge.className = `badge ${classificationClass}`;
+
+                this.narrator.speak(
+                    `Impact test completed. The computed Aggregate Impact Value is ${this.aiv.toFixed(1)} percent, indicating a ${rating} aggregate class.`
+                );
+            }
+
+            updateCalculations() {
+                if (!this.isSpecimenLoaded || this.w2 === 0) return;
+
+                // Update calculated AIV values dynamically
+                this.aiv = (this.w2 / this.w1) * 100;
+                document.getElementById('stat-w2').innerText = `${this.w2.toFixed(1)}g`;
+                document.getElementById('math-output').innerText = `${this.aiv.toFixed(1)}%`;
+                
+                const calculatedEnergy = 14.0 * 9.81 * (this.height / 1000);
+                document.getElementById('table-energy').innerText = `${calculatedEnergy.toFixed(1)} J`;
+            }
+
+            resetLab() {
+                this.isSpecimenLoaded = false;
+                this.w2 = 0;
+                this.aiv = 0;
+
+                this.physics.reset();
+                this.chart.reset();
+
+                // UI Reset
+                document.getElementById('btn-strike').disabled = true;
+                const dSample = document.getElementById('draggable-sample');
+                dSample.style.opacity = '1';
+                dSample.style.pointerEvents = 'auto';
+
+                document.getElementById('overlay-text').innerText = 'Awaiting specimen insertion';
+                document.getElementById('stat-w2').innerText = '0.0g';
+                document.getElementById('math-output').innerText = '-- %';
+                document.getElementById('table-energy').innerText = '-- J';
+
+                const badge = document.getElementById('rating-badge');
+                badge.innerText = 'Unfinished';
+                badge.className = 'badge badge-warning';
+
+                this.narrator.speak('Lab reset. Drag a new dry specimen into the machine to run another trial.');
+            }
+        }
+
+        // Boot system on DOM load
+        window.addEventListener('DOMContentLoaded', () => {
+            window.labInstance = new UIController();
+        });
+    </script>
+</body>
+</html>

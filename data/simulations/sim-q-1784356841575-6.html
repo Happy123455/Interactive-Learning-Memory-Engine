@@ -1,0 +1,1637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Hydrology: Rainwater Harvesting Simulator</title>
+  <style>
+    :root {
+      --bg-dark: #05070f;
+      --panel-bg: rgba(13, 20, 38, 0.65);
+      --panel-border: rgba(56, 189, 248, 0.15);
+      --neon-cyan: #00f0ff;
+      --neon-green: #10b981;
+      --neon-pink: #f43f5e;
+      --neon-yellow: #fbbf24;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(10, 15, 30, 0.8);
+      border-bottom: 1px solid var(--panel-border);
+      backdrop-filter: blur(12px);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand h1 {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #00f0ff, #10b981);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand span {
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--panel-border);
+      color: var(--text-primary);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn:hover {
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+      transform: translateY(-1px);
+    }
+
+    .btn:active {
+      transform: translateY(1px);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.2), rgba(16, 185, 129, 0.2));
+      border: 1px solid var(--neon-cyan);
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.35), rgba(16, 185, 129, 0.35));
+    }
+
+    .audio-indicator {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      height: 16px;
+    }
+
+    .audio-bar {
+      width: 3px;
+      height: 100%;
+      background: var(--neon-cyan);
+      border-radius: 2px;
+      animation: soundWave 1.2s infinite ease-in-out alternate;
+      animation-play-state: paused;
+    }
+
+    .audio-bar:nth-child(2) { animation-delay: 0.2s; }
+    .audio-bar:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes soundWave {
+      0% { height: 20%; }
+      100% { height: 100%; }
+    }
+
+    .app-layout {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 450px 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    .dashboard {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      overflow-y: auto;
+      max-height: calc(100vh - 120px);
+      padding-right: 0.5rem;
+    }
+
+    /* Glass Panels */
+    .glass-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 1.25rem;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+    }
+
+    .panel-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.75px;
+      margin-bottom: 1rem;
+      color: var(--neon-cyan);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    /* Control Groups */
+    .control-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+    }
+
+    .control-val {
+      font-family: monospace;
+      font-weight: 700;
+      color: var(--neon-cyan);
+    }
+
+    /* Sliders */
+    .slider-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+      transition: all 0.3s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: transform 0.1s, background-color 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Equation Engine */
+    .math-panel {
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .math-formula {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      background: rgba(10, 15, 30, 0.5);
+      border-radius: 8px;
+      padding: 1rem;
+      margin-top: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .math-block {
+      text-align: center;
+      position: relative;
+    }
+
+    .math-sym {
+      font-size: 1.5rem;
+      font-weight: bold;
+      color: var(--text-primary);
+    }
+
+    .math-term {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      display: block;
+      margin-top: 0.25rem;
+    }
+
+    .math-num {
+      display: block;
+      font-family: monospace;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--neon-green);
+      margin-top: 0.1rem;
+      transition: transform 0.2s;
+    }
+
+    .math-num.pop {
+      transform: scale(1.2);
+      color: var(--neon-cyan);
+    }
+
+    /* Preset Panel */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .btn-preset {
+      padding: 0.5rem;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+
+    /* Teleprompter / Lesson Board */
+    .lesson-panel {
+      border: 1px solid rgba(251, 191, 36, 0.3);
+    }
+
+    .lesson-progress {
+      height: 4px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 2px;
+      margin-bottom: 0.75rem;
+      overflow: hidden;
+    }
+
+    .lesson-bar {
+      height: 100%;
+      background: var(--neon-yellow);
+      width: 16.66%;
+      transition: width 0.3s ease;
+    }
+
+    .lesson-content {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      min-height: 70px;
+    }
+
+    .lesson-highlight {
+      color: var(--neon-yellow);
+      font-weight: 600;
+      text-shadow: 0 0 8px rgba(251, 191, 36, 0.2);
+    }
+
+    .lesson-nav {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 1rem;
+    }
+
+    /* Main Visual Area */
+    .visualizer-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .canvas-container {
+      position: relative;
+      flex: 1;
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      background: #080c16;
+      overflow: hidden;
+      min-height: 480px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Telemetry HUD on Canvas */
+    .hud-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      pointer-events: none;
+    }
+
+    .hud-badge {
+      background: rgba(8, 12, 22, 0.85);
+      border: 1px solid var(--panel-border);
+      padding: 0.4rem 0.75rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      backdrop-filter: blur(8px);
+    }
+
+    .hud-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--neon-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--neon-cyan);
+    }
+
+    .hud-dot.pulse {
+      animation: pulseGlow 1.5s infinite alternate;
+    }
+
+    @keyframes pulseGlow {
+      0% { transform: scale(1); opacity: 0.5; }
+      100% { transform: scale(1.3); opacity: 1; }
+    }
+
+    /* Bottom Analytics */
+    .analytics-panel {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 1.25rem;
+    }
+
+    .graph-container {
+      height: 180px;
+      background: rgba(10, 15, 30, 0.4);
+      border-radius: 8px;
+      border: 1px solid var(--panel-border);
+      position: relative;
+    }
+
+    .live-metrics {
+      display: grid;
+      grid-template-rows: 1fr 1fr;
+      gap: 0.75rem;
+    }
+
+    .metric-card {
+      background: rgba(15, 23, 42, 0.6);
+      border: 1px solid var(--panel-border);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .metric-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .metric-val {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--neon-cyan);
+      margin-top: 0.25rem;
+      font-family: monospace;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    /* Custom Responsive Logic */
+    @media (max-width: 1024px) {
+      .app-layout {
+        grid-template-columns: 1fr;
+        max-height: none;
+      }
+      .dashboard {
+        max-height: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand">
+      <h1>HydroHarvest</h1>
+      <span>Interactive Hydrology Lab</span>
+    </div>
+    <div class="audio-controls">
+      <button class="btn" id="btn-audio" onclick="toggleAudioEngine()">
+        <span>🔊 Enable Audio Feedback</span>
+        <div class="audio-indicator" id="audio-ind">
+          <div class="audio-bar"></div>
+          <div class="audio-bar"></div>
+          <div class="audio-bar"></div>
+        </div>
+      </button>
+      <button class="btn btn-primary" id="btn-narrate" onclick="toggleNarration()">
+        🎙️ Narrate Concept
+      </button>
+    </div>
+  </header>
+
+  <main class="app-layout">
+    
+    <!-- Controls Column -->
+    <section class="dashboard">
+      
+      <!-- Presets -->
+      <div class="glass-panel">
+        <h2 class="panel-title">Environmental Scenarios</h2>
+        <div class="preset-grid">
+          <button class="btn btn-preset" onclick="loadPreset('cabin')">⛺ Cabin Drizzle</button>
+          <button class="btn btn-preset" onclick="loadPreset('suburb')">🏡 Suburban Rain</button>
+          <button class="btn btn-preset" onclick="loadPreset('monsoon')">🏭 Industrial Storm</button>
+          <button class="btn btn-preset" onclick="loadPreset('green')">🌿 Soil Catchment</button>
+        </div>
+      </div>
+
+      <!-- Live Controls -->
+      <div class="glass-panel">
+        <h2 class="panel-title">System Controls</h2>
+        
+        <!-- Intensity -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Rainfall Intensity (I)</span>
+            <span><span id="label-intensity" class="control-val">50</span> mm/hr</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slide-intensity" min="0" max="120" value="50" oninput="updateSystemParams()">
+          </div>
+        </div>
+
+        <!-- Area -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Catchment Area (A)</span>
+            <span><span id="label-area" class="control-val">80</span> m²</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slide-area" min="10" max="250" value="80" oninput="updateSystemParams()">
+          </div>
+        </div>
+
+        <!-- Runoff Coeff -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Runoff Coefficient (C)</span>
+            <span><span id="label-coeff" class="control-val">0.90</span></span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slide-coeff" min="0.0" max="1.0" step="0.05" value="0.90" oninput="updateSystemParams()">
+          </div>
+        </div>
+
+        <!-- Irrigation -->
+        <div class="control-group" style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 1rem;">
+          <div class="control-label">
+            <span>Garden Irrigation Rate (Outflow)</span>
+            <span><span id="label-irrigation" class="control-val">1200</span> L/hr</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slide-irrigation" min="0" max="4000" step="100" value="1200" oninput="updateSystemParams()">
+          </div>
+        </div>
+
+        <!-- Time Warp -->
+        <div class="control-group">
+          <div class="control-label">
+            <span>Simulation Warp</span>
+            <span><span id="label-warp" class="control-val">30</span>x</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slide-warp" min="1" max="120" value="30" oninput="updateSystemParams()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Equation Box -->
+      <div class="glass-panel math-panel">
+        <h2 class="panel-title">Runoff Rate (Rational Equation)</h2>
+        <div class="math-formula">
+          <div class="math-block">
+            <span class="math-sym">Q</span>
+            <span class="math-num" id="math-q">3600</span>
+            <span class="math-term">Yield (L/h)</span>
+          </div>
+          <span class="math-sym">=</span>
+          <div class="math-block">
+            <span class="math-sym">C</span>
+            <span class="math-num" id="math-c">0.90</span>
+            <span class="math-term">Coeff</span>
+          </div>
+          <span class="math-sym">×</span>
+          <div class="math-block">
+            <span class="math-sym">I</span>
+            <span class="math-num" id="math-i">50</span>
+            <span class="math-term">mm/h</span>
+          </div>
+          <span class="math-sym">×</span>
+          <div class="math-block">
+            <span class="math-sym">A</span>
+            <span class="math-num" id="math-a">80</span>
+            <span class="math-term">m²</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Teleprompter / Lesson Board -->
+      <div class="glass-panel lesson-panel">
+        <h2 class="panel-title">Lecture Board</h2>
+        <div class="lesson-progress">
+          <div class="lesson-bar" id="lesson-progress-bar"></div>
+        </div>
+        <h3 id="lesson-title" style="font-size: 1rem; color: var(--neon-yellow); margin-bottom: 0.5rem;">Concept Overview</h3>
+        <p class="lesson-content" id="lesson-body">
+          Rainwater harvesting is a vital sustainable water management system. It collects precipitation from roof catchments to reduce stormwater runoff and provide local water supplies.
+        </p>
+        <div class="lesson-nav">
+          <button class="btn" onclick="prevLessonStep()">← Back</button>
+          <button class="btn btn-primary" onclick="nextLessonStep()">Next Concept →</button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Visualizer / Canvas Area -->
+    <section class="visualizer-container">
+      
+      <!-- Primary Interactive Canvas -->
+      <div class="canvas-container" id="canvas-container">
+        <div class="hud-overlay">
+          <div class="hud-badge">
+            <div class="hud-dot pulse"></div>
+            <span>Rain Status: <span id="hud-rain-status" style="color:var(--neon-cyan); font-weight:bold;">Active</span></span>
+          </div>
+          <div class="hud-badge">
+            <div class="hud-dot pulse" style="background-color: var(--neon-green); box-shadow: 0 0 6px var(--neon-green);"></div>
+            <span>System Balance: <span id="hud-balance" style="color:var(--neon-green); font-weight:bold;">+2400 L/hr</span></span>
+          </div>
+        </div>
+        <canvas id="harvestCanvas"></canvas>
+      </div>
+
+      <!-- Bottom Analytics -->
+      <div class="analytics-panel">
+        
+        <!-- Live Graph -->
+        <div class="graph-container">
+          <canvas id="graphCanvas"></canvas>
+        </div>
+
+        <!-- Digital Meters -->
+        <div class="live-metrics">
+          <div class="metric-card">
+            <span class="metric-label">Harvested Volume</span>
+            <span class="metric-val" id="metric-volume" style="color: var(--neon-cyan);">0 L</span>
+          </div>
+          <div class="metric-card">
+            <span class="metric-label">Drain Spill / Overflow</span>
+            <span class="metric-val" id="metric-spill" style="color: var(--neon-pink);">0 L</span>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // System Constants & Physics States
+    const SYSTEM = {
+      C: 0.90,
+      I: 50,
+      A: 80,
+      irrigation: 1200,
+      warp: 30,
+      tankVolume: 2000, // starting volume
+      tankCapacity: 5000,
+      totalHarvested: 0,
+      totalSpilled: 0,
+      lastTick: 0
+    };
+
+    // Canvas Settings
+    let canvas, ctx;
+    let graphCanvas, graphCtx;
+    let animationFrameId;
+
+    // Simulation Assets / Geometries
+    const cloudParticles = [];
+    const rainParticles = [];
+    const tankRipples = [];
+    const gardenSprays = [];
+
+    // Web Audio Synthesizer Node References
+    let audioCtx = null;
+    let isAudioEngineRunning = false;
+    let rainNoiseSource = null;
+    let rainGainNode = null;
+    let rainFilterNode = null;
+
+    // Dynamic Graphing Database
+    const graphHistory = [];
+    const maxHistoryLength = 200;
+
+    // Presets
+    const PRESETS = {
+      cabin: { C: 0.95, I: 15, A: 25, irrigation: 400, warp: 30 },
+      suburb: { C: 0.85, I: 40, A: 120, irrigation: 1500, warp: 30 },
+      monsoon: { C: 0.90, I: 110, A: 220, irrigation: 2000, warp: 15 },
+      green: { C: 0.25, I: 60, A: 140, irrigation: 800, warp: 30 }
+    };
+
+    // Pedagogy Database
+    const LESSONS = [
+      {
+        title: "Introduction",
+        body: "Welcome to the Hydrology Lab. This simulation helps you visualize rainfall collection dynamics. Use the scenarios or manually adjust sliders to interact with the environment.",
+        setup: () => {},
+        highlight: "collection"
+      },
+      {
+        title: "The Hydrological Equation",
+        body: "Hydrologists measure yield using the Rational Method: <span class='lesson-highlight'>Q = C × I × A</span>. Q represents runoff rate, driving the total volume of rain entering our collector system.",
+        setup: () => {},
+        highlight: "Q = C"
+      },
+      {
+        title: "Runoff Coefficient (C)",
+        body: "The coefficient <span class='lesson-highlight'>C</span> dictates the surface impermeability. Smooth surfaces like corrugated tin roofs yield high coefficients (~0.95), whereas organic materials and green roofs retain moisture, drastically reducing yield.",
+        setup: () => {
+          document.getElementById('slide-coeff').value = 0.25;
+          updateSystemParams();
+        },
+        highlight: "C"
+      },
+      {
+        title: "Rainfall Intensity (I)",
+        body: "Rain intensity, represented as <span class='lesson-highlight'>I</span> in mm/hr, sets the droplet volume and velocity. High storm events test system limits, causing collector inlets to overflow.",
+        setup: () => {
+          document.getElementById('slide-intensity').value = 100;
+          updateSystemParams();
+        },
+        highlight: "I"
+      },
+      {
+        title: "Catchment Footprint (A)",
+        body: "The roof surface area <span class='lesson-highlight'>A</span> functions as the physical rainwater net. Expanding the structure directly multiplies collection capacities.",
+        setup: () => {
+          document.getElementById('slide-area').value = 200;
+          updateSystemParams();
+        },
+        highlight: "A"
+      },
+      {
+        title: "Water Balance Dynamics",
+        body: "A real-world reservoir represents a dynamic state engine: <span class='lesson-highlight'>dV/dt = Q_in - Q_out</span>. If inflow matches the outward irrigation rate, stable balance is achieved. If capacity overflows, water spills safely into urban bioswales.",
+        setup: () => {
+          document.getElementById('slide-intensity').value = 45;
+          document.getElementById('slide-area').value = 100;
+          document.getElementById('slide-coeff').value = 0.90;
+          document.getElementById('slide-irrigation').value = 4050; // exactly balances Q_in
+          updateSystemParams();
+        },
+        highlight: "balance"
+      }
+    ];
+    let currentLessonIdx = 0;
+
+    // Initialization
+    window.addEventListener('DOMContentLoaded', () => {
+      canvas = document.getElementById('harvestCanvas');
+      ctx = canvas.getContext('2d');
+      graphCanvas = document.getElementById('graphCanvas');
+      graphCtx = graphCanvas.getContext('2d');
+
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+
+      // Create static/interactive scenery
+      initScenery();
+
+      // Start Loops
+      SYSTEM.lastTick = performance.now();
+      requestAnimationFrame(mainSimulationLoop);
+
+      // Trigger standard values to UI
+      updateSystemParams();
+    });
+
+    function resizeCanvases() {
+      const container = document.getElementById('canvas-container');
+      canvas.width = container.clientWidth;
+      canvas.height = container.clientHeight;
+
+      const graphContainer = document.querySelector('.graph-container');
+      graphCanvas.width = graphContainer.clientWidth;
+      graphCanvas.height = graphContainer.clientHeight;
+    }
+
+    // Audio Engine Controls using Web Audio API
+    function toggleAudioEngine() {
+      if (isAudioEngineRunning) {
+        // Disable
+        if (audioCtx) {
+          audioCtx.close();
+          audioCtx = null;
+        }
+        isAudioEngineRunning = false;
+        document.getElementById('audio-ind').style.animationPlayState = 'paused';
+        document.getElementById('btn-audio').querySelector('span').innerText = '🔊 Enable Audio Feedback';
+        document.getElementById('btn-audio').classList.remove('btn-primary');
+      } else {
+        // Enable
+        initAudioEngine();
+      }
+    }
+
+    function initAudioEngine() {
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+
+        // Create rain sound engine (low pass white noise loop)
+        const bufferSize = 2 * audioCtx.sampleRate;
+        const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+
+        rainNoiseSource = audioCtx.createBufferSource();
+        rainNoiseSource.buffer = noiseBuffer;
+        rainNoiseSource.loop = true;
+
+        rainFilterNode = audioCtx.createBiquadFilter();
+        rainFilterNode.type = 'lowpass';
+        
+        rainGainNode = audioCtx.createGain();
+        rainGainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+
+        rainNoiseSource.connect(rainFilterNode);
+        rainFilterNode.connect(rainGainNode);
+        rainGainNode.connect(audioCtx.destination);
+
+        rainNoiseSource.start();
+
+        isAudioEngineRunning = true;
+        document.getElementById('audio-ind').style.animationPlayState = 'running';
+        document.getElementById('btn-audio').querySelector('span').innerText = '🔇 Mute Audio Engine';
+        document.getElementById('btn-audio').classList.add('btn-primary');
+        
+        // Dynamically shift sound properties based on initial params
+        updateAudioSynthesis();
+      } catch (err) {
+        console.error("Browser audio initialization failed", err);
+      }
+    }
+
+    function updateAudioSynthesis() {
+      if (!isAudioEngineRunning || !audioCtx) return;
+
+      // Adjust rain white noise dynamic parameters
+      const minCutoff = 350;
+      const maxCutoff = 2200;
+      const currentCutoff = minCutoff + (SYSTEM.I / 120) * (maxCutoff - minCutoff);
+      rainFilterNode.frequency.setTargetAtTime(currentCutoff, audioCtx.currentTime, 0.1);
+
+      const targetGain = Math.min((SYSTEM.I / 120) * 0.18, 0.2);
+      rainGainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.2);
+    }
+
+    function playSynthesizerClick(frequency = 520, duration = 0.08) {
+      if (!isAudioEngineRunning || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playWarningBeep() {
+      if (!isAudioEngineRunning || !audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(140, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.3);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.3);
+      } catch (e) {}
+    }
+
+    // Speech Synthesis Engine
+    let speechUtt = null;
+    function toggleNarration() {
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        document.getElementById('btn-narrate').innerText = "🎙️ Narrate Concept";
+        document.getElementById('btn-narrate').classList.remove('btn-primary');
+      } else {
+        const text = document.getElementById('lesson-body').innerText.replace(/<[^>]*>/g, '');
+        speechUtt = new SpeechSynthesisUtterance(text);
+        speechUtt.onend = () => {
+          document.getElementById('btn-narrate').innerText = "🎙️ Narrate Concept";
+          document.getElementById('btn-narrate').classList.remove('btn-primary');
+        };
+        window.speechSynthesis.speak(speechUtt);
+        document.getElementById('btn-narrate').innerText = "⏹️ Stop Narration";
+        document.getElementById('btn-narrate').classList.add('btn-primary');
+      }
+    }
+
+    // Scene Generation Mechanics
+    function initScenery() {
+      // Create stationary clouds
+      for (let i = 0; i < 4; i++) {
+        cloudParticles.push({
+          x: Math.random() * 800,
+          y: 20 + Math.random() * 40,
+          size: 40 + Math.random() * 30,
+          speed: 0.15 + Math.random() * 0.1
+        });
+      }
+    }
+
+    // Slider Event Core
+    function updateSystemParams() {
+      SYSTEM.I = parseFloat(document.getElementById('slide-intensity').value);
+      SYSTEM.A = parseFloat(document.getElementById('slide-area').value);
+      SYSTEM.C = parseFloat(document.getElementById('slide-coeff').value);
+      SYSTEM.irrigation = parseFloat(document.getElementById('slide-irrigation').value);
+      SYSTEM.warp = parseInt(document.getElementById('slide-warp').value);
+
+      // Update Labels
+      document.getElementById('label-intensity').innerText = SYSTEM.I;
+      document.getElementById('label-area').innerText = SYSTEM.A;
+      document.getElementById('label-coeff').innerText = SYSTEM.C.toFixed(2);
+      document.getElementById('label-irrigation').innerText = SYSTEM.irrigation;
+      document.getElementById('label-warp').innerText = SYSTEM.warp;
+
+      // Mathematical computations
+      // Q (Runoff) = C * I (mm/hr) * A (m2) -> yields Liters/hr (1 mm on 1 m2 is exactly 1 L)
+      const Qin = Math.round(SYSTEM.C * SYSTEM.I * SYSTEM.A);
+      
+      // Update Equations Box UI
+      animateFormulaUpdate('math-c', SYSTEM.C.toFixed(2));
+      animateFormulaUpdate('math-i', SYSTEM.I);
+      animateFormulaUpdate('math-a', SYSTEM.A);
+      animateFormulaUpdate('math-q', Qin);
+
+      // Update System Synthesis
+      updateAudioSynthesis();
+      playSynthesizerClick(300 + (SYSTEM.I * 5), 0.05);
+    }
+
+    function animateFormulaUpdate(id, val) {
+      const el = document.getElementById(id);
+      if (el.innerText !== String(val)) {
+        el.innerText = val;
+        el.classList.add('pop');
+        setTimeout(() => el.classList.remove('pop'), 200);
+      }
+    }
+
+    // Load System Scenarios
+    function loadPreset(key) {
+      const p = PRESETS[key];
+      if (!p) return;
+
+      document.getElementById('slide-intensity').value = p.I;
+      document.getElementById('slide-area').value = p.A;
+      document.getElementById('slide-coeff').value = p.C;
+      document.getElementById('slide-irrigation').value = p.irrigation;
+      document.getElementById('slide-warp').value = p.warp;
+
+      updateSystemParams();
+      playSynthesizerClick(800, 0.15);
+    }
+
+    // Interactive Lessons Navigation
+    function nextLessonStep() {
+      if (currentLessonIdx < LESSONS.length - 1) {
+        currentLessonIdx++;
+        renderLesson();
+      }
+    }
+
+    function prevLessonStep() {
+      if (currentLessonIdx > 0) {
+        currentLessonIdx--;
+        renderLesson();
+      }
+    }
+
+    function renderLesson() {
+      const step = LESSONS[currentLessonIdx];
+      document.getElementById('lesson-title').innerText = step.title;
+      document.getElementById('lesson-body').innerHTML = step.body;
+      
+      // Progress indicators
+      const pct = ((currentLessonIdx + 1) / LESSONS.length) * 100;
+      document.getElementById('lesson-progress-bar').style.width = pct + '%';
+
+      // Auto-trigger setups to illustrate physical concepts visually
+      step.setup();
+
+      // Intercept active speech synthesis systems
+      if (window.speechSynthesis.speaking) {
+        window.speechSynthesis.cancel();
+        toggleNarration();
+      }
+    }
+
+    // Mathematical loop executing calculations and storing historical patterns
+    function updatePhysiology(dt) {
+      // Calculate dynamic values
+      const Q_in = SYSTEM.C * SYSTEM.I * SYSTEM.A; // L/hr
+      const Q_out = SYSTEM.irrigation; // L/hr
+      const NetFlow = Q_in - Q_out; // L/hr
+
+      // Apply delta time calculations using TimeWarp acceleration
+      const hourDelta = (dt / 1000) * SYSTEM.warp / 3600;
+      
+      // Inflow added
+      const incomingVol = Q_in * hourDelta;
+      SYSTEM.totalHarvested += incomingVol;
+      SYSTEM.tankVolume += incomingVol;
+
+      // Handle overflow dynamics
+      if (SYSTEM.tankVolume > SYSTEM.tankCapacity) {
+        const spill = SYSTEM.tankVolume - SYSTEM.tankCapacity;
+        SYSTEM.totalSpilled += spill;
+        SYSTEM.tankVolume = SYSTEM.tankCapacity;
+        
+        // Audio triggers to signal boundary overload
+        if (Math.random() < 0.05) playWarningBeep();
+      }
+
+      // Outflow drained (Irrigation)
+      const outgoingVol = Q_out * hourDelta;
+      if (SYSTEM.tankVolume >= outgoingVol) {
+        SYSTEM.tankVolume -= outgoingVol;
+      } else {
+        SYSTEM.tankVolume = 0; // Empty tank
+      }
+
+      // Record to history for analytics
+      if (graphHistory.length === 0 || performance.now() - graphHistory[graphHistory.length - 1].timestamp > 200) {
+        graphHistory.push({
+          timestamp: performance.now(),
+          volume: SYSTEM.tankVolume,
+          Qin: Q_in,
+          Qout: Q_out
+        });
+        if (graphHistory.length > maxHistoryLength) {
+          graphHistory.shift();
+        }
+      }
+
+      // HUD Stats Update
+      document.getElementById('metric-volume').innerText = Math.round(SYSTEM.tankVolume) + ' L';
+      document.getElementById('metric-spill').innerText = Math.round(SYSTEM.totalSpilled) + ' L';
+      
+      const balEl = document.getElementById('hud-balance');
+      const sign = NetFlow >= 0 ? '+' : '';
+      balEl.innerText = `${sign}${Math.round(NetFlow)} L/hr`;
+      balEl.style.color = NetFlow >= 0 ? 'var(--neon-green)' : 'var(--neon-pink)';
+    }
+
+    // Primary Unified Animation Render
+    function mainSimulationLoop(timestamp) {
+      const dt = timestamp - SYSTEM.lastTick;
+      SYSTEM.lastTick = timestamp;
+
+      // Frame safe calculations
+      updatePhysiology(Math.min(dt, 100)); // cap delta to prevent frame lag issues
+
+      // Rendering calls
+      drawSimulationCanvas();
+      drawTelemetryGraph();
+
+      animationFrameId = requestAnimationFrame(mainSimulationLoop);
+    }
+
+    // Custom Drawing of Hydrology canvas
+    function drawSimulationCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Environment Dimensions Reference Scaling
+      const scaleX = canvas.width / 800;
+      const scaleY = canvas.height / 500;
+
+      // Draw Sky/Grids background
+      drawAtmosphere(scaleX, scaleY);
+
+      // Draw dynamic cloud structures
+      updateAndDrawClouds(scaleX, scaleY);
+
+      // System Calculations
+      const peakX = 580 * scaleX;
+      const peakY = 160 * scaleY;
+      const gutterX = peakX - (SYSTEM.A * 1.3 * scaleX);
+      const gutterY = 240 * scaleY;
+
+      // Draw House Structure
+      drawStructure(peakX, peakY, gutterX, gutterY, scaleX, scaleY);
+
+      // Process rainfall physics engine
+      processRain(gutterX, gutterY, peakX, peakY, scaleX, scaleY);
+
+      // Gutter routing system to tank
+      drawGutterSystem(gutterX, gutterY, scaleX, scaleY);
+
+      // Tank Physics Visualization
+      drawStorageTank(150 * scaleX, 290 * scaleY, scaleX, scaleY);
+
+      // Irrigation spray visualization
+      processGardenSprinkler(680 * scaleX, 420 * scaleY, scaleX, scaleY);
+    }
+
+    function drawAtmosphere(scaleX, scaleY) {
+      // Tech-grid styling
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.03)';
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < canvas.width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Horizon line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(0, 430 * scaleY);
+      ctx.lineTo(canvas.width, 430 * scaleY);
+      ctx.stroke();
+    }
+
+    function updateAndDrawClouds(scaleX, scaleY) {
+      ctx.fillStyle = 'rgba(148, 163, 184, 0.08)';
+      ctx.shadowBlur = 15;
+      ctx.shadowColor = 'rgba(0, 240, 255, 0.1)';
+      
+      cloudParticles.forEach(cloud => {
+        cloud.x += cloud.speed;
+        if (cloud.x - cloud.size > canvas.width) {
+          cloud.x = -cloud.size * 2;
+        }
+
+        // Draw compound cloud path
+        ctx.beginPath();
+        ctx.arc(cloud.x, cloud.y * scaleY, cloud.size, 0, Math.PI * 2);
+        ctx.arc(cloud.x + cloud.size * 0.6, (cloud.y - 10) * scaleY, cloud.size * 0.8, 0, Math.PI * 2);
+        ctx.arc(cloud.x - cloud.size * 0.6, (cloud.y - 5) * scaleY, cloud.size * 0.7, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      ctx.shadowBlur = 0; // reset
+    }
+
+    function drawStructure(pX, pY, gX, gY, scaleX, scaleY) {
+      // Draw House foundation block
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.12)';
+      ctx.lineWidth = 2;
+      
+      const houseLeft = gX + 15 * scaleX;
+      const houseRight = pX - 20 * scaleX;
+      const houseTop = gY + 10 * scaleY;
+      const houseHeight = (430 * scaleY) - houseTop;
+
+      ctx.beginPath();
+      ctx.rect(houseLeft, houseTop, houseRight - houseLeft, houseHeight);
+      ctx.fill();
+      ctx.stroke();
+
+      // Modern windows
+      ctx.fillStyle = 'rgba(0, 240, 255, 0.04)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.lineWidth = 1;
+      const winW = (houseRight - houseLeft) / 4;
+      const winH = houseHeight / 3;
+
+      ctx.beginPath();
+      ctx.rect(houseLeft + winW, houseTop + winH * 0.5, winW, winH);
+      ctx.rect(houseLeft + winW * 2.5, houseTop + winH * 0.5, winW, winH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Core roof geometry
+      ctx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(gX, gY);
+      ctx.lineTo(pX, pY);
+      ctx.stroke();
+
+      // Dynamic arrow illustrating runoff speed/vectors
+      const midX = (gX + pX) / 2;
+      const midY = (gY + pY) / 2;
+      const arrowLen = Math.min(25 + (SYSTEM.I * SYSTEM.C * 0.45), 90);
+      
+      // Vector line
+      const angle = Math.atan2(gY - pY, gX - pX);
+      ctx.strokeStyle = 'var(--neon-cyan)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(midX, midY);
+      ctx.lineTo(midX + Math.cos(angle) * arrowLen, midY + Math.sin(angle) * arrowLen);
+      ctx.stroke();
+
+      // Arrow Tip
+      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.beginPath();
+      ctx.arc(midX + Math.cos(angle) * arrowLen, midY + Math.sin(angle) * arrowLen, 4, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function processRain(gX, gY, pX, pY, scaleX, scaleY) {
+      // Dynamic scaling of particle density to save memory
+      const targetCount = SYSTEM.I * 3.5;
+      
+      // Spawn drops
+      if (rainParticles.length < targetCount && SYSTEM.I > 0) {
+        for (let k = 0; k < 5; k++) {
+          rainParticles.push({
+            x: Math.random() * canvas.width,
+            y: -10,
+            vy: 6 + Math.random() * 4 + (SYSTEM.I / 20),
+            vx: -0.5 - Math.random() * 0.5,
+            state: 'falling', // falling | sliding | piped | dead
+            slideTarget: null,
+            pipeIndex: 0
+          });
+        }
+      }
+
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+      ctx.lineWidth = 1.5;
+
+      for (let i = rainParticles.length - 1; i >= 0; i--) {
+        const p = rainParticles[i];
+
+        if (p.state === 'falling') {
+          p.x += p.vx;
+          p.y += p.vy;
+
+          // Draw falling path
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + p.vx * 1.5, p.y + p.vy * 1.5);
+          ctx.stroke();
+
+          // Check Roof Intersection
+          if (p.x >= gX && p.x <= pX) {
+            // Roof line interpolation formula
+            const roofYAtX = pY + ((p.x - pX) / (gX - pX)) * (gY - pY);
+            if (p.y >= roofYAtX - 5 && p.y <= roofYAtX + 15) {
+              p.state = 'sliding';
+              p.y = roofYAtX;
+            }
+          }
+
+          // Kill out of bounds
+          if (p.y > canvas.height) {
+            rainParticles.splice(i, 1);
+          }
+        } 
+        else if (p.state === 'sliding') {
+          // Slide down to gutter
+          const slideSpeed = 2 + (SYSTEM.C * 3);
+          const angle = Math.atan2(gY - pY, gX - pX);
+          p.x += Math.cos(angle) * slideSpeed;
+          p.y += Math.sin(angle) * slideSpeed;
+
+          // Splash trails
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.7)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 2, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Check if gutter reached
+          if (p.x <= gX + 5) {
+            p.state = 'piped';
+            p.pipeIndex = 0;
+            p.x = gX;
+            p.y = gY;
+          }
+        }
+        else if (p.state === 'piped') {
+          // Routing coordinates to Storage Tank
+          const tankX = 200 * scaleX;
+          const routeY1 = 270 * scaleY;
+          const routeY2 = 300 * scaleY;
+
+          const path = [
+            { x: gX, y: gY },
+            { x: gX, y: routeY1 },
+            { x: tankX, y: routeY1 },
+            { x: tankX, y: routeY2 }
+          ];
+
+          const targetNode = path[p.pipeIndex + 1];
+          if (!targetNode) {
+            // Drop directly into tank
+            createRipple(tankX, routeY2);
+            rainParticles.splice(i, 1);
+            continue;
+          }
+
+          const speed = 6;
+          const dx = targetNode.x - p.x;
+          const dy = targetNode.y - p.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < speed) {
+            p.x = targetNode.x;
+            p.y = targetNode.y;
+            p.pipeIndex++;
+          } else {
+            p.x += (dx / dist) * speed;
+            p.y += (dy / dist) * speed;
+          }
+
+          // Render flowing fluid inside pipes
+          ctx.fillStyle = 'var(--neon-cyan)';
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 3, 0, Math.PI*2);
+          ctx.fill();
+        }
+      }
+    }
+
+    function drawGutterSystem(gX, gY, scaleX, scaleY) {
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.6)';
+      ctx.lineWidth = 5;
+      ctx.lineCap = 'round';
+
+      // Draw horizontal gutter trough
+      ctx.beginPath();
+      ctx.moveTo(gX - 10, gY);
+      ctx.lineTo(gX + 15, gY);
+      ctx.stroke();
+
+      // Draw Pipe system down into tank
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.lineWidth = 8;
+      ctx.lineJoin = 'round';
+
+      const tankX = 200 * scaleX;
+      const routeY1 = 270 * scaleY;
+      const routeY2 = 300 * scaleY;
+
+      ctx.beginPath();
+      ctx.moveTo(gX, gY);
+      ctx.lineTo(gX, routeY1);
+      ctx.lineTo(tankX, routeY1);
+      ctx.lineTo(tankX, routeY2);
+      ctx.stroke();
+    }
+
+    function drawStorageTank(tX, tY, scaleX, scaleY) {
+      const tW = 100 * scaleX;
+      const tH = 140 * scaleY;
+
+      // Draw metallic framing
+      ctx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.7)';
+      
+      ctx.beginPath();
+      ctx.rect(tX, tY, tW, tH);
+      ctx.fill();
+      ctx.stroke();
+
+      // Fluid Heights Calculations
+      const fluidPct = SYSTEM.tankVolume / SYSTEM.tankCapacity;
+      const fluidH = tH * fluidPct;
+      const fluidY = tY + tH - fluidH;
+
+      if (fluidH > 2) {
+        // Transparent cyan fluid gradient
+        const grad = ctx.createLinearGradient(tX, fluidY, tX + tW, tY + tH);
+        grad.addColorStop(0, 'rgba(0, 240, 255, 0.4)');
+        grad.addColorStop(1, 'rgba(16, 185, 129, 0.25)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.rect(tX, fluidY, tW, fluidH);
+        ctx.fill();
+
+        // Draw surface waves
+        ctx.strokeStyle = 'var(--neon-cyan)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tX, fluidY);
+        const waveS = Math.sin(performance.now() / 150) * 2;
+        ctx.bezierCurveTo(tX + tW/3, fluidY + waveS, tX + (2*tW)/3, fluidY - waveS, tX + tW, fluidY);
+        ctx.stroke();
+      }
+
+      // Render Active Ripples
+      renderRipples(tX, tY, tW, tH, fluidY);
+
+      // Tank Telemetry overlay (ticks)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.font = '8px monospace';
+      for (let k = 1; k < 5; k++) {
+        const tickY = tY + tH - (tH * (k / 5));
+        ctx.beginPath();
+        ctx.moveTo(tX, tickY);
+        ctx.lineTo(tX + 8, tickY);
+        ctx.stroke();
+        ctx.fillText(`${k}k L`, tX + 12, tickY + 3);
+      }
+
+      // Draw tank label
+      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.font = 'bold 9px ' + varColor('--font-family');
+      ctx.fillText("5,000L CISTERN", tX + 10, tY - 8);
+
+      // Spill / Overflow Pipeline Outlet
+      ctx.strokeStyle = 'rgba(244, 63, 94, 0.3)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(tX + tW, tY + 20);
+      ctx.lineTo(tX + tW + 20, tY + 20);
+      ctx.lineTo(tX + tW + 20, 430 * scaleY);
+      ctx.stroke();
+
+      // Draw spill water overflow stream
+      if (SYSTEM.tankVolume >= SYSTEM.tankCapacity && SYSTEM.I > 0) {
+        ctx.strokeStyle = 'rgba(244, 63, 94, 0.7)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(tX + tW + 20, tY + 20);
+        ctx.lineTo(tX + tW + 20, 430 * scaleY);
+        ctx.stroke();
+      }
+    }
+
+    function createRipple(tankX, routeY2) {
+      if (tankRipples.length < 15) {
+        tankRipples.push({
+          x: tankX + (Math.random() * 40 - 20),
+          r: 1,
+          maxR: 35 + Math.random() * 15,
+          alpha: 1.0
+        });
+      }
+    }
+
+    function renderRipples(tX, tY, tW, tH, fluidY) {
+      ctx.lineWidth = 1.2;
+      for (let i = tankRipples.length - 1; i >= 0; i--) {
+        const r = tankRipples[i];
+        r.r += 0.65;
+        r.alpha -= 0.022;
+
+        if (r.alpha <= 0 || r.r > r.maxR) {
+          tankRipples.splice(i, 1);
+          continue;
+        }
+
+        ctx.strokeStyle = `rgba(0, 240, 255, ${r.alpha})`;
+        
+        // Render within physical containment walls
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(tX + 2, fluidY, tW - 4, tH - (fluidY - tY));
+        ctx.clip();
+
+        ctx.beginPath();
+        ctx.ellipse(r.x, fluidY, r.r, r.r * 0.25, 0, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    function processGardenSprinkler(sX, sY, scaleX, scaleY) {
+      // Dynamic Garden Area
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+      ctx.beginPath();
+      ctx.ellipse(sX, sY + 10, 80 * scaleX, 15 * scaleY, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Flowers / vegetation icons
+      ctx.fillStyle = 'var(--neon-green)';
+      ctx.font = '12px serif';
+      ctx.fillText("🌿", sX - 40 * scaleX, sY + 8);
+      ctx.fillText("🌸", sX, sY + 12);
+      ctx.fillText("🌿", sX + 40 * scaleX, sY + 6);
+
+      // Sprinkler Head Draw
+      ctx.fillStyle = '#64748b';
+      ctx.beginPath();
+      ctx.rect(sX - 4, sY - 5, 8, 10);
+      ctx.fill();
+
+      // Irrigation Fluid Flow Execution
+      if (SYSTEM.irrigation > 0 && SYSTEM.tankVolume > 50) {
+        // Spawn irrigation particles
+        if (gardenSprays.length < (SYSTEM.irrigation / 80)) {
+          gardenSprays.push({
+            x: sX,
+            y: sY - 5,
+            vx: (Math.random() - 0.5) * 6 * scaleX,
+            vy: -4 - Math.random() * 3 * scaleY,
+            g: 0.18
+          });
+        }
+
+        // Run Particle Physics
+        ctx.fillStyle = 'rgba(14, 165, 233, 0.6)';
+        for (let j = gardenSprays.length - 1; j >= 0; j--) {
+          const p = gardenSprays[j];
+          p.vy += p.g;
+          p.x += p.vx;
+          p.y += p.vy;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 1.8, 0, Math.PI*2);
+          ctx.fill();
+
+          if (p.y > sY + 10) {
+            gardenSprays.splice(j, 1);
+          }
+        }
+      }
+    }
+
+    // Canvas helper to pull CSS variables easily
+    function varColor(cssName) {
+      return getComputedStyle(document.documentElement).getPropertyValue(cssName).trim();
+    }
+
+    // Telemetry Graphing System (Rendered in Real-Time via Canvas)
+    function drawTelemetryGraph() {
+      graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+
+      if (graphHistory.length < 2) return;
+
+      const paddingLeft = 45;
+      const paddingRight = 15;
+      const paddingTop = 20;
+      const paddingBottom = 25;
+
+      const graphW = graphCanvas.width - paddingLeft - paddingRight;
+      const graphH = graphCanvas.height - paddingTop - paddingBottom;
+
+      // Render Axes
+      graphCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      graphCtx.lineWidth = 1;
+      
+      graphCtx.beginPath();
+      // Y-axis boundary line
+      graphCtx.moveTo(paddingLeft, paddingTop);
+      graphCtx.lineTo(paddingLeft, paddingTop + graphH);
+      // X-axis boundary line
+      graphCtx.lineTo(paddingLeft + graphW, paddingTop + graphH);
+      graphCtx.stroke();
+
+      // Find extreme boundaries for normalization
+      let maxVal = 5000; // base capacity standard
+      graphHistory.forEach(d => {
+        if (d.volume > maxVal) maxVal = d.volume;
+        if (d.Qin > maxVal) maxVal = d.Qin;
+      });
+
+      // Render ticks
+      graphCtx.fillStyle = 'var(--text-secondary)';
+      graphCtx.font = '8px monospace';
+      graphCtx.textAlign = 'right';
+
+      const ticks = 3;
+      for (let i = 0; i <= ticks; i++) {
+        const val = Math.round((maxVal / ticks) * i);
+        const y = paddingTop + graphH - (graphH * (i / ticks));
+        graphCtx.fillText(`${val}L`, paddingLeft - 8, y + 3);
+        
+        // Dashed background lines
+        graphCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+        graphCtx.beginPath();
+        graphCtx.moveTo(paddingLeft, y);
+        graphCtx.lineTo(paddingLeft + graphW, y);
+        graphCtx.stroke();
+      }
+
+      // Draw Scrolling Path Elements
+      drawGraphLine('volume', 'var(--neon-cyan)', maxVal, paddingLeft, paddingTop, graphW, graphH);
+      drawGraphLine('Qin', 'var(--neon-green)', maxVal, paddingLeft, paddingTop, graphW, graphH);
+
+      // Custom Legend Tags
+      graphCtx.textAlign = 'left';
+      graphCtx.fillStyle = 'var(--neon-cyan)';
+      graphCtx.fillText("■ Cistern Vol (L)", paddingLeft + 15, paddingTop);
+      graphCtx.fillStyle = 'var(--neon-green)';
+      graphCtx.fillText("■ Inflow rate (L/h)", paddingLeft + 130, paddingTop);
+    }
+
+    function drawGraphLine(key, strokeStyle, maxVal, pL, pT, gW, gH) {
+      graphCtx.strokeStyle = strokeStyle;
+      graphCtx.lineWidth = 2;
+      graphCtx.beginPath();
+
+      for (let i = 0; i < graphHistory.length; i++) {
+        const x = pL + (gW * (i / (graphHistory.length - 1)));
+        const y = pT + gH - (gH * (graphHistory[i][key] / maxVal));
+
+        if (i === 0) {
+          graphCtx.moveTo(x, y);
+        } else {
+          graphCtx.lineTo(x, y);
+        }
+      }
+      graphCtx.stroke();
+    }
+  </script>
+</body>
+</html>

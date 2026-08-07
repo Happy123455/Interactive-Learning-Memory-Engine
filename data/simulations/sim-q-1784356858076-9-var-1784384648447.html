@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marshall Mix Design Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        .step-container {
+            transition: all 0.5s ease-in-out;
+            opacity: 0;
+            transform: translateY(20px);
+            display: none;
+        }
+
+        .step-container.active {
+            opacity: 1;
+            transform: translateY(0);
+            display: flex;
+        }
+
+        .diagram-area {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            border: 1px solid #334155;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Animations for different steps */
+        /* Step 1: Aggregates */
+        .aggregate {
+            position: absolute;
+            background-color: #94a3b8;
+            border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+            animation: float-down 2s forwards;
+            opacity: 0;
+        }
+
+        /* Step 2: Heating & Mixing */
+        .mixer {
+            width: 150px;
+            height: 150px;
+            border: 8px solid #cbd5e1;
+            border-radius: 50%;
+            border-top-color: transparent;
+            animation: spin 2s linear infinite;
+            display: none;
+        }
+        
+        .bitumen-drop {
+            width: 20px;
+            height: 30px;
+            background-color: #000;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: absolute;
+            top: -50px;
+            animation: drip 1.5s infinite;
+            display: none;
+        }
+
+        /* Step 3: Compaction */
+        .mold {
+            width: 100px;
+            height: 80px;
+            background-color: #64748b;
+            border-radius: 10px 10px 0 0;
+            position: relative;
+            display: none;
+        }
+        .hammer {
+            width: 40px;
+            height: 120px;
+            background-color: #94a3b8;
+            position: absolute;
+            top: -150px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px;
+            display: none;
+        }
+        .hammer.smash {
+            animation: compact 0.5s infinite alternate;
+        }
+
+        /* Step 4: Testing (Marshall Stability) */
+        .testing-machine {
+            width: 120px;
+            height: 160px;
+            border: 4px solid #cbd5e1;
+            border-radius: 10px;
+            position: relative;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .sample-specimen {
+            width: 80px;
+            height: 40px;
+            background-color: #334155;
+            border-radius: 40px;
+            position: relative;
+        }
+        .loading-arm {
+            width: 100%;
+            height: 10px;
+            background-color: #ef4444;
+            position: absolute;
+            top: 20px;
+            transition: top 2s;
+        }
+        
+        .dial-gauge {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: white;
+            border: 2px solid #333;
+            position: absolute;
+            top: -20px;
+        }
+        .needle {
+            width: 2px;
+            height: 18px;
+            background: red;
+            position: absolute;
+            bottom: 50%;
+            left: 50%;
+            transform-origin: bottom center;
+            transform: translateX(-50%) rotate(-45deg);
+            transition: transform 2s ease-in-out;
+        }
+
+
+        @keyframes float-down {
+            0% { transform: translateY(-100px) rotate(0deg); opacity: 0; }
+            10% { opacity: 1; }
+            100% { transform: translateY(0) rotate(360deg); opacity: 1; }
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes drip {
+            0% { transform: translateY(0) scaleY(1); opacity: 1; }
+            80% { transform: translateY(150px) scaleY(1.5); opacity: 0.5; }
+            100% { transform: translateY(180px) scaleY(0); opacity: 0; }
+        }
+
+        @keyframes compact {
+            0% { top: -120px; }
+            100% { top: -60px; }
+        }
+        
+        @keyframes crack {
+            0% { clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%); }
+            100% { clip-path: polygon(0 0, 45% 40%, 55% 60%, 100% 0, 100% 100%, 60% 80%, 40% 20%, 0 100%); }
+        }
+
+        .controls-btn {
+            transition: all 0.2s;
+        }
+        .controls-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.5);
+        }
+        .controls-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        /* Particle effects for mixing */
+        .mix-particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: #1a1a1a;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen">
+
+    <header class="bg-slate-800 p-4 shadow-lg z-10 flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-blue-400 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            Marshall Mix Design
+        </h1>
+        <div class="flex gap-4">
+            <button id="toggleAudioBtn" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-full transition-colors" title="Toggle Voiceover">
+                <svg id="audioIconOn" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5 10V7a2 2 0 012-2h3l4-4v18l-4-4H7a2 2 0 01-2-2v-3z" />
+                </svg>
+                <svg id="audioIconOff" xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-400 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" clip-rule="evenodd" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                </svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="flex-grow flex flex-col md:flex-row overflow-hidden">
+        
+        <!-- Left Panel: Text and Information -->
+        <section class="w-full md:w-1/3 bg-slate-900 p-6 flex flex-col justify-between border-r border-slate-700 overflow-y-auto z-10 shadow-xl shadow-blue-900/20">
+            <div>
+                <div class="mb-4 text-sm font-semibold text-blue-500 tracking-wider uppercase">Step <span id="stepCounter">1</span> of 5</div>
+                <h2 id="stepTitle" class="text-3xl font-bold mb-4 text-white">Select Materials</h2>
+                <div id="stepDescription" class="text-slate-300 leading-relaxed text-lg space-y-4">
+                    <p>The first step is selecting appropriate aggregates (coarse, fine, and filler) and bitumen. The aggregates must meet specific gradation requirements to ensure a strong, interlocking skeleton.</p>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="mt-8 pt-6 border-t border-slate-700 flex justify-between gap-4">
+                <button id="prevBtn" class="controls-btn flex-1 bg-slate-700 hover:bg-slate-600 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clip-rule="evenodd" />
+                    </svg>
+                    Previous
+                </button>
+                <button id="nextBtn" class="controls-btn flex-1 bg-blue-600 hover:bg-blue-500 text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-2 shadow-lg shadow-blue-500/30">
+                    Next
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>
+                </button>
+            </div>
+        </section>
+
+        <!-- Right Panel: Visualization -->
+        <section class="w-full md:w-2/3 relative flex items-center justify-center bg-[#0B1120] min-h-[450px] p-4">
+            <!-- Grid background pattern -->
+            <div class="absolute inset-0" style="background-image: linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px); background-size: 40px 40px;"></div>
+            
+            <!-- Central Visualization Area -->
+            <div id="visualizationArea" class="diagram-area w-full max-w-2xl min-h-[400px] md:aspect-video rounded-2xl flex items-center justify-center shadow-2xl relative">
+                
+                <!-- State 1: Aggregates -->
+                <div id="state-1" class="step-container active w-full h-full flex flex-col items-center justify-center">
+                    <div class="text-slate-400 mb-12 mt-4 font-mono tracking-widest uppercase text-sm z-10 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700 text-center">Aggregate Proportioning</div>
+                    <div id="aggregateBin" class="relative w-48 h-48 md:w-64 md:h-64 border-b-4 border-l-4 border-r-4 border-slate-500 rounded-b-xl flex items-end justify-center">
+                        <!-- Aggregates injected via JS -->
+                    </div>
+                </div>
+
+                <!-- State 2: Heating & Mixing -->
+                <div id="state-2" class="step-container w-full h-full flex flex-col items-center justify-center">
+                    <div class="text-slate-400 mb-8 font-mono tracking-widest uppercase text-sm z-10 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700">Heating & Mixing (150°C - 165°C)</div>
+                    <div class="relative w-full h-full flex items-center justify-center">
+                        <div class="bitumen-drop" style="left: 45%;"></div>
+                        <div class="bitumen-drop" style="left: 55%; animation-delay: 0.5s;"></div>
+                        <div class="mixer flex items-center justify-center">
+                             <div class="w-24 h-24 bg-slate-800 rounded-full flex items-center justify-center border-4 border-slate-700 overflow-hidden relative" id="mixingBowl">
+                                 <!-- Particles injected via JS -->
+                             </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- State 3: Compaction -->
+                <div id="state-3" class="step-container w-full h-full flex flex-col items-center justify-center">
+                    <div class="text-slate-400 mb-8 font-mono tracking-widest uppercase text-sm z-10 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700">Standard Compaction (75 Blows)</div>
+                    <div class="relative mt-20 flex flex-col items-center">
+                        <div class="hammer" id="compactorHammer"></div>
+                        <div class="mold flex flex-col-reverse items-center p-1">
+                            <div class="w-full h-3/4 bg-[#2a2a2a] rounded-t-lg transition-all duration-[3s]" id="compactingSample"></div>
+                        </div>
+                        <div class="w-40 h-4 bg-slate-600 rounded mt-1"></div>
+                        <div id="blowCounter" class="mt-4 text-2xl font-mono text-red-400 font-bold hidden">0 / 75</div>
+                    </div>
+                </div>
+
+                <!-- State 4: Testing -->
+                <div id="state-4" class="step-container w-full h-full flex flex-col items-center justify-center">
+                     <div class="text-slate-400 mb-8 font-mono tracking-widest uppercase text-sm z-10 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700">Stability & Flow Test (60°C)</div>
+                     <div class="testing-machine flex">
+                         <div class="dial-gauge"><div class="needle" id="dialNeedle"></div></div>
+                         <div class="loading-arm" id="loadingArm"></div>
+                         <div class="sample-specimen mt-auto mb-2" id="testSpecimen"></div>
+                     </div>
+                     <div class="mt-8 flex gap-8">
+                         <div class="bg-slate-800 p-3 rounded border border-slate-700 text-center">
+                             <div class="text-xs text-slate-400">Stability</div>
+                             <div class="text-xl font-bold text-green-400" id="stabilityValue">0 kN</div>
+                         </div>
+                         <div class="bg-slate-800 p-3 rounded border border-slate-700 text-center">
+                             <div class="text-xs text-slate-400">Flow</div>
+                             <div class="text-xl font-bold text-blue-400" id="flowValue">0 mm</div>
+                         </div>
+                     </div>
+                </div>
+
+                <!-- State 5: Analysis -->
+                <div id="state-5" class="step-container w-full h-full flex flex-col items-center justify-center p-8">
+                    <div class="text-slate-400 mb-4 font-mono tracking-widest uppercase text-sm z-10 bg-slate-900/80 px-4 py-1 rounded-full border border-slate-700">Volumetric Analysis & Optimum Binder Content</div>
+                    
+                    <div class="grid grid-cols-2 gap-4 w-full max-w-lg mt-4">
+                        <!-- Graphs mockups -->
+                        <div class="bg-slate-800 p-2 rounded-lg border border-slate-700 h-32 flex flex-col">
+                            <div class="text-xs text-center text-slate-400 mb-1">Stability vs % Bitumen</div>
+                            <div class="flex-grow relative flex items-end justify-center pb-2">
+                                <svg width="100%" height="100%" viewBox="0 0 100 50" preserveAspectRatio="none">
+                                    <path d="M0 50 Q 50 -20 100 50" fill="none" stroke="#4ade80" stroke-width="3"/>
+                                    <circle cx="50" cy="15" r="4" fill="#fff" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-2 rounded-lg border border-slate-700 h-32 flex flex-col">
+                            <div class="text-xs text-center text-slate-400 mb-1">Density vs % Bitumen</div>
+                            <div class="flex-grow relative flex items-end justify-center pb-2">
+                                <svg width="100%" height="100%" viewBox="0 0 100 50" preserveAspectRatio="none">
+                                    <path d="M0 50 Q 60 -10 100 50" fill="none" stroke="#60a5fa" stroke-width="3"/>
+                                    <circle cx="60" cy="15" r="4" fill="#fff" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-2 rounded-lg border border-slate-700 h-32 flex flex-col">
+                            <div class="text-xs text-center text-slate-400 mb-1">% Air Voids vs % Bitumen</div>
+                            <div class="flex-grow relative flex items-end justify-center pb-2">
+                                <svg width="100%" height="100%" viewBox="0 0 100 50" preserveAspectRatio="none">
+                                    <path d="M0 10 L 100 50" fill="none" stroke="#f87171" stroke-width="3"/>
+                                    <circle cx="50" cy="30" r="4" fill="#fff" />
+                                </svg>
+                            </div>
+                        </div>
+                        <div class="bg-slate-800 p-2 rounded-lg border border-slate-700 h-32 flex flex-col items-center justify-center">
+                            <div class="text-center">
+                                <div class="text-sm text-slate-400 mb-2">Optimum Binder Content</div>
+                                <div class="text-3xl font-bold text-yellow-400">5.2%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // Data for each step
+        const stepsData = [
+            {
+                title: "1. Material Selection & Proportioning",
+                description: "<p>The first step involves selecting suitable aggregates (coarse, fine, and mineral filler) and paving grade bitumen.</p><p>The aggregates are proportioned to meet the specified gradation requirements (usually passing a series of sieves) to create a dense, interlocking structure.</p>",
+                spokenText: "Step 1. Material selection and proportioning. We begin by choosing the right aggregates and bitumen. The aggregates are carefully blended to meet specific size requirements, ensuring a strong, interlocking skeleton for the pavement."
+            },
+            {
+                title: "2. Heating and Mixing",
+                description: "<p>The proportioned aggregates and bitumen are heated separately.</p><ul class='list-disc pl-5 space-y-1 text-slate-400 mt-2'><li>Aggregates heated to approx. 175°C - 190°C.</li><li>Bitumen heated to approx. 150°C - 165°C.</li></ul><p class='mt-2'>They are then thoroughly mixed together at a specified temperature to ensure all aggregate particles are fully coated with the binder.</p>",
+                spokenText: "Step 2. Heating and mixing. The aggregates and bitumen are heated separately to high temperatures. They are then thoroughly mixed until every piece of aggregate is completely coated with the sticky bitumen."
+            },
+            {
+                title: "3. Preparation of Test Specimens",
+                description: "<p>The hot bituminous mix is placed into a pre-heated Marshall mold (101.6 mm diameter).</p><p>It is then compacted using a standard Marshall compaction hammer (4.54 kg weight, 45.7 cm drop). Usually, 75 blows are applied to each side of the specimen for heavy traffic design.</p>",
+                spokenText: "Step 3. Preparation of test specimens. The hot mix is poured into a mold. A heavy hammer then strikes the mix, typically 75 times on each side, to simulate the heavy compaction it will receive on an actual road."
+            },
+            {
+                title: "4. Stability and Flow Test",
+                description: "<p>After cooling and measuring dimensions, specimens are kept in a water bath at 60°C for 30 to 40 minutes.</p><p>They are tested in the Marshall testing machine. Load is applied at a rate of 50.8 mm/min.</p><ul class='list-disc pl-5 space-y-1 text-slate-400 mt-2'><li><strong>Stability:</strong> The maximum load (in kN or kg) the specimen takes before failure.</li><li><strong>Flow:</strong> The deformation (in mm) at the point of maximum load.</li></ul>",
+                spokenText: "Step 4. Stability and flow testing. The compacted specimen is heated to 60 degrees Celsius and placed in a testing machine. We measure the maximum load it can withstand, called Stability, and how much it deforms under that load, called Flow."
+            },
+            {
+                title: "5. Volumetric Analysis & OBC",
+                description: "<p>Density and void analysis is performed on the compacted specimens. Key parameters calculated include:</p><ul class='list-disc pl-5 space-y-1 text-slate-400 mt-2'><li>Bulk Specific Gravity (Gm)</li><li>Theoretical Maximum Specific Gravity (Gt)</li><li>Percent Air Voids (Vv)</li><li>Voids in Mineral Aggregate (VMA)</li><li>Voids Filled with Bitumen (VFB)</li></ul><p class='mt-2 text-white font-semibold'>Graphs are plotted against binder content to determine the Optimum Binder Content (OBC) that satisfies all design criteria.</p>",
+                spokenText: "Step 5. Volumetric Analysis and finding the Optimum Binder Content. We analyze the density and air voids of the samples. By plotting these results on graphs, we determine the perfect amount of bitumen needed for the strongest and most durable pavement."
+            }
+        ];
+
+        let currentStep = 0;
+        let audioEnabled = true;
+        let synth = window.speechSynthesis;
+        let animationTimeouts = [];
+        let animationIntervals = [];
+
+        // DOM Elements
+        const prevBtn = document.getElementById('prevBtn');
+        const nextBtn = document.getElementById('nextBtn');
+        const stepCounter = document.getElementById('stepCounter');
+        const stepTitle = document.getElementById('stepTitle');
+        const stepDescription = document.getElementById('stepDescription');
+        const toggleAudioBtn = document.getElementById('toggleAudioBtn');
+        const audioIconOn = document.getElementById('audioIconOn');
+        const audioIconOff = document.getElementById('audioIconOff');
+
+        // Web Audio API setup for sound effects
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new AudioContext();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioEnabled || !audioCtx) return;
+            
+            const oscillator = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            if (type === 'click') {
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(600, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'thud') {
+                // Compaction hammer sound
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(150, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.1);
+                gainNode.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.2);
+            } else if (type === 'crack') {
+                // Specimen failure sound
+                oscillator.type = 'sawtooth';
+                oscillator.frequency.setValueAtTime(800, audioCtx.currentTime);
+                oscillator.frequency.exponentialRampToValueAtTime(100, audioCtx.currentTime + 0.2);
+                
+                // Add noise for crack
+                const bufferSize = audioCtx.sampleRate * 0.2;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noiseSource = audioCtx.createBufferSource();
+                noiseSource.buffer = buffer;
+                const noiseGain = audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                noiseGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2);
+                
+                noiseSource.connect(noiseGain);
+                noiseGain.connect(audioCtx.destination);
+                
+                noiseSource.start();
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.2);
+            }
+        }
+
+        function speak(text) {
+            if (!audioEnabled) return;
+            
+            // Cancel any ongoing speech
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            
+            // Try to find a good English voice
+            let voices = synth.getVoices();
+            let selectedVoice = voices.find(voice => voice.lang.includes('en-US') && voice.name.includes('Google')) || 
+                                voices.find(voice => voice.lang.includes('en-GB')) ||
+                                voices.find(voice => voice.lang.includes('en'));
+            
+            if (selectedVoice) {
+                utterance.voice = selectedVoice;
+            }
+            
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            synth.speak(utterance);
+        }
+
+        // Ensure voices are loaded (Chrome bug workaround)
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = () => {
+                // Voices loaded
+            };
+        }
+
+        function clearAnimations() {
+            animationTimeouts.forEach(t => clearTimeout(t));
+            animationIntervals.forEach(i => clearInterval(i));
+            animationTimeouts = [];
+            animationIntervals = [];
+            
+            // Reset specific element states
+            document.getElementById('compactorHammer').classList.remove('smash');
+            document.getElementById('compactorHammer').style.display = 'none';
+            document.getElementById('compactingSample').style.height = '75%';
+            document.getElementById('blowCounter').classList.add('hidden');
+            
+            document.getElementById('loadingArm').style.top = '20px';
+            document.getElementById('dialNeedle').style.transform = 'translateX(-50%) rotate(-45deg)';
+            document.getElementById('testSpecimen').style.clipPath = 'none';
+            document.getElementById('stabilityValue').innerText = '0 kN';
+            document.getElementById('flowValue').innerText = '0 mm';
+            
+            document.querySelector('.mixer').style.display = 'none';
+            document.querySelectorAll('.bitumen-drop').forEach(el => el.style.display = 'none');
+            document.getElementById('mixingBowl').innerHTML = '';
+        }
+
+        function triggerAnimations(step) {
+            clearAnimations();
+            
+            if (step === 0) {
+                // Step 1: Aggregates falling
+                const bin = document.getElementById('aggregateBin');
+                bin.innerHTML = '';
+                
+                for(let i=0; i<30; i++) {
+                    let timeout = setTimeout(() => {
+                        const agg = document.createElement('div');
+                        agg.className = 'aggregate';
+                        // Random sizes
+                        const size = Math.random() * 20 + 5;
+                        agg.style.width = `${size}px`;
+                        agg.style.height = `${size}px`;
+                        // Random shades of grey
+                        const shade = Math.floor(Math.random() * 50) + 100;
+                        agg.style.backgroundColor = `rgb(${shade},${shade},${shade})`;
+                        // Random positions at bottom
+                        agg.style.left = `${Math.random() * 80 + 10}%`;
+                        agg.style.bottom = `${Math.random() * 40}%`;
+                        
+                        bin.appendChild(agg);
+                    }, i * 100);
+                    animationTimeouts.push(timeout);
+                }
+            } 
+            else if (step === 1) {
+                // Step 2: Mixing
+                document.querySelector('.mixer').style.display = 'flex';
+                document.querySelectorAll('.bitumen-drop').forEach(el => el.style.display = 'block');
+                
+                const bowl = document.getElementById('mixingBowl');
+                for(let i=0; i<20; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'mix-particle';
+                    particle.style.left = `${Math.random() * 80 + 10}%`;
+                    particle.style.top = `${Math.random() * 80 + 10}%`;
+                    bowl.appendChild(particle);
+                }
+            }
+            else if (step === 2) {
+                // Step 3: Compaction
+                const hammer = document.getElementById('compactorHammer');
+                const sample = document.getElementById('compactingSample');
+                const counter = document.getElementById('blowCounter');
+                
+                document.querySelector('.mold').style.display = 'flex';
+                hammer.style.display = 'block';
+                counter.classList.remove('hidden');
+                
+                let timeout1 = setTimeout(() => {
+                    hammer.classList.add('smash');
+                    let blows = 0;
+                    
+                    let interval = setInterval(() => {
+                        blows++;
+                        counter.innerText = `${Math.min(blows, 75)} / 75`;
+                        playSound('thud');
+                        
+                        // Slowly compact visually
+                        if(blows < 75) {
+                            sample.style.height = `${75 - (blows * 0.2)}%`;
+                        } else {
+                            clearInterval(interval);
+                            hammer.classList.remove('smash');
+                        }
+                    }, 500); // match animation duration
+                    animationIntervals.push(interval);
+                    
+                }, 1000);
+                animationTimeouts.push(timeout1);
+            }
+            else if (step === 3) {
+                // Step 4: Testing
+                document.querySelector('.testing-machine').style.display = 'flex';
+                const arm = document.getElementById('loadingArm');
+                const needle = document.getElementById('dialNeedle');
+                const specimen = document.getElementById('testSpecimen');
+                const stabVal = document.getElementById('stabilityValue');
+                const flowVal = document.getElementById('flowValue');
+                
+                let timeout1 = setTimeout(() => {
+                    arm.style.top = '100px';
+                    needle.style.transform = 'translateX(-50%) rotate(135deg)';
+                    
+                    // Increment numbers
+                    let val = 0;
+                    let flow = 0;
+                    let interval = setInterval(() => {
+                        val += 0.5;
+                        flow += 0.1;
+                        stabVal.innerText = `${val.toFixed(1)} kN`;
+                        flowVal.innerText = `${flow.toFixed(1)} mm`;
+                        
+                        if(val >= 12.5) { // typical failure load
+                            clearInterval(interval);
+                            specimen.style.animation = 'crack 0.1s forwards';
+                            playSound('crack');
+                            
+                            // Slight drop after failure
+                            setTimeout(() => {
+                                needle.style.transform = 'translateX(-50%) rotate(110deg)';
+                                stabVal.innerText = '9.8 kN';
+                                stabVal.classList.replace('text-green-400', 'text-red-500');
+                            }, 200);
+                        }
+                    }, 50);
+                    animationIntervals.push(interval);
+                    
+                }, 1000);
+                animationTimeouts.push(timeout1);
+            }
+        }
+
+        function updateUI() {
+            // Update text content
+            stepCounter.innerText = currentStep + 1;
+            stepTitle.innerText = stepsData[currentStep].title;
+            stepDescription.innerHTML = stepsData[currentStep].description;
+
+            // Update buttons
+            prevBtn.disabled = currentStep === 0;
+            
+            if (currentStep === stepsData.length - 1) {
+                nextBtn.innerHTML = `Finish
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                    </svg>`;
+                nextBtn.classList.replace('bg-blue-600', 'bg-green-600');
+                nextBtn.classList.replace('hover:bg-blue-500', 'hover:bg-green-500');
+                nextBtn.classList.replace('shadow-blue-500/30', 'shadow-green-500/30');
+            } else {
+                nextBtn.innerHTML = `Next
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
+                    </svg>`;
+                nextBtn.classList.replace('bg-green-600', 'bg-blue-600');
+                nextBtn.classList.replace('hover:bg-green-500', 'hover:bg-blue-500');
+                nextBtn.classList.replace('shadow-green-500/30', 'shadow-blue-500/30');
+            }
+
+            // Update visual states
+            document.querySelectorAll('.step-container').forEach((el, index) => {
+                if (index === currentStep) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active');
+                }
+            });
+
+            triggerAnimations(currentStep);
+            
+            // Need user interaction first to play audio typically
+            // Called in event listeners
+        }
+
+        nextBtn.addEventListener('click', () => {
+            initAudio();
+            playSound('click');
+            if (currentStep < stepsData.length - 1) {
+                currentStep++;
+                updateUI();
+                speak(stepsData[currentStep].spokenText);
+            } else {
+                // Restart logic or finish
+                if(synth.speaking) synth.cancel();
+                alert("Simulation Complete! You have successfully reviewed the Marshall Mix Design procedure.");
+                currentStep = 0;
+                updateUI();
+                speak(stepsData[0].spokenText);
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            initAudio();
+            playSound('click');
+            if (currentStep > 0) {
+                currentStep--;
+                updateUI();
+                speak(stepsData[currentStep].spokenText);
+            }
+        });
+
+        toggleAudioBtn.addEventListener('click', () => {
+            initAudio();
+            audioEnabled = !audioEnabled;
+            if (audioEnabled) {
+                audioIconOn.classList.remove('hidden');
+                audioIconOff.classList.add('hidden');
+                speak(stepsData[currentStep].spokenText);
+            } else {
+                audioIconOn.classList.add('hidden');
+                audioIconOff.classList.remove('hidden');
+                synth.cancel(); // Stop current speech
+            }
+        });
+
+        // Initial setup
+        updateUI();
+        
+        // Ensure audio context starts on first interaction anywhere
+        document.body.addEventListener('click', function initAudioOnInteraction() {
+            initAudio();
+            document.body.removeEventListener('click', initAudioOnInteraction);
+        }, { once: true });
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Infiltration Indices Simulator (Φ-index & W-index)</title>
+    <!-- Tailwind CSS for modern responsive styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Inter Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* Custom styles for vertical range sliders */
+        .slider-vertical {
+            writing-mode: bt-lr; /* IE */
+            appearance: slider-vertical; /* Webkit */
+            width: 12px;
+            height: 120px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-indigo-600 rounded-lg text-white shadow-lg shadow-indigo-500/20">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        Infiltration & Runoff Simulator
+                    </h1>
+                    <p class="text-xs text-slate-400">Interactive solver for Φ-index & W-index (Hydrology)</p>
+                </div>
+            </div>
+            <!-- Preset Buttons -->
+            <div class="flex flex-wrap gap-2 items-center">
+                <span class="text-xs font-semibold uppercase tracking-wider text-slate-500">Presets:</span>
+                <button onclick="loadPreset('original')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition rounded-md text-xs font-semibold text-indigo-400 border border-slate-700 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                    Original (image_c4bc83.png)
+                </button>
+                <button onclick="loadPreset('highInfiltration')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition rounded-md text-xs font-semibold text-emerald-400 border border-slate-700">
+                    High Infiltration
+                </button>
+                <button onclick="loadPreset('flashFlood')" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 active:scale-95 transition rounded-md text-xs font-semibold text-rose-400 border border-slate-700">
+                    Flash Flood
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- Left Panel: Chart & Visualizer (7 Columns) -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            <!-- Interactive Hyetograph Card -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col min-h-[440px]">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-white">Interactive Storm Hyetograph</h2>
+                        <p class="text-xs text-slate-400">Drag any bar to adjust hourly rainfall intensity. Click a bar to select that hour.</p>
+                    </div>
+                    <div class="flex items-center gap-4 text-xs">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 bg-blue-500 rounded-sm"></span>
+                            <span class="text-slate-300">Runoff Excess</span>
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-3 h-3 bg-amber-700 rounded-sm"></span>
+                            <span class="text-slate-300">Infiltration Loss</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SVG Hyetograph -->
+                <div class="flex-1 relative bg-slate-950/60 rounded-lg p-2 border border-slate-800/80 flex items-center justify-center select-none">
+                    <svg id="hyetograph" viewBox="0 0 620 300" class="w-full h-full cursor-ns-resize max-h-[300px]"></svg>
+                    
+                    <!-- Dynamic Tooltip -->
+                    <div id="chart-tooltip" class="absolute pointer-events-none bg-slate-900 border border-slate-700 text-white text-xs rounded px-2 py-1 shadow-md opacity-0 transition-opacity duration-150"></div>
+                </div>
+
+                <div class="mt-4 flex flex-col sm:flex-row justify-between items-center text-xs text-slate-400 gap-2 border-t border-slate-800 pt-4">
+                    <div class="flex items-center gap-2">
+                        <kbd class="px-1.5 py-0.5 bg-slate-700 rounded text-[10px]">Click & Drag</kbd>
+                        <span>Change heights of the bars directly</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <div class="flex items-center gap-1">
+                            <div class="w-2.5 h-0.5 bg-red-500"></div>
+                            <span>Φ-index Line</span>
+                        </div>
+                        <div class="flex items-center gap-1">
+                            <div class="w-2.5 h-0.5 border-t-2 border-dashed border-teal-400"></div>
+                            <span>W-index Line</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Naked Eye Physical Water System Simulation Card -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col gap-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div>
+                        <h2 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            Physical Hydrologic Simulation (Naked Eye)
+                        </h2>
+                        <p class="text-xs text-slate-400">Observe actual rain, pooling runoff, and sub-surface soil percolation</p>
+                    </div>
+                    
+                    <!-- Simulation Player Controls -->
+                    <div class="flex items-center gap-2">
+                        <button id="play-btn" onclick="togglePlaySequence()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-500/10">
+                            <svg id="play-icon" class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                            <span id="play-text">Play Storm</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Simulation Timeline Scrubber -->
+                <div class="grid grid-cols-8 gap-1.5 bg-slate-900/60 p-2 border border-slate-800 rounded-lg">
+                    <button onclick="setActiveHour(0)" id="t-btn-0" class="t-btn py-1 px-1 bg-indigo-500/10 border border-indigo-500/30 text-indigo-300 font-bold text-xs rounded transition hover:bg-indigo-500/20">Hr 1</button>
+                    <button onclick="setActiveHour(1)" id="t-btn-1" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 2</button>
+                    <button onclick="setActiveHour(2)" id="t-btn-2" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 3</button>
+                    <button onclick="setActiveHour(3)" id="t-btn-3" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 4</button>
+                    <button onclick="setActiveHour(4)" id="t-btn-4" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 5</button>
+                    <button onclick="setActiveHour(5)" id="t-btn-5" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 6</button>
+                    <button onclick="setActiveHour(6)" id="t-btn-6" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 7</button>
+                    <button onclick="setActiveHour(7)" id="t-btn-7" class="t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700">Hr 8</button>
+                </div>
+
+                <!-- Dynamic Telemetry HUD -->
+                <div class="grid grid-cols-3 gap-2 bg-slate-950 p-2.5 rounded-lg border border-slate-800 text-[11px] font-mono">
+                    <div class="text-center">
+                        <span class="text-slate-500 block text-[9px] uppercase">Rainfall Intensity</span>
+                        <span id="hud-rain" class="text-indigo-400 font-bold text-xs">1.00 cm/hr</span>
+                    </div>
+                    <div class="text-center border-x border-slate-800">
+                        <span class="text-slate-500 block text-[9px] uppercase">Infiltration Rate</span>
+                        <span id="hud-infil" class="text-amber-500 font-bold text-xs">1.00 cm/hr</span>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-slate-500 block text-[9px] uppercase">Excess Runoff Rate</span>
+                        <span id="hud-runoff" class="text-blue-400 font-bold text-xs">0.00 cm/hr</span>
+                    </div>
+                </div>
+
+                <!-- HTML5 Animation Canvas -->
+                <div class="relative bg-slate-950 rounded-lg overflow-hidden border border-slate-800 h-64 shadow-inner">
+                    <canvas id="physical-canvas" class="w-full h-full block"></canvas>
+                    
+                    <!-- Graphic Overlays and Labels -->
+                    <div class="absolute top-2 left-2 flex flex-col gap-1 pointer-events-none select-none">
+                        <span class="bg-indigo-950/80 backdrop-blur text-indigo-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-indigo-500/20 uppercase tracking-widest">Atmosphere</span>
+                    </div>
+                    <div class="absolute top-24 left-2 pointer-events-none select-none">
+                        <span class="bg-amber-950/80 backdrop-blur text-amber-500 text-[9px] font-bold px-1.5 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest">Soil Surface (Runoff Zone)</span>
+                    </div>
+                    <div class="absolute bottom-2 left-2 pointer-events-none select-none">
+                        <span class="bg-emerald-950/80 backdrop-blur text-emerald-400 text-[9px] font-bold px-1.5 py-0.5 rounded border border-emerald-500/20 uppercase tracking-widest">Subsurface (Percolation)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Controls Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <!-- Direct Runoff Card -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-xl flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="text-sm font-semibold text-slate-300">Target Direct Runoff (R)</h3>
+                            <span id="runoff-badge" class="text-xs px-2 py-0.5 rounded font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20">9.00 cm</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-4">Set target direct runoff to calculate the corresponding infiltration indexes</p>
+                    </div>
+                    <div class="space-y-2">
+                        <input type="range" id="runoff-input" min="0.1" max="22" step="0.05" value="9.0" class="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>0.1 cm</span>
+                            <span>Max (Total P)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overall Storm Summary Card -->
+                <div class="bg-slate-800/50 border border-slate-800 rounded-xl p-5 shadow-xl grid grid-cols-2 gap-4">
+                    <div class="space-y-1">
+                        <p class="text-xs text-slate-400">Total Precip. (P)</p>
+                        <p id="total-p-val" class="text-2xl font-black text-white">22.00 <span class="text-xs text-slate-400 font-normal">cm</span></p>
+                    </div>
+                    <div class="space-y-1">
+                        <p class="text-xs text-slate-400 font-medium">Total Losses (P - R)</p>
+                        <p id="total-losses-val" class="text-2xl font-black text-amber-500">13.00 <span class="text-xs text-slate-400 font-normal">cm</span></p>
+                    </div>
+                    <div class="col-span-2 border-t border-slate-800 pt-2 flex justify-between text-xs text-slate-400">
+                        <span>Total Duration: <strong>8 hours</strong></span>
+                        <span>Interval: <strong>1 hr</strong></span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Panel: Results & Methodology (5 Columns) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            <!-- Outputs Card -->
+            <div class="bg-gradient-to-br from-indigo-950/40 to-slate-900 border border-indigo-500/20 rounded-xl p-5 shadow-2xl relative overflow-hidden">
+                <div class="absolute -top-12 -right-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl"></div>
+                
+                <h2 class="text-md font-bold tracking-wider text-slate-400 uppercase mb-4">Calculated Indices</h2>
+                
+                <div class="grid grid-cols-2 gap-4 relative z-10">
+                    <!-- Phi Index Panel -->
+                    <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-lg flex flex-col justify-between hover:border-red-500/30 transition">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-slate-400 font-medium">Φ-index</span>
+                            <span class="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded">Iterative</span>
+                        </div>
+                        <div class="my-2">
+                            <p id="phi-val" class="text-3xl font-extrabold text-red-400">1.88</p>
+                            <span class="text-xs text-slate-400">cm/hour</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-1">Threshold for runoff generation</p>
+                    </div>
+
+                    <!-- W Index Panel -->
+                    <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-lg flex flex-col justify-between hover:border-teal-500/30 transition">
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-xs text-slate-400 font-medium">W-index</span>
+                            <span class="text-[10px] bg-teal-500/10 text-teal-400 border border-teal-500/20 px-1.5 py-0.5 rounded">Average</span>
+                        </div>
+                        <div class="my-2">
+                            <p id="w-val" class="text-3xl font-extrabold text-teal-400">1.63</p>
+                            <span class="text-xs text-slate-400">cm/hour</span>
+                        </div>
+                        <p class="text-[10px] text-slate-400 mt-2 border-t border-slate-800 pt-1">Average rate over full duration</p>
+                    </div>
+                </div>
+
+                <!-- Warning Banner -->
+                <div id="validation-warning" class="hidden mt-4 p-3 bg-rose-500/10 border border-rose-500/20 rounded-lg flex items-center gap-2 text-rose-400 text-xs">
+                    <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+                    <span id="warning-message">Warning message here.</span>
+                </div>
+            </div>
+
+            <!-- Tabs: Step-by-Step explanation & Theory -->
+            <div class="bg-slate-800/50 border border-slate-800 rounded-xl flex-1 flex flex-col overflow-hidden shadow-xl">
+                <!-- Tab Headers -->
+                <div class="flex border-b border-slate-800 bg-slate-900/40">
+                    <button onclick="switchTab('steps')" id="tab-btn-steps" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-indigo-400 border-b-2 border-indigo-500 transition">
+                        Calculations
+                    </button>
+                    <button onclick="switchTab('inputs')" id="tab-btn-inputs" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b-2 border-transparent transition hover:text-slate-200">
+                        Manual Inputs
+                    </button>
+                    <button onclick="switchTab('theory')" id="tab-btn-theory" class="flex-1 py-3 text-xs font-semibold uppercase tracking-wider text-slate-400 border-b-2 border-transparent transition hover:text-slate-200">
+                        Theory Guide
+                    </button>
+                </div>
+
+                <!-- Tab Body Content -->
+                <div class="p-5 flex-1 overflow-y-auto custom-scrollbar text-sm max-h-[380px]">
+                    
+                    <!-- TAB 1: Calculations -->
+                    <div id="tab-steps" class="space-y-4">
+                        <h3 class="text-white font-semibold text-xs uppercase tracking-wider text-slate-400">Iterative Breakdown</h3>
+                        
+                        <div id="steps-container" class="space-y-3">
+                            <!-- Dynamic steps will be injected here -->
+                        </div>
+                    </div>
+
+                    <!-- TAB 2: Manual Inputs -->
+                    <div id="tab-inputs" class="hidden space-y-4">
+                        <p class="text-xs text-slate-400 mb-4">Tweak the storm's precipitation profile manually below:</p>
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <!-- Input builders will be injected dynamically -->
+                            <div id="manual-inputs-grid" class="contents"></div>
+                        </div>
+                    </div>
+
+                    <!-- TAB 3: Theory Guide -->
+                    <div id="tab-theory" class="hidden space-y-4 text-xs text-slate-300 leading-relaxed">
+                        <div class="space-y-3">
+                            <div>
+                                <h4 class="text-white font-semibold text-sm">What is the W-index?</h4>
+                                <p class="text-slate-400 mt-1">The W-index is the average rate of infiltration during the entire storm duration. It assumes losses are uniformly spread. Formula:</p>
+                                <div class="bg-slate-900 border border-slate-800 rounded p-2 text-center text-white my-1 font-mono text-xs">
+                                    W = (P - R) / T
+                                </div>
+                                <p class="text-slate-400">Where <span class="text-slate-200">P</span> = Total rainfall, <span class="text-slate-200">R</span> = Runoff, <span class="text-slate-200">T</span> = Duration of storm.</p>
+                            </div>
+
+                            <hr class="border-slate-800">
+
+                            <div>
+                                <h4 class="text-white font-semibold text-sm">What is the Φ-index?</h4>
+                                <p class="text-slate-400 mt-1">The Φ-index is the infiltration rate above which rainfall volume equals direct runoff. Any rainfall occurring at an intensity below the Φ-index only fills up soil voids (infiltration) and produces zero surface runoff.</p>
+                                <div class="bg-slate-900 border border-slate-800 rounded p-2 text-center text-white my-1 font-mono text-xs">
+                                    Φ = (P_e - R) / T_e
+                                </div>
+                                <p class="text-slate-400">Where <span class="text-slate-200">P_e</span> = Effective precipitation (excluding hours with intensity ≤ Φ), and <span class="text-slate-200">T_e</span> = Effective duration of excess storm.</p>
+                            </div>
+
+                            <hr class="border-slate-800">
+
+                            <div class="bg-slate-900/80 rounded border border-slate-800 p-2 text-[10px] text-slate-400">
+                                <span class="font-bold text-slate-300 block mb-0.5">Hydrologic Conservation:</span>
+                                The physical core of these methods ensures that the volume of rainfall falling *above* the horizontal Φ-index threshold perfectly equals the total Direct Runoff measured in the stream.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-slate-800 bg-slate-950 px-6 py-4 mt-auto">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row justify-between items-center text-xs text-slate-500 gap-2">
+            <span>Engineering Hydrology Interactive Simulation</span>
+            <span class="flex items-center gap-1">
+                Ref: <span class="text-slate-400 font-mono">image_c4bc83.png</span> Problem
+            </span>
+        </div>
+    </footer>
+
+    <script>
+        // Default state values (originally matching image_c4bc83.png)
+        const defaults = {
+            rainfalls: [1.0, 3.5, 5.0, 3.2, 4.5, 2.0, 0.75, 2.05],
+            runoff: 9.0,
+            t: 8,
+            interval: 1
+        };
+
+        let state = {
+            rainfalls: [...defaults.rainfalls],
+            runoff: defaults.runoff,
+            maxRainfallVal: 10.0,
+            activeHourIndex: 2 // default selected hour (3rd hour - 5.0cm/hr)
+        };
+
+        // UI state variables
+        let activeTab = 'steps';
+        let draggedBarIndex = null;
+        let isSequencePlaying = false;
+        let sequenceIntervalId = null;
+
+        // Physical Engine variables
+        let canvas, ctx;
+        let rainDrops = [];
+        let seepageParticles = [];
+        let physicalAnimFrameId = null;
+        let waveOffset = 0;
+
+        // Initialize App
+        window.onload = function() {
+            setupPointerEvents();
+            buildManualInputs();
+            initPhysicalSimulation();
+            calculateAndRefresh();
+        };
+
+        // Load predefined setups
+        function loadPreset(presetKey) {
+            if (presetKey === 'original') {
+                state.rainfalls = [...defaults.rainfalls];
+                state.runoff = defaults.runoff;
+            } else if (presetKey === 'highInfiltration') {
+                state.rainfalls = [2.0, 4.0, 5.5, 3.0, 6.0, 4.0, 1.5, 3.0];
+                state.runoff = 4.0; // Most rain absorbed into soil
+            } else if (presetKey === 'flashFlood') {
+                state.rainfalls = [3.0, 6.5, 8.0, 5.0, 7.5, 4.5, 2.0, 3.5];
+                state.runoff = 28.0; // Extreme saturated soil, high runoff
+            }
+            
+            // Sync slider limits
+            const totalP = state.rainfalls.reduce((sum, v) => sum + v, 0);
+            const runoffInput = document.getElementById('runoff-input');
+            runoffInput.max = totalP.toFixed(2);
+            if (state.runoff > totalP) {
+                state.runoff = totalP - 1;
+            }
+            runoffInput.value = state.runoff;
+
+            buildManualInputs();
+            calculateAndRefresh();
+        }
+
+        // Pure analytical computational core
+        function solveIndices(rainfalls, runoff) {
+            const T = rainfalls.length;
+            const totalP = rainfalls.reduce((sum, val) => sum + val, 0);
+
+            // Cap runoff safely to prevent mathematical crash
+            let activeRunoff = runoff;
+            let err = null;
+            if (activeRunoff > totalP) {
+                activeRunoff = totalP;
+                err = "Runoff cannot exceed total precipitation volume.";
+            }
+
+            // W-index
+            const wIndex = (totalP - activeRunoff) / T;
+
+            // Compute Φ-index (iterative process)
+            let activeSet = [...rainfalls];
+            let currentPhi = wIndex;
+            let converged = false;
+            let steps = [];
+
+            // Setup initial step record
+            steps.push({
+                type: 'initial',
+                label: 'Trial 1 (W-index baseline)',
+                phi: currentPhi,
+                activeCount: activeSet.length,
+                rainfalls: [...activeSet]
+            });
+
+            let iter = 1;
+            while (!converged && iter < 10) {
+                // Find items that are strictly less than or equal to current phi
+                const excludedThisIter = activeSet.filter(val => val <= currentPhi);
+                
+                if (excludedThisIter.length === 0) {
+                    converged = true;
+                    steps.push({
+                        type: 'converged',
+                        label: 'Convergence Reached',
+                        phi: currentPhi,
+                        activeCount: activeSet.length
+                    });
+                } else {
+                    // Filter down to elements > currentPhi
+                    const nextActiveSet = activeSet.filter(val => val > currentPhi);
+                    
+                    if (nextActiveSet.length === 0) {
+                        // Edge case: entire profile is below or matches threshold
+                        currentPhi = wIndex;
+                        converged = true;
+                        break;
+                    }
+
+                    const nextActiveSum = nextActiveSet.reduce((sum, v) => sum + v, 0);
+                    const newPhi = (nextActiveSum - activeRunoff) / nextActiveSet.length;
+
+                    iter++;
+                    steps.push({
+                        type: 'iteration',
+                        label: `Iteration ${iter}`,
+                        oldPhi: currentPhi,
+                        newPhi: newPhi,
+                        excluded: excludedThisIter,
+                        activeCount: nextActiveSet.length,
+                        activeValues: [...nextActiveSet]
+                    });
+
+                    currentPhi = newPhi;
+                    activeSet = nextActiveSet;
+                }
+            }
+
+            return {
+                totalP,
+                wIndex,
+                phiIndex: currentPhi,
+                steps,
+                error: err
+            };
+        }
+
+        // Handle input events from range slider
+        document.getElementById('runoff-input').addEventListener('input', function(e) {
+            state.runoff = parseFloat(e.target.value);
+            calculateAndRefresh();
+        });
+
+        // Calculate, refresh graph, update stats and explanations
+        function calculateAndRefresh() {
+            const totalP = state.rainfalls.reduce((sum, v) => sum + v, 0);
+            
+            // Adjust maximum slider limit to avoid setting runoff higher than Precipitation
+            const runoffInput = document.getElementById('runoff-input');
+            runoffInput.max = totalP.toFixed(2);
+            if (state.runoff > totalP) {
+                state.runoff = totalP;
+                runoffInput.value = totalP;
+            }
+
+            document.getElementById('runoff-badge').textContent = `${state.runoff.toFixed(2)} cm`;
+
+            // Run index solver engine
+            const results = solveIndices(state.rainfalls, state.runoff);
+
+            // Update stats indicators
+            document.getElementById('total-p-val').innerHTML = `${results.totalP.toFixed(2)} <span class="text-xs text-slate-400 font-normal">cm</span>`;
+            document.getElementById('total-losses-val').innerHTML = `${Math.max(0, results.totalP - state.runoff).toFixed(2)} <span class="text-xs text-slate-400 font-normal">cm</span>`;
+            document.getElementById('w-val').textContent = results.wIndex.toFixed(3);
+            document.getElementById('phi-val').textContent = results.phiIndex.toFixed(3);
+
+            // Warn users if logical rules are breached
+            const warningEl = document.getElementById('validation-warning');
+            if (results.error) {
+                warningEl.classList.remove('hidden');
+                document.getElementById('warning-message').textContent = results.error;
+            } else {
+                warningEl.classList.add('hidden');
+            }
+
+            // Sync visual representation of indices onto chart
+            renderHyetograph(results.phiIndex, results.wIndex);
+            
+            // Update the math walkthrough tab
+            generateWalkthrough(results);
+
+            // Update numerical values input text boxes (if input tab is viewed)
+            syncManualInputTextBoxes();
+
+            // Sync Active Hour stats/visual labels on HUD
+            updateTelemetryHUD(results.phiIndex);
+        }
+
+        function renderHyetograph(phi, w) {
+            const svg = document.getElementById('hyetograph');
+            svg.innerHTML = ''; // clear svg content
+
+            const width = 620;
+            const height = 300;
+            const paddingLeft = 45;
+            const paddingBottom = 40;
+            const paddingTop = 25;
+            const paddingRight = 20;
+
+            const plotWidth = width - paddingLeft - paddingRight;
+            const plotHeight = height - paddingTop - paddingBottom;
+
+            // Find dynamic max value to handle customized heights gracefully
+            const localMax = Math.max(...state.rainfalls, 6.0);
+            state.maxRainfallVal = Math.ceil(localMax);
+
+            // Linear scale functions
+            const getX = (index) => paddingLeft + (index * (plotWidth / 8));
+            const getY = (val) => paddingTop + plotHeight - (val / state.maxRainfallVal) * plotHeight;
+            const getBarWidth = () => (plotWidth / 8) - 10;
+
+            // DRAW GRID LINES
+            for (let i = 0; i <= state.maxRainfallVal; i += (state.maxRainfallVal > 10 ? 2 : 1)) {
+                const yPos = getY(i);
+                
+                // Grid line path
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", paddingLeft);
+                line.setAttribute("y1", yPos);
+                line.setAttribute("x2", width - paddingRight);
+                line.setAttribute("y2", yPos);
+                line.setAttribute("stroke", "#334155");
+                line.setAttribute("stroke-dasharray", "2,4");
+                line.setAttribute("stroke-width", "1");
+                svg.appendChild(line);
+
+                // Y-axis label text
+                const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                text.setAttribute("x", paddingLeft - 8);
+                text.setAttribute("y", yPos + 4);
+                text.setAttribute("text-anchor", "end");
+                text.setAttribute("fill", "#94a3b8");
+                text.setAttribute("class", "text-[10px] font-medium font-mono");
+                text.textContent = i;
+                svg.appendChild(text);
+            }
+
+            // X-AXIS BASELINE
+            const xAxisLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            xAxisLine.setAttribute("x1", paddingLeft);
+            xAxisLine.setAttribute("y1", height - paddingBottom);
+            xAxisLine.setAttribute("x2", width - paddingRight);
+            xAxisLine.setAttribute("y2", height - paddingBottom);
+            xAxisLine.setAttribute("stroke", "#475569");
+            xAxisLine.setAttribute("stroke-width", "1.5");
+            svg.appendChild(xAxisLine);
+
+            // DRAW EACH HOUR'S PRECIPITATION BARS (SPLIT COLOR)
+            state.rainfalls.forEach((p, index) => {
+                const xPos = getX(index) + 5;
+                const barWidth = getBarWidth();
+                const barTopY = getY(p);
+                const phiY = getY(phi);
+                const groundY = getY(0);
+
+                // Setup container group
+                const group = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                group.setAttribute("class", "group cursor-pointer transition-all");
+                group.dataset.index = index;
+
+                // Portion 1: INFILTRATION COMPONENT (Below/At Phi index threshold)
+                const splitVal = Math.min(p, phi);
+                const infilTopY = getY(splitVal);
+                const infilHeight = groundY - infilTopY;
+
+                if (infilHeight > 0) {
+                    const rectInfil = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rectInfil.setAttribute("x", xPos);
+                    rectInfil.setAttribute("y", infilTopY);
+                    rectInfil.setAttribute("width", barWidth);
+                    rectInfil.setAttribute("height", infilHeight);
+                    rectInfil.setAttribute("fill", "#b45309"); // Earthy Amber
+                    rectInfil.setAttribute("opacity", "0.75");
+                    rectInfil.setAttribute("rx", "2");
+                    group.appendChild(rectInfil);
+                }
+
+                // Portion 2: EXCESS RAIN COMPONENT (Above Phi index threshold)
+                if (p > phi) {
+                    const runoffHeight = phiY - barTopY;
+                    const rectRunoff = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rectRunoff.setAttribute("x", xPos);
+                    rectRunoff.setAttribute("y", barTopY);
+                    rectRunoff.setAttribute("width", barWidth);
+                    rectRunoff.setAttribute("height", runoffHeight);
+                    rectRunoff.setAttribute("fill", "#3b82f6"); // Cool Blue
+                    rectRunoff.setAttribute("rx", "2");
+                    group.appendChild(rectRunoff);
+                }
+
+                // Bar border hover outline
+                const outline = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                outline.setAttribute("x", xPos);
+                outline.setAttribute("y", barTopY);
+                outline.setAttribute("width", barWidth);
+                outline.setAttribute("height", groundY - barTopY);
+                outline.setAttribute("fill", "transparent");
+                outline.setAttribute("stroke", "#6366f1");
+                outline.setAttribute("stroke-width", "2");
+                outline.setAttribute("stroke-dasharray", "2,2");
+                outline.setAttribute("class", "opacity-0 group-hover:opacity-100 transition duration-150");
+                outline.setAttribute("rx", "3");
+                group.appendChild(outline);
+
+                // Highlight block indicating currently active simulation hour
+                if (index === state.activeHourIndex) {
+                    const highlight = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    highlight.setAttribute("x", xPos - 3);
+                    highlight.setAttribute("y", barTopY - 4);
+                    highlight.setAttribute("width", barWidth + 6);
+                    highlight.setAttribute("height", groundY - barTopY + 8);
+                    highlight.setAttribute("fill", "transparent");
+                    highlight.setAttribute("stroke", "#10b981"); // Active Green highlight
+                    highlight.setAttribute("stroke-width", "2.5");
+                    highlight.setAttribute("rx", "4");
+                    group.appendChild(highlight);
+                }
+
+                // Add interactive handle circle at bar peak
+                const handle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                handle.setAttribute("cx", xPos + barWidth / 2);
+                handle.setAttribute("cy", barTopY);
+                handle.setAttribute("r", "5");
+                handle.setAttribute("fill", "#ffffff");
+                handle.setAttribute("stroke", "#4f46e5");
+                handle.setAttribute("stroke-width", "2.5");
+                handle.setAttribute("class", "opacity-0 group-hover:opacity-100 transition shadow cursor-ns-resize duration-150");
+                group.appendChild(handle);
+
+                // X-axis label
+                const xLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                xLabel.setAttribute("x", xPos + (barWidth / 2));
+                xLabel.setAttribute("y", height - paddingBottom + 18);
+                xLabel.setAttribute("text-anchor", "middle");
+                xLabel.setAttribute("fill", "#94a3b8");
+                xLabel.setAttribute("class", "text-[10px] font-bold");
+                xLabel.textContent = `Hr ${index + 1}`;
+                svg.appendChild(xLabel);
+
+                // Label on top showing rainfall amount
+                const valLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                valLabel.setAttribute("x", xPos + (barWidth / 2));
+                valLabel.setAttribute("y", barTopY - 6);
+                valLabel.setAttribute("text-anchor", "middle");
+                valLabel.setAttribute("fill", "#ffffff");
+                valLabel.setAttribute("class", "text-[10px] font-mono font-bold pointer-events-none");
+                valLabel.textContent = `${p.toFixed(2)}`;
+                group.appendChild(valLabel);
+
+                // Allow clicking bar to select hour
+                group.onclick = (e) => {
+                    setActiveHour(index);
+                };
+
+                svg.appendChild(group);
+            });
+
+            // Draw horizontal W-INDEX Line (Dashed Teal Line)
+            const wY = getY(w);
+            const wLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            wLine.setAttribute("x1", paddingLeft);
+            wLine.setAttribute("y1", wY);
+            wLine.setAttribute("x2", width - paddingRight);
+            wLine.setAttribute("y2", wY);
+            wLine.setAttribute("stroke", "#2dd4bf");
+            wLine.setAttribute("stroke-dasharray", "6,4");
+            wLine.setAttribute("stroke-width", "2");
+            svg.appendChild(wLine);
+
+            const wLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            wLabel.setAttribute("x", width - paddingRight - 4);
+            wLabel.setAttribute("y", wY - 6);
+            wLabel.setAttribute("text-anchor", "end");
+            wLabel.setAttribute("fill", "#2dd4bf");
+            wLabel.setAttribute("class", "text-[9px] font-bold tracking-wider uppercase bg-slate-900");
+            wLabel.textContent = `W-index (${w.toFixed(2)})`;
+            svg.appendChild(wLabel);
+
+            // Draw horizontal PHI-INDEX Line (Solid Red Line)
+            const phiY = getY(phi);
+            const phiLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            phiLine.setAttribute("x1", paddingLeft);
+            phiLine.setAttribute("y1", phiY);
+            phiLine.setAttribute("x2", width - paddingRight);
+            phiLine.setAttribute("y2", phiY);
+            phiLine.setAttribute("stroke", "#ef4444");
+            phiLine.setAttribute("stroke-width", "2.5");
+            svg.appendChild(phiLine);
+
+            const phiLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            phiLabel.setAttribute("x", paddingLeft + 10);
+            phiLabel.setAttribute("y", phiY - 6);
+            phiLabel.setAttribute("fill", "#f87171");
+            phiLabel.setAttribute("class", "text-[9px] font-bold tracking-wider uppercase");
+            phiLabel.textContent = `Φ-index: ${phi.toFixed(2)} cm/hr`;
+            svg.appendChild(phiLabel);
+
+            // Add clean Y Axis title
+            const yTitle = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            yTitle.setAttribute("transform", "rotate(-90)");
+            yTitle.setAttribute("x", -(height/2));
+            yTitle.setAttribute("y", 14);
+            yTitle.setAttribute("text-anchor", "middle");
+            yTitle.setAttribute("fill", "#cbd5e1");
+            yTitle.setAttribute("class", "text-[9px] font-bold tracking-widest uppercase");
+            yTitle.textContent = "Rainfall Intensity (cm/hr)";
+            svg.appendChild(yTitle);
+        }
+
+        // SVG drag handlers utilizing pointer events
+        function setupPointerEvents() {
+            const svg = document.getElementById('hyetograph');
+            const tooltip = document.getElementById('chart-tooltip');
+
+            svg.addEventListener('pointerdown', (e) => {
+                const group = e.target.closest('g.group');
+                if (!group) return;
+
+                draggedBarIndex = parseInt(group.dataset.index);
+                svg.setPointerCapture(e.pointerId);
+                updateDrag(e);
+            });
+
+            svg.addEventListener('pointermove', (e) => {
+                if (draggedBarIndex === null) {
+                    // Update hover tooltip position
+                    const group = e.target.closest('g.group');
+                    if (group) {
+                        const idx = parseInt(group.dataset.index);
+                        const val = state.rainfalls[idx];
+                        const rect = svg.getBoundingClientRect();
+                        
+                        tooltip.style.opacity = '1';
+                        tooltip.style.left = `${e.clientX - rect.left + 15}px`;
+                        tooltip.style.top = `${e.clientY - rect.top - 25}px`;
+                        tooltip.textContent = `Hour ${idx + 1}: ${val.toFixed(2)} cm`;
+                    } else {
+                        tooltip.style.opacity = '0';
+                    }
+                    return;
+                }
+                updateDrag(e);
+            });
+
+            svg.addEventListener('pointerup', (e) => {
+                if (draggedBarIndex !== null) {
+                    svg.releasePointerCapture(e.pointerId);
+                    draggedBarIndex = null;
+                }
+            });
+
+            function updateDrag(e) {
+                const rect = svg.getBoundingClientRect();
+                const clientY = e.clientY - rect.top;
+                
+                // SVG coordinate spaces map: (top=25, height=235, height pixels=235)
+                const svgY = (clientY / rect.height) * 300;
+                
+                // Solve mathematical equivalent inverse translation
+                let val = state.maxRainfallVal * (235 - (svgY - 25)) / 235;
+                val = Math.max(0, Math.min(state.maxRainfallVal, Math.round(val * 20) / 20)); // snap to 0.05 step
+                
+                state.rainfalls[draggedBarIndex] = val;
+                calculateAndRefresh();
+            }
+        }
+
+        // Generates input fields under manual mode dynamically
+        function buildManualInputs() {
+            const container = document.getElementById('manual-inputs-grid');
+            container.innerHTML = '';
+
+            state.rainfalls.forEach((val, idx) => {
+                const card = document.createElement('div');
+                card.className = "bg-slate-900/60 p-2.5 border border-slate-800 rounded-lg flex flex-col items-center gap-1.5";
+                card.innerHTML = `
+                    <label class="text-[10px] text-slate-500 font-bold uppercase">Hour ${idx+1}</label>
+                    <input type="number" step="0.05" min="0" max="25" value="${val.toFixed(2)}" 
+                           class="w-full bg-slate-800 border border-slate-700 text-center rounded py-1 px-1.5 text-xs text-white font-mono focus:border-indigo-500 outline-none"
+                           data-idx="${idx}" oninput="handleManualInputChange(this)">
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function handleManualInputChange(input) {
+            const idx = parseInt(input.dataset.idx);
+            let val = parseFloat(input.value);
+            if (isNaN(val) || val < 0) val = 0;
+            state.rainfalls[idx] = val;
+            calculateAndRefresh();
+        }
+
+        function syncManualInputTextBoxes() {
+            const inputs = document.querySelectorAll('#manual-inputs-grid input');
+            inputs.forEach(input => {
+                const idx = parseInt(input.dataset.idx);
+                input.value = state.rainfalls[idx].toFixed(2);
+            });
+        }
+
+        // Initialize HTML5 Canvas and physical variables
+        function initPhysicalSimulation() {
+            canvas = document.getElementById('physical-canvas');
+            ctx = canvas.getContext('2d');
+
+            // Responsive resizing
+            function resizeCanvas() {
+                const rect = canvas.getBoundingClientRect();
+                canvas.width = rect.width;
+                canvas.height = rect.height;
+            }
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Populate initial particle pools
+            for (let i = 0; i < 40; i++) {
+                rainDrops.push({
+                    x: Math.random() * 800,
+                    y: Math.random() * -200,
+                    speed: 4 + Math.random() * 5,
+                    length: 10 + Math.random() * 15
+                });
+            }
+
+            for (let i = 0; i < 50; i++) {
+                seepageParticles.push({
+                    x: Math.random() * 800,
+                    y: 110 + Math.random() * 140,
+                    speed: 0.2 + Math.random() * 0.6,
+                    radius: 1 + Math.random() * 1.5,
+                    alpha: Math.random()
+                });
+            }
+
+            // Start Animation loop
+            if (physicalAnimFrameId) cancelAnimationFrame(physicalAnimFrameId);
+            animatePhysicalLoop();
+        }
+
+        // The main frame loop for the beautiful naked-eye simulation
+        function animatePhysicalLoop() {
+            if (!canvas || !ctx) return;
+
+            // Context variables
+            const w = canvas.width;
+            const h = canvas.height;
+            const groundY = 110; // Surface line dividing atmosphere and soil
+
+            // Get dynamic hydrology parameters for active hour
+            const P = state.rainfalls[state.activeHourIndex] || 0;
+            const results = solveIndices(state.rainfalls, state.runoff);
+            const phi = results.phiIndex;
+
+            const infiltrationRate = Math.min(P, phi);
+            const runoffRate = Math.max(0, P - phi);
+
+            // Clear Frame with deep sky atmosphere gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, groundY);
+            skyGradient.addColorStop(0, '#090d16');
+            skyGradient.addColorStop(1, '#1e293b');
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, w, h);
+
+            // 1. ANIMATE & DRAW RAINDROPS
+            // Droplet count dynamically scales with current precipitation (P)
+            const targetRainCount = Math.floor(P * 12);
+            if (rainDrops.length < targetRainCount) {
+                for (let i = 0; i < targetRainCount - rainDrops.length; i++) {
+                    rainDrops.push({
+                        x: Math.random() * w,
+                        y: Math.random() * -100,
+                        speed: 6 + Math.random() * 6,
+                        length: 12 + Math.random() * 14
+                    });
+                }
+            } else if (rainDrops.length > targetRainCount) {
+                rainDrops.length = targetRainCount;
+            }
+
+            ctx.strokeStyle = 'rgba(156, 163, 175, 0.4)';
+            ctx.lineWidth = 1.5;
+            rainDrops.forEach(drop => {
+                // Diagonal rain lines representing dynamic wind/flow speed
+                ctx.beginPath();
+                ctx.moveTo(drop.x, drop.y);
+                ctx.lineTo(drop.x - 2, drop.y + drop.length);
+                ctx.stroke();
+
+                // Update falling state
+                drop.y += drop.speed;
+                drop.x -= 0.5; // slight drift
+
+                // Reset drop to top if hit ground or leaves window bounds
+                if (drop.y > groundY || drop.x < 0) {
+                    drop.y = Math.random() * -30;
+                    drop.x = Math.random() * w;
+                }
+            });
+
+            // 2. DRAW THE GEOLOGICAL LAYER STRATA (Soil Layers)
+            // Strata 1: Dynamic Moisture Rich Topsoil
+            const saturationAlpha = Math.min(1, infiltrationRate / 3); // soil darkens when absorbing more water
+            const topSoilGrad = ctx.createLinearGradient(0, groundY, 0, groundY + 40);
+            topSoilGrad.addColorStop(0, saturationAlpha > 0.5 ? '#271b13' : '#3d2b1f');
+            topSoilGrad.addColorStop(1, '#4d3728');
+            ctx.fillStyle = topSoilGrad;
+            ctx.fillRect(0, groundY, w, 40);
+
+            // Strata 2: Sandy Loam Subsoil
+            const subSoilGrad = ctx.createLinearGradient(0, groundY + 40, 0, groundY + 110);
+            subSoilGrad.addColorStop(0, '#5a4535');
+            subSoilGrad.addColorStop(1, '#3b2f25');
+            ctx.fillStyle = subSoilGrad;
+            ctx.fillRect(0, groundY + 40, w, 70);
+
+            // Strata 3: Hard Bedrock Layer
+            const bedrockGrad = ctx.createLinearGradient(0, groundY + 110, 0, h);
+            bedrockGrad.addColorStop(0, '#1f242e');
+            bedrockGrad.addColorStop(1, '#111317');
+            ctx.fillStyle = bedrockGrad;
+            ctx.fillRect(0, groundY + 110, w, h - (groundY + 110));
+
+            // 3. ANIMATE AND DRAW SUBSURFACE SEEPAGE (INFILTRATION)
+            // Seepage speed is directly tied to the current infiltration rate
+            const targetSeepageCount = Math.floor(infiltrationRate * 18);
+            if (seepageParticles.length < targetSeepageCount) {
+                for (let i = 0; i < targetSeepageCount - seepageParticles.length; i++) {
+                    seepageParticles.push({
+                        x: Math.random() * w,
+                        y: groundY + Math.random() * (h - groundY),
+                        speed: 0.1 + Math.random() * (infiltrationRate * 0.4),
+                        radius: 1 + Math.random() * 1.5,
+                        alpha: Math.random()
+                    });
+                }
+            } else if (seepageParticles.length > targetSeepageCount) {
+                seepageParticles.length = targetSeepageCount;
+            }
+
+            ctx.fillStyle = 'rgba(56, 189, 248, 0.6)'; // Soft water blue dots seeping downward
+            seepageParticles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Move downwards
+                p.y += p.speed;
+                // Slowly fade as they reach deeper rock zones
+                if (p.y > groundY + 110) {
+                    p.alpha -= 0.01;
+                }
+
+                // Reset seepage particle
+                if (p.y > h || p.alpha <= 0) {
+                    p.y = groundY + Math.random() * 10;
+                    p.x = Math.random() * w;
+                    p.speed = 0.1 + Math.random() * (infiltrationRate * 0.4);
+                    p.alpha = 0.6 + Math.random() * 0.4;
+                }
+            });
+
+            // 4. ANIMATE AND DRAW SURFACE RUNOFF WATER
+            // Height of the surface water layer scales dynamically with active hour's runoff rate
+            const targetWaterHeight = Math.min(30, runoffRate * 5); // caps visual level safely
+            waveOffset += 0.04;
+
+            if (targetWaterHeight > 1.5) {
+                ctx.fillStyle = 'rgba(59, 130, 246, 0.5)'; // semi-transparent runoff blue
+                ctx.beginPath();
+                ctx.moveTo(0, groundY);
+
+                // Create sine wave ripples representing water flowing towards drainage weir on the right
+                for (let x = 0; x <= w; x += 10) {
+                    const ripple = Math.sin((x * 0.05) + waveOffset) * 2.5;
+                    ctx.lineTo(x, groundY - targetWaterHeight + ripple);
+                }
+                ctx.lineTo(w, groundY);
+                ctx.lineTo(0, groundY);
+                ctx.closePath();
+                ctx.fill();
+
+                // Draw highlighted crest line on the moving runoff wave
+                ctx.strokeStyle = 'rgba(147, 197, 253, 0.8)';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(0, groundY - targetWaterHeight + Math.sin(waveOffset) * 2.5);
+                for (let x = 0; x <= w; x += 10) {
+                    const ripple = Math.sin((x * 0.05) + waveOffset) * 2.5;
+                    ctx.lineTo(x, groundY - targetWaterHeight + ripple);
+                }
+                ctx.stroke();
+            }
+
+            // Draw clean vertical labels indicating dynamic layers
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.font = '10px monospace';
+            ctx.fillText("Topsoil (Organic Zone)", w - 160, groundY + 22);
+            ctx.fillText("Subsoil (Sub-surface Zone)", w - 180, groundY + 75);
+            ctx.fillText("Bedrock (Infiltration Sink)", w - 185, groundY + 130);
+
+            // Request next render frame
+            physicalAnimFrameId = requestAnimationFrame(animatePhysicalLoop);
+        }
+
+        // Set specific timeline hour and sync system components
+        function setActiveHour(index) {
+            state.activeHourIndex = index;
+            
+            // Sync buttons visual styles
+            const buttons = document.querySelectorAll('.t-btn');
+            buttons.forEach((btn, i) => {
+                if (i === index) {
+                    btn.className = "t-btn py-1 px-1 bg-indigo-500/20 border border-indigo-500/50 text-indigo-300 font-bold text-xs rounded transition hover:bg-indigo-500/30";
+                } else {
+                    btn.className = "t-btn py-1 px-1 bg-slate-800 text-slate-400 text-xs rounded transition hover:bg-slate-700";
+                }
+            });
+
+            calculateAndRefresh();
+        }
+
+        // Auto play sequence through 8 hours storm timeline
+        function togglePlaySequence() {
+            const playBtn = document.getElementById('play-btn');
+            const playIcon = document.getElementById('play-icon');
+            const playText = document.getElementById('play-text');
+
+            if (isSequencePlaying) {
+                // Pause sequence
+                isSequencePlaying = false;
+                clearInterval(sequenceIntervalId);
+                playIcon.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>`;
+                playText.textContent = "Play Storm";
+                playBtn.className = "px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-indigo-500/10";
+            } else {
+                // Start sequence playing loop
+                isSequencePlaying = true;
+                playIcon.innerHTML = `<svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>`;
+                playText.textContent = "Pause Cycle";
+                playBtn.className = "px-3 py-1.5 bg-rose-600 hover:bg-rose-500 active:scale-95 transition text-white rounded-md text-xs font-semibold flex items-center gap-1.5 shadow-md shadow-rose-500/10";
+
+                sequenceIntervalId = setInterval(() => {
+                    let nextHourIdx = state.activeHourIndex + 1;
+                    if (nextHourIdx >= 8) nextHourIdx = 0; // wrap back to Hour 1
+                    setActiveHour(nextHourIdx);
+                }, 3000); // 3 seconds per simulated hour
+            }
+        }
+
+        // Update telemetry HUD box content
+        function updateTelemetryHUD(phi) {
+            const P = state.rainfalls[state.activeHourIndex] || 0;
+            const infiltrationRate = Math.min(P, phi);
+            const runoffRate = Math.max(0, P - phi);
+
+            document.getElementById('hud-rain').textContent = `${P.toFixed(2)} cm/hr`;
+            document.getElementById('hud-infil').textContent = `${infiltrationRate.toFixed(2)} cm/hr`;
+            document.getElementById('hud-runoff').textContent = `${runoffRate.toFixed(2)} cm/hr`;
+        }
+
+        // Renders step-by-step formula and mathematical calculations dynamically
+        function generateWalkthrough(results) {
+            const container = document.getElementById('steps-container');
+            container.innerHTML = '';
+
+            // Step 1 calculation layout
+            const step1 = document.createElement('div');
+            step1.className = "p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-1.5";
+            step1.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="w-5 h-5 flex items-center justify-center rounded-full bg-teal-500/10 text-teal-400 font-bold text-xs border border-teal-500/20">1</span>
+                    <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wider">Step 1: Infiltration (W-index)</h4>
+                </div>
+                <p class="text-xs text-slate-400">Total Precip (P) = <span class="font-mono text-slate-200">${results.totalP.toFixed(2)} cm</span>, Runoff (R) = <span class="font-mono text-slate-200">${state.runoff.toFixed(2)} cm</span></p>
+                <div class="bg-slate-950 p-2 rounded text-xs font-mono text-slate-300 border border-slate-900">
+                    W = (P - R) / Total Duration (T)<br>
+                    W = (${results.totalP.toFixed(2)} - ${state.runoff.toFixed(2)}) / 8<br>
+                    W = <span class="text-teal-400 font-bold">${results.wIndex.toFixed(4)} cm/hr</span>
+                </div>
+            `;
+            container.appendChild(step1);
+
+            // Print iterations logic dynamically
+            results.steps.forEach((step, stepIdx) => {
+                const stepCard = document.createElement('div');
+                stepCard.className = "p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-2";
+                
+                if (step.type === 'initial') {
+                    stepCard.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-red-500/10 text-red-400 font-bold text-xs border border-red-500/20">2</span>
+                            <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wider">Step 2: Trial Φ-index</h4>
+                        </div>
+                        <p class="text-xs text-slate-400">Using W-index baseline as first approximation threshold: <strong class="text-red-400 font-mono">${step.phi.toFixed(4)} cm/hr</strong>.</p>
+                        <p class="text-xs text-slate-400">Identify periods where rainfall intensity is less than or equal to this baseline:</p>
+                        <div class="flex flex-wrap gap-1 mt-1">
+                            ${state.rainfalls.map((r, i) => {
+                                const excluded = r <= step.phi;
+                                return `<span class="px-1.5 py-0.5 rounded text-[10px] font-mono ${excluded ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20 line-through' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'}">Hr ${i+1} (${r.toFixed(2)})</span>`;
+                            }).join('')}
+                        </div>
+                    `;
+                } else if (step.type === 'iteration') {
+                    stepCard.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 font-bold text-xs border border-indigo-500/20">${2 + stepIdx}</span>
+                            <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wider">${step.label}</h4>
+                        </div>
+                        <p class="text-xs text-slate-400">Excluding lower periods (≤ ${step.oldPhi.toFixed(3)}). Active periods remaining: <strong class="text-slate-200 font-mono">${step.activeCount} hours</strong>.</p>
+                        <div class="bg-slate-950 p-2 rounded text-xs font-mono text-slate-300 border border-slate-900 space-y-1">
+                            <div>P_effective = Total P - Excluded Rainfall</div>
+                            <div>P_effective = ${results.totalP.toFixed(2)} - (${step.excluded.map(v => v.toFixed(2)).join(' + ')})</div>
+                            <div>P_effective = ${(results.totalP - step.excluded.reduce((a,b)=>a+b,0)).toFixed(2)} cm</div>
+                            <div class="mt-2 text-indigo-300">New Φ = (P_effective - Runoff) / Active Duration</div>
+                            <div>New Φ = (${(results.totalP - step.excluded.reduce((a,b)=>a+b,0)).toFixed(2)} - ${state.runoff.toFixed(2)}) / ${step.activeCount}</div>
+                            <div>New Φ = <span class="text-red-400 font-bold">${step.newPhi.toFixed(4)} cm/hr</span></div>
+                        </div>
+                    `;
+                } else if (step.type === 'converged') {
+                    stepCard.innerHTML = `
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 flex items-center justify-center rounded-full bg-emerald-500/10 text-emerald-400 font-bold text-xs border border-emerald-500/20">✔</span>
+                            <h4 class="text-xs font-semibold text-slate-200 uppercase tracking-wider">${step.label}</h4>
+                        </div>
+                        <p class="text-xs text-slate-400">Success! All remaining active hour intensities are strictly greater than <strong class="text-emerald-400 font-mono">${step.phi.toFixed(3)} cm/hr</strong>. No further exclusions are required.</p>
+                        <div class="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded text-xs text-emerald-400 font-mono">
+                            Φ-index = <span class="font-extrabold text-white text-sm">${step.phi.toFixed(4)} cm/hr</span>
+                        </div>
+                    `;
+                }
+                container.appendChild(stepCard);
+            });
+        }
+
+        // Handle navigation tabs
+        function switchTab(tabId) {
+            activeTab = tabId;
+            const tabs = ['steps', 'inputs', 'theory'];
+            
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-btn-${t}`);
+                const panel = document.getElementById(`tab-${t}`);
+                if (t === tabId) {
+                    btn.classList.add('text-indigo-400', 'border-indigo-500');
+                    btn.classList.remove('text-slate-400', 'border-transparent');
+                    panel.classList.remove('hidden');
+                } else {
+                    btn.classList.remove('text-indigo-400', 'border-indigo-500');
+                    btn.classList.add('text-slate-400', 'border-transparent');
+                    panel.classList.add('hidden');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Superelevation on a Horizontal Curve Simulation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            cyan: '#06b6d4',
+                            lime: '#84cc16',
+                            dark: '#0f172a',
+                            panel: 'rgba(30, 41, 59, 0.7)'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0b0f19;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(6, 182, 212, 0.15) 0, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(132, 204, 22, 0.1) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(15, 23, 42, 0.8) 0, transparent 100%);
+            background-attachment: fixed;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glow-cyan {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+        }
+        .glow-lime {
+            box-shadow: 0 0 20px rgba(132, 204, 22, 0.3);
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.3);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.5);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col overflow-x-hidden pb-12">
+
+    <!-- Navigation / Header -->
+    <header class="w-full py-4 px-6 border-b border-slate-800 glass-panel flex flex-col md:flex-row items-center justify-between gap-4 sticky top-0 z-50">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-gradient-to-tr from-cyan-500 to-lime-500 rounded-lg shadow-lg">
+                <svg class="w-8 h-8 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="text-xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-sky-300 to-lime-400 bg-clip-text text-transparent">
+                    Superelevation Simulator
+                </h1>
+                <p class="text-xs text-slate-400">Horizontal Curve Dynamics & Civil Engineering Solver</p>
+            </div>
+        </div>
+        
+        <!-- Controls in Header -->
+        <div class="flex items-center gap-3">
+            <button id="btn-sound-toggle" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition flex items-center gap-2 border border-slate-700 text-sm">
+                <span id="sound-icon">🔊</span> Sound: ON
+            </button>
+            <button id="btn-narrate" class="px-4 py-2 rounded-lg bg-gradient-to-r from-cyan-500 to-sky-600 hover:from-cyan-400 hover:to-sky-500 transition text-slate-950 font-bold flex items-center gap-2 text-sm shadow-md shadow-cyan-900/30">
+                <span>🔊</span> Narrate Concept
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+        
+        <!-- Left Column: Visualizations (7 cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- Canvas 1: Front Cross-Section View -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col relative overflow-hidden group">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-500"></div>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                        Cross-Section View (Force Vector Analysis)
+                    </h3>
+                    <span class="text-xs text-slate-400 bg-slate-800/80 px-2 py-1 rounded border border-slate-700">
+                        Interactive Drag Edge
+                    </span>
+                </div>
+                
+                <!-- Visualization Arena -->
+                <div class="relative bg-slate-950/80 rounded-xl border border-slate-800/80 overflow-hidden h-72 md:h-80 w-full flex items-center justify-center">
+                    <canvas id="crossSectionCanvas" class="absolute inset-0 w-full h-full cursor-ns-resize"></canvas>
+                    
+                    <!-- HUD overlay of current banking -->
+                    <div class="absolute bottom-4 left-4 bg-slate-900/90 border border-slate-700/50 p-2.5 rounded-lg text-xs flex flex-col gap-1 pointer-events-none">
+                        <div>Superelevation (<span class="text-cyan-400 font-mono">e</span>): <span id="hud-e" class="text-cyan-400 font-bold font-mono">0.070</span> (<span id="hud-e-pct" class="font-bold">7.0</span>%)</div>
+                        <div>Banking Angle (<span class="text-lime-400 font-mono">&theta;</span>): <span id="hud-angle" class="text-lime-400 font-bold font-mono">4.0°</span></div>
+                    </div>
+
+                    <!-- Dynamic Warning HUD overlay -->
+                    <div id="skid-warning" class="absolute top-4 right-4 bg-red-950/90 border border-red-500/50 text-red-200 px-3 py-2 rounded-lg text-xs font-bold flex items-center gap-2 opacity-0 transition-opacity duration-300 pointer-events-none shadow-lg shadow-red-950/50">
+                        <span class="animate-pulse">⚠️</span> VEHICLE SKID/SLIP DANGER!
+                    </div>
+                </div>
+                
+                <div class="mt-3 grid grid-cols-3 gap-2 text-center text-[10px] md:text-xs text-slate-400">
+                    <div class="flex items-center justify-center gap-1.5"><span class="w-3 h-1 bg-red-500 inline-block"></span> Centrifugal P</div>
+                    <div class="flex items-center justify-center gap-1.5"><span class="w-3 h-1 bg-yellow-400 inline-block"></span> Gravity W</div>
+                    <div class="flex items-center justify-center gap-1.5"><span class="w-3 h-1 bg-green-500 inline-block"></span> Friction F</div>
+                </div>
+            </div>
+
+            <!-- Canvas 2: Top-Down Curve Simulation -->
+            <div class="glass-panel rounded-2xl p-5 flex flex-col relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-lime-500"></div>
+                <div class="flex justify-between items-center mb-3">
+                    <h3 class="text-sm font-bold uppercase tracking-wider text-lime-400 flex items-center gap-2">
+                        <span>🔄</span> Curve Path & Vehicle Animation
+                    </h3>
+                    <div class="flex gap-2">
+                        <button id="btn-anim-pause" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700 transition">Pause</button>
+                        <button id="btn-anim-reset" class="text-xs bg-slate-800 hover:bg-slate-700 px-2 py-1 rounded border border-slate-700 transition">Reset</button>
+                    </div>
+                </div>
+                
+                <div class="bg-slate-950/80 rounded-xl border border-slate-800/80 overflow-hidden h-52 md:h-60 w-full relative">
+                    <canvas id="curveCanvas" class="absolute inset-0 w-full h-full"></canvas>
+                    
+                    <div class="absolute top-3 left-3 bg-slate-900/90 border border-slate-700/50 p-2 rounded text-xs pointer-events-none">
+                        <span class="text-slate-400">Current Speed:</span> <span id="hud-speed" class="font-bold font-mono text-cyan-400">50 kmph</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Right Column: Interactive Controls & Solver Dashboard (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <!-- Mode Selector Panel -->
+            <div class="glass-panel rounded-2xl p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-cyan-500"></div>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-slate-300 mb-4">Select Calculation Objective</h3>
+                
+                <div class="grid grid-cols-2 gap-3">
+                    <button id="mode-a-btn" class="p-3 rounded-xl border-2 border-cyan-500 bg-cyan-950/30 text-cyan-100 flex flex-col items-center gap-1 text-center transition hover:bg-cyan-950/40 cursor-pointer">
+                        <span class="font-bold text-sm">Mode A</span>
+                        <span class="text-[10px] text-cyan-300">Calculate required superelevation (e) with full friction</span>
+                    </button>
+                    <button id="mode-b-btn" class="p-3 rounded-xl border border-slate-700 bg-slate-900/50 text-slate-400 flex flex-col items-center gap-1 text-center transition hover:bg-slate-800 cursor-pointer">
+                        <span class="font-bold text-sm">Mode B</span>
+                        <span class="text-[10px] text-slate-400">Calculate friction needed (f) on flat road (e = 0)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Controls & Sliders Panel -->
+            <div class="glass-panel rounded-2xl p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-indigo-500"></div>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-indigo-400 mb-4 flex items-center justify-between">
+                    <span>⚙️ Parameters</span>
+                    <button id="btn-reset-params" class="text-xs text-slate-400 hover:text-white transition">Reset to standard</button>
+                </h3>
+                
+                <div class="flex flex-col gap-5">
+                    <!-- Slider 1: Radius (R) -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-medium text-slate-300">Curve Radius (<span class="italic font-bold">R</span>)</span>
+                            <span class="font-bold font-mono text-cyan-400 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700"><span id="val-radius">100</span> m</span>
+                        </div>
+                        <input type="range" id="slider-radius" min="30" max="400" step="5" value="100" class="w-full accent-cyan-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>30 m (Tight curve)</span>
+                            <span>400 m (Gentle curve)</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 2: Design Speed (V) -->
+                    <div class="flex flex-col gap-1.5">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-medium text-slate-300">Design Speed (<span class="italic font-bold">V</span>)</span>
+                            <span class="font-bold font-mono text-lime-400 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700"><span id="val-speed">50</span> km/h</span>
+                        </div>
+                        <input type="range" id="slider-speed" min="10" max="120" step="5" value="50" class="w-full accent-lime-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>10 km/h</span>
+                            <span>120 km/h (Highway)</span>
+                        </div>
+                    </div>
+
+                    <!-- Slider 3: Lateral Friction (f) -->
+                    <div class="flex flex-col gap-1.5" id="friction-container">
+                        <div class="flex justify-between items-center text-xs">
+                            <span id="label-friction" class="font-medium text-slate-300">Max Friction Coefficient (<span class="italic font-bold">f</span>)</span>
+                            <span class="font-bold font-mono text-indigo-400 bg-slate-800/80 px-2 py-0.5 rounded border border-slate-700" id="box-friction"><span id="val-friction">0.15</span></span>
+                        </div>
+                        <input type="range" id="slider-friction" min="0" max="0.3" step="0.01" value="0.15" class="w-full accent-indigo-500 bg-slate-800 h-2 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-[10px] text-slate-500">
+                            <span>0.00 (Ice / Slippery)</span>
+                            <span>0.30 (High friction)</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mathematical Formulas -->
+            <div class="glass-panel rounded-2xl p-5 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-1.5 h-full bg-violet-500"></div>
+                <h3 class="text-sm font-bold uppercase tracking-wider text-violet-400 mb-3">Governing Physics Equation</h3>
+                
+                <!-- Display Equation nicely formatted -->
+                <div class="p-4 bg-slate-950/80 rounded-xl border border-slate-800/80 flex flex-col items-center justify-center gap-3">
+                    <div class="flex items-center gap-3 text-lg font-bold font-mono">
+                        <span id="eq-e" class="text-cyan-400 transition-all duration-300">e</span>
+                        <span class="text-slate-400">+</span>
+                        <span id="eq-f" class="text-indigo-400 transition-all duration-300">f</span>
+                        <span class="text-slate-400">=</span>
+                        <div class="flex flex-col items-center text-center leading-none text-xs">
+                            <span id="eq-v" class="text-lime-400 text-base pb-1 border-b border-slate-400 transition-all duration-300">V<sup>2</sup></span>
+                            <span class="text-slate-300 pt-1 font-bold">127 <span id="eq-r" class="text-orange-400 transition-all duration-300">R</span></span>
+                        </div>
+                    </div>
+                    
+                    <div class="text-[11px] text-slate-400 text-center leading-relaxed">
+                        Where <span class="text-cyan-400">e = cross slope</span>, 
+                        <span class="text-indigo-400">f = lateral friction</span>, 
+                        <span class="text-lime-400">V = speed in km/h</span>, 
+                        <span class="text-orange-400">R = radius in meters</span>.
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <!-- Step-by-Step Solver Presentation Section -->
+    <section class="max-w-7xl w-full mx-auto px-4 md:px-6">
+        <div class="glass-panel rounded-2xl p-6 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-cyan-500 to-lime-500"></div>
+            
+            <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-slate-800/80 pb-4 mb-5 gap-3">
+                <div>
+                    <h2 class="text-lg font-extrabold text-slate-200 flex items-center gap-2">
+                        <span>📝</span> Engineering Notebook & Solver
+                    </h2>
+                    <p class="text-xs text-slate-400">Interactive derivations calculated in real-time based on your adjustments</p>
+                </div>
+                <button id="btn-show-step" class="px-5 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-500 transition text-sm cursor-pointer">
+                    ✨ Generate Step-by-Step Explanation
+                </button>
+            </div>
+
+            <!-- Calculated Results Blocks -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <!-- Calculated Superelevation Block -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col justify-between">
+                    <span class="text-xs text-slate-400 uppercase tracking-wide">Required Superelevation (e)</span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="calc-e-val" class="text-2xl font-black text-cyan-400 font-mono">0.0468</span>
+                        <span id="calc-e-pct" class="text-xs text-slate-400">(4.68%)</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1" id="e-status">Safe (Within design standard ≤ 0.07)</span>
+                </div>
+                
+                <!-- Calculated Friction Block -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col justify-between">
+                    <span class="text-xs text-slate-400 uppercase tracking-wide">Friction Force Required (f)</span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="calc-f-val" class="text-2xl font-black text-indigo-400 font-mono">0.1500</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1" id="f-status">Within safe range (≤ 0.15)</span>
+                </div>
+
+                <!-- Centrifugal Ratio Block -->
+                <div class="p-4 bg-slate-900/60 border border-slate-800 rounded-xl flex flex-col justify-between">
+                    <span class="text-xs text-slate-400 uppercase tracking-wide">Centrifugal Ratio (P/W)</span>
+                    <div class="mt-2 flex items-baseline gap-2">
+                        <span id="calc-ratio" class="text-2xl font-black text-lime-400 font-mono">0.1968</span>
+                    </div>
+                    <span class="text-[10px] text-slate-500 mt-1">Force ratio pushing vehicle outwards</span>
+                </div>
+            </div>
+
+            <!-- Detailed Engineering Notebook Output -->
+            <div id="solution-notebook" class="bg-slate-950/90 rounded-xl p-5 border border-slate-800 font-mono text-xs md:text-sm text-slate-300 leading-relaxed shadow-inner hidden">
+                <div class="flex items-center justify-between border-b border-slate-800/80 pb-2 mb-4">
+                    <span class="text-xs text-slate-500 uppercase tracking-wider">Engineering Ledger Entry</span>
+                    <button id="btn-close-notebook" class="text-slate-500 hover:text-slate-300 text-xs">✕ Close</button>
+                </div>
+                <div class="flex flex-col gap-4">
+                    <!-- Dynamic Ledger Content Will Be Loaded Here via JS -->
+                    <div id="notebook-content"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Scripts & Controls Logic -->
+    <script>
+        // Audio synthesis manager using Web Audio API
+        class SoundSynth {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playClick() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.05);
+                
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.06);
+            }
+
+            playChime() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                
+                // First tone (Harmonic chime)
+                const osc1 = this.ctx.createOscillator();
+                const gain1 = this.ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(523.25, now); // C5
+                osc1.frequency.exponentialRampToValueAtTime(783.99, now + 0.2); // G5
+                gain1.gain.setValueAtTime(0.08, now);
+                gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+                osc1.connect(gain1);
+                gain1.connect(this.ctx.destination);
+                
+                // Second tone
+                const osc2 = this.ctx.createOscillator();
+                const gain2 = this.ctx.createGain();
+                osc2.type = 'triangle';
+                osc2.frequency.setValueAtTime(659.25, now + 0.08); // E5
+                osc2.frequency.exponentialRampToValueAtTime(1046.50, now + 0.3); // C6
+                gain2.gain.setValueAtTime(0.04, now + 0.08);
+                gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+                osc2.connect(gain2);
+                gain2.connect(this.ctx.destination);
+                
+                osc1.start(now);
+                osc1.stop(now + 0.5);
+                osc2.start(now + 0.08);
+                osc2.stop(now + 0.5);
+            }
+
+            playWarning() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.linearRampToValueAtTime(90, now + 0.15);
+                
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.22);
+            }
+        }
+
+        const audio = new SoundSynth();
+
+        const state = {
+            mode: 'A', // 'A' = calculate e given f, 'B' = calculate f with e=0
+            R: 100, // curve radius in meters
+            V: 50, // design speed in km/h
+            f: 0.15, // friction coefficient (adjustable in mode A, or solved in B)
+            e: 0.0468, // banking angle slope (m/m) (solved in A, adjustable or zero in B)
+            isDraggingCrossSection: false,
+            isAnimationRunning: true,
+            voiceActive: false
+        };
+
+        // DOM elements
+        const sliderRadius = document.getElementById('slider-radius');
+        const sliderSpeed = document.getElementById('slider-speed');
+        const sliderFriction = document.getElementById('slider-friction');
+        
+        const valRadius = document.getElementById('val-radius');
+        const valSpeed = document.getElementById('val-speed');
+        const valFriction = document.getElementById('val-friction');
+
+        const labelFriction = document.getElementById('label-friction');
+        const boxFriction = document.getElementById('box-friction');
+
+        const calcEVal = document.getElementById('calc-e-val');
+        const calcEPct = document.getElementById('calc-e-pct');
+        const calcFVal = document.getElementById('calc-f-val');
+        const calcRatio = document.getElementById('calc-ratio');
+        const eStatus = document.getElementById('e-status');
+        const fStatus = document.getElementById('f-status');
+
+        const modeABtn = document.getElementById('mode-a-btn');
+        const modeBBtn = document.getElementById('mode-b-btn');
+        const skidWarning = document.getElementById('skid-warning');
+
+        function solveMetrics() {
+            // Formula: e + f = V^2 / (127 * R)
+            // Centrifugal Ratio = V^2 / (127 * R)
+            const ratio = (state.V * state.V) / (127 * state.R);
+            
+            if (state.mode === 'A') {
+                // Solve for e
+                state.e = ratio - state.f;
+                if (state.e < 0) state.e = 0; // road cant bank below horizontal
+            } else {
+                // Mode B: e = 0, Solve for f
+                state.e = 0;
+                state.f = ratio;
+            }
+
+            // Update UI representations
+            calcRatio.innerText = ratio.toFixed(4);
+            calcEVal.innerText = state.e.toFixed(4);
+            calcEPct.innerText = `(${(state.e * 100).toFixed(2)}%)`;
+            calcFVal.innerText = state.f.toFixed(4);
+
+            // Superelevation safety warnings
+            if (state.e > 0.07) {
+                eStatus.innerHTML = `⚠️ Maximum standard exceeded (>0.07 limit)`;
+                eStatus.className = "text-[10px] text-red-400 mt-1";
+                if (state.mode === 'A') triggerSkidAlarm(true);
+            } else {
+                eStatus.innerHTML = `🟢 Safe (Within design standard ≤ 0.07)`;
+                eStatus.className = "text-[10px] text-emerald-400 mt-1";
+                if (state.mode === 'A') triggerSkidAlarm(false);
+            }
+
+            // Friction safety warnings
+            if (state.f > 0.15) {
+                fStatus.innerHTML = `⚠️ Unsafe coefficient (>0.15 maximum permissible friction)`;
+                fStatus.className = "text-[10px] text-red-400 mt-1";
+                triggerSkidAlarm(true);
+            } else {
+                fStatus.innerHTML = `🟢 Safe friction requirements (≤ 0.15)`;
+                fStatus.className = "text-[10px] text-emerald-400 mt-1";
+                if (state.e <= 0.07) triggerSkidAlarm(false);
+            }
+
+            // Highlighting equation parts
+            updateEquationVisuals();
+            updateHUDAreas();
+        }
+
+        let isAlarmActive = false;
+        function triggerSkidAlarm(isActive) {
+            if (isActive) {
+                skidWarning.classList.remove('opacity-0');
+                skidWarning.classList.add('opacity-100');
+                if (!isAlarmActive) {
+                    audio.playWarning();
+                    isAlarmActive = true;
+                }
+            } else {
+                skidWarning.classList.remove('opacity-100');
+                skidWarning.classList.add('opacity-0');
+                isAlarmActive = false;
+            }
+        }
+
+        function updateEquationVisuals() {
+            // Change colors/glowing depending on focus or state
+            const eqE = document.getElementById('eq-e');
+            const eqF = document.getElementById('eq-f');
+            const eqV = document.getElementById('eq-v');
+            const eqR = document.getElementById('eq-r');
+
+            eqV.classList.add('text-lime-400', 'drop-shadow-[0_0_8px_rgba(132,204,22,0.6)]');
+            eqR.classList.add('text-orange-400', 'drop-shadow-[0_0_8px_rgba(249,115,22,0.6)]');
+
+            if (state.mode === 'A') {
+                eqE.classList.add('text-cyan-400', 'drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]');
+                eqE.classList.remove('text-slate-600');
+                eqF.classList.remove('drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]');
+            } else {
+                eqF.classList.add('text-indigo-400', 'drop-shadow-[0_0_8px_rgba(129,140,248,0.8)]');
+                eqE.classList.add('text-slate-600');
+                eqE.classList.remove('text-cyan-400', 'drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]');
+            }
+        }
+
+        function updateHUDAreas() {
+            document.getElementById('hud-e').innerText = state.e.toFixed(3);
+            document.getElementById('hud-e-pct').innerText = (state.e * 100).toFixed(1);
+            const angleInDegrees = Math.atan(state.e) * (180 / Math.PI);
+            document.getElementById('hud-angle').innerText = angleInDegrees.toFixed(1) + '°';
+            document.getElementById('hud-speed').innerText = state.V + ' km/h';
+        }
+
+        const crossSectionCanvas = document.getElementById('crossSectionCanvas');
+        const cx = crossSectionCanvas.getContext('2d');
+
+        const curveCanvas = document.getElementById('curveCanvas');
+        const cv = curveCanvas.getContext('2d');
+
+        // Handle canvas sizing for responsive layouts
+        function resizeCanvases() {
+            const csRect = crossSectionCanvas.parentElement.getBoundingClientRect();
+            crossSectionCanvas.width = csRect.width * window.devicePixelRatio;
+            crossSectionCanvas.height = csRect.height * window.devicePixelRatio;
+            crossSectionCanvas.style.width = csRect.width + 'px';
+            crossSectionCanvas.style.height = csRect.height + 'px';
+            cx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const cRect = curveCanvas.parentElement.getBoundingClientRect();
+            curveCanvas.width = cRect.width * window.devicePixelRatio;
+            curveCanvas.height = cRect.height * window.devicePixelRatio;
+            curveCanvas.style.width = cRect.width + 'px';
+            curveCanvas.style.height = cRect.height + 'px';
+            cv.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        window.addEventListener('resize', resizeCanvases);
+        setTimeout(resizeCanvases, 100);
+
+        function drawCrossSection() {
+            const w = crossSectionCanvas.width / window.devicePixelRatio;
+            const h = crossSectionCanvas.height / window.devicePixelRatio;
+            if (w === 0 || h === 0) return;
+
+            cx.clearRect(0, 0, w, h);
+
+            // Draw horizontal reference line
+            cx.beginPath();
+            cx.strokeStyle = '#334155';
+            cx.setLineDash([5, 5]);
+            cx.lineWidth = 1;
+            cx.moveTo(50, h - 60);
+            cx.lineTo(w - 50, h - 60);
+            cx.stroke();
+            cx.setLineDash([]);
+
+            // Draw Banking Road (based on superelevation 'e')
+            const roadWidth = w - 160;
+            const startX = 80;
+            const startY = h - 60;
+            
+            // e = rise / run
+            const dy = roadWidth * state.e;
+            const endX = startX + roadWidth;
+            const endY = startY - dy;
+
+            // Slope Angle
+            const angle = Math.atan(state.e);
+
+            // Road surface line
+            cx.beginPath();
+            cx.strokeStyle = '#06b6d4';
+            cx.lineWidth = 6;
+            cx.lineCap = 'round';
+            cx.moveTo(startX, startY);
+            cx.lineTo(endX, endY);
+            cx.stroke();
+
+            // Drag indicator visual handle at the elevated edge
+            cx.beginPath();
+            cx.arc(endX, endY, 10, 0, 2 * Math.PI);
+            cx.fillStyle = '#06b6d4';
+            cx.shadowColor = '#06b6d4';
+            cx.shadowBlur = 10;
+            cx.fill();
+            cx.shadowBlur = 0; // reset
+
+            // Stylized concrete slope base
+            cx.beginPath();
+            cx.fillStyle = 'rgba(15, 23, 42, 0.4)';
+            cx.moveTo(startX, startY);
+            cx.lineTo(endX, endY);
+            cx.lineTo(endX, startY);
+            cx.closePath();
+            cx.fill();
+
+            // Draw vehicle body aligned with banking angle
+            cx.save();
+            // Translate to center of road
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            cx.translate(midX, midY);
+            cx.rotate(-angle);
+
+            // Translate upwards to align wheels to surface
+            const carW = 80;
+            const carH = 45;
+            cx.translate(0, -carH / 2 - 12);
+
+            // Wheels
+            cx.fillStyle = '#1e293b';
+            cx.strokeStyle = '#64748b';
+            cx.lineWidth = 2;
+            // Left Wheel
+            cx.fillRect(-carW/2 + 8, carH/2, 14, 12);
+            cx.strokeRect(-carW/2 + 8, carH/2, 14, 12);
+            // Right Wheel
+            cx.fillRect(carW/2 - 22, carH/2, 14, 12);
+            cx.strokeRect(carW/2 - 22, carH/2, 14, 12);
+
+            // Body (Glassmorphic look)
+            cx.fillStyle = 'rgba(30, 41, 59, 0.95)';
+            cx.strokeStyle = '#06b6d4';
+            cx.lineWidth = 3;
+            cx.beginPath();
+            cx.roundRect(-carW/2, -carH/2, carW, carH, 8);
+            cx.fill();
+            cx.stroke();
+
+            // Windshield
+            cx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+            cx.strokeStyle = '#06b6d4';
+            cx.lineWidth = 1.5;
+            cx.beginPath();
+            cx.roundRect(-carW/2 + 10, -carH/2 + 5, carW - 20, 16, 4);
+            cx.fill();
+            cx.stroke();
+
+            // Headlights
+            cx.fillStyle = '#e2e8f0';
+            cx.beginPath();
+            cx.arc(-carW/2 + 10, carH/2 - 10, 3, 0, Math.PI * 2);
+            cx.arc(carW/2 - 10, carH/2 - 10, 3, 0, Math.PI * 2);
+            cx.fill();
+
+            cx.restore();
+
+            // Drawing Vector Forces relative to the vehicle center
+            const centerMassX = midX - Math.sin(-angle) * (carH/2 + 12);
+            const centerMassY = midY - Math.cos(-angle) * (carH/2 + 12);
+
+            // Base scaling for vectors
+            const ratio = (state.V * state.V) / (127 * state.R);
+            const forceScaler = 500; // factor to make vectors visibly pleasing
+
+            // Weight Vector (straight down)
+            const W_mag = 0.25 * forceScaler; // relative baseline W
+            drawVector(centerMassX, centerMassY, centerMassX, centerMassY + W_mag, '#facc15', 'W (Weight)');
+
+            // Centrifugal Vector P (pointing horizontally outwards, to the right)
+            const P_mag = W_mag * (state.V * state.V) / (9.81 * 3.6 * 3.6 * state.R); 
+            drawVector(centerMassX, centerMassY, centerMassX + P_mag, centerMassY, '#f87171', 'P (Centrifugal Force)');
+
+            // Friction Vector F (acting parallel to road surface)
+            // Parallel force calculation: F = P * cos(angle) - W * sin(angle)
+            const F_mag_parallel = P_mag * Math.cos(angle) - W_mag * Math.sin(angle);
+            // Translate magnitude back to screen coordinates along the road angle
+            const fEndX = centerMassX - F_mag_parallel * Math.cos(angle);
+            const fEndY = centerMassY + F_mag_parallel * Math.sin(angle);
+            
+            drawVector(centerMassX, centerMassY, fEndX, fEndY, '#22c55e', 'F (Lateral Friction)');
+        }
+
+        // Vector drawing helper function
+        function drawVector(fromX, fromY, toX, toY, color, label) {
+            const headlen = 8; // length of head in pixels
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+            
+            // Draw shaft
+            cx.beginPath();
+            cx.strokeStyle = color;
+            cx.lineWidth = 3.5;
+            cx.moveTo(fromX, fromY);
+            cx.lineTo(toX, toY);
+            cx.stroke();
+
+            // Draw head
+            cx.beginPath();
+            cx.fillStyle = color;
+            cx.moveTo(toX, toY);
+            cx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            cx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            cx.closePath();
+            cx.fill();
+
+            // Label text offset
+            cx.font = 'bold 9px JetBrains Mono, sans-serif';
+            cx.fillStyle = color;
+            cx.fillText(label, toX + 5 * Math.cos(angle), toY + 5 * Math.sin(angle) + 2);
+        }
+
+        let vehicleProgress = 0.1;
+        function drawCurveSimulation() {
+            const w = curveCanvas.width / window.devicePixelRatio;
+            const h = curveCanvas.height / window.devicePixelRatio;
+            if (w === 0 || h === 0) return;
+
+            cv.clearRect(0, 0, w, h);
+
+            // Draw highway curve (center line representation)
+            const cx_pt = w / 2;
+            const cy_pt = h + state.R - 40; // dynamically position center based on Radius
+            
+            // Clip layout if Radius gets extremely large, prevent overflow errors
+            const drawRadius = Math.min(Math.max(state.R, 80), 280); 
+            const drawYCenter = h + drawRadius - 30;
+
+            // Draw outer/inner lane bounds
+            cv.beginPath();
+            cv.strokeStyle = '#334155';
+            cv.lineWidth = 36;
+            cv.arc(cx_pt, drawYCenter, drawRadius, Math.PI + 0.2, -0.2);
+            cv.stroke();
+
+            // Highlighted active path lane center
+            cv.beginPath();
+            cv.strokeStyle = '#1e293b';
+            cv.lineWidth = 32;
+            cv.arc(cx_pt, drawYCenter, drawRadius, Math.PI + 0.2, -0.2);
+            cv.stroke();
+
+            // Center dashed markings
+            cv.beginPath();
+            cv.strokeStyle = '#facc15';
+            cv.lineWidth = 1.5;
+            cv.setLineDash([6, 8]);
+            cv.arc(cx_pt, drawYCenter, drawRadius, Math.PI + 0.2, -0.2);
+            cv.stroke();
+            cv.setLineDash([]);
+
+            // Draw simple compass overlay inside curve view
+            cv.font = '10px Inter';
+            cv.fillStyle = '#64748b';
+            cv.fillText("◀ R = " + state.R + " m ▶", w / 2 - 40, h - 15);
+
+            // Move vehicle based on speed
+            if (state.isAnimationRunning) {
+                // Higher speed means vehicle completes curve cycle faster
+                vehicleProgress += (state.V * 0.0001);
+                if (vehicleProgress > Math.PI + 0.2) {
+                    vehicleProgress = Math.PI - 1.2;
+                }
+            }
+
+            // Interpolate vehicle coordinate along drawing arc path
+            const angleVal = vehicleProgress;
+            const carX = cx_pt + drawRadius * Math.cos(angleVal);
+            const carY = drawYCenter + drawRadius * Math.sin(angleVal);
+
+            // Draw moving vehicle body
+            cv.save();
+            cv.translate(carX, carY);
+            cv.rotate(angleVal + Math.PI / 2); // align tangent to circle
+
+            // Drawing vehicle icon
+            cv.fillStyle = '#84cc16';
+            cv.strokeStyle = '#1e293b';
+            cv.lineWidth = 1.5;
+            cv.beginPath();
+            cv.roundRect(-7, -13, 14, 26, 4);
+            cv.fill();
+            cv.stroke();
+
+            // Windshield and top structure
+            cv.fillStyle = '#0f172a';
+            cv.fillRect(-5, -6, 10, 10);
+
+            cv.restore();
+        }
+
+        // Global Game Loop
+        function simulationLoop() {
+            drawCrossSection();
+            drawCurveSimulation();
+            requestAnimationFrame(simulationLoop);
+        }
+
+        function triggerValueChange() {
+            solveMetrics();
+        }
+
+        // Handle Mode Selection Toggles
+        modeABtn.addEventListener('click', () => {
+            state.mode = 'A';
+            modeABtn.className = "p-3 rounded-xl border-2 border-cyan-500 bg-cyan-950/30 text-cyan-100 flex flex-col items-center gap-1 text-center transition hover:bg-cyan-950/40 cursor-pointer shadow-lg";
+            modeBBtn.className = "p-3 rounded-xl border border-slate-700 bg-slate-900/50 text-slate-400 flex flex-col items-center gap-1 text-center transition hover:bg-slate-800 cursor-pointer";
+            
+            // Restore friction controls
+            sliderFriction.disabled = false;
+            sliderFriction.classList.remove('opacity-40');
+            labelFriction.innerHTML = "Max Friction Coefficient (<span class='italic font-bold'>f</span>)";
+            
+            audio.playClick();
+            triggerValueChange();
+        });
+
+        modeBBtn.addEventListener('click', () => {
+            state.mode = 'B';
+            modeBBtn.className = "p-3 rounded-xl border-2 border-indigo-500 bg-indigo-950/30 text-indigo-100 flex flex-col items-center gap-1 text-center transition hover:bg-indigo-950/40 cursor-pointer shadow-lg";
+            modeABtn.className = "p-3 rounded-xl border border-slate-700 bg-slate-900/50 text-slate-400 flex flex-col items-center gap-1 text-center transition hover:bg-slate-800 cursor-pointer";
+            
+            // Freeze friction as it becomes a solved yield outcome
+            sliderFriction.disabled = true;
+            sliderFriction.classList.add('opacity-40');
+            labelFriction.innerHTML = "Calculated Friction (<span class='italic font-bold'>f</span>)";
+            
+            audio.playClick();
+            triggerValueChange();
+        });
+
+        // Sync Sliders
+        sliderRadius.addEventListener('input', (e) => {
+            state.R = parseFloat(e.target.value);
+            valRadius.innerText = state.R;
+            triggerValueChange();
+        });
+
+        sliderSpeed.addEventListener('input', (e) => {
+            state.V = parseFloat(e.target.value);
+            valSpeed.innerText = state.V;
+            triggerValueChange();
+        });
+
+        sliderFriction.addEventListener('input', (e) => {
+            if (state.mode === 'A') {
+                state.f = parseFloat(e.target.value);
+                valFriction.innerText = state.f.toFixed(2);
+                triggerValueChange();
+            }
+        });
+
+        // Drag cross-section outer edge interaction
+        let activeDrag = false;
+        function getMouseCoordinates(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            // Supports responsive coordinate translation regardless of device screen scale
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        crossSectionCanvas.addEventListener('mousedown', (e) => {
+            const coords = getMouseCoordinates(crossSectionCanvas, e);
+            // Calculate distance to handle edge position
+            const w = crossSectionCanvas.width / window.devicePixelRatio;
+            const h = crossSectionCanvas.height / window.devicePixelRatio;
+            const roadWidth = w - 160;
+            const handleX = 80 + roadWidth;
+            const handleY = h - 60 - roadWidth * state.e;
+
+            const dist = Math.hypot(coords.x - handleX, coords.y - handleY);
+            if (dist < 20) {
+                activeDrag = true;
+                state.isDraggingCrossSection = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (activeDrag) {
+                activeDrag = false;
+                state.isDraggingCrossSection = false;
+                audio.playChime();
+            }
+        });
+
+        crossSectionCanvas.addEventListener('mousemove', (e) => {
+            if (!activeDrag) return;
+            const coords = getMouseCoordinates(crossSectionCanvas, e);
+            const w = crossSectionCanvas.width / window.devicePixelRatio;
+            const h = crossSectionCanvas.height / window.devicePixelRatio;
+            const roadWidth = w - 160;
+
+            // Constrain elevation limit
+            const dy = (h - 60) - coords.y;
+            let tempE = dy / roadWidth;
+            if (tempE < 0) tempE = 0;
+            if (tempE > 0.15) tempE = 0.15; // physical slider max boundary
+
+            state.e = tempE;
+            
+            if (state.mode === 'A') {
+                // In mode A, adjusting bank manual slope dynamically adjusts friction to suit the equations!
+                // e + f = V^2 / 127R => f = (V^2 / 127R) - e
+                const ratio = (state.V * state.V) / (127 * state.R);
+                state.f = ratio - state.e;
+                if (state.f < 0) state.f = 0;
+                sliderFriction.value = state.f;
+                valFriction.innerText = state.f.toFixed(2);
+            }
+            
+            triggerValueChange();
+        });
+
+        // Drag compatibility for Mobile Touches
+        crossSectionCanvas.addEventListener('touchstart', (e) => {
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent("mousedown", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            crossSectionCanvas.dispatchEvent(mouseEvent);
+        });
+
+        crossSectionCanvas.addEventListener('touchmove', (e) => {
+            const touch = e.touches[0];
+            const mouseEvent = new MouseEvent("mousemove", {
+                clientX: touch.clientX,
+                clientY: touch.clientY
+            });
+            crossSectionCanvas.dispatchEvent(mouseEvent);
+        });
+
+        crossSectionCanvas.addEventListener('touchend', () => {
+            const mouseEvent = new MouseEvent("mouseup", {});
+            window.dispatchEvent(mouseEvent);
+        });
+
+        // Extra UI Control Buttons
+        document.getElementById('btn-reset-params').addEventListener('click', () => {
+            sliderRadius.value = 100;
+            state.R = 100;
+            valRadius.innerText = 100;
+
+            sliderSpeed.value = 50;
+            state.V = 50;
+            valSpeed.innerText = 50;
+
+            sliderFriction.value = 0.15;
+            state.f = 0.15;
+            valFriction.innerText = '0.15';
+
+            audio.playClick();
+            triggerValueChange();
+        });
+
+        document.getElementById('btn-anim-pause').addEventListener('click', (e) => {
+            state.isAnimationRunning = !state.isAnimationRunning;
+            e.target.innerText = state.isAnimationRunning ? "Pause" : "Play";
+            audio.playClick();
+        });
+
+        document.getElementById('btn-anim-reset').addEventListener('click', () => {
+            vehicleProgress = Math.PI - 1.2;
+            audio.playClick();
+        });
+
+        // Sound System Toggle Button
+        document.getElementById('btn-sound-toggle').addEventListener('click', (e) => {
+            audio.enabled = !audio.enabled;
+            e.target.innerHTML = audio.enabled ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+            if (audio.enabled) {
+                audio.init();
+                audio.playClick();
+            }
+        });
+
+        const btnShowStep = document.getElementById('btn-show-step');
+        const solutionNotebook = document.getElementById('solution-notebook');
+        const btnCloseNotebook = document.getElementById('btn-close-notebook');
+        const notebookContent = document.getElementById('notebook-content');
+
+        btnShowStep.addEventListener('click', () => {
+            solutionNotebook.classList.remove('hidden');
+            audio.playChime();
+            
+            // Calculate variables step by step
+            const V_val = state.V;
+            const R_val = state.R;
+            const f_val = state.f;
+            const ratioVal = ((V_val * V_val) / (127 * R_val));
+            
+            let ledgerHTML = `
+                <div class="space-y-4 font-mono text-xs md:text-sm text-slate-300">
+                    <p class="text-lime-400 font-bold border-b border-slate-800 pb-1">📐 PROBLEM STATEMENT SCENARIO DERIVATION</p>
+                    <div class="grid grid-cols-2 gap-2 text-slate-400">
+                        <div>Curve Radius (R): <span class="text-white font-bold">${R_val} m</span></div>
+                        <div>Design Speed (V): <span class="text-white font-bold">${V_val} km/h</span></div>
+                        <div>Lateral Friction (f): <span class="text-white font-bold">${f_val.toFixed(4)}</span></div>
+                        <div>Superelevation Mode: <span class="text-white font-bold">Mode ${state.mode}</span></div>
+                    </div>
+
+                    <div class="mt-4">
+                        <span class="text-cyan-400 font-bold">Step 1: Calculate the Centrifugal Ratio (P/W)</span>
+                        <p class="text-slate-400 mt-1">Using the highway curvature mechanical simplification:</p>
+                        <div class="bg-slate-900/80 p-2.5 rounded border border-slate-800 my-2 text-center text-white">
+                            P/W = V² / (127 * R) <br>
+                            P/W = ${V_val}² / (127 * ${R_val}) <br>
+                            P/W = ${V_val * V_val} / ${127 * R_val} = <span class="text-lime-400 font-bold">${ratioVal.toFixed(5)}</span>
+                        </div>
+                    </div>
+            `;
+
+            if (state.mode === 'A') {
+                const requiredE = ratioVal - f_val;
+                const roundedE = Math.max(requiredE, 0).toFixed(5);
+                
+                ledgerHTML += `
+                    <div>
+                        <span class="text-cyan-400 font-bold">Step 2: Solve for Superelevation (e) assuming Maximum Lateral Friction (f = ${f_val.toFixed(2)})</span>
+                        <p class="text-slate-400 mt-1">According to standard design equations:</p>
+                        <div class="bg-slate-900/80 p-2.5 rounded border border-slate-800 my-2 text-center text-white">
+                            e + f = V² / 127R <br>
+                            e + ${f_val.toFixed(4)} = ${ratioVal.toFixed(5)} <br>
+                            e = ${ratioVal.toFixed(5)} - ${f_val.toFixed(4)} = <span class="text-cyan-400 font-bold">${roundedE}</span> (${(roundedE * 100).toFixed(2)}%)
+                        </div>
+                    </div>
+                `;
+
+                if (requiredE > 0.07) {
+                    ledgerHTML += `
+                        <div class="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-200 text-xs">
+                            💡 <span class="font-bold">Important Civil Design Assessment:</span> Since the solved superelevation value <strong>${roundedE}</strong> is greater than the standard maximum limit of <strong>0.07 (7%)</strong>, vehicles are likely to experience instability, risk skid patterns, or cross-section tip triggers. Reductions in structural road designs (e.g. reduced design speed or increased banking radiuses) are highly recommended.
+                        </div>
+                    `;
+                } else {
+                    ledgerHTML += `
+                        <div class="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-lg text-emerald-200 text-xs">
+                            💡 <span class="font-bold">Engineering Assessment:</span> The solved design superelevation slope of <strong>${roundedE}</strong> sits safely within highway administrative standards (&le; 0.07). The curves are structurally sound at the speed of ${V_val} km/h.
+                        </div>
+                    `;
+                }
+            } else {
+                ledgerHTML += `
+                    <div>
+                        <span class="text-cyan-400 font-bold">Step 2: Solve for Lateral Friction Coefficient (f) assuming Zero Banking Slope (e = 0)</span>
+                        <p class="text-slate-400 mt-1">If the road is completely flat horizontal, superelevation forces = 0:</p>
+                        <div class="bg-slate-900/80 p-2.5 rounded border border-slate-800 my-2 text-center text-white">
+                            0 + f = V² / 127R <br>
+                            f = ${ratioVal.toFixed(5)}
+                        </div>
+                    </div>
+                `;
+
+                if (ratioVal > 0.15) {
+                    ledgerHTML += `
+                        <div class="p-3 bg-red-950/40 border border-red-900/50 rounded-lg text-red-200 text-xs">
+                            💡 <span class="font-bold">Friction Bound Assessment:</span> The required coefficient of friction <strong>${ratioVal.toFixed(4)}</strong> exceeds the safe mechanical threshold barrier of <strong>0.15</strong>. Vehicles moving at ${V_val} km/h on this flat curve are highly liable to lose grip and slide outwards into a dangerous skid. Banking/superelevation must be engineered immediately.
+                        </div>
+                    `;
+                } else {
+                    ledgerHTML += `
+                        <div class="p-3 bg-emerald-950/40 border border-emerald-900/50 rounded-lg text-emerald-200 text-xs">
+                            💡 <span class="font-bold">Friction Bound Assessment:</span> The lateral friction demand of <strong>${ratioVal.toFixed(4)}</strong> is within the safe limit coefficient (&le; 0.15). Vehicles will navigate flat curve lanes safely without active skid.
+                        </div>
+                    `;
+                }
+            }
+
+            ledgerHTML += `</div>`;
+            notebookContent.innerHTML = ledgerHTML;
+        });
+
+        btnCloseNotebook.addEventListener('click', () => {
+            solutionNotebook.classList.add('hidden');
+        });
+
+        const btnNarrate = document.getElementById('btn-narrate');
+        let synthesisSpeech = null;
+
+        btnNarrate.addEventListener('click', () => {
+            audio.playClick();
+            if (window.speechSynthesis.speaking) {
+                window.speechSynthesis.cancel();
+                return;
+            }
+
+            let textExplanation = `Superelevation, or banking of the road curve, counteracts centrifugal force pushing vehicles outwards. `;
+            textExplanation += `At a radius of ${state.R} meters and a speed of ${state.V} kilometers per hour, the centrifugal ratio calculates to ${((state.V * state.V) / (127 * state.R)).toFixed(3)}. `;
+            
+            if (state.mode === 'A') {
+                textExplanation += `In Mode A, with a lateral friction coefficient of ${state.f}, the calculated superelevation slope required to sustain balance on this curve is ${(state.e * 100).toFixed(1)} percent. `;
+                if (state.e > 0.07) {
+                    textExplanation += `Notice that this exceeds standard design safety guidelines.`;
+                } else {
+                    textExplanation += `This value is secure and fits design regulations.`;
+                }
+            } else {
+                textExplanation += `In Mode B, assuming no superelevation on a flat curve, the lateral friction demand climbs to ${state.f.toFixed(3)}. `;
+                if (state.f > 0.15) {
+                    textExplanation += `This exceeds the standard threshold of point one five, meaning a vehicle traveling at this speed would skid.`;
+                } else {
+                    textExplanation += `This is safe without any active curve banking.`;
+                }
+            }
+
+            synthesisSpeech = new SpeechSynthesisUtterance(textExplanation);
+            synthesisSpeech.rate = 1.0;
+            synthesisSpeech.pitch = 1.05;
+            window.speechSynthesis.speak(synthesisSpeech);
+        });
+
+        // Initial launch configuration
+        window.onload = function() {
+            triggerValueChange();
+            // Fire simulation frames rendering loop
+            simulationLoop();
+        };
+
+    </script>
+</body>
+</html>

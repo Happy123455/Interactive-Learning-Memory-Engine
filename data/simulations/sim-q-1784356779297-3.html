@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weld-It-Up! Structural Sandbox</title>
+    <style>
+        :root {
+            --neon-cyan: #00f2ff;
+            --neon-purple: #bc13fe;
+            --glass: rgba(20, 25, 35, 0.7);
+            --border: rgba(0, 242, 255, 0.2);
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: #050a0f; color: white; font-family: 'Segoe UI', sans-serif;
+            height: 100vh; overflow: hidden; display: grid;
+            grid-template-columns: 300px 1fr 300px; grid-template-rows: 1fr;
+        }
+        .panel { background: var(--glass); backdrop-filter: blur(10px); border: 1px solid var(--border); padding: 20px; z-index: 10; }
+        #canvas-container { position: relative; cursor: crosshair; }
+        canvas { width: 100%; height: 100%; display: block; }
+        .chip { padding: 8px 15px; margin: 5px; background: rgba(0,242,255,0.1); border: 1px solid var(--neon-cyan); cursor: grab; display: inline-block; border-radius: 4px; }
+        .slot { width: 80px; height: 30px; border: 2px dashed var(--neon-cyan); display: inline-block; vertical-align: middle; }
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; }
+        .book { width: 50px; height: 60px; background: #333; margin-top: 20px; cursor: pointer; border-radius: 5px; display: flex; align-items: center; justify-content: center; border: 2px solid white; }
+    </style>
+</head>
+<body>
+
+<aside class="panel">
+    <h3>PARAMETERS</h3>
+    <div id="chips">
+        <div class="chip" draggable="true" ondragstart="drag(event)" id="8mm">8mm</div>
+        <div class="chip" draggable="true" ondragstart="drag(event)" id="150kN">150kN</div>
+        <div class="chip" draggable="true" ondragstart="drag(event)" id="Fe410">Fe 410</div>
+    </div>
+    <div class="book" onclick="openCode()">IS 800</div>
+</aside>
+
+<main id="canvas-container">
+    <canvas id="sim"></canvas>
+</main>
+
+<aside class="panel">
+    <h3>CONTROLS</h3>
+    <input type="range" id="loadSlider" min="50" max="500" style="width:100%">
+    <p>Stress Intensity</p>
+    <button onclick="playSound()">Test Audio Resonance</button>
+</aside>
+
+<div id="modal" onclick="this.style.display='none'">
+    <div style="background: #111; padding: 40px; border: 1px solid var(--neon-cyan);">
+        <h2>IS 800:2007 - Clause 10.5.7</h2>
+        <p>Minimum weld size shall be determined based on plate thickness...</p>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('sim');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let weldSize = 0;
+    let targetWeldSize = 0;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Perspective tie plate
+        ctx.strokeStyle = '#00f2ff';
+        ctx.lineWidth = 3;
+        ctx.strokeRect(100, 100, 400, 200);
+        
+        // Weld growth animation
+        weldSize += (targetWeldSize - weldSize) * 0.1;
+        ctx.fillStyle = '#bc13fe';
+        ctx.beginPath();
+        ctx.moveTo(100, 100);
+        ctx.lineTo(100 + weldSize, 100 + weldSize);
+        ctx.lineTo(100, 100 + weldSize);
+        ctx.fill();
+
+        requestAnimationFrame(draw);
+    }
+    draw();
+
+    function drag(ev) { ev.dataTransfer.setData("text", ev.target.id); }
+    canvas.ondragover = (ev) => ev.preventDefault();
+    canvas.ondrop = (ev) => {
+        ev.preventDefault();
+        const id = ev.dataTransfer.getData("text");
+        if(id === "8mm") {
+            targetWeldSize = 50;
+            window.speechSynthesis.speak(new SpeechSynthesisUtterance("Great! The weld size matches the plate thickness."));
+        }
+    };
+
+    const loadSlider = document.getElementById('loadSlider');
+    loadSlider.oninput = (e) => {
+        const osc = audioCtx.createOscillator();
+        osc.frequency.value = e.target.value * 2;
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    };
+
+    function playSound() { audioCtx.resume(); }
+    function openCode() { document.getElementById('modal').style.display = 'flex'; }
+</script>
+</body>
+</html>

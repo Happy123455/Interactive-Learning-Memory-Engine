@@ -1,0 +1,1371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Discontinuous Single Angle Strut Simulator</title>
+    
+    <!-- Google Fonts for sleek tech look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js for Capacity vs Slenderness plot -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- MathJax for rendering equations dynamically -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #090d16;
+            --bg-surface: rgba(17, 24, 39, 0.7);
+            --bg-glass: rgba(15, 23, 42, 0.45);
+            --border-glass: rgba(255, 255, 255, 0.08);
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --accent-emerald: #10b981;
+            --accent-rose: #f43f5e;
+            --accent-amber: #f59e0b;
+            --glow-cyan: rgba(6, 182, 212, 0.3);
+            --glow-emerald: rgba(16, 185, 129, 0.3);
+            --glow-rose: rgba(244, 63, 94, 0.3);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: grid;
+            grid-template-rows: auto 1fr;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0) 100%);
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-glass);
+            backdrop-filter: blur(8px);
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, var(--accent-cyan), #3b82f6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: var(--bg-base);
+            box-shadow: 0 0 15px var(--glow-cyan);
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            text-transform: uppercase;
+        }
+
+        h1 span {
+            color: var(--accent-cyan);
+            font-weight: 400;
+        }
+
+        /* Layout Grid */
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 420px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+            height: calc(100vh - 80px);
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .app-container {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow-y: auto;
+            }
+        }
+
+        /* Left Side Panel (Visuals) */
+        .workspace {
+            display: grid;
+            grid-template-rows: 1.2fr 0.8fr;
+            gap: 1.5rem;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .workspace {
+                height: auto;
+                grid-template-rows: auto auto;
+            }
+        }
+
+        /* Glass Panel Styling */
+        .glass-panel {
+            background: var(--bg-glass);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--border-glass);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            overflow: hidden;
+        }
+
+        /* Canvas Panel */
+        .canvas-container {
+            position: relative;
+            flex-grow: 1;
+            min-height: 250px;
+            background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.03);
+            cursor: crosshair;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .canvas-hint {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            pointer-events: none;
+            border: 1px solid var(--border-glass);
+        }
+
+        /* Data Panel (Visual Equations & Math) */
+        .analysis-panel {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1rem;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        @media (max-width: 768px) {
+            .analysis-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .math-box {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            overflow-y: auto;
+        }
+
+        .math-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--accent-cyan);
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .formula-container {
+            padding: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 8px;
+            border: 1px solid var(--border-glass);
+            margin-bottom: 0.5rem;
+            text-align: center;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .formula-container.glow-emerald {
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 10px var(--glow-emerald);
+        }
+
+        .formula-container.glow-rose {
+            border-color: var(--accent-rose);
+            box-shadow: 0 0 10px var(--glow-rose);
+        }
+
+        .variable-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            font-size: 0.8rem;
+        }
+
+        .variable-card {
+            background: rgba(30, 41, 59, 0.3);
+            padding: 0.5rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .variable-card span:first-child {
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+
+        .variable-card span:last-child {
+            font-family: 'Fira Code', monospace;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        /* Right Control Panel */
+        .control-panel {
+            height: 100%;
+            overflow-y: auto;
+            gap: 1.5rem;
+        }
+
+        .control-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .control-group label span {
+            color: var(--accent-cyan);
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Custom Range Slider styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--accent-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--glow-cyan);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+            background: #fff;
+        }
+
+        /* Toggle Button Group */
+        .toggle-group {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 3px;
+            border-radius: 8px;
+            border: 1px solid var(--border-glass);
+        }
+
+        .toggle-btn {
+            background: transparent;
+            border: none;
+            outline: none;
+            color: var(--text-secondary);
+            padding: 0.5rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-base);
+            box-shadow: 0 0 8px var(--glow-cyan);
+        }
+
+        /* Selector dropdown */
+        select {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid var(--border-glass);
+            border-radius: 8px;
+            padding: 0.75rem;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-family: 'Inter', sans-serif;
+            outline: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        select:focus {
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 8px var(--glow-cyan);
+        }
+
+        /* System Action Buttons */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+            margin-top: auto;
+        }
+
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 8px;
+            border: none;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent-cyan) 0%, #0284c7 100%);
+            color: var(--bg-base);
+            box-shadow: 0 4px 14px 0 var(--glow-cyan);
+        }
+
+        .btn-primary:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--border-glass);
+            color: var(--text-primary);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255,255,255,0.15);
+        }
+
+        /* Status Indicator Banner */
+        .status-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
+            border-radius: 12px;
+            margin-bottom: 1.25rem;
+            border: 1px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .status-banner.safe {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.05);
+        }
+
+        .status-banner.danger {
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.2);
+            color: #fb7185;
+            box-shadow: inset 0 0 12px rgba(244, 63, 94, 0.05);
+        }
+
+        .status-indicator-text {
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            font-size: 1rem;
+        }
+
+        .unity-ratio {
+            font-family: 'Fira Code', monospace;
+            font-weight: bold;
+            font-size: 1.25rem;
+        }
+
+        /* Floating Audio Control */
+        .audio-widget {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-glass);
+            padding: 0.5rem 0.75rem;
+            border-radius: 20px;
+        }
+
+        .audio-widget button {
+            background: transparent;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+        }
+
+        .audio-widget button:hover, .audio-widget button.active {
+            color: var(--accent-cyan);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">L</div>
+            <div>
+                <h1>Angle Strut <span>Sizing Studio</span></h1>
+            </div>
+        </div>
+        <div class="audio-widget">
+            <button id="toggle-sound" title="Toggle Sound FX" class="active">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>
+            </button>
+            <button id="toggle-voice" title="Toggle Narrator">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"></path></svg>
+            </button>
+        </div>
+    </header>
+
+    <main class="app-container">
+        
+        <!-- Left Visualizing Panels -->
+        <div class="workspace">
+            <!-- Canvas Schematic Panel -->
+            <div class="glass-panel">
+                <div class="canvas-hint">Drag Support to adjust Span (L)</div>
+                <div class="canvas-container" id="canvas-container">
+                    <canvas id="schematicCanvas"></canvas>
+                </div>
+            </div>
+
+            <!-- Mathematical & Capacity Plot Panel -->
+            <div class="analysis-panel">
+                <!-- Mathematical formula visualizer -->
+                <div class="glass-panel math-box">
+                    <div class="math-title">Governing Equation (IS 800)</div>
+                    <div class="formula-container" id="equation-container">
+                        $$P_d = A_e \cdot f_{cd}$$
+                    </div>
+                    <div class="variable-grid">
+                        <div class="variable-card" id="card-Pd">
+                            <span>Capacity ($P_d$)</span>
+                            <span id="val-pd">120.5 kN</span>
+                        </div>
+                        <div class="variable-card" id="card-Ae">
+                            <span>Eff. Area ($A_e$)</span>
+                            <span id="val-ae">1103.2 mm²</span>
+                        </div>
+                        <div class="variable-card" id="card-fcd">
+                            <span>Design Stress ($f_{cd}$)</span>
+                            <span id="val-fcd">109.2 MPa</span>
+                        </div>
+                        <div class="variable-card" id="card-slenderness">
+                            <span>Slenderness ($\lambda$)</span>
+                            <span id="val-lambda">114.2</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Capacity Chart -->
+                <div class="glass-panel">
+                    <div class="math-title">Capacity curve vs. slenderness</div>
+                    <div style="flex-grow:1; position:relative; min-height: 120px;">
+                        <canvas id="capacityChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sizing Control Dashboard -->
+        <div class="glass-panel control-panel">
+            
+            <!-- Real-time Status Indicator Banner -->
+            <div class="status-banner safe" id="status-banner">
+                <div>
+                    <div class="status-indicator-text" id="status-txt">Adequate Design</div>
+                    <div style="font-size: 0.75rem; opacity: 0.8;" id="status-desc">System safe under applied load</div>
+                </div>
+                <div class="unity-ratio" id="unity-ratio">0.72</div>
+            </div>
+
+            <!-- Angle Section Selector -->
+            <div class="control-group">
+                <label>Steel Angle Section</label>
+                <select id="section-select">
+                    <!-- Options populated by JS: Name, Area, r_vv -->
+                    <option value="ISA 75x75x6" data-a="866" data-r="14.6">ISA 75 x 75 x 6 (Ae = 866 mm²)</option>
+                    <option value="ISA 90x90x8" data-a="1379" data-r="17.5" selected>ISA 90 x 90 x 8 (Ae = 1379 mm²)</option>
+                    <option value="ISA 100x100x10" data-a="1902" data-r="19.4">ISA 100 x 100 x 10 (Ae = 1902 mm²)</option>
+                    <option value="ISA 125x75x8" data-a="1538" data-r="16.1">ISA 125 x 75 x 8 (Ae = 1538 mm²)</option>
+                </select>
+            </div>
+
+            <!-- Factored Axial Load Slider -->
+            <div class="control-group">
+                <label>Factored Applied Load <span id="load-label">85 kN</span></label>
+                <input type="range" id="load-slider" min="20" max="250" value="85" step="1">
+            </div>
+
+            <!-- Span/Length Slider -->
+            <div class="control-group">
+                <label>Span / Strut Length <span id="span-label">2.80 m</span></label>
+                <input type="range" id="span-slider" min="1.0" max="4.5" value="2.8" step="0.05">
+            </div>
+
+            <!-- Bolt End Connections (Toggle) -->
+            <div class="control-group">
+                <label>End Connections (Bolt Logic)</label>
+                <div class="toggle-group" id="bolt-toggle">
+                    <button class="toggle-btn" data-bolts="1">1 Bolt (Ke = 1.0)</button>
+                    <button class="toggle-btn active" data-bolts="2">2+ Bolts (Ke = 0.85)</button>
+                </div>
+            </div>
+
+            <!-- Yield Strength Parameter -->
+            <div class="control-group">
+                <label>Yield Strength ($f_y$) <span id="fy-label">250 MPa</span></label>
+                <input type="range" id="fy-slider" min="210" max="350" value="250" step="10">
+            </div>
+
+            <!-- Interactive Action buttons -->
+            <div class="action-grid">
+                <button class="btn btn-secondary" id="explain-btn">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01"></path></svg>
+                    Explain Design
+                </button>
+                <button class="btn btn-primary" id="optimize-btn">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3z"></path></svg>
+                    Optimize
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        /*********************************************************
+         * 1. STATE MANAGEMENT & SYSTEM CONFIGS
+         *********************************************************/
+        const state = {
+            load: 85,           // kN
+            span: 2.8,          // m
+            bolts: 2,           // Number of end bolts
+            fy: 250,            // MPa
+            E: 2e5,             // Elastic Modulus, MPa
+            section: {
+                name: 'ISA 90x90x8',
+                A: 1379,        // mm² (Gross/Eff)
+                r: 17.5         // mm (radius of gyration)
+            },
+            pd: 0,
+            fcd: 0,
+            slenderness: 0,
+            unity: 0,
+            isDraggingSupport: false,
+            soundActive: true,
+            voiceActive: false
+        };
+
+        /*********************************************************
+         * 2. AUDIO SYNTHESIS & TEXT-TO-SPEECH
+         *********************************************************/
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playClick() {
+            if (!state.soundActive) return;
+            initAudio();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.frequency.setValueAtTime(800, audioCtx.currentTime);
+            gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.05);
+        }
+
+        function playSuccess() {
+            if (!state.soundActive) return;
+            initAudio();
+            const now = audioCtx.currentTime;
+            
+            // Success Major Chord
+            const freqs = [329.63, 392.00, 523.25]; // E4, G4, C5
+            freqs.forEach(freq => {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, now);
+                gain.gain.setValueAtTime(0.0, now);
+                gain.gain.linearRampToValueAtTime(0.08, now + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.4);
+                
+                osc.start(now);
+                osc.stop(now + 0.4);
+            });
+        }
+
+        function playWarning() {
+            if (!state.soundActive) return;
+            initAudio();
+            const now = audioCtx.currentTime;
+            
+            const osc = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(220, now);
+            osc.frequency.linearRampToValueAtTime(110, now + 0.5);
+            
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, now);
+            filter.frequency.exponentialRampToValueAtTime(100, now + 0.5);
+            
+            gain.gain.setValueAtTime(0.12, now);
+            gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+            
+            osc.start(now);
+            osc.stop(now + 0.5);
+        }
+
+        // Voiceover Narrations
+        function speak(text) {
+            if (!state.voiceActive) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        /*********************************************************
+         * 3. THEORETICAL CALCULATIONS (IS 800 CODE BASED)
+         *********************************************************/
+        function calculateDesign() {
+            // Effective length multiplier based on bolt logic
+            // 1 bolt: Ke = 1.0, 2 bolts: Ke = 0.85
+            const Ke = state.bolts === 1 ? 1.0 : 0.85;
+            const Le = Ke * (state.span * 1000); // mm
+
+            // Radius of gyration r_vv
+            const r_vv = state.section.r; // mm
+            
+            // Slenderness Ratio lambda = Le / r_vv
+            state.slenderness = Le / r_vv;
+
+            // Buckling calculations (IS 800:2007 structural code approximation)
+            const elasticEulerStress = (Math.PI * Math.PI * state.E) / (state.slenderness * state.slenderness);
+            
+            // Angle imperfection factor (Curve C: alpha = 0.49)
+            const alpha = 0.49; 
+            const nonDimensionalSlenderness = Math.sqrt(state.fy / elasticEulerStress);
+            
+            const phi = 0.5 * (1 + alpha * (nonDimensionalSlenderness - 0.2) + nonDimensionalSlenderness * nonDimensionalSlenderness);
+            
+            // Design Compressive Stress f_cd
+            const calculatedFcd = state.fy / (phi + Math.sqrt(Math.max(0.01, phi * phi - nonDimensionalSlenderness * nonDimensionalSlenderness)));
+            state.fcd = Math.min(state.fy, calculatedFcd); // limit stress to yield
+
+            // Design Strength Capacity Pd = Ae * fcd
+            // Discontinuous single angle reduction (approximate effective area representation)
+            const Ae = state.bolts === 1 ? state.section.A * 0.80 : state.section.A * 0.95;
+            state.pd = (Ae * state.fcd) / 1000; // in kN
+
+            // Unity Check Ratio (Applied / Capacity)
+            const oldUnity = state.unity;
+            state.unity = state.load / state.pd;
+
+            // Trigger alerts/sounds on state crossing
+            if (oldUnity <= 1.0 && state.unity > 1.0) {
+                playWarning();
+                speak("Warning. Under current configuration, applied load exceeds safe compressive design capacity.");
+            } else if (oldUnity > 1.0 && state.unity <= 1.0) {
+                playSuccess();
+                speak("Design adequacy achieved.");
+            }
+
+            // Update UI components
+            updateMathDetails(Ae);
+            updateUIComponents();
+            updateChart();
+        }
+
+        /*********************************************************
+         * 4. DYNAMIC MATH RENDERING & HTML UPDATES
+         *********************************************************/
+        function updateMathDetails(Ae) {
+            document.getElementById('val-pd').innerText = state.pd.toFixed(1) + ' kN';
+            document.getElementById('val-ae').innerText = Ae.toFixed(1) + ' mm²';
+            document.getElementById('val-fcd').innerText = state.fcd.toFixed(1) + ' MPa';
+            document.getElementById('val-lambda').innerText = state.slenderness.toFixed(1);
+
+            // Re-render LaTeX parameters instantly inside the boxes
+            const eqBox = document.getElementById('equation-container');
+            const calculatedText = `$$P_d = (${Ae.toFixed(0)}\\text{ mm}^2) \\cdot (${state.fcd.toFixed(1)}\\text{ MPa}) = ${state.pd.toFixed(1)}\\text{ kN}$$`;
+            eqBox.innerHTML = calculatedText;
+            
+            // Highlight target cards based on performance
+            const unityCard = document.getElementById('status-banner');
+            if (state.unity > 1.0) {
+                unityCard.className = "status-banner danger";
+                eqBox.className = "formula-container glow-rose";
+                document.getElementById('status-txt').innerText = "Structurally Inadequate";
+                document.getElementById('status-desc').innerText = "Overstressed: Single-Angle Buckling Hazard!";
+            } else {
+                unityCard.className = "status-banner safe";
+                eqBox.className = "formula-container glow-emerald";
+                document.getElementById('status-txt').innerText = "Structurally Adequate";
+                document.getElementById('status-desc').innerText = "Unity ratio conforms to code constraints";
+            }
+            document.getElementById('unity-ratio').innerText = state.unity.toFixed(2);
+
+            // MathJax re-render call
+            if (window.MathJax && MathJax.typesetPromise) {
+                MathJax.typesetPromise([eqBox]);
+            }
+        }
+
+        function updateUIComponents() {
+            // Update labels
+            document.getElementById('load-label').innerText = state.load + ' kN';
+            document.getElementById('span-label').innerText = state.span.toFixed(2) + ' m';
+            document.getElementById('fy-label').innerText = state.fy + ' MPa';
+
+            // Sync slider positions
+            document.getElementById('load-slider').value = state.load;
+            document.getElementById('span-slider').value = state.span;
+            document.getElementById('fy-slider').value = state.fy;
+        }
+
+        /*********************************************************
+         * 5. HIGH-DPI CANVAS SCHEMATIC & RENDER LOOP
+         *********************************************************/
+        const canvas = document.getElementById('schematicCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // Handles resizing & retina resolution
+        function resizeCanvas() {
+            const rect = container.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            canvas.style.width = rect.width + 'px';
+            canvas.style.height = rect.height + 'px';
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawSchematic();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Interaction coordinates
+        let rightSupportX = 0;
+        let leftSupportX = 80;
+        const baselineY = 120;
+
+        function drawSchematic() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            // Reset & Draw dark cybergrid background
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            ctx.lineWidth = 1;
+            const gridSize = 25;
+            for (let x = 0; x < width; x += gridSize) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSize) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            // Compute span visual endpoints
+            leftSupportX = 80;
+            // Map 1.0m - 4.5m dynamically to canvas pixel space
+            const maxVal = 4.5, minVal = 1.0;
+            const deltaX = width - 160;
+            rightSupportX = leftSupportX + ((state.span - minVal) / (maxVal - minVal)) * deltaX;
+
+            const midY = height / 2;
+
+            // Draw Left Rigid Support
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(leftSupportX - 15, midY - 30);
+            ctx.lineTo(leftSupportX - 15, midY + 30);
+            ctx.stroke();
+
+            // Hashmarks for fixed support
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            for (let i = -25; i <= 25; i += 10) {
+                ctx.beginPath();
+                ctx.moveTo(leftSupportX - 15, midY + i);
+                ctx.lineTo(leftSupportX - 25, midY + i + 5);
+                ctx.stroke();
+            }
+
+            // Draw Gusset Plate Left
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(leftSupportX - 15, midY - 15);
+            ctx.lineTo(leftSupportX + 15, midY - 15);
+            ctx.lineTo(leftSupportX + 25, midY);
+            ctx.lineTo(leftSupportX + 15, midY + 15);
+            ctx.lineTo(leftSupportX - 15, midY + 15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw Right Interactive Support (Roller constraint / Drag target)
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(rightSupportX + 15, midY - 30);
+            ctx.lineTo(rightSupportX + 15, midY + 30);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#334155';
+            ctx.lineWidth = 2;
+            for (let i = -25; i <= 25; i += 10) {
+                ctx.beginPath();
+                ctx.moveTo(rightSupportX + 15, midY + i);
+                ctx.lineTo(rightSupportX + 25, midY + i + 5);
+                ctx.stroke();
+            }
+
+            // Draw Gusset Plate Right
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(rightSupportX + 15, midY - 15);
+            ctx.lineTo(rightSupportX - 15, midY - 15);
+            ctx.lineTo(rightSupportX - 25, midY);
+            ctx.lineTo(rightSupportX - 15, midY + 15);
+            ctx.lineTo(rightSupportX + 15, midY + 15);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Calculate Buckling/Deflection profile if overstressed or loaded
+            const pRatio = state.load / state.pd;
+            // Scale bending deflection based on utility
+            const maxDeflection = pRatio > 1.0 ? (pRatio - 1.0) * 45 + 10 : pRatio * 8;
+            
+            // Single Angle Strut visual element (Buckled or Straight Curve)
+            ctx.beginPath();
+            ctx.lineWidth = 8;
+            
+            // Color shifts relative to load performance
+            const angleColor = state.unity > 1.0 ? 'rgba(244, 63, 94, 0.95)' : 'rgba(6, 182, 212, 0.9)';
+            ctx.strokeStyle = angleColor;
+            
+            // Glow effect
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = angleColor;
+
+            const segments = 60;
+            for (let i = 0; i <= segments; i++) {
+                const t = i / segments;
+                const xVal = leftSupportX + t * (rightSupportX - leftSupportX);
+                // Sinusoidal buckling curve
+                const yVal = midY + Math.sin(t * Math.PI) * maxDeflection;
+                if (i === 0) {
+                    ctx.moveTo(xVal, yVal);
+                } else {
+                    ctx.lineTo(xVal, yVal);
+                }
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // reset glow
+
+            // Draw Bolts on Supports (Bolt representation logic)
+            ctx.fillStyle = '#e2e8f0';
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+
+            if (state.bolts === 1) {
+                // One Bolt at neutral axis center
+                ctx.beginPath(); ctx.arc(leftSupportX, midY, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(rightSupportX, midY, 4, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            } else {
+                // Two bolts spaced out vertically
+                ctx.beginPath(); ctx.arc(leftSupportX - 5, midY - 6, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(leftSupportX + 5, midY + 6, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+
+                ctx.beginPath(); ctx.arc(rightSupportX + 5, midY - 6, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+                ctx.beginPath(); ctx.arc(rightSupportX - 5, midY + 6, 3.5, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            }
+
+            // Draw Load Vector Arrow acting on structure
+            const arrowLength = 50;
+            const arrowBaseX = leftSupportX - 60;
+            ctx.strokeStyle = '#f43f5e';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(arrowBaseX, midY);
+            ctx.lineTo(leftSupportX - 10, midY);
+            ctx.stroke();
+
+            // Arrow Head
+            ctx.fillStyle = '#f43f5e';
+            ctx.beginPath();
+            ctx.moveTo(leftSupportX - 10, midY);
+            ctx.lineTo(leftSupportX - 20, midY - 6);
+            ctx.lineTo(leftSupportX - 20, midY + 6);
+            ctx.closePath();
+            ctx.fill();
+
+            // Load value text labels above structural frame
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 12px "Fira Code", monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText(`Applied: ${state.load} kN`, (leftSupportX + rightSupportX) / 2, midY - maxDeflection - 20);
+            
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText(`Span: ${state.span.toFixed(2)} m`, (leftSupportX + rightSupportX) / 2, midY + maxDeflection + 30);
+
+            // Drag handle indicator (Pulse Glow)
+            ctx.strokeStyle = state.isDraggingSupport ? '#10b981' : 'rgba(6, 182, 212, 0.4)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(rightSupportX, midY, 20, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Drag handlers on Canvas for dynamic length adjustment
+        function getMousePos(evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            const pos = getMousePos(e);
+            const distance = Math.sqrt((pos.x - rightSupportX) ** 2 + (pos.y - (canvas.height / window.devicePixelRatio / 2)) ** 2);
+            
+            // Match click within interaction ring
+            if (distance < 25) {
+                state.isDraggingSupport = true;
+                playClick();
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!state.isDraggingSupport) return;
+            const pos = getMousePos(e);
+            const width = canvas.width / window.devicePixelRatio;
+            const leftSupportLimit = 80;
+            const maxReach = width - 80;
+
+            // Constrain movement
+            const clampedX = Math.max(leftSupportLimit + 50, Math.min(pos.x, maxReach));
+            
+            // Map visual pixel coordinates directly back to span parameter (1.0m to 4.5m)
+            const fraction = (clampedX - leftSupportLimit) / (maxReach - leftSupportLimit);
+            state.span = 1.0 + fraction * (4.5 - 1.0);
+            
+            calculateDesign();
+            drawSchematic();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (state.isDraggingSupport) {
+                state.isDraggingSupport = false;
+                playClick();
+                drawSchematic();
+            }
+        });
+
+        /*********************************************************
+         * 6. LIVE CHART.JS SETUP
+         *********************************************************/
+        let chart;
+        function initChart() {
+            const ctx = document.getElementById('capacityChart').getContext('2d');
+            
+            // Generate standard structural curve data points for selected yield
+            const curveData = generateCurvePoints();
+
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Permissible Capacity (kN)',
+                            data: curveData,
+                            borderColor: '#06b6d4',
+                            borderWidth: 2,
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Current Setup State',
+                            data: [{ x: state.slenderness, y: state.pd }],
+                            pointBackgroundColor: '#f43f5e',
+                            pointBorderColor: '#fff',
+                            pointRadius: 6,
+                            pointHoverRadius: 8,
+                            showLine: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: { display: true, text: 'Slenderness Ratio (λ)', color: '#94a3b8', font: { size: 10 } },
+                            ticks: { color: '#64748b' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            min: 20,
+                            max: 220
+                        },
+                        y: {
+                            title: { display: true, text: 'Capacity (kN)', color: '#94a3b8', font: { size: 10 } },
+                            ticks: { color: '#64748b' },
+                            grid: { color: 'rgba(255,255,255,0.05)' },
+                            min: 0,
+                            max: 300
+                        }
+                    }
+                }
+            });
+        }
+
+        // Generate synthetic reference curve data based on changing section selection
+        function generateCurvePoints() {
+            const data = [];
+            const tempState = { ...state };
+            const Ke = tempState.bolts === 1 ? 1.0 : 0.85;
+
+            // Sample across a breadth of structural lengths/slenderness values
+            for (let l = 1.0; l <= 5.0; l += 0.2) {
+                const Le = Ke * (l * 1000);
+                const lambdaVal = Le / tempState.section.r;
+                const eEuler = (Math.PI * Math.PI * tempState.E) / (lambdaVal * lambdaVal);
+                const alpha = 0.49;
+                const lambdaNorm = Math.sqrt(tempState.fy / eEuler);
+                const phiVal = 0.5 * (1 + alpha * (lambdaNorm - 0.2) + lambdaNorm * lambdaNorm);
+                const calculatedFcd = tempState.fy / (phiVal + Math.sqrt(Math.max(0.01, phiVal * phiVal - lambdaNorm * lambdaNorm)));
+                const fcdVal = Math.min(tempState.fy, calculatedFcd);
+                const Ae = tempState.bolts === 1 ? tempState.section.A * 0.80 : tempState.section.A * 0.95;
+                const pdVal = (Ae * fcdVal) / 1000;
+
+                data.push({ x: lambdaVal, y: pdVal });
+            }
+            return data;
+        }
+
+        function updateChart() {
+            if (!chart) return;
+            chart.data.datasets[0].data = generateCurvePoints();
+            chart.data.datasets[1].data = [{ x: state.slenderness, y: state.pd }];
+            
+            // Adjust point color dynamically based on system safety margin
+            chart.data.datasets[1].pointBackgroundColor = state.unity > 1.0 ? '#f43f5e' : '#10b981';
+            
+            chart.update('none'); // silent rapid update animation
+        }
+
+        /*********************************************************
+         * 7. EVENT LISTENERS & USER CONTROLS INTERACTIVE LAYER
+         *********************************************************/
+        
+        // Selector Event
+        document.getElementById('section-select').addEventListener('change', (e) => {
+            const opt = e.target.options[e.target.selectedIndex];
+            state.section = {
+                name: opt.value,
+                A: parseFloat(opt.dataset.a),
+                r: parseFloat(opt.dataset.r)
+            };
+            playClick();
+            calculateDesign();
+            drawSchematic();
+        });
+
+        // Sliders Real-time Sync
+        document.getElementById('load-slider').addEventListener('input', (e) => {
+            state.load = parseFloat(e.target.value);
+            calculateDesign();
+            drawSchematic();
+        });
+
+        document.getElementById('span-slider').addEventListener('input', (e) => {
+            state.span = parseFloat(e.target.value);
+            calculateDesign();
+            drawSchematic();
+        });
+
+        document.getElementById('fy-slider').addEventListener('input', (e) => {
+            state.fy = parseInt(e.target.value);
+            calculateDesign();
+            drawSchematic();
+        });
+
+        // Bolt Toggle Logic
+        document.querySelectorAll('#bolt-toggle .toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('#bolt-toggle .toggle-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.bolts = parseInt(btn.dataset.bolts);
+                playClick();
+                calculateDesign();
+                drawSchematic();
+            });
+        });
+
+        // System Sound toggles
+        document.getElementById('toggle-sound').addEventListener('click', (e) => {
+            state.soundActive = !state.soundActive;
+            const btn = document.getElementById('toggle-sound');
+            if (state.soundActive) {
+                btn.classList.add('active');
+                btn.style.color = 'var(--accent-cyan)';
+            } else {
+                btn.classList.remove('active');
+                btn.style.color = 'var(--text-secondary)';
+            }
+        });
+
+        document.getElementById('toggle-voice').addEventListener('click', () => {
+            state.voiceActive = !state.voiceActive;
+            const btn = document.getElementById('toggle-voice');
+            if (state.voiceActive) {
+                btn.classList.add('active');
+                btn.style.color = 'var(--accent-cyan)';
+                speak("Narrator activated. Design calculations will be announced.");
+            } else {
+                btn.classList.remove('active');
+                btn.style.color = 'var(--text-secondary)';
+            }
+        });
+
+        // "Explain Design" pedagogical tutorial mode
+        document.getElementById('explain-btn').addEventListener('click', () => {
+            playClick();
+            const text = `Let's analyze this discontinuous single angle strut. 
+            First, your chosen angle is ${state.section.name} with an effective area of ${state.section.A} square millimeters. 
+            Under your design constraints, the span length is ${state.span.toFixed(2)} meters, resulting in an effective slenderness ratio of ${state.slenderness.toFixed(1)}. 
+            According to the standard Perry Robertson structural formulations in the code, the permissible compressive stress is ${state.fcd.toFixed(1)} Megapascals. 
+            This translates to an axial structural capacity of ${state.pd.toFixed(1)} kilonewtons. 
+            Your current design unity ratio is ${state.unity.toFixed(2)}. This structural system is ${state.unity > 1.0 ? 'overloaded and failing' : 'safe and adequate'}.`;
+            
+            // Always speak when requested explicitly
+            const voiceBackup = state.voiceActive;
+            state.voiceActive = true;
+            speak(text);
+            state.voiceActive = voiceBackup;
+        });
+
+        // "Optimize" structural configuration solver
+        document.getElementById('optimize-btn').addEventListener('click', () => {
+            playClick();
+            
+            // Loop through select element sections to find optimal angle
+            const select = document.getElementById('section-select');
+            let foundOptimal = false;
+            let optimalIndex = 0;
+
+            for (let i = 0; i < select.options.length; i++) {
+                const opt = select.options[i];
+                const area = parseFloat(opt.dataset.a);
+                const r = parseFloat(opt.dataset.r);
+                
+                // Temp capacity test calculations
+                const Ke = state.bolts === 1 ? 1.0 : 0.85;
+                const Le = Ke * (state.span * 1000);
+                const sRatio = Le / r;
+                const eEuler = (Math.PI * Math.PI * state.E) / (sRatio * sRatio);
+                const alpha = 0.49;
+                const lambdaNorm = Math.sqrt(state.fy / eEuler);
+                const phiVal = 0.5 * (1 + alpha * (lambdaNorm - 0.2) + lambdaNorm * lambdaNorm);
+                const calculatedFcd = state.fy / (phiVal + Math.sqrt(Math.max(0.01, phiVal * phiVal - lambdaNorm * lambdaNorm)));
+                const fcdVal = Math.min(state.fy, calculatedFcd);
+                const Ae = state.bolts === 1 ? area * 0.80 : area * 0.95;
+                const testPd = (Ae * fcdVal) / 1000;
+
+                if (state.load <= testPd) {
+                    optimalIndex = i;
+                    foundOptimal = true;
+                    break;
+                }
+            }
+
+            if (foundOptimal) {
+                select.selectedIndex = optimalIndex;
+                select.dispatchEvent(new Event('change'));
+                speak("Design successfully optimized. Upgraded angle section size chosen to ensure code compliance.");
+            } else {
+                // If even the largest angle fails, let's optimize length/span to satisfy
+                speak("All available standard profile angles are inadequate. Reducing strut span length dynamically to meet safety criteria.");
+                optimizeSpanByBisection();
+            }
+        });
+
+        function optimizeSpanByBisection() {
+            let low = 1.0, high = state.span;
+            let bestSpan = 1.0;
+            const Ke = state.bolts === 1 ? 1.0 : 0.85;
+            
+            for (let iter = 0; iter < 12; iter++) {
+                const mid = (low + high) / 2;
+                const Le = Ke * (mid * 1000);
+                const sRatio = Le / state.section.r;
+                const eEuler = (Math.PI * Math.PI * state.E) / (sRatio * sRatio);
+                const alpha = 0.49;
+                const lambdaNorm = Math.sqrt(state.fy / eEuler);
+                const phiVal = 0.5 * (1 + alpha * (lambdaNorm - 0.2) + lambdaNorm * lambdaNorm);
+                const calculatedFcd = state.fy / (phiVal + Math.sqrt(Math.max(0.01, phiVal * phiVal - lambdaNorm * lambdaNorm)));
+                const fcdVal = Math.min(state.fy, calculatedFcd);
+                const Ae = state.bolts === 1 ? state.section.A * 0.80 : state.section.A * 0.95;
+                const testPd = (Ae * fcdVal) / 1000;
+
+                if (state.load <= testPd) {
+                    bestSpan = mid;
+                    low = mid; // try to get longer safer span
+                } else {
+                    high = mid; // too long, must reduce
+                }
+            }
+            
+            state.span = bestSpan;
+            calculateDesign();
+            drawSchematic();
+        }
+
+        /*********************************************************
+         * 8. SYSTEM INITIALIZATION
+         *********************************************************/
+        window.addEventListener('load', () => {
+            resizeCanvas();
+            initChart();
+            calculateDesign();
+        });
+    </script>
+</body>
+</html>

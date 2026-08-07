@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Interactive Engineering Simulation</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="bg-[#080a10] text-slate-100 min-h-screen overflow-x-hidden">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef } = React;
+
+// Inject custom CSS styling with a beautiful, high-contrast, blueprint-grade design
+const injectStyles = () => {
+  if (typeof document === 'undefined') return;
+  const styleId = 'summit-curve-premium-blueprint-v3';
+  if (document.getElementById(styleId)) return;
+
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.innerHTML = `
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background-color: #05070c;
+      color: #f1f5f9;
+      overflow-x: hidden;
+    }
+
+    .blueprint-panel {
+      background: rgba(10, 15, 30, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px dashed rgba(6, 182, 212, 0.25);
+    }
+
+    .active-parameter {
+      border: 1px solid #22d3ee !important;
+      box-shadow: 0 0 15px rgba(6, 182, 212, 0.3);
+      background: rgba(6, 182, 212, 0.1) !important;
+    }
+
+    .custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 4px;
+      background: #06b6d4;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(6, 182, 212, 0.8);
+      transition: all 0.15s ease;
+    }
+
+    .custom-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: #38bdf8;
+    }
+
+    .font-mono-custom {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Keyframe animation for scanning/measuring lasers */
+    @keyframes laser-pulse {
+      0%, 100% { opacity: 0.8; }
+      50% { opacity: 0.3; }
+    }
+    
+    .laser-line {
+      animation: laser-pulse 2s infinite ease-in-out;
+    }
+  `;
+  document.head.appendChild(style);
+};
+
+function App() {
+  useEffect(() => {
+    injectStyles();
+  }, []);
+
+  const [V, setV] = useState(80); // Speed in Kmph (60 to 120)
+  const [n1, setN1] = useState(4.5); // Entering Gradient % (+1% to +10%)
+  const [n2, setN2] = useState(-4.5); // Exiting Gradient % (-1% to -10%)
+  const [f, setF] = useState(0.35); // Longitudinal friction coefficient
+  const [t, setT] = useState(2.5); // Perception-Reaction Time (seconds)
+  const [designStandard, setDesignStandard] = useState('irc'); // 'irc' or 'aashto'
+  const [activeParam, setActiveParam] = useState('V'); // Currently selected parameter for D-Pad/Arrow controls
+  const [audioMuted, setAudioMuted] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
+  const [activeHandle, setActiveHandle] = useState(null); // 'n1' or 'n2' canvas drag handles
+  const [speechAlert, setSpeechAlert] = useState(""); 
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // Animation frame storage decoupled from state to achieve 60 FPS
+  const carProgressRef = useRef(0.0);
+  const isPlayingRef = useRef(true);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  // Design standard heights: h1 (Driver eye), h2 (Obstacle height)
+  const h1 = designStandard === 'irc' ? 1.2 : 1.08;
+  const h2 = designStandard === 'irc' ? 0.15 : 0.60;
+
+  const mainCanvasRef = useRef(null);
+  const mainContainerRef = useRef(null);
+  const mathCanvasRef = useRef(null);
+  const audioCtxRef = useRef(null);
+
+  const [dimensions, setDimensions] = useState({ width: 850, height: 420 });
+
+  useEffect(() => {
+    if (!mainContainerRef.current) return;
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width } = entry.contentRect;
+        // Dynamically compute safe widescreen height
+        const computedHeight = Math.max(320, Math.min(450, width * 0.48));
+        setDimensions({ width: Math.max(500, width), height: computedHeight });
+      }
+    });
+
+    resizeObserver.observe(mainContainerRef.current);
+    return () => resizeObserver.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault(); // Stop page scrolling
+      }
+
+      let step = 1;
+      if (e.shiftKey) step = 5;
+
+      switch (e.key) {
+        case 'ArrowUp':
+        case 'ArrowRight':
+          adjustParameter(activeParam, step);
+          break;
+        case 'ArrowDown':
+        case 'ArrowLeft':
+          adjustParameter(activeParam, -step);
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeParam, V, n1, n2, f, t]);
+
+  const adjustParameter = (param, directionMultiplier) => {
+    playInteractionTone();
+    switch (param) {
+      case 'V':
+        setV(prev => Math.max(60, Math.min(120, prev + directionMultiplier * 5)));
+        break;
+      case 'n1':
+        setN1(prev => parseFloat(Math.max(1.0, Math.min(10.0, prev + directionMultiplier * 0.5)).toFixed(1)));
+        break;
+      case 'n2':
+        setN2(prev => parseFloat(Math.max(-10.0, Math.min(-1.0, prev + directionMultiplier * 0.5)).toFixed(1)));
+        break;
+      case 'f':
+        setF(prev => parseFloat(Math.max(0.30, Math.min(0.45, prev + directionMultiplier * 0.01)).toFixed(2)));
+        break;
+      case 't':
+        setT(prev => parseFloat(Math.max(1.5, Math.min(3.0, prev + directionMultiplier * 0.1)).toFixed(1)));
+        break;
+      default:
+        break;
+    }
+  };
+
+  const playInteractionTone = () => {
+    if (audioMuted) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(350, ctx.currentTime);
+      
+      gainNode.gain.setValueAtTime(0.015, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.08);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const playCalculationTone = () => {
+    if (audioMuted) return;
+    try {
+      if (!audioCtxRef.current) {
+        audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtxRef.current.state === 'suspended') {
+        audioCtxRef.current.resume();
+      }
+      const ctx = audioCtxRef.current;
+      const osc = ctx.createOscillator();
+      const gainNode = ctx.createGain();
+
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(400, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(800, ctx.currentTime + 0.15);
+
+      gainNode.gain.setValueAtTime(0.02, ctx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.18);
+
+      osc.connect(gainNode);
+      gainNode.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.18);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const n1_decimal = n1 / 100;
+  const n2_decimal = n2 / 100;
+  const N = Math.abs(n1_decimal - n2_decimal);
+
+  // Stopping Sight Distance: SSD = (lag distance) + (braking distance)
+  const SSD = (0.278 * V * t) + (Math.pow(V, 2) / (254 * f));
+
+  // Denominator value matching standard assumptions: (sqrt(2*h1) + sqrt(2*h2))^2
+  const denominator = Math.pow(Math.sqrt(2 * h1) + Math.sqrt(2 * h2), 2);
+
+  // Summit Length calculations for both boundary conditions
+  const L_gt = (N * Math.pow(SSD, 2)) / denominator;
+  const L_lt = 2 * SSD - (denominator / N);
+
+  // Governing Summit Curve Length
+  const L = L_gt > SSD ? L_gt : L_lt;
+  const isL_greaterThan_SSD = L > SSD;
+
+  const L_display = L.toFixed(1);
+  const SSD_display = SSD.toFixed(1);
+
+  // Informative alert reset timer
+  useEffect(() => {
+    playCalculationTone();
+  }, [V, n1, n2, f, t, designStandard]);
+
+  useEffect(() => {
+    if (speechAlert) {
+      const timer = setTimeout(() => setSpeechAlert(""), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [speechAlert]);
+
+  useEffect(() => {
+    let animationFrameId;
+
+    const tick = () => {
+      if (isPlayingRef.current) {
+        carProgressRef.current += 0.0022; // speed of vehicle traversal along preview road
+        if (carProgressRef.current > 1.0) {
+          carProgressRef.current = 0.0;
+        }
+      }
+      
+      drawMainCanvas();
+      drawMathCanvas();
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
+    animationFrameId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [dimensions, V, n1, n2, f, t, designStandard, L, SSD]);
+
+  const drawDimensionArrow = (ctx, startPt, endPt, textLabel, labelColor, sideOffset = 0) => {
+    ctx.save();
+    ctx.strokeStyle = labelColor;
+    ctx.fillStyle = labelColor;
+    ctx.lineWidth = 1.2;
+
+    // Drawing main line
+    ctx.beginPath();
+    ctx.moveTo(startPt.x, startPt.y);
+    ctx.lineTo(endPt.x, endPt.y);
+    ctx.stroke();
+
+    // Adding Arrowheads on both ends
+    const drawHead = (x, y, angle) => {
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x - 8 * Math.cos(angle - Math.PI/6), y - 8 * Math.sin(angle - Math.PI/6));
+      ctx.lineTo(x - 8 * Math.cos(angle + Math.PI/6), y - 8 * Math.sin(angle + Math.PI/6));
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    const angle = Math.atan2(endPt.y - startPt.y, endPt.x - startPt.x);
+    drawHead(endPt.x, endPt.y, angle);
+    drawHead(startPt.x, startPt.y, angle + Math.PI);
+
+    // Label position text
+    ctx.font = '10px JetBrains Mono';
+    ctx.textAlign = 'center';
+    const midX = (startPt.x + endPt.x) / 2;
+    const midY = (startPt.y + endPt.y) / 2;
+    ctx.fillText(textLabel, midX, midY - 6 + sideOffset);
+    ctx.restore();
+  };
+
+  const drawDashProjection = (ctx, startX, startY, endY, strokeStyle = 'rgba(255,255,255,0.12)') => {
+    ctx.save();
+    ctx.strokeStyle = strokeStyle;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+    ctx.lineTo(startX, endY);
+    ctx.stroke();
+    ctx.restore();
+  };
+
+  const drawMainCanvas = () => {
+    const canvas = mainCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    // Tech Grid Layout
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#060a14';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = 'rgba(6, 182, 212, 0.04)';
+    ctx.lineWidth = 1;
+    const gridStep = 35;
+    for (let x = 0; x < width; x += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, height);
+      ctx.stroke();
+    }
+    for (let y = 0; y < height; y += gridStep) {
+      ctx.beginPath();
+      ctx.moveTo(0, y);
+      ctx.lineTo(width, y);
+      ctx.stroke();
+    }
+
+    // Mathematical coordinate projections: -0.35L to 1.35L mapped on width [100, width - 100]
+    const startX = -0.35 * L;
+    const endX = 1.35 * L;
+    const rangeX = endX - startX;
+
+    const getPixelCoords = (mathX) => {
+      const px = 100 + ((mathX - startX) / rangeX) * (width - 200);
+      let mathY = 0;
+      
+      if (mathX <= 0) {
+        mathY = n1_decimal * mathX;
+      } else if (mathX <= L) {
+        mathY = n1_decimal * mathX - (N / (2 * L)) * Math.pow(mathX, 2);
+      } else {
+        const y_evc = n1_decimal * L - (N / (2 * L)) * Math.pow(L, 2);
+        mathY = y_evc + n2_decimal * (mathX - L);
+      }
+
+      // Vertical multiplier to exaggerate standard vertical changes so users understand it visually
+      const verticalScaleFactor = height * 0.14 * (550 / (L + 100));
+      const py = (height * 0.6) - (mathY * verticalScaleFactor);
+      return { 
+        x: px, 
+        y: py, 
+        slope: mathX <= 0 ? n1_decimal : (mathX <= L ? (n1_decimal - (N / L) * mathX) : n2_decimal) 
+      };
+    };
+
+    // Important visual coordinates
+    const bvcPixel = getPixelCoords(0);
+    const evcPixel = getPixelCoords(L);
+    const pviX = L / 2;
+    const pviY_math = n1_decimal * pviX;
+    const pviPixel = {
+      x: 100 + ((pviX - startX) / rangeX) * (width - 200),
+      y: (height * 0.6) - (pviY_math * height * 0.14 * (550 / (L + 100)))
+    };
+
+    ctx.setLineDash([3, 5]);
+    ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(getPixelCoords(startX).x, getPixelCoords(startX).y);
+    ctx.lineTo(pviPixel.x, pviPixel.y);
+    ctx.lineTo(getPixelCoords(endX).x, getPixelCoords(endX).y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Curve Path rendering
+    ctx.beginPath();
+    const steps = 180;
+    for (let i = 0; i <= steps; i++) {
+      const currMathX = startX + (i / steps) * rangeX;
+      const pixel = getPixelCoords(currMathX);
+      if (i === 0) ctx.moveTo(pixel.x, pixel.y);
+      else ctx.lineTo(pixel.x, pixel.y);
+    }
+    ctx.strokeStyle = '#06b6d4';
+    ctx.lineWidth = 4.5;
+    ctx.shadowColor = 'rgba(6, 182, 212, 0.5)';
+    ctx.shadowBlur = 12;
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+
+    // Ground Dark Fill
+    ctx.fillStyle = 'rgba(7, 10, 20, 0.95)';
+    ctx.beginPath();
+    ctx.moveTo(getPixelCoords(startX).x, height);
+    for (let i = 0; i <= steps; i++) {
+      const currMathX = startX + (i / steps) * rangeX;
+      const pixel = getPixelCoords(currMathX);
+      ctx.lineTo(pixel.x, pixel.y);
+    }
+    ctx.lineTo(getPixelCoords(endX).x, height);
+    ctx.closePath();
+    ctx.fill();
+
+    // Double continuous center lines (Yellow divider)
+    ctx.setLineDash([5, 6]);
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    for (let i = 0; i <= steps; i++) {
+      const currMathX = startX + (i / steps) * rangeX;
+      const pixel = getPixelCoords(currMathX);
+      if (i === 0) ctx.moveTo(pixel.x, pixel.y - 1);
+      else ctx.lineTo(pixel.x, pixel.y - 1);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    const baseDimensionY = height - 55;
+    
+    // Project dotted guides from BVC and EVC down to the dimension level
+    drawDashProjection(ctx, bvcPixel.x, bvcPixel.y, baseDimensionY);
+    drawDashProjection(ctx, evcPixel.x, evcPixel.y, baseDimensionY);
+    
+    // Horizontal dimension line for Curve Length L
+    drawDimensionArrow(
+      ctx, 
+      { x: bvcPixel.x, y: baseDimensionY }, 
+      { x: evcPixel.x, y: baseDimensionY }, 
+      `L = ${L_display}m (Summit Length)`, 
+      '#06b6d4', 
+      0
+    );
+
+    // Annotate Stations
+    const drawStationNode = (pt, mainLabel, subLabel, nodeColor) => {
+      ctx.fillStyle = nodeColor;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 6, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = '#05070c';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = 'bold 11px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText(mainLabel, pt.x, pt.y - 14);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '9px JetBrains Mono';
+      ctx.fillText(subLabel, pt.x, pt.y - 25);
+    };
+
+    drawStationNode(bvcPixel, "BVC", "x = 0m", '#10b981');
+    drawStationNode(pviPixel, "PVI", "Intersection", '#ef4444');
+    drawStationNode(evcPixel, "EVC", `x = ${L_display}m`, '#10b981');
+
+    const currentProgress = carProgressRef.current;
+    const carMathX = startX + currentProgress * rangeX;
+    const carPos = getPixelCoords(carMathX);
+    const carAngle = Math.atan(carPos.slope);
+
+    // Dynamic vehicle coordinate
+    ctx.save();
+    ctx.translate(carPos.x, carPos.y);
+    ctx.rotate(carAngle);
+
+    // Drawing futuristic cyber-neon car body
+    ctx.fillStyle = '#f43f5e';
+    ctx.shadowColor = '#f43f5e';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.moveTo(-18, -2);
+    ctx.lineTo(-14, -8);
+    ctx.lineTo(-6, -9);
+    ctx.lineTo(5, -9);
+    ctx.lineTo(10, -4);
+    ctx.lineTo(18, -3);
+    ctx.lineTo(20, 0);
+    ctx.lineTo(-18, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.shadowBlur = 0;
+
+    // Glowing wheels
+    ctx.fillStyle = '#090d16';
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(-9, 1, 4.5, 0, 2 * Math.PI);
+    ctx.arc(9, 1, 4.5, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.restore();
+
+    // Driver eye visual indicator representing h1 parameter (exaggerated for viewability)
+    const eyeOffsetHeight = h1 * 11;
+    const driverEyePt = {
+      x: carPos.x - Math.sin(carAngle) * eyeOffsetHeight,
+      y: carPos.y - Math.cos(carAngle) * eyeOffsetHeight
+    };
+
+    // Draw eye elevation dimension guide
+    ctx.strokeStyle = '#f59e0b';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(carPos.x, carPos.y);
+    ctx.lineTo(driverEyePt.x, driverEyePt.y);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#f59e0b';
+    ctx.beginPath();
+    ctx.arc(driverEyePt.x, driverEyePt.y, 4, 0, 2 * Math.PI);
+    ctx.fill();
+    ctx.font = 'bold 9px JetBrains Mono';
+    ctx.fillText(`h1 = ${h1}m`, driverEyePt.x - 22, driverEyePt.y - 4);
+
+    const obstacleMathX = carMathX + SSD;
+    const obstaclePosOnRoad = getPixelCoords(obstacleMathX);
+
+    const obstacleOffsetHeight = h2 * 11;
+    const obstacleSlopeAngle = Math.atan(obstaclePosOnRoad.slope);
+    const obstaclePt = {
+      x: obstaclePosOnRoad.x - Math.sin(obstacleSlopeAngle) * obstacleOffsetHeight,
+      y: obstaclePosOnRoad.y - Math.cos(obstacleSlopeAngle) * obstacleOffsetHeight
+    };
+
+    // Draw obstacle dimension guide
+    ctx.strokeStyle = '#ec4899';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(obstaclePosOnRoad.x, obstaclePosOnRoad.y);
+    ctx.lineTo(obstaclePt.x, obstaclePt.y);
+    ctx.stroke();
+
+    // Draw obstacle box
+    ctx.fillStyle = '#ec4899';
+    ctx.fillRect(obstaclePt.x - 4, obstaclePt.y - 4, 8, 8);
+    ctx.font = 'bold 9px JetBrains Mono';
+    ctx.fillText(`h2 = ${h2}m`, obstaclePt.x + 10, obstaclePt.y + 3);
+
+    // Draw vertical dotted lines for SSD indicator projection
+    const ssdDimensionY = 45;
+    drawDashProjection(ctx, carPos.x, carPos.y, ssdDimensionY);
+    drawDashProjection(ctx, obstaclePosOnRoad.x, obstaclePosOnRoad.y, ssdDimensionY);
+
+    // SSD Dimension Arrow
+    drawDimensionArrow(
+      ctx,
+      { x: carPos.x, y: ssdDimensionY },
+      { x: obstaclePosOnRoad.x, y: ssdDimensionY },
+      `SSD = ${SSD_display}m (Required Sight Distance)`,
+      '#10b981',
+      0
+    );
+
+    let isObstructed = false;
+    const samples = 40;
+    
+    for (let j = 1; j < samples; j++) {
+      const ratio = j / samples;
+      // Linear interpolation between eye and obstacle
+      const testX = driverEyePt.x + ratio * (obstaclePt.x - driverEyePt.x);
+      const testY = driverEyePt.y + ratio * (obstaclePt.y - driverEyePt.y);
+
+      // Convert pixel test coordinates back to math coordinates to check the ground height
+      const testMathX = startX + ((testX - 100) / (width - 200)) * rangeX;
+      const roadLimitPixel = getPixelCoords(testMathX);
+
+      // If the straight light beam dips below the road line, the sightline is physically blocked
+      if (testY > roadLimitPixel.y && testMathX > carMathX && testMathX < obstacleMathX) {
+        isObstructed = true;
+      }
+    }
+
+    // Drawing the sight-line laser
+    ctx.save();
+    ctx.setLineDash(isObstructed ? [2, 3] : []);
+    ctx.strokeStyle = isObstructed ? '#ef4444' : '#10b981';
+    ctx.lineWidth = isObstructed ? 2.5 : 3;
+    ctx.beginPath();
+    ctx.moveTo(driverEyePt.x, driverEyePt.y);
+    ctx.lineTo(obstaclePt.x, obstaclePt.y);
+    ctx.stroke();
+    ctx.restore();
+
+    // On-screen Drag Handles for direct slope adjustments
+    const drawDragHandle = (pt, label, active) => {
+      ctx.save();
+      ctx.strokeStyle = active ? '#38bdf8' : '#e2e8f0';
+      ctx.fillStyle = active ? '#0ea5e9' : 'rgba(30, 41, 59, 0.8)';
+      ctx.lineWidth = 2;
+      
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 14, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = active ? '#ffffff' : '#94a3b8';
+      ctx.font = 'bold 9px Space Grotesk';
+      ctx.textAlign = 'center';
+      ctx.fillText(label, pt.x, pt.y + 3);
+      ctx.restore();
+    };
+
+    const leftHandle = getPixelCoords(startX);
+    const rightHandle = getPixelCoords(endX);
+
+    drawDragHandle(leftHandle, "n1", activeHandle === 'n1');
+    drawDragHandle(rightHandle, "n2", activeHandle === 'n2');
+
+    // Display Status Message Card overlay on canvas
+    ctx.save();
+    ctx.fillStyle = 'rgba(7, 10, 20, 0.9)';
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(15, height - 120, 310, 50, 4) : ctx.rect(15, height - 120, 310, 50);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.font = 'bold 10px JetBrains Mono';
+    ctx.fillStyle = isObstructed ? '#ef4444' : '#10b981';
+    ctx.fillText(isObstructed ? "❌ SIGHT LINE: BLOCKED BY SUMMIT" : "✅ SIGHT LINE: CLEAR (SAFE DESIGN)", 25, height - 100);
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText("Adjust parameters using arrow buttons or drag slopes.", 25, height - 85);
+    ctx.restore();
+  };
+
+  const drawMathCanvas = () => {
+    const canvas = mathCanvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width;
+    const height = canvas.height;
+
+    ctx.clearRect(0, 0, width, height);
+    ctx.fillStyle = '#060a14';
+    ctx.fillRect(0, 0, width, height);
+
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(15, height - 20);
+    ctx.lineTo(width - 15, height - 20);
+    ctx.moveTo(25, 10);
+    ctx.lineTo(25, height - 10);
+    ctx.stroke();
+
+    ctx.strokeStyle = '#22d3ee';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+
+    const gw = width - 40;
+    const gh = height - 40;
+    const pts = 80;
+
+    for (let i = 0; i <= pts; i++) {
+      const rx = i / pts;
+      const xVal = rx * L;
+      const yVal = n1_decimal * xVal - (N / (2 * L)) * Math.pow(xVal, 2);
+
+      const px = 25 + rx * gw;
+      const py = (height - 20) - (yVal * (gh / (0.075 * L)));
+
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '9px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.fillText(`y = -(${ (N / (2 * L)).toFixed(6) })x² + ${(n1_decimal).toFixed(3)}x`, width / 2, height - 6);
+  };
+
+  const handleCanvasMouseDown = (clientX, clientY) => {
+    const canvas = mainCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickX = clientX - rect.left;
+    const clickY = clientY - rect.top;
+
+    const startX = -0.35 * L;
+    const endX = 1.35 * L;
+    const rangeX = endX - startX;
+    const width = canvas.width;
+    const height = canvas.height;
+
+    const getPixelCoords = (mathX) => {
+      const px = 100 + ((mathX - startX) / rangeX) * (width - 200);
+      let mathY = 0;
+      if (mathX <= 0) mathY = n1_decimal * mathX;
+      else if (mathX <= L) mathY = n1_decimal * mathX - (N / (2 * L)) * Math.pow(mathX, 2);
+      else {
+        const y_evc = n1_decimal * L - (N / (2 * L)) * Math.pow(L, 2);
+        mathY = y_evc + n2_decimal * (mathX - L);
+      }
+      const verticalScaleFactor = height * 0.14 * (550 / (L + 100));
+      return { x: px, y: (height * 0.6) - (mathY * verticalScaleFactor) };
+    };
+
+    const leftHandle = getPixelCoords(startX);
+    const rightHandle = getPixelCoords(endX);
+
+    const distL = Math.hypot(clickX - leftHandle.x, clickY - leftHandle.y);
+    const distR = Math.hypot(clickX - rightHandle.x, clickY - rightHandle.y);
+
+    if (distL < 22) {
+      setActiveHandle('n1');
+      setActiveParam('n1');
+      playInteractionTone();
+    } else if (distR < 22) {
+      setActiveHandle('n2');
+      setActiveParam('n2');
+      playInteractionTone();
+    }
+  };
+
+  const handleCanvasMouseMove = (clientY) => {
+    if (!activeHandle) return;
+    const canvas = mainCanvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const clickY = clientY - rect.top;
+    const height = canvas.height;
+
+    const midOffset = (height * 0.6) - clickY;
+    const calculatedGrade = parseFloat((midOffset / 14).toFixed(1));
+    const gradeVal = Math.max(-10.0, Math.min(10.0, calculatedGrade));
+
+    if (activeHandle === 'n1') {
+      setN1(Math.max(1.0, gradeVal));
+    } else if (activeHandle === 'n2') {
+      setN2(Math.min(-1.0, gradeVal));
+    }
+  };
+
+  const handleCanvasMouseUp = () => {
+    setActiveHandle(null);
+  };
+
+  const speakVoiceNarrative = () => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+      setSpeechAlert("Voice Narration is blocked or not supported on this browser context.");
+      return;
+    }
+
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    const standardText = designStandard === 'irc' ? "Indian Road Congress standard" : "AASHTO standard";
+    const narrationText = `Using ${standardText}. The gradient slopes difference is ${ (N * 100).toFixed(1) } percent. For a speed of ${V} kilometers per hour, the required safe sight distance is ${SSD_display} meters. The computed safe vertical summit length is ${L_display} meters.`;
+
+    const utterance = new SpeechSynthesisUtterance(narrationText);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
+
+    setIsSpeaking(true);
+    window.speechSynthesis.speak(utterance);
+  };
+
+  return (
+    <div className="min-h-screen p-4 md:p-6 flex flex-col justify-between max-w-7xl mx-auto">
+      
+      {}
+      <header className="mb-4 border-b border-cyan-500/10 pb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded bg-cyan-400 animate-pulse"></span>
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight text-white font-mono-custom">
+              Vertical Summit Curve Blueprint
+            </h1>
+          </div>
+          <p className="text-xs text-slate-400 mt-1">
+            Engineered Visualizer for Safe Highway Geometry & Stopping Sight Distances (SSD)
+          </p>
+        </div>
+
+        {/* Audio controls */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {speechAlert && (
+            <span className="text-[10px] bg-red-950/80 border border-red-500/30 text-red-400 px-2 py-1 rounded">
+              {speechAlert}
+            </span>
+          )}
+          
+          {/* Design Standard Selector */}
+          <div className="flex bg-slate-900 border border-slate-700/50 rounded-lg p-0.5">
+            <button
+              onClick={() => { setDesignStandard('irc'); playInteractionTone(); }}
+              className={`px-3 py-1 text-xs rounded transition-all font-semibold ${designStandard === 'irc' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              IRC (h₁:1.2m, h₂:0.15m)
+            </button>
+            <button
+              onClick={() => { setDesignStandard('aashto'); playInteractionTone(); }}
+              className={`px-3 py-1 text-xs rounded transition-all font-semibold ${designStandard === 'aashto' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25' : 'text-slate-400 hover:text-slate-200'}`}
+            >
+              AASHTO (h₁:1.08m, h₂:0.6m)
+            </button>
+          </div>
+
+          <button
+            onClick={() => setAudioMuted(!audioMuted)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 border ${audioMuted ? 'bg-red-500/10 text-red-400 border-red-500/20' : 'bg-slate-900 text-slate-300 border-slate-800'}`}
+          >
+            {audioMuted ? "🔇 Muted" : "🔊 Audio On"}
+          </button>
+          
+          <button
+            onClick={speakVoiceNarrative}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all ${isSpeaking ? 'bg-cyan-500 text-black' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30'}`}
+          >
+            📢 {isSpeaking ? "Mute Voice" : "Voice Narrator"}
+          </button>
+        </div>
+      </header>
+
+      {}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-4 items-start">
+        
+        {/* Left Side: Simulation canvas viewport */}
+        <section className="lg:col-span-8 flex flex-col gap-4">
+          <div className="blueprint-panel p-4 rounded-xl flex flex-col relative overflow-hidden" ref={mainContainerRef}>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-cyan-400 uppercase tracking-widest font-mono-custom">
+                Interactive Profile Simulator
+              </span>
+              <button
+                onClick={() => setIsPlaying(!isPlaying)}
+                className="px-2 py-0.5 rounded text-[11px] bg-slate-900 border border-slate-700 hover:text-cyan-400"
+              >
+                {isPlaying ? "⏸ Pause vehicle" : "▶ Resume vehicle"}
+              </button>
+            </div>
+
+            <div className="w-full relative bg-[#060a14] rounded-lg overflow-hidden border border-cyan-500/10">
+              <canvas
+                ref={mainCanvasRef}
+                width={dimensions.width}
+                height={dimensions.height}
+                onMouseDown={(e) => handleCanvasMouseDown(e.clientX, e.clientY)}
+                onMouseMove={(e) => handleCanvasMouseMove(e.clientY)}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
+                onTouchStart={(e) => {
+                  const touch = e.touches[0];
+                  handleCanvasMouseDown(touch.clientX, touch.clientY);
+                }}
+                onTouchMove={(e) => {
+                  const touch = e.touches[0];
+                  handleCanvasMouseMove(touch.clientY);
+                }}
+                onTouchEnd={handleCanvasMouseUp}
+                className="w-full h-auto cursor-pointer block"
+              />
+            </div>
+
+            {/* Glossary/Legend for easy learning */}
+            <div className="grid grid-cols-3 gap-2 mt-3 p-2 bg-slate-950/80 rounded border border-cyan-500/5 text-[10px]">
+              <div><span className="text-cyan-400 font-bold font-mono-custom">BVC / EVC:</span> Beginning / End of Vertical Curve</div>
+              <div><span className="text-emerald-400 font-bold font-mono-custom">SSD:</span> Safe Stopping Sight Distance (reaction + braking)</div>
+              <div><span className="text-amber-500 font-bold font-mono-custom">h1 / h2:</span> Standard height limits (eye vs obstacle)</div>
+            </div>
+          </div>
+        </section>
+
+        {}
+        <section className="lg:col-span-4 flex flex-col gap-4">
+          
+          {/* Virtual D-pad / Arrow controller for quick manipulation */}
+          <div className="blueprint-panel p-4 rounded-xl flex flex-col gap-3">
+            <h2 className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono-custom border-b border-cyan-500/10 pb-2">
+              On-Screen Arrow Controller
+            </h2>
+            <p className="text-[11px] text-slate-400">
+              Select a parameter below, then tap the directional pad or press physical <span className="font-mono-custom text-slate-200">Arrow keys</span> on your keyboard.
+            </p>
+
+            <div className="grid grid-cols-5 gap-1.5 my-2">
+              {[
+                { id: 'V', label: 'Speed', color: 'border-cyan-500/20' },
+                { id: 'n1', label: 'Slope n1', color: 'border-emerald-500/20' },
+                { id: 'n2', label: 'Slope n2', color: 'border-rose-500/20' },
+                { id: 'f', label: 'Frict.', color: 'border-indigo-500/20' },
+                { id: 't', label: 'React.', color: 'border-purple-500/20' }
+              ].map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => { setActiveParam(p.id); playInteractionTone(); }}
+                  className={`py-2 px-1 text-[11px] font-bold rounded-lg border flex flex-col items-center justify-center transition-all bg-slate-900 ${activeParam === p.id ? 'active-parameter text-cyan-400' : 'text-slate-400 border-slate-800'}`}
+                >
+                  <span className="text-[9px] uppercase tracking-tighter block text-slate-500">{p.label}</span>
+                  <span className="font-mono-custom font-bold text-xs mt-1">
+                    {p.id === 'V' && `${V}`}
+                    {p.id === 'n1' && `+${n1}%`}
+                    {p.id === 'n2' && `${n2}%`}
+                    {p.id === 'f' && `${f}`}
+                    {p.id === 't' && `${t}s`}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Visual Directional D-Pad */}
+            <div className="flex flex-col items-center justify-center p-3 bg-slate-950/60 rounded-xl border border-cyan-500/5">
+              <div className="flex flex-col gap-1 items-center">
+                <button
+                  onClick={() => adjustParameter(activeParam, 1)}
+                  className="w-11 h-11 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500 text-cyan-400 flex items-center justify-center text-lg active:scale-90 transition-transform"
+                  title="Increase Selected Parameter"
+                >
+                  ▲
+                </button>
+                <div className="flex gap-8 items-center">
+                  <button
+                    onClick={() => adjustParameter(activeParam, -1)}
+                    className="w-11 h-11 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500 text-cyan-400 flex items-center justify-center text-lg active:scale-90 transition-transform"
+                    title="Decrease Selected Parameter"
+                  >
+                    ◀
+                  </button>
+                  <span className="text-[10px] font-mono-custom uppercase text-slate-400 text-center font-bold">
+                    Active:<br />
+                    <span className="text-cyan-400">{activeParam}</span>
+                  </span>
+                  <button
+                    onClick={() => adjustParameter(activeParam, 1)}
+                    className="w-11 h-11 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500 text-cyan-400 flex items-center justify-center text-lg active:scale-90 transition-transform"
+                    title="Increase Selected Parameter"
+                  >
+                    ▶
+                  </button>
+                </div>
+                <button
+                  onClick={() => adjustParameter(activeParam, -1)}
+                  className="w-11 h-11 bg-cyan-500/10 border border-cyan-500/30 rounded-lg hover:bg-cyan-500/20 hover:border-cyan-500 text-cyan-400 flex items-center justify-center text-lg active:scale-90 transition-transform"
+                  title="Decrease Selected Parameter"
+                >
+                  ▼
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {}
+          <div className="blueprint-panel p-4 rounded-xl flex flex-col gap-4">
+            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono-custom border-b border-cyan-500/10 pb-1">
+              Manual Sliders Panel
+            </h2>
+
+            {/* Design Speed V */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-300">Design Speed (V)</span>
+                <span className="text-cyan-400 font-bold font-mono-custom">{V} Kmph</span>
+              </div>
+              <input
+                type="range" min="60" max="120" step="5"
+                value={V}
+                onChange={(e) => { setV(parseInt(e.target.value)); playInteractionTone(); }}
+                className="w-full h-1 bg-slate-800 rounded appearance-none cursor-pointer custom-slider outline-none"
+              />
+            </div>
+
+            {/* Grade n1 */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-300">Entering Slope (n₁)</span>
+                <span className="text-emerald-400 font-bold font-mono-custom">+{n1}%</span>
+              </div>
+              <input
+                type="range" min="1.0" max="10.0" step="0.5"
+                value={n1}
+                onChange={(e) => { setN1(parseFloat(e.target.value)); playInteractionTone(); }}
+                className="w-full h-1 bg-slate-800 rounded appearance-none cursor-pointer custom-slider outline-none"
+              />
+            </div>
+
+            {/* Grade n2 */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-300">Exiting Slope (n₂)</span>
+                <span className="text-rose-400 font-bold font-mono-custom">{n2}%</span>
+              </div>
+              <input
+                type="range" min="-10.0" max="-1.0" step="0.5"
+                value={n2}
+                onChange={(e) => { setN2(parseFloat(e.target.value)); playInteractionTone(); }}
+                className="w-full h-1 bg-slate-800 rounded appearance-none cursor-pointer custom-slider outline-none"
+              />
+            </div>
+
+            {/* Friction Factor f */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-300">Friction factor (f)</span>
+                <span className="text-indigo-400 font-bold font-mono-custom">{f}</span>
+              </div>
+              <input
+                type="range" min="0.30" max="0.45" step="0.01"
+                value={f}
+                onChange={(e) => { setF(parseFloat(e.target.value)); playInteractionTone(); }}
+                className="w-full h-1 bg-slate-800 rounded appearance-none cursor-pointer custom-slider outline-none"
+              />
+            </div>
+
+            {/* Reaction Time t */}
+            <div className="flex flex-col gap-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-slate-300">Reaction Time (t)</span>
+                <span className="text-purple-400 font-bold font-mono-custom">{t}s</span>
+              </div>
+              <input
+                type="range" min="1.5" max="3.0" step="0.1"
+                value={t}
+                onChange={(e) => { setT(parseFloat(e.target.value)); playInteractionTone(); }}
+                className="w-full h-1 bg-slate-800 rounded appearance-none cursor-pointer custom-slider outline-none"
+              />
+            </div>
+          </div>
+
+          {/* Mathematical Parabola plotter box */}
+          <div className="blueprint-panel p-4 rounded-xl flex flex-col gap-2">
+            <h2 className="text-xs font-bold text-slate-300 uppercase tracking-wider font-mono-custom">
+              Parabola Function View
+            </h2>
+            <div className="w-full bg-[#060a14] rounded-lg overflow-hidden border border-cyan-500/10">
+              <canvas
+                ref={mathCanvasRef}
+                width={280}
+                height={120}
+                className="w-full h-auto block"
+              />
+            </div>
+          </div>
+        </section>
+      </div>
+
+      {}
+      <footer className="blueprint-panel p-5 rounded-xl flex flex-col gap-4">
+        <div>
+          <h2 className="text-xs font-bold tracking-widest text-cyan-400 uppercase font-mono-custom mb-3">
+            Mathematical Equations & Substitutions
+          </h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-center">
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-cyan-500/5">
+              <span className="text-[10px] uppercase text-slate-400 font-mono-custom">Slope Change (N)</span>
+              <p className="text-lg font-bold text-white mt-1 font-mono-custom">{(N * 100).toFixed(1)}%</p>
+              <span className="text-[9px] text-slate-500 font-mono-custom">|n₁ - n₂|</span>
+            </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-cyan-500/5">
+              <span className="text-[10px] uppercase text-slate-400 font-mono-custom">Sight Distance (SSD)</span>
+              <p className="text-lg font-bold text-emerald-400 mt-1 font-mono-custom">{SSD_display} m</p>
+              <span className="text-[9px] text-slate-500 font-mono-custom">Reaction + Braking</span>
+            </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-cyan-500/5">
+              <span className="text-[10px] uppercase text-slate-400 font-mono-custom">Calculated Length (L)</span>
+              <p className="text-lg font-bold text-cyan-400 mt-1 font-mono-custom">{L_display} m</p>
+              <span className="text-[9px] text-slate-500 font-mono-custom">{isL_greaterThan_SSD ? "L > SSD (Governs)" : "L ≤ SSD"}</span>
+            </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-cyan-500/5">
+              <span className="text-[10px] uppercase text-slate-400 font-mono-custom">Governing Criteria</span>
+              <p className={`text-sm font-bold mt-2 font-mono-custom ${isL_greaterThan_SSD ? 'text-cyan-400' : 'text-amber-400'}`}>
+                {isL_greaterThan_SSD ? "L > SSD (Valid Curve)" : "L ≤ SSD (Refit Curve)"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Formulated blueprint layout derivation */}
+        <div className="border-t border-cyan-500/10 pt-3">
+          <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-2 font-mono-custom">
+            Step-by-Step Derivation Breakdown
+          </label>
+          <div className="space-y-2 text-xs text-slate-300 font-mono-custom">
+            
+            {/* Step 1 */}
+            <div className="bg-[#060a14] p-3 rounded border border-cyan-500/5 flex flex-col md:flex-row md:items-center justify-between gap-1">
+              <span className="text-slate-400">Step 1: Compute Grade Change (N)</span>
+              <div className="text-white text-right">
+                N = |{n1_decimal.toFixed(3)} - ({n2_decimal.toFixed(3)})| = <span className="text-cyan-400 font-bold">{N.toFixed(4)}</span> (or {(N*100).toFixed(1)}%)
+              </div>
+            </div>
+
+            {/* Step 2 */}
+            <div className="bg-[#060a14] p-3 rounded border border-cyan-500/5 flex flex-col md:flex-row md:items-center justify-between gap-1">
+              <span className="text-slate-400">Step 2: Stopping Sight Distance (SSD)</span>
+              <div className="text-white text-right">
+                SSD = (0.278 × V × t) + (V² / (254 × f)) <br />
+                SSD = (0.278 × {V} × {t}) + ({Math.pow(V, 2)} / (254 × {f})) = <span className="text-emerald-400 font-bold">{SSD_display}m</span>
+              </div>
+            </div>
+
+            {/* Step 3 */}
+            <div className="bg-[#060a14] p-3 rounded border border-cyan-500/5 flex flex-col md:flex-row md:items-center justify-between gap-1">
+              <span className="text-slate-400">Step 3: Curve Length (L) for scenario L &gt; SSD</span>
+              <div className="text-white text-right">
+                L = (N × SSD²) / (√2h₁ + √2h₂)² <br />
+                L = ({N.toFixed(4)} × {SSD_display}²) / ({denominator.toFixed(3)}) = <span className="text-cyan-400 font-bold">{L_display}m</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+    if (typeof App !== 'undefined') {
+      const root = ReactDOM.createRoot(document.getElementById('root'));
+      root.render(<App />);
+    }
+  </script>
+</body>
+</html>

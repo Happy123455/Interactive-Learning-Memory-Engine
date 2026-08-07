@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Limit State Design: RCC Beam Simulator</title>
+  
+  <!-- Inter Font for premium look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- MathJax for rendering gorgeous structural equations -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --bg-panel: rgba(20, 30, 48, 0.65);
+      --border-glow: rgba(0, 242, 254, 0.15);
+      --accent-cyan: #00f2fe;
+      --accent-magenta: #f35588;
+      --accent-green: #00ff87;
+      --accent-yellow: #ffb400;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --glass-specular: rgba(255, 255, 255, 0.03);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Scrollbar Styling */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-dark);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    header {
+      background: rgba(9, 13, 22, 0.8);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 50;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-badge {
+      background: linear-gradient(135deg, var(--accent-cyan), var(--accent-magenta));
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #000;
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
+    }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: -0.025em;
+      background: linear-gradient(to right, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .audio-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .btn-audio {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      color: var(--text-main);
+      padding: 0.5rem 1rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: all 0.2s ease;
+    }
+
+    .btn-audio:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+    }
+
+    .btn-audio.active {
+      background: rgba(0, 242, 254, 0.1);
+      border-color: var(--accent-cyan);
+      color: var(--accent-cyan);
+    }
+
+    /* Main Dashboard Layout */
+    .dashboard {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      max-width: 1800px;
+      margin: 0 auto;
+      width: 100%;
+      flex-grow: 1;
+    }
+
+    @media (max-width: 1200px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Glassmorphic Panel Styles */
+    .panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--border-glow);
+      border-radius: 16px;
+      padding: 1.5rem;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--glass-specular), transparent);
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 0.75rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 6px;
+      height: 16px;
+      background: var(--accent-cyan);
+      border-radius: 3px;
+    }
+
+    /* Canvas Section */
+    .canvas-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      position: relative;
+    }
+
+    canvas {
+      width: 100%;
+      background: #06090f;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .canvas-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background: rgba(0, 0, 0, 0.6);
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Interaction & Control Elements */
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1rem;
+    }
+
+    .control-card {
+      background: rgba(255, 255, 255, 0.01);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 1rem;
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .control-label {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-value {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--accent-cyan);
+      font-weight: 600;
+    }
+
+    /* Custom Premium Slider styling */
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+    }
+
+    input[type="range"]:focus {
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #1e293b;
+      border-radius: 2px;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      height: 16px;
+      width: 16px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      -webkit-appearance: none;
+      margin-top: -6px;
+      box-shadow: 0 0 10px var(--accent-cyan);
+      transition: background-color 0.1s, transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      background: #fff;
+      transform: scale(1.2);
+    }
+
+    /* Real-Time Formula Panel */
+    .formula-display {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 12px;
+      padding: 1rem;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .formula-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      padding-bottom: 0.5rem;
+    }
+
+    .formula-row:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+
+    /* Live Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-safe {
+      background: rgba(0, 255, 135, 0.1);
+      color: var(--accent-green);
+      border: 1px solid rgba(0, 255, 135, 0.2);
+      box-shadow: 0 0 15px rgba(0, 255, 135, 0.1);
+    }
+
+    .status-fail {
+      background: rgba(243, 85, 136, 0.1);
+      color: var(--accent-magenta);
+      border: 1px solid rgba(243, 85, 136, 0.2);
+      box-shadow: 0 0 15px rgba(243, 85, 136, 0.1);
+    }
+
+    /* Interactive Explanation Bubble */
+    .explanation-bubble {
+      background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.8));
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 1rem;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      color: var(--text-muted);
+      position: relative;
+    }
+
+    .explanation-bubble strong {
+      color: var(--text-main);
+    }
+
+    .btn-explain {
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      padding: 0.25rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-explain:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
+    /* Interactive Dropdowns */
+    select {
+      background: #0f172a;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 0.5rem;
+      border-radius: 8px;
+      outline: none;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    select:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Design Report Grid */
+    .report-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.75rem;
+    }
+
+    .report-item {
+      background: rgba(0, 0, 0, 0.2);
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      padding: 0.75rem;
+      border-radius: 8px;
+      text-align: center;
+    }
+
+    .report-val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      font-family: 'JetBrains Mono', monospace;
+      margin-top: 0.25rem;
+    }
+
+    .rebar-indicator {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      margin-top: 0.5rem;
+    }
+
+    .rebar-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-magenta);
+      box-shadow: 0 0 5px var(--accent-magenta);
+    }
+
+    /* Quick Info Badge for Interactive Drag support */
+    .drag-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.75rem;
+      color: var(--accent-cyan);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.6; }
+      50% { opacity: 1; }
+    }
+
+    /* Action Trigger Button */
+    .btn-action {
+      background: linear-gradient(135deg, var(--accent-cyan), #0072ff);
+      color: #000;
+      border: none;
+      padding: 0.85rem;
+      border-radius: 12px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3);
+    }
+
+    .btn-action:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0, 242, 254, 0.5);
+    }
+
+    .btn-action:active {
+      transform: translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <div class="logo-badge">Ω</div>
+      <div>
+        <h1>Limit State Design Explorer</h1>
+        <p style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em;">Singly Reinforced RCC Beam Simulator</p>
+      </div>
+    </div>
+    <div class="audio-controls">
+      <button class="btn-audio" id="voiceToggle">
+        <span class="icon">🔊</span> Voice Guide: <span id="voiceStatus">OFF</span>
+      </button>
+      <button class="btn-audio" id="muteToggle">
+        <span class="icon">🎵</span> Audio Feedback
+      </button>
+    </div>
+  </header>
+
+  <main class="dashboard">
+    <!-- Left Column: Interactive Visualizations -->
+    <div class="panel" style="gap: 1rem;">
+      <div class="panel-header">
+        <div class="panel-title">Real-Time Mechanical Profiles</div>
+        <div class="drag-hint">↔ Drag Right Support to Alter Span</div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="beamCanvas" width="800" height="320"></canvas>
+        <div class="canvas-label">Cross Section &amp; Longitudinal Load Profiles</div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="diagramCanvas" width="800" height="280"></canvas>
+        <div class="canvas-label">SFD (Shear Force) &amp; BMD (Bending Moment)</div>
+      </div>
+    </div>
+
+    <!-- Right Column: Parameters & Equations -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">Design Parameters (Inputs)</div>
+        <div id="safetyStatus" class="status-badge status-safe">Section Safe</div>
+      </div>
+
+      <!-- Controls Grid -->
+      <div class="control-grid">
+        <div class="control-card">
+          <div class="control-label">
+            <span>Dead Load ($w_{dl}$)</span>
+            <span class="control-value" id="valDL">15 kN/m</span>
+          </div>
+          <input type="range" id="paramDL" min="0" max="50" step="0.5" value="15">
+        </div>
+
+        <div class="control-card">
+          <div class="control-label">
+            <span>Live Load ($w_{ll}$)</span>
+            <span class="control-value" id="valLL">20 kN/m</span>
+          </div>
+          <input type="range" id="paramLL" min="0" max="50" step="0.5" value="20">
+        </div>
+
+        <div class="control-card">
+          <div class="control-label">
+            <span>Beam Width ($b$)</span>
+            <span class="control-value" id="valB">230 mm</span>
+          </div>
+          <input type="range" id="paramB" min="150" max="450" step="10" value="230">
+        </div>
+
+        <div class="control-card">
+          <div class="control-label">
+            <span>Effective Depth ($d$)</span>
+            <span class="control-value" id="valD">400 mm</span>
+          </div>
+          <input type="range" id="paramD" min="250" max="750" step="10" value="400">
+        </div>
+
+        <div class="control-card">
+          <div class="control-label">Concrete Grade ($f_{ck}$)</div>
+          <select id="paramFck">
+            <option value="20">M20 (20 N/mm²)</option>
+            <option value="25" selected>M25 (25 N/mm²)</option>
+            <option value="30">M30 (30 N/mm²)</option>
+          </select>
+        </div>
+
+        <div class="control-card">
+          <div class="control-label">Steel Grade ($f_y$)</div>
+          <select id="paramFy">
+            <option value="415" selected>Fe 415 (415 N/mm²)</option>
+            <option value="500">Fe 500 (500 N/mm²)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Limit State Formula Output -->
+      <div class="formula-display">
+        <div class="formula-row">
+          <span>Factored Design Load:</span>
+          <span style="color: var(--accent-magenta);" id="calcWu">\(W_u = 1.5 \times (w_{dl} + w_{ll}) = 52.5\text{ kN/m}\)</span>
+        </div>
+        <div class="formula-row">
+          <span>Max Bending Moment:</span>
+          <span style="color: var(--accent-cyan);" id="calcMu">\(M_u = \frac{W_u L^2}{8} = 80.4\text{ kNm}\)</span>
+        </div>
+        <div class="formula-row">
+          <span>Limiting Moment Capacity:</span>
+          <span style="color: var(--accent-green);" id="calcMulim">\(M_{u,lim} = 0.138 f_{ck} b d^2 = 127.2\text{ kNm}\)</span>
+        </div>
+      </div>
+
+      <!-- Live Design Report -->
+      <div class="report-grid">
+        <div class="report-item">
+          <div class="control-label">Span ($L$)</div>
+          <div class="report-val" id="reportL">3.50 m</div>
+        </div>
+        <div class="report-item">
+          <div class="control-label">Required $A_{st}$</div>
+          <div class="report-val" id="reportAst" style="color: var(--accent-cyan);">640 mm²</div>
+        </div>
+        <div class="report-item">
+          <div class="control-label">Est. Rebars (16Φ)</div>
+          <div class="report-val" id="reportBars">4 Bars</div>
+          <div class="rebar-indicator" id="rebarVisuals"></div>
+        </div>
+      </div>
+
+      <!-- Active Explainer Segment -->
+      <div class="explanation-bubble" id="explainerBox">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+          <strong>Educational Narrative</strong>
+          <button class="btn-explain" id="btnExplainAst">Explain Reinforcement</button>
+        </div>
+        <span id="explanationText">Adjust load sliders or support positions to visualize moment responses. The engine recalculates structural bounds interactively based on limit states.</span>
+      </div>
+
+      <button class="btn-action" id="btnCheckDesign">Check Structural Compliance</button>
+    </div>
+  </main>
+
+  <script>
+    /*****************************************
+     * STATE MANAGEMENT
+     *****************************************/
+    const state = {
+      DL: 15, // kN/m
+      LL: 20, // kN/m
+      L: 3.5, // meters
+      b: 230, // mm
+      d: 400, // mm
+      fck: 25, // N/mm2
+      fy: 415, // N/mm2
+      Wu: 0,
+      Mu: 0,
+      MuLim: 0,
+      Ast: 0,
+      isSafe: true,
+      audioEnabled: false,
+      voiceEnabled: false
+    };
+
+    /*****************************************
+     * CANVASES INITIALIZATION
+     *****************************************/
+    const beamCanvas = document.getElementById('beamCanvas');
+    const bCtx = beamCanvas.getContext('2d');
+    const diagramCanvas = document.getElementById('diagramCanvas');
+    const dCtx = diagramCanvas.getContext('2d');
+
+    // Drag support interaction state
+    let isDraggingSupport = false;
+    let dragOffset = 0;
+    const supportA_X = 100; // Fixed left support coordinate (pixels)
+    let supportB_X = 520;  // Dynamically calculated right support
+
+    /*****************************************
+     * WEB AUDIO API ENGINE
+     *****************************************/
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playSweep(val) {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        // Map value change to pitch shift
+        const baseFreq = 100 + (val * 8);
+        osc.frequency.setValueAtTime(baseFreq, audioCtx.currentTime);
+        
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+        
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+      } catch (e) {
+        console.warn('Audio launch failed', e);
+      }
+    }
+
+    function playSuccessChord() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+      const freqs = [261.63, 329.63, 392.00, 523.25]; // C major chord
+      freqs.forEach((f, i) => {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(f, now);
+        gain.gain.setValueAtTime(0.0, now);
+        gain.gain.linearRampToValueAtTime(0.05, now + 0.05);
+        gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.8 + (i * 0.1));
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(now + 1.2);
+      });
+    }
+
+    function playWarningPulse() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(85, now);
+      osc.frequency.linearRampToValueAtTime(55, now + 0.45);
+      gain.gain.setValueAtTime(0.15, now);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(now + 0.5);
+    }
+
+    /*****************************************
+     * NARRATIVE SYNTHESIS (TTS)
+     *****************************************/
+    function speakGuide(text) {
+      if (!state.voiceEnabled) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    /*****************************************
+     * PHYSICS & LIMIT STATE COMPUTATION
+     *****************************************/
+    function updateCalculations() {
+      // 1. Factored Design Load
+      state.Wu = 1.5 * (state.DL + state.LL);
+      
+      // 2. Max Bending Moment
+      state.Mu = (state.Wu * Math.pow(state.L, 2)) / 8; // kNm
+
+      // 3. Limiting Moment Capacity
+      // For Fe 415 -> Mu,lim = 0.138 * fck * b * d^2
+      // For Fe 500 -> Mu,lim = 0.133 * fck * b * d^2
+      const limitCoeff = state.fy === 415 ? 0.138 : 0.133;
+      state.MuLim = (limitCoeff * state.fck * state.b * Math.pow(state.d, 2)) / 1e6; // to kNm
+
+      // Check design state
+      if (state.Mu <= state.MuLim) {
+        state.isSafe = true;
+        
+        // Calculate Area of Steel (Ast) using actual quadratic equation
+        // Mu = 0.87 * fy * Ast * d * (1 - Ast*fy / (b * d * fck))
+        const aVal = (0.87 * state.fy * state.fy) / (state.b * state.fck);
+        const bVal = -0.87 * state.fy * state.d;
+        const cVal = state.Mu * 1e6; // to Nmm
+        
+        // Quadratic discriminant
+        const disc = Math.pow(bVal, 2) - 4 * aVal * cVal;
+        if (disc >= 0) {
+          state.Ast = (-bVal - Math.sqrt(disc)) / (2 * aVal);
+        } else {
+          state.Ast = 0;
+        }
+      } else {
+        state.isSafe = false;
+        state.Ast = 0;
+      }
+
+      updateDOM();
+    }
+
+    function updateDOM() {
+      // Inputs Text update
+      document.getElementById('valDL').innerText = `${state.DL.toFixed(1)} kN/m`;
+      document.getElementById('valLL').innerText = `${state.LL.toFixed(1)} kN/m`;
+      document.getElementById('valB').innerText = `${state.b} mm`;
+      document.getElementById('valD').innerText = `${state.d} mm`;
+      document.getElementById('reportL').innerText = `${state.L.toFixed(2)} m`;
+
+      // Formatted Math Displays
+      const mathWu = document.getElementById('calcWu');
+      const mathMu = document.getElementById('calcMu');
+      const mathMulim = document.getElementById('calcMulim');
+
+      mathWu.innerHTML = `\\(W_u = 1.5 \\times (${state.DL.toFixed(1)} + ${state.LL.toFixed(1)}) = ${state.Wu.toFixed(2)}\\text{ kN/m}\\)`;
+      mathMu.innerHTML = `\\(M_u = \\frac{W_u L^2}{8} = ${state.Mu.toFixed(2)}\\text{ kNm}\\)`;
+      
+      const coeffStr = state.fy === 415 ? '0.138' : '0.133';
+      mathMulim.innerHTML = `\\(M_{u,lim} = ${coeffStr} \\times f_{ck} b d^2 = ${state.MuLim.toFixed(2)}\\text{ kNm}\\)`;
+
+      // MathJax re-render safe trigger
+      if (window.MathJax && MathJax.typesetPromise) {
+        MathJax.typesetPromise();
+      }
+
+      // Live safety badges & UI indicators
+      const statusBadge = document.getElementById('safetyStatus');
+      const barsVal = document.getElementById('reportBars');
+      const astVal = document.getElementById('reportAst');
+      const rebarContainer = document.getElementById('rebarVisuals');
+
+      rebarContainer.innerHTML = '';
+
+      if (state.isSafe) {
+        statusBadge.innerText = "Section Safe";
+        statusBadge.className = "status-badge status-safe";
+        astVal.innerText = `${Math.round(state.Ast)} mm²`;
+        
+        // Suggest active rebars (Assume 16mm diameter bars -> area = 201 mm2)
+        const barArea = 201; 
+        const numBars = Math.max(2, Math.ceil(state.Ast / barArea));
+        barsVal.innerText = `${numBars} Bars (16Φ)`;
+
+        for (let i = 0; i < numBars; i++) {
+          const dot = document.createElement('div');
+          dot.className = 'rebar-dot';
+          rebarContainer.appendChild(dot);
+        }
+      } else {
+        statusBadge.innerText = "Section Overloaded";
+        statusBadge.className = "status-badge status-fail";
+        astVal.innerText = "N/A";
+        barsVal.innerText = "Failed";
+      }
+    }
+
+    /*****************************************
+     * RENDER SYSTEM: BEAM VISUALIZATION (CANVAS 1)
+     *****************************************/
+    function drawBeamSection() {
+      bCtx.clearRect(0, 0, beamCanvas.width, beamCanvas.height);
+      
+      const beamY = 120;
+      const beamHeight = 60;
+      
+      // Compute pixel position of right support
+      // Let 1m = 100px. Left support starts at X = 100
+      supportB_X = supportA_X + (state.L * 90);
+
+      // --- Draw Ground Support Systems ---
+      // Left Support: Pin Support
+      bCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+      bCtx.fillStyle = '#1e293b';
+      bCtx.lineWidth = 2;
+      bCtx.beginPath();
+      bCtx.moveTo(supportA_X, beamY + beamHeight);
+      bCtx.lineTo(supportA_X - 15, beamY + beamHeight + 25);
+      bCtx.lineTo(supportA_X + 15, beamY + beamHeight + 25);
+      bCtx.closePath();
+      bCtx.fill();
+      bCtx.stroke();
+      
+      // Right Support: Roller Support
+      bCtx.beginPath();
+      bCtx.moveTo(supportB_X, beamY + beamHeight);
+      bCtx.lineTo(supportB_X - 15, beamY + beamHeight + 20);
+      bCtx.lineTo(supportB_X + 15, beamY + beamHeight + 20);
+      bCtx.closePath();
+      bCtx.fill();
+      bCtx.stroke();
+      // Draw small rollers
+      bCtx.beginPath();
+      bCtx.arc(supportB_X - 8, beamY + beamHeight + 23, 3, 0, Math.PI * 2);
+      bCtx.arc(supportB_X + 8, beamY + beamHeight + 23, 3, 0, Math.PI * 2);
+      bCtx.fillStyle = varColor('--accent-cyan');
+      bCtx.fill();
+
+      // --- Draw Concrete Beam Body ---
+      bCtx.shadowColor = 'rgba(0, 242, 254, 0.1)';
+      bCtx.shadowBlur = 10;
+      bCtx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+      bCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      bCtx.lineWidth = 3;
+      bCtx.fillRect(supportA_X - 23, beamY, (supportB_X - supportA_X) + 46, beamHeight);
+      bCtx.strokeRect(supportA_X - 23, beamY, (supportB_X - supportA_X) + 46, beamHeight);
+      bCtx.shadowBlur = 0; // reset
+
+      // --- Draw Steel Reinforcement Layout inside Beam ---
+      const cover = 10;
+      const barY = beamY + beamHeight - cover;
+      bCtx.strokeStyle = state.isSafe ? varColor('--accent-magenta') : '#ef4444';
+      bCtx.lineWidth = 4;
+      bCtx.shadowColor = bCtx.strokeStyle;
+      bCtx.shadowBlur = 8;
+      bCtx.beginPath();
+      bCtx.moveTo(supportA_X - 15, barY);
+      bCtx.lineTo(supportB_X + 15, barY);
+      bCtx.stroke();
+      bCtx.shadowBlur = 0; // reset
+
+      // --- Draw Force Vector Arrows (UDL Profile) ---
+      const arrowSpacing = 20;
+      const numArrows = Math.floor((supportB_X - supportA_X) / arrowSpacing);
+      const totalLoad = state.DL + state.ll;
+      const maxArrowHeight = 40;
+      // Interpolate arrow length based on loads
+      const loadFactor = (state.DL + state.LL) / 100; // normalized range
+      const arrowHeight = Math.min(60, 15 + (loadFactor * maxArrowHeight));
+
+      bCtx.strokeStyle = 'rgba(0, 242, 254, 0.5)';
+      bCtx.lineWidth = 1.5;
+      
+      // Draw wavy top load path
+      bCtx.beginPath();
+      bCtx.moveTo(supportA_X, beamY - arrowHeight);
+      for (let i = 0; i <= numArrows; i++) {
+        const x = supportA_X + (i * arrowSpacing);
+        // Add subtle sinus dynamic wave for aesthetic
+        const yOffset = Math.sin(i * 0.5) * 4;
+        bCtx.lineTo(x, beamY - arrowHeight + yOffset);
+      }
+      bCtx.stroke();
+
+      // Draw downward vectors
+      for (let i = 0; i <= numArrows; i++) {
+        const x = supportA_X + (i * arrowSpacing);
+        const yOffset = Math.sin(i * 0.5) * 4;
+        const startY = beamY - arrowHeight + yOffset;
+        const endY = beamY;
+
+        bCtx.beginPath();
+        bCtx.moveTo(x, startY);
+        bCtx.lineTo(x, endY);
+        // Draw little arrowheads
+        bCtx.lineTo(x - 3, endY - 6);
+        bCtx.moveTo(x, endY);
+        bCtx.lineTo(x + 3, endY - 6);
+        bCtx.stroke();
+      }
+
+      // Draw interactive drag handle on right support
+      bCtx.beginPath();
+      bCtx.arc(supportB_X, beamY + beamHeight + 10, 8, 0, Math.PI * 2);
+      bCtx.fillStyle = varColor('--accent-cyan');
+      bCtx.shadowColor = varColor('--accent-cyan');
+      bCtx.shadowBlur = 10;
+      bCtx.fill();
+      bCtx.shadowBlur = 0;
+
+      // Draw Beam cross-sectional slice (Inset visualization on the far right)
+      drawCrossSection();
+    }
+
+    function drawCrossSection() {
+      const startX = 640;
+      const startY = 100;
+      const width = 80;
+      const height = 120;
+
+      // Draw concrete bounding box
+      bCtx.fillStyle = 'rgba(255, 255, 255, 0.02)';
+      bCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+      bCtx.lineWidth = 2;
+      bCtx.fillRect(startX, startY, width, height);
+      bCtx.strokeRect(startX, startY, width, height);
+
+      // Rebars & Stirrup inside
+      const internalCover = 8;
+      bCtx.strokeStyle = 'rgba(255,255,255,0.3)';
+      bCtx.lineWidth = 1;
+      bCtx.strokeRect(startX + internalCover, startY + internalCover, width - (internalCover * 2), height - (internalCover * 2));
+
+      // Draw top compression reinforcement dots (minimal holder bars)
+      bCtx.fillStyle = '#475569';
+      bCtx.beginPath();
+      bCtx.arc(startX + internalCover + 5, startY + internalCover + 5, 4, 0, Math.PI * 2);
+      bCtx.arc(startX + width - internalCover - 5, startY + internalCover + 5, 4, 0, Math.PI * 2);
+      bCtx.fill();
+
+      // Draw bottom main tensile reinforcement (Magenta glowing dots)
+      bCtx.fillStyle = state.isSafe ? varColor('--accent-magenta') : '#ef4444';
+      bCtx.shadowColor = bCtx.fillStyle;
+      bCtx.shadowBlur = 4;
+      const barY = startY + height - internalCover - 6;
+      
+      const numBars = state.isSafe ? Math.max(2, Math.ceil(state.Ast / 201)) : 0;
+      const step = (width - (internalCover * 2) - 12) / (numBars - 1 || 1);
+
+      for (let i = 0; i < numBars; i++) {
+        const barX = (numBars === 1) ? startX + (width / 2) : startX + internalCover + 6 + (i * step);
+        bCtx.beginPath();
+        bCtx.arc(barX, barY, 5, 0, Math.PI * 2);
+        bCtx.fill();
+      }
+      bCtx.shadowBlur = 0;
+
+      // Dimensional annotations
+      bCtx.fillStyle = varColor('--text-muted');
+      bCtx.font = '10px Inter';
+      bCtx.fillText(`b = ${state.b}mm`, startX + 12, startY + height + 18);
+      bCtx.fillText(`d = ${state.d}mm`, startX + width + 8, startY + (height / 2) + 4);
+    }
+
+    /*****************************************
+     * DIAGRAMS VISUALIZATION (CANVAS 2): SFD & BMD
+     *****************************************/
+    function drawAnalysisDiagrams() {
+      dCtx.clearRect(0, 0, diagramCanvas.width, diagramCanvas.height);
+      
+      const sfdY = 70;
+      const bmdY = 200;
+      const startX = 100;
+      const endX = startX + (state.L * 90);
+      const midX = startX + ((endX - startX) / 2);
+
+      // --- DRAW SHEAR FORCE DIAGRAM (SFD) ---
+      dCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      dCtx.lineWidth = 1;
+      dCtx.beginPath();
+      dCtx.moveTo(50, sfdY);
+      dCtx.lineTo(750, sfdY);
+      dCtx.stroke(); // Baseline
+
+      // Max Shear Force Vu = Wu * L / 2
+      const Vu = (state.Wu * state.L) / 2;
+      const scaleSFD = Math.min(0.8, 40 / (Vu || 1));
+
+      dCtx.fillStyle = 'rgba(0, 242, 254, 0.15)';
+      dCtx.strokeStyle = varColor('--accent-cyan');
+      dCtx.lineWidth = 2;
+      dCtx.beginPath();
+      dCtx.moveTo(startX, sfdY);
+      dCtx.lineTo(startX, sfdY - (Vu * scaleSFD));
+      dCtx.lineTo(endX, sfdY + (Vu * scaleSFD));
+      dCtx.lineTo(endX, sfdY);
+      dCtx.closePath();
+      dCtx.fill();
+      dCtx.stroke();
+
+      // SFD Labels
+      dCtx.fillStyle = '#fff';
+      dCtx.font = '10px JetBrains Mono';
+      dCtx.fillText(`+${Vu.toFixed(1)} kN`, startX - 5, sfdY - (Vu * scaleSFD) - 8);
+      dCtx.fillText(`-${Vu.toFixed(1)} kN`, endX - 45, sfdY + (Vu * scaleSFD) + 14);
+      dCtx.fillStyle = varColor('--text-muted');
+      dCtx.fillText("SFD Diagram", 640, sfdY - 20);
+
+      // --- DRAW BENDING MOMENT DIAGRAM (BMD) ---
+      dCtx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      dCtx.beginPath();
+      dCtx.moveTo(50, bmdY);
+      dCtx.lineTo(750, bmdY);
+      dCtx.stroke(); // Baseline
+
+      // Draw Parabola for UDL bending profile
+      const scaleBMD = Math.min(0.6, 60 / (state.Mu || 1));
+      
+      dCtx.fillStyle = 'rgba(243, 85, 136, 0.15)';
+      dCtx.strokeStyle = varColor('--accent-magenta');
+      dCtx.lineWidth = 2.5;
+      dCtx.beginPath();
+      dCtx.moveTo(startX, bmdY);
+
+      for (let xPixel = startX; xPixel <= endX; xPixel++) {
+        const xPos = (xPixel - startX) / 90; // scale pixel back to physical span coordinate
+        // BM dynamic equation: M = (Wu * x / 2) * (L - x)
+        const moment = (state.Wu * xPos / 2) * (state.L - xPos);
+        dCtx.lineTo(xPixel, bmdY + (moment * scaleBMD));
+      }
+      dCtx.lineTo(endX, bmdY);
+      dCtx.closePath();
+      dCtx.fill();
+      dCtx.stroke();
+
+      // BMD Labels
+      dCtx.fillStyle = '#fff';
+      dCtx.fillText(`Max Mu = ${state.Mu.toFixed(1)} kNm`, midX - 60, bmdY + (state.Mu * scaleBMD) + 16);
+      dCtx.fillStyle = varColor('--text-muted');
+      dCtx.fillText("BMD Diagram (Parabolic)", 640, bmdY - 20);
+    }
+
+    // Helper to extract root CSS variable colors into Canvas context
+    function varColor(cssVar) {
+      return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+    }
+
+    /*****************************************
+     * ENGINE LOOP
+     *****************************************/
+    function runSimulation() {
+      updateCalculations();
+      drawBeamSection();
+      drawAnalysisDiagrams();
+      requestAnimationFrame(runSimulation);
+    }
+
+    /*****************************************
+     * CONTROL INTERACTION HANDLERS
+     *****************************************/
+    // Range Slider binding events
+    const bindSlider = (id, stateKey, suffix) => {
+      const slider = document.getElementById(id);
+      slider.addEventListener('input', (e) => {
+        state[stateKey] = parseFloat(e.target.value);
+        playSweep(state[stateKey]);
+      });
+    };
+
+    bindSlider('paramDL', 'DL');
+    bindSlider('paramLL', 'LL');
+    bindSlider('paramB', 'b');
+    bindSlider('paramD', 'd');
+
+    // Handle Dropdown selections
+    document.getElementById('paramFck').addEventListener('change', (e) => {
+      state.fck = parseInt(e.target.value);
+      playSweep(state.fck);
+    });
+
+    document.getElementById('paramFy').addEventListener('change', (e) => {
+      state.fy = parseInt(e.target.value);
+      playSweep(state.fy);
+    });
+
+    // Handle interactive Drag Support node logic
+    beamCanvas.addEventListener('mousedown', (e) => {
+      const rect = beamCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+
+      // Check if mouse click is near the active right support B
+      if (Math.abs(x - supportB_X) < 25) {
+        isDraggingSupport = true;
+        dragOffset = x - supportB_X;
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isDraggingSupport) return;
+      const rect = beamCanvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      
+      // Map physical X pixel coordinate to Beam Span L (min 2.0m, max 6.0m)
+      const proposedL = (x - supportA_X) / 90;
+      state.L = Math.min(6.0, Math.max(2.0, proposedL));
+    });
+
+    window.addEventListener('mouseup', () => {
+      isDraggingSupport = false;
+    });
+
+    // Touch Support for mobile devices
+    beamCanvas.addEventListener('touchstart', (e) => {
+      const rect = beamCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      if (Math.abs(x - supportB_X) < 30) {
+        isDraggingSupport = true;
+      }
+    });
+
+    beamCanvas.addEventListener('touchmove', (e) => {
+      if (!isDraggingSupport) return;
+      const rect = beamCanvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const proposedL = (x - supportA_X) / 90;
+      state.L = Math.min(6.0, Math.max(2.0, proposedL));
+    });
+
+    beamCanvas.addEventListener('touchend', () => {
+      isDraggingSupport = false;
+    });
+
+    // Check Design button interaction trigger
+    document.getElementById('btnCheckDesign').addEventListener('click', () => {
+      if (state.isSafe) {
+        playSuccessChord();
+        speakGuide(`Design validation complete. The RCC design is safe with a calculated reinforcement of ${Math.round(state.Ast)} square millimeters.`);
+      } else {
+        playWarningPulse();
+        speakGuide("Design check failed. The reinforcement limit state has been breached. Please optimize by raising your effective depth or concrete yield strengths.");
+      }
+    });
+
+    // Narrate Ast Button
+    document.getElementById('btnExplainAst').addEventListener('click', () => {
+      const explainStr = `The required reinforcement area of ${Math.round(state.Ast)} square millimeters is computed to establish dynamic strain equilibrium. The target limit state ensures concrete cracks progressively rather than failing catastrophically.`;
+      document.getElementById('explanationText').innerText = explainStr;
+      speakGuide(explainStr);
+    });
+
+    // Voice & Sound feedback selectors
+    const voiceBtn = document.getElementById('voiceToggle');
+    voiceBtn.addEventListener('click', () => {
+      state.voiceEnabled = !state.voiceEnabled;
+      voiceBtn.classList.toggle('active', state.voiceEnabled);
+      document.getElementById('voiceStatus').innerText = state.voiceEnabled ? "ON" : "OFF";
+      if (state.voiceEnabled) {
+        speakGuide("Voice guide enabled. Ready to conduct live design explanations.");
+      }
+    });
+
+    const muteBtn = document.getElementById('muteToggle');
+    muteBtn.addEventListener('click', () => {
+      state.audioEnabled = !state.audioEnabled;
+      muteBtn.classList.toggle('active', state.audioEnabled);
+      if (state.audioEnabled) {
+        initAudio();
+        playSweep(25);
+      }
+    });
+
+    // Start Engine Loop
+    runSimulation();
+  </script>
+</body>
+</html>

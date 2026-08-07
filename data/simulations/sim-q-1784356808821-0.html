@@ -1,0 +1,1420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RCC Beam Design Simulation: Singly vs. Doubly Reinforced</title>
+  <style>
+    :root {
+      --bg-color: #0b0c10;
+      --panel-bg: rgba(21, 23, 30, 0.7);
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --text-primary: #f5f6f7;
+      --text-secondary: #9aa0a6;
+      --accent-cyan: #00f2ff;
+      --accent-magenta: #ff00ff;
+      --accent-yellow: #ffb703;
+      --accent-green: #00e676;
+      --accent-red: #ff1744;
+      --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: var(--font-family);
+      overflow-x: hidden;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      background: rgba(11, 12, 16, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--panel-border);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo-container h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      background: linear-gradient(90deg, var(--accent-cyan), var(--accent-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .badge {
+      background: rgba(0, 242, 255, 0.1);
+      border: 1px solid var(--accent-cyan);
+      color: var(--accent-cyan);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .global-controls {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-primary);
+      padding: 0.5rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.85rem;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--text-secondary);
+      transform: translateY(-1px);
+    }
+
+    .btn-primary {
+      background: var(--accent-cyan);
+      color: #000;
+      font-weight: 600;
+      border-color: var(--accent-cyan);
+    }
+
+    .btn-primary:hover {
+      background: #00cbd6;
+      box-shadow: 0 0 12px rgba(0, 242, 255, 0.4);
+    }
+
+    .main-workspace {
+      display: grid;
+      grid-template-columns: 1fr 400px;
+      gap: 1.5rem;
+      padding: 1.5rem;
+      flex-grow: 1;
+      max-width: 1600px;
+      margin: 0 auto;
+      width: 100%;
+    }
+
+    @media (max-width: 1100px) {
+      .main-workspace {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .visualization-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--panel-border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      padding-bottom: 0.75rem;
+    }
+
+    .panel-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .panel-title::before {
+      content: '';
+      display: inline-block;
+      width: 4px;
+      height: 16px;
+      background: var(--accent-cyan);
+      border-radius: 2px;
+    }
+
+    .canvas-wrapper {
+      position: relative;
+      width: 100%;
+      background: rgba(5, 5, 8, 0.5);
+      border-radius: 8px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+      cursor: crosshair;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    /* Controls Panel Styling */
+    .controls-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+      height: fit-content;
+    }
+
+    .toggle-group {
+      background: rgba(0, 0, 0, 0.2);
+      padding: 0.25rem;
+      border-radius: 8px;
+      display: flex;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .toggle-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      padding: 0.6rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      transition: all 0.25s ease;
+    }
+
+    .toggle-btn.active {
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-primary);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    .toggle-btn.active-cyan {
+      background: rgba(0, 242, 255, 0.15);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 242, 255, 0.3);
+    }
+
+    .toggle-btn.active-magenta {
+      background: rgba(255, 0, 255, 0.15);
+      color: var(--accent-magenta);
+      border: 1px solid rgba(255, 0, 255, 0.3);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .control-value {
+      color: var(--text-primary);
+      font-family: monospace;
+      font-weight: 600;
+    }
+
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(0, 242, 255, 0.6);
+      transition: transform 0.1s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .slider-magenta::-webkit-slider-thumb {
+      background: var(--accent-magenta);
+      box-shadow: 0 0 8px rgba(255, 0, 255, 0.6);
+    }
+
+    /* Math and Dashboard panels */
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+
+    .dashboard-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 0.75rem;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-label {
+      font-size: 0.7rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card-value {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 0.25rem;
+      font-family: monospace;
+    }
+
+    .math-display {
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 0.8rem;
+      border-left: 3px solid var(--accent-cyan);
+      line-height: 1.4;
+      overflow-x: auto;
+    }
+
+    .math-title {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+
+    /* Status Warnings */
+    .status-alert {
+      padding: 0.75rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      border: 1px solid transparent;
+      margin-top: 0.5rem;
+      animation: pulse-border 2s infinite alternate;
+    }
+
+    .status-alert.safe {
+      background: rgba(0, 230, 118, 0.08);
+      border-color: rgba(0, 230, 118, 0.3);
+      color: var(--accent-green);
+    }
+
+    .status-alert.warning {
+      background: rgba(255, 23, 68, 0.08);
+      border-color: rgba(255, 23, 68, 0.3);
+      color: var(--accent-red);
+    }
+
+    @keyframes pulse-border {
+      0% { border-color: rgba(255, 23, 68, 0.2); }
+      100% { border-color: rgba(255, 23, 68, 0.6); }
+    }
+
+    .tooltip {
+      position: absolute;
+      background: rgba(11, 12, 16, 0.95);
+      border: 1px solid var(--accent-cyan);
+      padding: 0.5rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      pointer-events: none;
+      z-index: 10;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      color: var(--text-primary);
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+
+    /* Micro-charts */
+    .mini-chart-container {
+      width: 100%;
+      height: 120px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      margin-top: 0.5rem;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <h1>RCC Flexural Design Laboratory</h1>
+      <span class="badge" id="beam-mode-badge">Singly Reinforced</span>
+    </div>
+    <div class="global-controls">
+      <button class="btn" id="btn-sound" onclick="toggleAudio()"><span id="sound-icon">🔊</span> Sound Off</button>
+      <button class="btn" id="btn-narrate" onclick="speakConcept()"><span id="narrate-icon">🗣️</span> Hear Concept</button>
+      <button class="btn btn-primary" id="btn-reset" onclick="resetSim()">Reset Parameters</button>
+    </div>
+  </header>
+
+  <main class="main-workspace">
+    <!-- Visualizations Layout (Left) -->
+    <div class="visualization-container">
+      
+      <!-- Top Canvas: Beam Bending Simulation & Draggable Load -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">Interactive Load Span & Moment Diagram</div>
+          <div class="text-secondary" style="font-size: 0.75rem;">Drag the weight load on the beam!</div>
+        </div>
+        <div class="canvas-wrapper" id="span-wrapper">
+          <canvas id="span-canvas" height="150"></canvas>
+        </div>
+      </div>
+
+      <!-- Bottom Canvas: Cross-Section, Stress-Strain Block -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">Limit State Cross Section, Strain & Stress Block Analysis</div>
+          <div style="font-size: 0.75rem; color: var(--accent-magenta);" id="status-neutral-axis">N.A. Depth (Xu)</div>
+        </div>
+        <div class="canvas-wrapper" id="cross-wrapper">
+          <canvas id="cross-canvas" height="320"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Controls / Diagnostics Panel (Right) -->
+    <div class="controls-panel">
+      
+      <!-- Design Type Toggle -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">Beam Classification</div>
+        </div>
+        <div class="toggle-group">
+          <button id="toggle-singly" class="toggle-btn active active-cyan" onclick="setBeamMode('singly')">Singly Reinforced</button>
+          <button id="toggle-doubly" class="toggle-btn" onclick="setBeamMode('doubly')">Doubly Reinforced</button>
+        </div>
+      </div>
+
+      <!-- Geometry Parameters -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">Section Dimensions</div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Width (b)</span>
+            <span><span class="control-value" id="val-b">250</span> mm</span>
+          </div>
+          <input type="range" id="slide-b" class="slider" min="200" max="400" step="10" value="250">
+        </div>
+        <div class="control-group" style="margin-top: 1rem;">
+          <div class="control-label">
+            <span>Effective Depth (d)</span>
+            <span><span class="control-value" id="val-d">450</span> mm</span>
+          </div>
+          <input type="range" id="slide-d" class="slider" min="300" max="600" step="10" value="450">
+        </div>
+      </div>
+
+      <!-- Reinforcement Parameters -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">Reinforcement (Steel Area)</div>
+        </div>
+        <div class="control-group">
+          <div class="control-label">
+            <span>Tension Steel (Ast)</span>
+            <span><span class="control-value" id="val-ast">942</span> mm²</span>
+          </div>
+          <input type="range" id="slide-ast" class="slider" min="150" max="2500" step="50" value="942">
+          <div class="control-label" style="font-size: 0.7rem; justify-content: flex-end;">
+            <span id="ast-ratio-lbl">Ratio: 0.84%</span>
+          </div>
+        </div>
+        <div class="control-group" style="margin-top: 1rem;" id="asc-control-group">
+          <div class="control-label" style="opacity: 0.5;">
+            <span>Compression Steel (Asc)</span>
+            <span><span class="control-value" id="val-asc">0</span> mm²</span>
+          </div>
+          <input type="range" id="slide-asc" class="slider slider-magenta" min="0" max="1500" step="50" value="0" disabled>
+          <div class="control-label" style="font-size: 0.7rem; justify-content: flex-end; opacity: 0.5;">
+            <span id="asc-ratio-lbl">Ratio: 0.00%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Real-time Mathematical Output Dashboard -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">IS 456 Formulas & Live Values</div>
+        </div>
+        
+        <div class="math-display">
+          <div class="math-title">NEUTRAL AXIS RELATION</div>
+          <span id="formula-xu-text" style="color: var(--accent-cyan);">0.36·fck·b·Xu = 0.87·fy·Ast</span><br>
+          <span style="color: var(--text-secondary);">Calculated:</span> <span id="math-xu-calc">Xu = 148.6 mm</span><br>
+          <span style="color: var(--text-secondary);">Limiting limit:</span> <span id="math-xumax-calc">Xu,max = 216.0 mm</span>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="dashboard-card">
+            <span class="card-label">Cap. (Mu,cap)</span>
+            <span class="card-value" id="val-mucap" style="color: var(--accent-green);">134.2 kNm</span>
+          </div>
+          <div class="dashboard-card">
+            <span class="card-label">Applied Mu</span>
+            <span class="card-value" id="val-muapplied">95.0 kNm</span>
+          </div>
+        </div>
+
+        <div class="mini-chart-container">
+          <canvas id="chart-canvas" height="120"></canvas>
+        </div>
+
+        <div class="status-alert safe" id="status-box">
+          <span id="status-icon">✅</span> <span id="status-text">Safe Ductile Section</span>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <div class="tooltip" id="global-tooltip">Tooltip</div>
+
+  <script>
+    /* =========================================================================
+       AUDIO SYNTHESIZER ENGINE (Web Audio API)
+       ========================================================================= */
+    class SoundEngine {
+      constructor() {
+        this.ctx = null;
+        this.enabled = false;
+        this.lastTrigger = 0;
+      }
+
+      init() {
+        if (!this.ctx) {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+        if (this.ctx.state === 'suspended') {
+          this.ctx.resume();
+        }
+      }
+
+      playClick() {
+        if (!this.enabled) return;
+        this.init();
+        let now = this.ctx.currentTime;
+        if (now - this.lastTrigger < 0.05) return; // Debounce fast slider drags
+        this.lastTrigger = now;
+
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.08);
+      }
+
+      playSuccess() {
+        if (!this.enabled) return;
+        this.init();
+        let now = this.ctx.currentTime;
+        const freqs = [261.63, 329.63, 392.00]; // C4, E4, G4
+
+        freqs.forEach((f, idx) => {
+          let osc = this.ctx.createOscillator();
+          let gain = this.ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now + idx * 0.04);
+          
+          gain.gain.setValueAtTime(0.0, now + idx * 0.04);
+          gain.gain.linearRampToValueAtTime(0.1, now + idx * 0.04 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.04 + 0.4);
+
+          osc.connect(gain);
+          gain.connect(this.ctx.destination);
+          osc.start(now + idx * 0.04);
+          osc.stop(now + idx * 0.04 + 0.4);
+        });
+      }
+
+      playWarning() {
+        if (!this.enabled) return;
+        this.init();
+        let now = this.ctx.currentTime;
+        
+        let osc = this.ctx.createOscillator();
+        let gain = this.ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(140, now);
+        osc.frequency.linearRampToValueAtTime(60, now + 0.35);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+    }
+
+    const sound = new SoundEngine();
+
+    function toggleAudio() {
+      sound.enabled = !sound.enabled;
+      const btn = document.getElementById('btn-sound');
+      const icon = document.getElementById('sound-icon');
+      if (sound.enabled) {
+        sound.init();
+        btn.innerHTML = '🔊 Sound On';
+        icon.innerText = '🔊';
+        sound.playSuccess();
+      } else {
+        btn.innerHTML = '🔇 Sound Off';
+        icon.innerText = '🔇';
+      }
+    }
+
+    /* =========================================================================
+       SPEECH SYNTHESIS ENGINE
+       ========================================================================= */
+    let currentSpeech = null;
+
+    function speak(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // Stop active speech
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    function speakConcept() {
+      const mode = simState.mode;
+      let text = "";
+      if (mode === 'singly') {
+        text = "You are analyzing a singly reinforced concrete beam. In this structural setup, reinforcement steel is placed exclusively in the bottom region to withstand structural tension, while concrete handles the compression forces at the top. The moment capacity is governed strictly by the concrete and tension steel cross sections.";
+      } else {
+        text = "You have selected a doubly reinforced concrete beam. When dimensions like width and depth are strictly limited, we add steel bars to both the bottom tension and top compression zones. This increases ductility and moment capacity without altering structural scale, preventing concrete crushing failure.";
+      }
+      speak(text);
+    }
+
+    /* =========================================================================
+       STRUCTURAL DESIGN ENGINE (IS 456 FORMULATIONS)
+       ========================================================================= */
+    const fck = 25; // N/mm2 (M25 grade concrete)
+    const fy = 415; // N/mm2 (Fe415 yield strength)
+    const spanLength = 5000; // 5 meters span in mm
+
+    const simState = {
+      mode: 'singly', // 'singly' or 'doubly'
+      b: 250,
+      d: 450,
+      D: 500, // overall depth
+      Ast: 942, // e.g. 3 bars of 20mm dia
+      Asc: 400, // active only in doubly
+      load: 45, // Applied concentrated load in kN
+      loadPosRatio: 0.5, // Center default
+      
+      // Dynamic variables for visual interpolation (LERP)
+      animXu: 150,
+      animXuMax: 216,
+      animAppliedMu: 50,
+      animCapMu: 120,
+
+      // UI state
+      isDraggingLoad: false
+    };
+
+    // Concrete cover constants
+    const tensionCover = 50; 
+    const compCover = 40;
+
+    function updateCalculations() {
+      const b = simState.b;
+      const d = simState.d;
+      const Ast = simState.Ast;
+      let Asc = simState.mode === 'doubly' ? simState.Asc : 0;
+      simState.D = d + tensionCover;
+
+      // Limiting N.A Depth (IS 456: Fe415 factor = 0.48)
+      const xuMax = 0.48 * d;
+
+      // Calculated actual Neutral Axis depth
+      let xu = 0;
+      let fsc = 353; // typical stress in comp steel for Fe415 and d'/d ~ 0.1
+
+      if (simState.mode === 'singly') {
+        // Equation: 0.36 * fck * b * xu = 0.87 * fy * Ast
+        xu = (0.87 * fy * Ast) / (0.36 * fck * b);
+      } else {
+        // Equation with Compressive Steel contribution
+        // 0.36 * fck * b * xu + Asc * (fsc - 0.446 * fck) = 0.87 * fy * Ast
+        const T = 0.87 * fy * Ast;
+        const C_steel = Asc * (fsc - 0.446 * fck);
+        xu = (T - C_steel) / (0.36 * fck * b);
+        if (xu < 0) xu = 5.0; // Avoid mathematical singularities in visually extreme designs
+      }
+
+      // Calculation of Moment Capacity (Mu,cap)
+      let muCap = 0;
+      let designStatus = ""; // "under", "over", "warning"
+
+      if (simState.mode === 'singly') {
+        if (xu <= xuMax) {
+          // Under-reinforced section (Safe)
+          muCap = 0.87 * fy * Ast * (d - 0.42 * xu) * 1e-6; // convert Nmm to kNm
+          designStatus = "Under-Reinforced (Ductile)";
+        } else {
+          // Over-reinforced section (Brittle Failure)
+          // Limit actual capacity to balanced design section
+          muCap = 0.36 * (xuMax / d) * (1 - 0.42 * (xuMax / d)) * fck * b * d * d * 1e-6;
+          designStatus = "Over-Reinforced (Brittle!)";
+        }
+      } else {
+        // Doubly Reinforced formulas
+        const Mu1 = 0.36 * fck * b * xuMax * (d - 0.42 * xuMax) * 1e-6;
+        const Mu2 = Asc * (fsc - 0.446 * fck) * (d - compCover) * 1e-6;
+        muCap = Mu1 + Mu2;
+        designStatus = (xu <= xuMax) ? "Doubly (Ductile Comp.)" : "Limit state reached";
+      }
+
+      // Calculate Applied Bending Moment (point load design moment = 1.5 * M_working)
+      // M_working = P * a * b_span / L
+      const pos_a = simState.loadPosRatio * (spanLength / 1000);
+      const pos_b = (1 - simState.loadPosRatio) * (spanLength / 1000);
+      const M_working = (simState.load * pos_a * pos_b) / (spanLength / 1000);
+      const muApplied = 1.5 * M_working; // Factored limit state load
+
+      // Dynamic variables updates
+      simState.xu = xu;
+      simState.xuMax = xuMax;
+      simState.muCap = muCap;
+      simState.muApplied = muApplied;
+      simState.statusText = designStatus;
+
+      // Max reinforcement checks (>4% gross steel is highly restricted/unconstructable)
+      const grossArea = b * simState.D;
+      const ratioT = (Ast / grossArea) * 100;
+      const ratioC = (Asc / grossArea) * 100;
+
+      simState.ratioT = ratioT;
+      simState.ratioC = ratioC;
+
+      // Update UI elements directly
+      document.getElementById('val-b').innerText = Math.round(b);
+      document.getElementById('val-d').innerText = Math.round(d);
+      document.getElementById('val-ast').innerText = Math.round(Ast);
+      document.getElementById('val-asc').innerText = Math.round(Asc);
+      document.getElementById('ast-ratio-lbl').innerText = `Ratio: ${ratioT.toFixed(2)}%`;
+      document.getElementById('asc-ratio-lbl').innerText = `Ratio: ${ratioC.toFixed(2)}%`;
+
+      document.getElementById('math-xu-calc').innerText = `Xu = ${xu.toFixed(1)} mm`;
+      document.getElementById('math-xumax-calc').innerText = `Xu,max = ${xuMax.toFixed(1)} mm`;
+      document.getElementById('val-mucap').innerText = `${muCap.toFixed(1)} kNm`;
+      document.getElementById('val-muapplied').innerText = `${muApplied.toFixed(1)} kNm`;
+
+      // Status card logic
+      const statusBox = document.getElementById('status-box');
+      const statusIcon = document.getElementById('status-icon');
+      const statusText = document.getElementById('status-text');
+
+      if (muApplied > muCap) {
+        statusBox.className = "status-alert warning";
+        statusIcon.innerText = "❌";
+        statusText.innerText = `Applied Load Exceeds Capacity! (${(muApplied - muCap).toFixed(1)} kNm Deficit)`;
+      } else if (xu > xuMax) {
+        statusBox.className = "status-alert warning";
+        statusIcon.innerText = "⚠️";
+        statusText.innerText = "Over-reinforced: Dangerous brittle failure hazard!";
+      } else if (ratioT > 4.0 || ratioC > 4.0) {
+        statusBox.className = "status-alert warning";
+        statusIcon.innerText = "⚠️";
+        statusText.innerText = "Exceeds 4% gross reinforcement spacing rules.";
+      } else {
+        statusBox.className = "status-alert safe";
+        statusIcon.innerText = "✅";
+        statusText.innerText = `Safe & Compliant Limit Section (${designStatus})`;
+      }
+    }
+
+    /* =========================================================================
+       CANVAS PHYSICS & RENDERING LOOPS
+       ========================================================================= */
+    const spanCanvas = document.getElementById('span-canvas');
+    const spanCtx = spanCanvas.getContext('2d');
+    const crossCanvas = document.getElementById('cross-canvas');
+    const crossCtx = crossCanvas.getContext('2d');
+    const chartCanvas = document.getElementById('chart-canvas');
+    const chartCtx = chartCanvas.getContext('2d');
+
+    // Handle high DPI displays
+    function scaleCanvas(canvas, context, width, height) {
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      canvas.width = width * devicePixelRatio;
+      canvas.height = height * devicePixelRatio;
+      canvas.style.width = width + 'px';
+      canvas.style.height = height + 'px';
+      context.scale(devicePixelRatio, devicePixelRatio);
+    }
+
+    function setupCanvases() {
+      const wSpan = document.getElementById('span-wrapper').clientWidth;
+      const wCross = document.getElementById('cross-wrapper').clientWidth;
+      scaleCanvas(spanCanvas, spanCtx, wSpan, 150);
+      scaleCanvas(crossCanvas, crossCtx, wCross, 320);
+      scaleCanvas(chartCanvas, chartCtx, 360, 120);
+    }
+
+    // Math tools
+    function lerp(start, end, amt){
+      return (1 - amt) * start + amt * end;
+    }
+
+    // Dynamic rendering variables initialization
+    function updateInterpolations() {
+      simState.animXu = lerp(simState.animXu, simState.xu, 0.15);
+      simState.animXuMax = lerp(simState.animXuMax, simState.xuMax, 0.15);
+      simState.animAppliedMu = lerp(simState.animAppliedMu, simState.muApplied, 0.15);
+      simState.animCapMu = lerp(simState.animCapMu, simState.muCap, 0.15);
+    }
+
+    function drawSpanSimulation() {
+      const w = spanCanvas.width / (window.devicePixelRatio || 1);
+      const h = spanCanvas.height / (window.devicePixelRatio || 1);
+      spanCtx.clearRect(0, 0, w, h);
+
+      // Support points
+      const supLeftX = 100;
+      const supRightX = w - 100;
+      const beamY = 50;
+      const beamThickness = 20;
+
+      // Draw simple structural supports
+      spanCtx.fillStyle = '#454e59';
+      // Triangle Left (Hinged)
+      spanCtx.beginPath();
+      spanCtx.moveTo(supLeftX, beamY + beamThickness);
+      spanCtx.lineTo(supLeftX - 10, beamY + beamThickness + 15);
+      spanCtx.lineTo(supLeftX + 10, beamY + beamThickness + 15);
+      spanCtx.closePath();
+      spanCtx.fill();
+
+      // Roller Right
+      spanCtx.beginPath();
+      spanCtx.arc(supRightX, beamY + beamThickness + 7, 6, 0, Math.PI * 2);
+      spanCtx.closePath();
+      spanCtx.fill();
+      spanCtx.fillStyle = '#78909c';
+      spanCtx.fillRect(supRightX - 12, beamY + beamThickness + 13, 24, 3);
+
+      // Concrete Beam longitudinal section
+      spanCtx.fillStyle = '#1e2129';
+      spanCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      spanCtx.lineWidth = 2;
+      spanCtx.fillRect(supLeftX, beamY, supRightX - supLeftX, beamThickness);
+      spanCtx.strokeRect(supLeftX, beamY, supRightX - supLeftX, beamThickness);
+
+      // Inside reinforcements hint
+      spanCtx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
+      spanCtx.lineWidth = 2;
+      spanCtx.beginPath();
+      spanCtx.moveTo(supLeftX + 5, beamY + beamThickness - 5);
+      spanCtx.lineTo(supRightX - 5, beamY + beamThickness - 5);
+      spanCtx.stroke();
+
+      if (simState.mode === 'doubly') {
+        spanCtx.strokeStyle = 'rgba(255, 0, 255, 0.4)';
+        spanCtx.beginPath();
+        spanCtx.moveTo(supLeftX + 5, beamY + 5);
+        spanCtx.lineTo(supRightX - 5, beamY + 5);
+        spanCtx.stroke();
+      }
+
+      // Point Load Location (Draggable element)
+      const loadSpanWidth = supRightX - supLeftX;
+      const loadX = supLeftX + simState.loadPosRatio * loadSpanWidth;
+
+      // Draw load weight vector arrow
+      const arrowLength = 35 + (simState.load / 100) * 25;
+      spanCtx.strokeStyle = '#ffb703';
+      spanCtx.lineWidth = 4;
+      spanCtx.beginPath();
+      spanCtx.moveTo(loadX, beamY - arrowLength);
+      spanCtx.lineTo(loadX, beamY - 4);
+      // Arrowhead
+      spanCtx.moveTo(loadX - 8, beamY - 12);
+      spanCtx.lineTo(loadX, beamY - 4);
+      spanCtx.lineTo(loadX + 8, beamY - 12);
+      spanCtx.stroke();
+
+      // Load label box
+      spanCtx.fillStyle = '#ffb703';
+      spanCtx.font = 'bold 11px monospace';
+      spanCtx.textAlign = 'center';
+      spanCtx.fillText(`Factored Load: ${Math.round(simState.load * 1.5)} kN`, loadX, beamY - arrowLength - 8);
+
+      // Bending Moment Diagram (BMD) Curve
+      spanCtx.beginPath();
+      spanCtx.moveTo(supLeftX, beamY + beamThickness + 20);
+
+      // Maximum moment coordinate
+      const maxMomentY = beamY + beamThickness + 20 + (simState.animAppliedMu / 180) * 50;
+      spanCtx.lineTo(loadX, maxMomentY);
+      spanCtx.lineTo(supRightX, beamY + beamThickness + 20);
+      
+      // Style BMD fill/stroke
+      spanCtx.fillStyle = 'rgba(0, 242, 255, 0.08)';
+      spanCtx.fill();
+      spanCtx.strokeStyle = 'rgba(0, 242, 255, 0.6)';
+      spanCtx.lineWidth = 1.5;
+      spanCtx.stroke();
+
+      // Label Bending Moment
+      spanCtx.fillStyle = '#00f2ff';
+      spanCtx.font = '10px monospace';
+      spanCtx.fillText(`Mu = ${simState.muApplied.toFixed(1)} kNm`, loadX, maxMomentY + 12);
+
+      // Cracking Visualization if Failed
+      if (simState.muApplied > simState.muCap) {
+        spanCtx.strokeStyle = '#ff1744';
+        spanCtx.lineWidth = 1.5;
+        // Generate random jagged crack vectors near center
+        spanCtx.beginPath();
+        spanCtx.moveTo(loadX, beamY + beamThickness);
+        spanCtx.lineTo(loadX - 5, beamY + beamThickness - 8);
+        spanCtx.lineTo(loadX + 2, beamY + beamThickness - 14);
+        spanCtx.stroke();
+
+        spanCtx.beginPath();
+        spanCtx.moveTo(loadX + 15, beamY + beamThickness);
+        spanCtx.lineTo(loadX + 10, beamY + beamThickness - 10);
+        spanCtx.stroke();
+      }
+    }
+
+    function drawCrossSectionAnalysis() {
+      const w = crossCanvas.width / (window.devicePixelRatio || 1);
+      const h = crossCanvas.height / (window.devicePixelRatio || 1);
+      crossCtx.clearRect(0, 0, w, h);
+
+      // Drawing Coordinates Config
+      const centerX = 100;
+      const centerY = h / 2;
+      const bW = simState.b * 0.35; // Graphical scaling
+      const bD = (simState.d + tensionCover) * 0.45;
+
+      const beamLeft = centerX - bW / 2;
+      const beamTop = centerY - bD / 2;
+
+      // 1. Concrete Cross Section Rectangle
+      crossCtx.fillStyle = '#1e2129';
+      crossCtx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      crossCtx.lineWidth = 3;
+      crossCtx.fillRect(beamLeft, beamTop, bW, bD);
+      crossCtx.strokeRect(beamLeft, beamTop, bW, bD);
+
+      // 2. Reinforcement Bars (Rebars)
+      // Bottom tension steel (Cyan glowing circles)
+      const numTensionBars = 3;
+      const spacingTension = bW / (numTensionBars + 1);
+      const barY = beamTop + bD - (tensionCover * 0.45);
+
+      crossCtx.fillStyle = '#00f2ff';
+      crossCtx.shadowBlur = 8;
+      crossCtx.shadowColor = '#00f2ff';
+      
+      for (let i = 1; i <= numTensionBars; i++) {
+        crossCtx.beginPath();
+        crossCtx.arc(beamLeft + i * spacingTension, barY, Math.sqrt(simState.Ast) * 0.15, 0, Math.PI * 2);
+        crossCtx.fill();
+      }
+      crossCtx.shadowBlur = 0; // reset glow
+
+      // Top compression steel (Magenta glowing circles - active in doubly only)
+      if (simState.mode === 'doubly') {
+        const numCompBars = 2;
+        const spacingComp = bW / (numCompBars + 1);
+        const compBarY = beamTop + (compCover * 0.45);
+
+        crossCtx.fillStyle = '#ff00ff';
+        crossCtx.shadowBlur = 8;
+        crossCtx.shadowColor = '#ff00ff';
+
+        for (let i = 1; i <= numCompBars; i++) {
+          crossCtx.beginPath();
+          crossCtx.arc(beamLeft + i * spacingComp, compBarY, Math.sqrt(simState.Asc) * 0.15, 0, Math.PI * 2);
+          crossCtx.fill();
+        }
+        crossCtx.shadowBlur = 0; // reset glow
+      }
+
+      // Neutral Axis (N.A.) Line drawing
+      const naY = beamTop + simState.animXu * 0.45;
+      crossCtx.strokeStyle = 'rgba(255, 183, 3, 0.7)';
+      crossCtx.lineWidth = 1.5;
+      crossCtx.setLineDash([5, 5]);
+      crossCtx.beginPath();
+      crossCtx.moveTo(beamLeft - 15, naY);
+      crossCtx.lineTo(w - 20, naY);
+      crossCtx.stroke();
+      crossCtx.setLineDash([]); // clear dash
+
+      // Text label for N.A.
+      crossCtx.fillStyle = '#ffb703';
+      crossCtx.font = '9px monospace';
+      crossCtx.fillText("N.A.", beamLeft - 40, naY + 3);
+
+      // 3. Strain Diagram block
+      const strainDiagX = centerX + 110;
+      crossCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      crossCtx.lineWidth = 1;
+      
+      // Vertical zero-strain line
+      crossCtx.beginPath();
+      crossCtx.moveTo(strainDiagX, beamTop);
+      crossCtx.lineTo(strainDiagX, beamTop + bD);
+      crossCtx.stroke();
+
+      // Draw Strain shapes
+      const maxConcreteStrain = 0.0035;
+      const steelStrain = ((simState.d - simState.xu) / simState.xu) * maxConcreteStrain;
+
+      crossCtx.strokeStyle = '#00f2ff';
+      crossCtx.lineWidth = 2;
+      crossCtx.beginPath();
+      // Concrete top strain vector
+      crossCtx.moveTo(strainDiagX, beamTop);
+      crossCtx.lineTo(strainDiagX + 45, beamTop);
+      // Slope through neutral axis
+      crossCtx.lineTo(strainDiagX - Math.min(60, steelStrain * 15000), beamTop + bD);
+      crossCtx.lineTo(strainDiagX, beamTop + bD);
+      crossCtx.stroke();
+
+      // Labels on Strain Diagram
+      crossCtx.fillStyle = '#9aa0a6';
+      crossCtx.fillText("ε_cu = 0.0035", strainDiagX + 15, beamTop - 4);
+      crossCtx.fillText(`ε_st = ${steelStrain.toFixed(4)}`, strainDiagX - 55, beamTop + bD + 12);
+
+      // 4. Concrete Stress Diagram (Parabolic-Rectangular stress block)
+      const stressDiagX = centerX + 240;
+      // Vertical stress reference axis
+      crossCtx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      crossCtx.beginPath();
+      crossCtx.moveTo(stressDiagX, beamTop);
+      crossCtx.lineTo(stressDiagX, beamTop + bD);
+      crossCtx.stroke();
+
+      // Concrete stress region
+      const stressBlockDepth = simState.animXu * 0.45;
+      const rectDepth = (4 / 7) * stressBlockDepth;
+      const paraDepth = (3 / 7) * stressBlockDepth;
+
+      crossCtx.fillStyle = 'rgba(255, 0, 255, 0.15)';
+      crossCtx.beginPath();
+      crossCtx.moveTo(stressDiagX, beamTop);
+      // Rectangular zone
+      crossCtx.lineTo(stressDiagX + 50, beamTop);
+      crossCtx.lineTo(stressDiagX + 50, beamTop + rectDepth);
+      // Parabolic zone curving to Zero stress at N.A.
+      for (let y = 0; y <= paraDepth; y++) {
+        const factor = 1 - Math.pow(1 - (y / paraDepth), 2);
+        crossCtx.lineTo(stressDiagX + 50 * factor, beamTop + rectDepth + y);
+      }
+      crossCtx.lineTo(stressDiagX, beamTop + stressBlockDepth);
+      crossCtx.closePath();
+      crossCtx.fill();
+
+      // Force Vector: Concrete Compression Resultant (C_c)
+      const forceY_Cc = beamTop + 0.42 * stressBlockDepth;
+      drawVectorArrow(crossCtx, stressDiagX + 70, forceY_Cc, stressDiagX + 2, forceY_Cc, '#ff00ff', 2);
+      crossCtx.fillStyle = '#ff00ff';
+      crossCtx.fillText("Cc", stressDiagX + 75, forceY_Cc + 3);
+
+      // Force Vector: Tension Steel Resultant (T)
+      const forceY_T = beamTop + bD - (tensionCover * 0.45);
+      drawVectorArrow(crossCtx, stressDiagX - 50, forceY_T, stressDiagX - 2, forceY_T, '#00f2ff', 2);
+      crossCtx.fillStyle = '#00f2ff';
+      crossCtx.fillText("T", stressDiagX - 65, forceY_T + 3);
+
+      // Compression Steel Force Resultant (Cs) if Doubly Active
+      if (simState.mode === 'doubly') {
+        const forceY_Cs = beamTop + (compCover * 0.45);
+        drawVectorArrow(crossCtx, stressDiagX + 60, forceY_Cs, stressDiagX + 2, forceY_Cs, '#ff9e00', 1.5);
+        crossCtx.fillStyle = '#ff9e00';
+        crossCtx.fillText("Cs", stressDiagX + 65, forceY_Cs + 3);
+      }
+    }
+
+    function drawVectorArrow(ctx, x1, y1, x2, y2, color, thickness) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thickness;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      
+      // Simple arrow tip
+      const angle = Math.atan2(y2 - y1, x2 - x1);
+      ctx.lineTo(x2 - 8 * Math.cos(angle - Math.PI / 6), y2 - 8 * Math.sin(angle - Math.PI / 6));
+      ctx.moveTo(x2, y2);
+      ctx.lineTo(x2 - 8 * Math.cos(angle + Math.PI / 6), y2 - 8 * Math.sin(angle + Math.PI / 6));
+      ctx.stroke();
+    }
+
+    // Mini Live Chart: Moment Capacity vs. Area of Tension Steel
+    function drawCapacityChart() {
+      const w = chartCanvas.width / (window.devicePixelRatio || 1);
+      const h = chartCanvas.height / (window.devicePixelRatio || 1);
+      chartCtx.clearRect(0, 0, w, h);
+
+      // Margin
+      const mx = 30;
+      const my = 20;
+
+      // Draw Grid Axes
+      chartCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+      chartCtx.lineWidth = 1;
+      chartCtx.beginPath();
+      chartCtx.moveTo(mx, h - my);
+      chartCtx.lineTo(w - mx, h - my);
+      chartCtx.moveTo(mx, my);
+      chartCtx.lineTo(mx, h - my);
+      chartCtx.stroke();
+
+      // Precompute standard range profile curve
+      const testAstMin = 150;
+      const testAstMax = 2500;
+      const points = [];
+
+      for (let testAst = testAstMin; testAst <= testAstMax; testAst += 100) {
+        // Simple formula abstraction for curve display
+        let tempXu = 0;
+        let tempMu = 0;
+        const testXuMax = 0.48 * simState.d;
+
+        if (simState.mode === 'singly') {
+          tempXu = (0.87 * fy * testAst) / (0.36 * fck * simState.b);
+          if (tempXu <= testXuMax) {
+            tempMu = 0.87 * fy * testAst * (simState.d - 0.42 * tempXu) * 1e-6;
+          } else {
+            tempMu = 0.36 * (testXuMax / simState.d) * (1 - 0.42 * (testXuMax / simState.d)) * fck * simState.b * simState.d * simState.d * 1e-6;
+          }
+        } else {
+          // Doubly curve estimation
+          const fsc = 353;
+          tempXu = (0.87 * fy * testAst - simState.Asc * (fsc - 0.446 * fck)) / (0.36 * fck * simState.b);
+          const Mu1 = 0.36 * fck * simState.b * testXuMax * (simState.d - 0.42 * testXuMax) * 1e-6;
+          const Mu2 = simState.Asc * (fsc - 0.446 * fck) * (simState.d - compCover) * 1e-6;
+          tempMu = Mu1 + Mu2;
+        }
+        points.push({ ast: testAst, mu: tempMu });
+      }
+
+      // Graph scaling bounds
+      const maxMuValue = 280; // kNm limit graphical max
+      
+      // Plot Curve
+      chartCtx.beginPath();
+      points.forEach((p, index) => {
+        const xCoord = mx + ((p.ast - testAstMin) / (testAstMax - testAstMin)) * (w - 2 * mx);
+        const yCoord = (h - my) - (p.mu / maxMuValue) * (h - 2 * my);
+        if (index === 0) {
+          chartCtx.moveTo(xCoord, yCoord);
+        } else {
+          chartCtx.lineTo(xCoord, yCoord);
+        }
+      });
+      chartCtx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
+      chartCtx.lineWidth = 2;
+      chartCtx.stroke();
+
+      // Pulsing Marker at operating point
+      const curX = mx + ((simState.Ast - testAstMin) / (testAstMax - testAstMin)) * (w - 2 * mx);
+      const curY = (h - my) - (simState.muCap / maxMuValue) * (h - 2 * my);
+
+      chartCtx.fillStyle = '#ff00ff';
+      chartCtx.shadowBlur = 6;
+      chartCtx.shadowColor = '#ff00ff';
+      chartCtx.beginPath();
+      chartCtx.arc(curX, curY, 4, 0, Math.PI * 2);
+      chartCtx.fill();
+      chartCtx.shadowBlur = 0; // reset
+
+      // Draw Legend Tags
+      chartCtx.fillStyle = '#9aa0a6';
+      chartCtx.font = '8px monospace';
+      chartCtx.fillText("Ast →", w - 35, h - 8);
+      chartCtx.fillText("Mu,cap", 5, 12);
+    }
+
+    // Animation Loop
+    function runPhysicsLoop() {
+      updateCalculations();
+      updateInterpolations();
+
+      drawSpanSimulation();
+      drawCrossSectionAnalysis();
+      drawCapacityChart();
+
+      requestAnimationFrame(runPhysicsLoop);
+    }
+
+    /* =========================================================================
+       USER INTERFACES & EVENT BINDINGS
+       ========================================================================= */
+    function setBeamMode(mode) {
+      simState.mode = mode;
+      
+      const btnSingly = document.getElementById('toggle-singly');
+      const btnDoubly = document.getElementById('toggle-doubly');
+      const badge = document.getElementById('beam-mode-badge');
+      
+      const slideAsc = document.getElementById('slide-asc');
+      const grpAsc = document.getElementById('asc-control-group');
+
+      if (mode === 'singly') {
+        btnSingly.className = "toggle-btn active active-cyan";
+        btnDoubly.className = "toggle-btn";
+        badge.innerText = "Singly Reinforced";
+        badge.style.borderColor = 'var(--accent-cyan)';
+        badge.style.color = 'var(--accent-cyan)';
+        
+        // Disable compression steel controls
+        slideAsc.disabled = true;
+        grpAsc.style.opacity = "0.4";
+        sound.playSuccess();
+        speak("Switched to singly reinforced configuration.");
+      } else {
+        btnSingly.className = "toggle-btn";
+        btnDoubly.className = "toggle-btn active active-magenta";
+        badge.innerText = "Doubly Reinforced";
+        badge.style.borderColor = 'var(--accent-magenta)';
+        badge.style.color = 'var(--accent-magenta)';
+
+        // Enable compression steel controls
+        slideAsc.disabled = false;
+        grpAsc.style.opacity = "1";
+        
+        // Default to a realistic minimum compression steel area if zero
+        if (simState.Asc === 0) {
+          simState.Asc = 400;
+          document.getElementById('slide-asc').value = 400;
+        }
+        sound.playSuccess();
+        speak("Switched to doubly reinforced. Compressive reinforcement steel added.");
+      }
+    }
+
+    // Event hooks for structural sliders
+    function hookSliders() {
+      const bSlider = document.getElementById('slide-b');
+      bSlider.addEventListener('input', (e) => {
+        simState.b = parseFloat(e.target.value);
+        sound.playClick();
+      });
+
+      const dSlider = document.getElementById('slide-d');
+      dSlider.addEventListener('input', (e) => {
+        simState.d = parseFloat(e.target.value);
+        sound.playClick();
+      });
+
+      const astSlider = document.getElementById('slide-ast');
+      astSlider.addEventListener('input', (e) => {
+        simState.Ast = parseFloat(e.target.value);
+        sound.playClick();
+        if (simState.Ast > 1600 && Math.random() < 0.05) {
+          sound.playWarning(); // alert dangerous design space threshold
+        }
+      });
+
+      const ascSlider = document.getElementById('slide-asc');
+      ascSlider.addEventListener('input', (e) => {
+        simState.Asc = parseFloat(e.target.value);
+        sound.playClick();
+      });
+    }
+
+    // Mouse & Touch Span Drag Interactions
+    function hookSpanInteractions() {
+      // Get relative coordinate conversion
+      function getMousePos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        return {
+          x: evt.clientX - rect.left,
+          y: evt.clientY - rect.top
+        };
+      }
+
+      function handleStart(x, y) {
+        const w = spanCanvas.width / (window.devicePixelRatio || 1);
+        const supLeftX = 100;
+        const supRightX = w - 100;
+        const loadX = supLeftX + simState.loadPosRatio * (supRightX - supLeftX);
+        
+        // Is mouse click/touch close to the load vector arrow?
+        if (Math.abs(x - loadX) < 40) {
+          simState.isDraggingLoad = true;
+          sound.playClick();
+        }
+      }
+
+      function handleMove(x, y) {
+        if (!simState.isDraggingLoad) return;
+        const w = spanCanvas.width / (window.devicePixelRatio || 1);
+        const supLeftX = 100;
+        const supRightX = w - 100;
+        const spanLengthPx = supRightX - supLeftX;
+
+        let relativeX = (x - supLeftX) / spanLengthPx;
+        relativeX = Math.max(0.05, Math.min(0.95, relativeX)); // clamp safe span distance boundaries
+        
+        simState.loadPosRatio = relativeX;
+        
+        // Scale load force dynamically on mouse vertical dragging action
+        const loadScaleY = (100 - y) * 1.5;
+        simState.load = Math.max(15, Math.min(180, loadScaleY));
+      }
+
+      function handleEnd() {
+        if (simState.isDraggingLoad) {
+          simState.isDraggingLoad = false;
+          if (simState.muApplied > simState.muCap) {
+            sound.playWarning();
+          }
+        }
+      }
+
+      // Desktop listeners
+      spanCanvas.addEventListener('mousedown', (e) => {
+        const p = getMousePos(spanCanvas, e);
+        handleStart(p.x, p.y);
+      });
+
+      window.addEventListener('mousemove', (e) => {
+        const p = getMousePos(spanCanvas, e);
+        handleMove(p.x, p.y);
+      });
+
+      window.addEventListener('mouseup', () => {
+        handleEnd();
+      });
+
+      // Mobile touch listeners
+      spanCanvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          const p = getMousePos(spanCanvas, e.touches[0]);
+          handleStart(p.x, p.y);
+        }
+      });
+
+      spanCanvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1) {
+          const p = getMousePos(spanCanvas, e.touches[0]);
+          handleMove(p.x, p.y);
+          e.preventDefault();
+        }
+      });
+
+      spanCanvas.addEventListener('touchend', () => {
+        handleEnd();
+      });
+    }
+
+    function resetSim() {
+      simState.b = 250;
+      simState.d = 450;
+      simState.Ast = 942;
+      simState.Asc = 0;
+      simState.load = 45;
+      simState.loadPosRatio = 0.5;
+
+      document.getElementById('slide-b').value = 250;
+      document.getElementById('slide-d').value = 450;
+      document.getElementById('slide-ast').value = 942;
+      document.getElementById('slide-asc').value = 0;
+
+      setBeamMode('singly');
+      sound.playSuccess();
+    }
+
+    window.addEventListener('resize', () => {
+      setupCanvases();
+    });
+
+    // Run Engine Launch on content load
+    window.addEventListener('DOMContentLoaded', () => {
+      setupCanvases();
+      hookSliders();
+      hookSpanInteractions();
+      
+      // Begin physical render updates loop
+      runPhysicsLoop();
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Equivalent Moment Calculation - RCC Design (Step 2)</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: {
+                            950: '#070a13',
+                        },
+                        academic: {
+                            blue: '#3b82f6',
+                            orange: '#f59e0b',
+                            neon: '#00f2fe',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- MathJax for rendering dynamic beautiful LaTeX math -->
+    <script>
+        window.MathJax = {
+            tex: {
+                inlineMath: [['$', '$'], ['\\(', '\\)']],
+                displayMath: [['$$', '$$']]
+            },
+            svg: {
+                fontCache: 'global'
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #070a13;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(59, 130, 246, 0.1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(245, 158, 11, 0.08) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.08) 0, transparent 50%);
+            background-attachment: fixed;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+        }
+
+        .glow-blue {
+            box-shadow: 0 0 20px rgba(59, 130, 246, 0.25);
+            border-color: rgba(59, 130, 246, 0.4);
+        }
+
+        .glow-orange {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.25);
+            border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        /* Custom Slider Styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.1);
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            margin-top: -5px;
+            background-color: #3b82f6;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #3b82f6;
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Code & Monospace stylings */
+        .mono-font {
+            font-family: 'Fira Code', monospace;
+        }
+
+        /* Paper style calculations block */
+        .calc-sheet {
+            background-image: 
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 20px 20px;
+            border-left: 4px solid #f59e0b;
+        }
+
+        /* Animations */
+        @keyframes pulse-glowing {
+            0%, 100% { box-shadow: 0 0 15px rgba(245, 158, 11, 0.25); }
+            50% { box-shadow: 0 0 25px rgba(245, 158, 11, 0.55); }
+        }
+        .pulse-glow {
+            animation: pulse-glowing 2s infinite;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.2);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+    </style>
+</head>
+<body class="text-slate-100 min-h-screen flex flex-col antialiased">
+
+    <!-- Top Navigation / Header -->
+    <header class="glass-panel sticky top-0 z-50 border-b border-white/10 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center space-x-4">
+            <div class="h-10 w-10 rounded-lg bg-gradient-to-tr from-blue-600 to-amber-500 flex items-center justify-center font-bold text-lg text-white shadow-lg glow-blue">
+                U2
+            </div>
+            <div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs font-semibold px-2 py-0.5 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full uppercase tracking-wider">RCC Design Portal</span>
+                    <span class="text-xs text-slate-400">Step 2 of 5</span>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    Equivalent Bending Moment <span class="text-blue-400">($M_e$)</span> Calculation
+                </h1>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-3">
+            <!-- Speech synthesizer button -->
+            <button onclick="speakNarration()" class="flex items-center space-x-2 px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-xs transition duration-200 text-blue-400 hover:text-white glow-blue">
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                <span>Listen to Explanation</span>
+            </button>
+
+            <!-- SFX Control Toggle -->
+            <button id="sfx-toggle" onclick="toggleSFX()" class="flex items-center justify-center p-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-xs transition duration-200 text-slate-400 hover:text-white" title="Toggle SFX">
+                <svg id="sfx-on-icon" class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/></svg>
+                <svg id="sfx-off-icon" class="h-4 w-4 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/></svg>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-grow grid grid-cols-1 xl:grid-cols-12 gap-6 p-6 overflow-hidden">
+        
+        <!-- Sidebar: Parameter Input Panel (Left, 4 Columns) -->
+        <section class="xl:col-span-4 flex flex-col gap-6">
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-5">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                        <span class="h-2 w-2 rounded-full bg-blue-500"></span>
+                        Data from Step 1 (Incoming)
+                    </h2>
+                    <span class="text-xs text-slate-400 uppercase tracking-widest mono-font">Input Controls</span>
+                </div>
+
+                <!-- Input Controls Box -->
+                <div class="space-y-4">
+                    <!-- Bending Moment (M) -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs">
+                            <label for="input-M" class="text-slate-300 font-medium">Bending Moment ($M$)</label>
+                            <span class="text-blue-400 mono-font">kN·m</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="slider-M" min="10" max="250" value="40" class="flex-grow" oninput="syncInput('M', this.value)">
+                            <input type="number" id="input-M" value="40" min="0" step="0.5" class="w-20 px-2 py-1 bg-slate-900 border border-white/10 rounded text-center text-sm font-semibold text-white glow-blue focus:outline-none" oninput="syncSlider('M', this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Torsional Moment (T) -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs">
+                            <label for="input-T" class="text-slate-300 font-medium">Torsion ($T$)</label>
+                            <span class="text-blue-400 mono-font">kN·m</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="slider-T" min="5" max="150" value="15" class="flex-grow" oninput="syncInput('T', this.value)">
+                            <input type="number" id="input-T" value="15" min="0" step="0.5" class="w-20 px-2 py-1 bg-slate-900 border border-white/10 rounded text-center text-sm font-semibold text-white glow-blue focus:outline-none" oninput="syncSlider('T', this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Overall Depth (D) -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs">
+                            <label for="input-D" class="text-slate-300 font-medium">Overall Depth ($D$)</label>
+                            <span class="text-blue-400 mono-font">mm</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="slider-D" min="200" max="1000" value="500" class="flex-grow" oninput="syncInput('D', this.value)">
+                            <input type="number" id="input-D" value="500" min="100" step="10" class="w-20 px-2 py-1 bg-slate-900 border border-white/10 rounded text-center text-sm font-semibold text-white glow-blue focus:outline-none" oninput="syncSlider('D', this.value)">
+                        </div>
+                    </div>
+
+                    <!-- Width (b) -->
+                    <div class="flex flex-col gap-1">
+                        <div class="flex justify-between text-xs">
+                            <label for="input-b" class="text-slate-300 font-medium">Width ($b$)</label>
+                            <span class="text-blue-400 mono-font">mm</span>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="range" id="slider-b" min="150" max="600" value="300" class="flex-grow" oninput="syncInput('b', this.value)">
+                            <input type="number" id="input-b" value="300" min="100" step="10" class="w-20 px-2 py-1 bg-slate-900 border border-white/10 rounded text-center text-sm font-semibold text-white glow-blue focus:outline-none" oninput="syncSlider('b', this.value)">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Depth to Width Ratio quick output -->
+                <div class="bg-slate-900/60 rounded-xl p-3 border border-white/5 flex justify-between items-center text-xs">
+                    <span class="text-slate-400">Section Ratio ($D/b$):</span>
+                    <span id="out-ratio" class="font-bold text-amber-400 mono-font">1.67</span>
+                </div>
+            </div>
+
+            <!-- Interactivity Slider (Visual Adjuster for stress simulation) -->
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <h3 class="text-sm font-semibold text-white">Bending-Torsion Interaction</h3>
+                    <span class="text-xs bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20">Active Shift</span>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <div class="flex justify-between text-xs text-slate-400">
+                        <span>Flexure Dominant</span>
+                        <span id="interaction-ratio">50% / 50%</span>
+                        <span>Torsion Dominant</span>
+                    </div>
+                    <input type="range" id="slider-bias" min="0" max="100" value="50" class="w-full accent-amber-500" oninput="handleBiasChange(this.value)">
+                    <p class="text-xs text-slate-400 leading-relaxed mt-1">
+                        Drag to simulate combined stress vector shifts. Notice the asymmetric diagonal tensile stress profile.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Glowing Final Result Summary Box -->
+            <div class="glass-panel rounded-2xl p-6 border-amber-500/30 pulse-glow flex flex-col gap-4">
+                <div class="text-center">
+                    <span class="text-xs text-amber-400 font-semibold uppercase tracking-wider">Equivalent Design Moment</span>
+                    <div class="text-4xl font-extrabold text-white tracking-tight mt-1 mono-font">
+                        <span id="out-Me">63.53</span> <span class="text-xl text-slate-400">kN·m</span>
+                    </div>
+                    <div class="text-xs text-slate-400 mt-1">
+                        Includes dynamic torsional equivalent: $M_t = $ <span id="out-Mt" class="text-amber-400">23.53</span> kN·m
+                    </div>
+                </div>
+                <button onclick="copyData()" class="w-full py-2 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-bold transition duration-200 shadow-lg text-sm flex items-center justify-center gap-2">
+                    <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+                    Copy Data for Step 3
+                </button>
+            </div>
+        </section>
+
+        <!-- Center: Dynamic Interactive SVG Visualizer (5 Columns) -->
+        <section class="xl:col-span-5 glass-panel rounded-2xl p-6 flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500"></span>
+                    Interactive Stress Distribution Canvas
+                </h2>
+                <span class="text-xs text-emerald-400 mono-font">Live Model Vector</span>
+            </div>
+
+            <!-- SVG Container -->
+            <div class="flex-grow flex items-center justify-center bg-slate-950/60 rounded-xl p-4 border border-white/5 relative min-h-[350px]">
+                <svg id="beam-canvas" width="100%" height="100%" viewBox="0 0 500 400" preserveAspectRatio="xMidYMid meet" class="absolute inset-0">
+                    <!-- Definitions for gradients and patterns -->
+                    <defs>
+                        <linearGradient id="concrete-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#1e293b" />
+                            <stop offset="100%" stop-color="#0f172a" />
+                        </linearGradient>
+                        <radialGradient id="rebar-grad" cx="50%" cy="50%" r="50%">
+                            <stop offset="0%" stop-color="#fbbf24" />
+                            <stop offset="100%" stop-color="#d97706" />
+                        </radialGradient>
+                        <linearGradient id="stress-comp" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="rgba(239, 68, 68, 0.1)" />
+                            <stop offset="100%" stop-color="rgba(239, 68, 68, 0.7)" />
+                        </linearGradient>
+                        <linearGradient id="stress-tens" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" stop-color="rgba(59, 130, 246, 0.1)" />
+                            <stop offset="100%" stop-color="rgba(59, 130, 246, 0.7)" />
+                        </linearGradient>
+                        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+                            <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.02)" stroke-width="1"/>
+                        </pattern>
+                    </defs>
+
+                    <!-- Background Grid -->
+                    <rect width="100%" height="100%" fill="url(#grid)" />
+
+                    <!-- Beam Boundary Box Dynamic Rendering -->
+                    <g id="beam-group">
+                        <rect id="beam-rect" x="60" y="80" width="160" height="240" fill="url(#concrete-grad)" stroke="#475569" stroke-width="3" rx="4" />
+                        
+                        <!-- Rebars (4 corners) -->
+                        <circle id="rebar-tl" cx="80" cy="100" r="8" fill="url(#rebar-grad)" stroke="#fbbf24" stroke-width="1.5" class="cursor-pointer" />
+                        <circle id="rebar-tr" cx="200" cy="100" r="8" fill="url(#rebar-grad)" stroke="#fbbf24" stroke-width="1.5" />
+                        <circle id="rebar-bl" cx="80" cy="300" r="8" fill="url(#rebar-grad)" stroke="#fbbf24" stroke-width="1.5" />
+                        <circle id="rebar-br" cx="200" cy="300" r="8" fill="url(#rebar-grad)" stroke="#fbbf24" stroke-width="1.5" />
+
+                        <!-- Dynamic Dimension Lines & Text -->
+                        <!-- Width b (Bottom) -->
+                        <path id="dim-b-line" d="M 60 340 L 220 340" stroke="#94a3b8" stroke-dasharray="2,2" stroke-width="1.5" />
+                        <path d="M 60 335 L 60 345 M 220 335 L 220 345" stroke="#94a3b8" stroke-width="1.5" />
+                        <text id="dim-b-text" x="140" y="360" fill="#94a3b8" font-size="12" font-weight="bold" text-anchor="middle" class="mono-font">b = 300 mm</text>
+
+                        <!-- Depth D (Left) -->
+                        <path id="dim-D-line" d="M 40 80 L 40 320" stroke="#94a3b8" stroke-dasharray="2,2" stroke-width="1.5" />
+                        <path d="M 35 80 L 45 80 M 35 320 L 45 320" stroke="#94a3b8" stroke-width="1.5" />
+                        <text id="dim-D-text" x="20" y="205" fill="#94a3b8" font-size="12" font-weight="bold" text-anchor="middle" transform="rotate(-90 20 205)" class="mono-font">D = 500 mm</text>
+                    </g>
+
+                    <!-- Combined Stress Distribution Vector Profile -->
+                    <g id="stress-diagram-group" transform="translate(290, 0)">
+                        <!-- Baseline (neutral axis center indicator) -->
+                        <line x1="100" y1="80" x2="100" y2="320" stroke="#475569" stroke-width="1.5" stroke-dasharray="4,4" />
+                        <text x="100" y="70" fill="#94a3b8" font-size="10" text-anchor="middle" class="mono-font">Center Axis</text>
+
+                        <!-- Dynamic combined stress path shapes -->
+                        <!-- Compression stress curve/triangle (top) -->
+                        <path id="stress-comp-path" d="M 100 200 L 150 80 L 100 80 Z" fill="url(#stress-comp)" stroke="#ef4444" stroke-width="2" />
+                        <!-- Tension stress curve/triangle (bottom) -->
+                        <path id="stress-tens-path" d="M 100 200 L 50 320 L 100 320 Z" fill="url(#stress-tens)" stroke="#3b82f6" stroke-width="2" />
+
+                        <!-- Interactive moment arrows overlay -->
+                        <!-- Flexural Bending Vector Arrow (White curve) -->
+                        <path id="arrow-flexure" d="M 100 130 C 130 130 140 160 130 180" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" marker-end="url(#arrow)" />
+                        <!-- Torsion Vector Arrow (Amber glowing loop around core) -->
+                        <path id="arrow-torsion" d="M 60 180 C 60 140 140 140 140 180 C 140 220 60 220 60 180" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3" />
+
+                        <!-- Stress Label Overlay -->
+                        <text id="stress-lbl" x="100" y="345" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle" class="mono-font">Combined Stress Envelope</text>
+                    </g>
+                </svg>
+            </div>
+            
+            <div class="text-xs text-slate-400 bg-slate-900/40 p-3 rounded-lg border border-white/5 space-y-1">
+                <span class="font-semibold text-white">Visual Guide:</span>
+                <p>The <span class="text-red-400">red block</span> represents concrete compressive stress limits, while the <span class="text-blue-400">blue block</span> represents tensile zone stress. Torsion creates asymmetrical shearing which is compensated by designing for the amplified equivalent moment <span class="text-amber-400">($M_e$)</span>.</p>
+            </div>
+        </section>
+
+        <!-- Right Panel: Academic Solution Sheet (3 Columns) -->
+        <section class="xl:col-span-3 flex flex-col gap-6">
+            <div class="glass-panel rounded-2xl p-6 flex flex-col gap-4 flex-grow overflow-y-auto max-h-[calc(100vh-140px)]">
+                <div class="flex items-center justify-between border-b border-white/10 pb-3">
+                    <h2 class="text-base font-semibold text-white flex items-center gap-2">
+                        <svg class="h-5 w-5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        University Exam Format
+                    </h2>
+                    <span class="text-xs text-amber-500 font-semibold uppercase tracking-widest mono-font">Standard Sheet</span>
+                </div>
+
+                <!-- Academic Exam Paper Panel -->
+                <div class="calc-sheet p-5 bg-slate-900/80 rounded-xl border border-white/5 space-y-4 shadow-inner">
+                    <div class="text-center border-b border-dashed border-white/10 pb-3">
+                        <span class="text-xs text-slate-400 block tracking-widest uppercase">Structural Design Computation</span>
+                        <span class="text-sm font-bold text-white uppercase mt-0.5 block">Course Code: RCC-204</span>
+                    </div>
+
+                    <!-- Step Header -->
+                    <div class="space-y-1">
+                        <h3 class="text-xs font-bold text-amber-400 uppercase tracking-wider">Step 2: Equivalent Bending Moment</h3>
+                        <p class="text-[11px] text-slate-400 leading-relaxed">As per IS 456:2000 Clause 41.4.2, the design moment envelope must incorporate torsion as an equivalent bending moment.</p>
+                    </div>
+
+                    <!-- Input substituted block -->
+                    <div class="space-y-3 pt-2 text-xs border-t border-white/5">
+                        <span class="text-slate-400 block font-semibold">Given Parameters:</span>
+                        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-300 mono-font">
+                            <div>$M$ = <span id="val-M" class="text-blue-400">40.0</span> kN·m</div>
+                            <div>$T$ = <span id="val-T" class="text-blue-400">15.0</span> kN·m</div>
+                            <div>$D$ = <span id="val-D" class="text-blue-400">500</span> mm</div>
+                            <div>$b$ = <span id="val-b" class="text-blue-400">300</span> mm</div>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Calculation Flow -->
+                    <div class="space-y-4 pt-3 border-t border-white/5">
+                        <div>
+                            <span class="text-[11px] font-semibold text-slate-400 block uppercase">2.1 Calculate Torsion Equivalent ($M_t$)</span>
+                            <div class="p-2 bg-slate-950/80 rounded border border-white/5 text-center mt-1">
+                                <div id="latex-eq1" class="text-xs overflow-x-auto select-all">
+                                    $$M_t = T \cdot \left[ \frac{1 + (D/b)}{1.7} \right]$$
+                                </div>
+                            </div>
+                            <div class="p-2 bg-slate-950/80 rounded border border-white/5 text-center mt-1">
+                                <div id="latex-sub1" class="text-[11px] text-amber-400 select-all overflow-x-auto">
+                                    <!-- Dynamic Substitutions will go here -->
+                                    $$M_t = 15 \cdot \left[ \frac{1 + (500/300)}{1.7} \right] = 23.53\text{ kN}\cdot\text{m}$$
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <span class="text-[11px] font-semibold text-slate-400 block uppercase">2.2 Calculate Combined Total ($M_e$)</span>
+                            <div class="p-2 bg-slate-950/80 rounded border border-white/5 text-center mt-1">
+                                <div id="latex-eq2" class="text-xs overflow-x-auto">
+                                    $$M_e = M + M_t$$
+                                </div>
+                            </div>
+                            <div class="p-2 bg-slate-950/80 rounded border border-white/5 text-center mt-1">
+                                <div id="latex-sub2" class="text-[11px] text-green-400 select-all overflow-x-auto">
+                                    <!-- Dynamic Substitutions will go here -->
+                                    $$M_e = 40.00 + 23.53 = 63.53\text{ kN}\cdot\text{m}$$
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Final Verification Box -->
+                    <div class="mt-4 p-3 bg-emerald-950/20 rounded-lg border border-emerald-500/20 text-center">
+                        <span class="text-[10px] text-emerald-400 block tracking-widest uppercase font-semibold">Verification Result</span>
+                        <span class="text-xs text-white font-semibold">Safe design moment verified for Step 3</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Custom Toast Notification Dynamic Popup -->
+    <div id="toast" class="fixed bottom-6 right-6 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none z-50">
+        <div class="glass-panel border-emerald-500/40 bg-emerald-950/90 text-emerald-400 px-6 py-3 rounded-xl shadow-2xl flex items-center space-x-3">
+            <svg class="h-5 w-5 stroke-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="toast-msg" class="text-sm font-semibold tracking-wide">Values prepared for next step!</span>
+        </div>
+    </div>
+
+    <!-- Web Audio API Core Logic & Audio Synth -->
+    <script>
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+            playClick() {
+                if (!this.enabled) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.04, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+                
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.1);
+            }
+            playSuccess() {
+                if (!this.enabled) return;
+                this.init();
+                const now = this.ctx.currentTime;
+                // Elegant university success tone chord sequence
+                const notes = [329.63, 392.00, 523.25, 659.25]; // E4, G4, C5, E5 (C major chord resonance)
+                notes.forEach((f, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(f, now + i * 0.04);
+                    
+                    gain.gain.setValueAtTime(0, now);
+                    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.04 + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.04 + 0.5);
+                    
+                    osc.start(now + i * 0.04);
+                    osc.stop(now + i * 0.04 + 0.5);
+                });
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        function toggleSFX() {
+            audio.enabled = !audio.enabled;
+            document.getElementById('sfx-on-icon').classList.toggle('hidden', !audio.enabled);
+            document.getElementById('sfx-off-icon').classList.toggle('hidden', audio.enabled);
+            audio.playClick();
+        }
+    </script>
+
+    <!-- UI Logic, Calculations, SVG, Speech Integration -->
+    <script>
+        // Global visual modifier for shear stress overlap
+        let visualBias = 50; 
+
+        // Initial setup execution
+        document.addEventListener('DOMContentLoaded', () => {
+            calculateEquivalentMoment();
+        });
+
+        // Syncs raw slider modifications with input parameters
+        function syncInput(param, value) {
+            document.getElementById(`input-${param}`).value = value;
+            audio.playClick();
+            calculateEquivalentMoment();
+        }
+
+        // Syncs user typing numerical modifications back to interactive slider
+        function syncSlider(param, value) {
+            const min = parseInt(document.getElementById(`slider-${param}`).min);
+            const max = parseInt(document.getElementById(`slider-${param}`).max);
+            let parsedVal = parseFloat(value) || min;
+            if (parsedVal < min) parsedVal = min;
+            if (parsedVal > max) parsedVal = max;
+
+            document.getElementById(`slider-${param}`).value = parsedVal;
+            calculateEquivalentMoment();
+        }
+
+        function handleBiasChange(val) {
+            visualBias = val;
+            document.getElementById('interaction-ratio').innerText = `${100 - val}% / ${val}%`;
+            audio.playClick();
+            updateSVG();
+        }
+
+        // Mathematical Calculator Logic Engine
+        function calculateEquivalentMoment() {
+            const M = parseFloat(document.getElementById('input-M').value) || 0;
+            const T = parseFloat(document.getElementById('input-T').value) || 0;
+            const D = parseFloat(document.getElementById('input-D').value) || 0;
+            const b = parseFloat(document.getElementById('input-b').value) || 1;
+
+            // IS 456 formula calculation block
+            const ratio = D / b;
+            const Mt = T * ((1 + ratio) / 1.7);
+            const Me = M + Mt;
+
+            // Push outputs to screen elements
+            document.getElementById('out-ratio').innerText = ratio.toFixed(2);
+            document.getElementById('out-Mt').innerText = Mt.toFixed(2);
+            document.getElementById('out-Me').innerText = Me.toFixed(2);
+
+            // Update parameters inside structural solutions format sheet
+            document.getElementById('val-M').innerText = M.toFixed(1);
+            document.getElementById('val-T').innerText = T.toFixed(1);
+            document.getElementById('val-D').innerText = Math.round(D);
+            document.getElementById('val-b').innerText = Math.round(b);
+
+            // Update Formula Dynamic Strings (HTML math updates for responsiveness)
+            const sub1 = document.getElementById('latex-sub1');
+            const sub2 = document.getElementById('latex-sub2');
+
+            sub1.innerHTML = `$$M_t = ${T.toFixed(1)} \\cdot \\left[ \\frac{1 + (${Math.round(D)}/${Math.round(b)})}{1.7} \\right] = ${Mt.toFixed(2)}\\text{ kN}\\cdot\\text{m}$$`;
+            sub2.innerHTML = `$$M_e = ${M.toFixed(1)} + ${Mt.toFixed(2)} = ${Me.toFixed(2)}\\text{ kN}\\cdot\\text{m}$$`;
+
+            // Signal MathJax to render updated equations
+            if (window.MathJax && window.MathJax.typesetPromise) {
+                window.MathJax.typesetPromise([sub1, sub2]).catch((err) => console.log(err.message));
+            }
+
+            // Sync visual representation dimensions on screen
+            updateSVG(D, b);
+        }
+
+        // Updates physical geometric sizing and vectors of concrete cross-section SVG
+        function updateSVG(D = 500, b = 300) {
+            const maxRenderDim = 220; // bounding envelope limits within viewport
+            const maxVal = Math.max(D, b);
+            const scaleFactor = maxRenderDim / maxVal;
+
+            const rectW = b * scaleFactor;
+            const rectH = D * scaleFactor;
+
+            // Center calculation calculations within boundaries
+            const rectX = 140 - rectW / 2;
+            const rectY = 200 - rectH / 2;
+
+            // Modifying dynamic elements inside SVG viewport
+            const beamRect = document.getElementById('beam-rect');
+            beamRect.setAttribute('x', rectX);
+            beamRect.setAttribute('y', rectY);
+            beamRect.setAttribute('width', rectW);
+            beamRect.setAttribute('height', rectH);
+
+            // Positioning Corner Bars inside dynamic cover offset space
+            const barOffset = 18;
+            document.getElementById('rebar-tl').setAttribute('cx', rectX + barOffset);
+            document.getElementById('rebar-tl').setAttribute('cy', rectY + barOffset);
+
+            document.getElementById('rebar-tr').setAttribute('cx', rectX + rectW - barOffset);
+            document.getElementById('rebar-tr').setAttribute('cy', rectY + barOffset);
+
+            document.getElementById('rebar-bl').setAttribute('cx', rectX + barOffset);
+            document.getElementById('rebar-bl').setAttribute('cy', rectY + rectH - barOffset);
+
+            document.getElementById('rebar-br').setAttribute('cx', rectX + rectW - barOffset);
+            document.getElementById('rebar-br').setAttribute('cy', rectY + rectH - barOffset);
+
+            // Re-alignment of scale dimension indicator lines
+            document.getElementById('dim-b-line').setAttribute('d', `M ${rectX} ${rectY + rectH + 20} L ${rectX + rectW} ${rectY + rectH + 20}`);
+            document.getElementById('dim-b-line').nextElementSibling.setAttribute('d', `M ${rectX} ${rectY + rectH + 15} L ${rectX} ${rectY + rectH + 25} M ${rectX + rectW} ${rectY + rectH + 15} L ${rectX + rectW} ${rectY + rectH + 25}`);
+            document.getElementById('dim-b-text').setAttribute('x', rectX + rectW / 2);
+            document.getElementById('dim-b-text').setAttribute('y', rectY + rectH + 38);
+            document.getElementById('dim-b-text').textContent = `b = ${Math.round(b)} mm`;
+
+            document.getElementById('dim-D-line').setAttribute('d', `M ${rectX - 25} ${rectY} L ${rectX - 25} ${rectY + rectH}`);
+            document.getElementById('dim-D-line').nextElementSibling.setAttribute('d', `M ${rectX - 30} ${rectY} L ${rectX - 20} ${rectY} M ${rectX - 30} ${rectY + rectH} L ${rectX - 20} ${rectY + rectH}`);
+            document.getElementById('dim-D-text').setAttribute('x', rectX - 38);
+            document.getElementById('dim-D-text').setAttribute('y', rectY + rectH / 2);
+            document.getElementById('dim-D-text').setAttribute('transform', `rotate(-90 ${rectX - 38} ${rectY + rectH / 2})`);
+            document.getElementById('dim-D-text').textContent = `D = ${Math.round(D)} mm`;
+
+            // Synchronizing combined stress distribution graphic profiles
+            const biasVal = visualBias / 100;
+            // Morph the paths to visually demonstrate stress interactions
+            const stressCompW = 35 + (biasVal * 40); 
+            const stressTensW = 35 - (biasVal * 15); 
+
+            // Redrawing Compression triangle
+            document.getElementById('stress-comp-path').setAttribute('d', `M 100 200 L ${100 + stressCompW} ${rectY} L 100 ${rectY} Z`);
+            // Redrawing Tension triangle
+            document.getElementById('stress-tens-path').setAttribute('d', `M 100 200 L ${100 - stressTensW} ${rectY + rectH} L 100 ${rectY + rectH} Z`);
+
+            // Scaling moment torsion visual loop indicator glow based on interaction bias
+            document.getElementById('arrow-torsion').setAttribute('stroke-width', 1 + (biasVal * 4));
+            document.getElementById('arrow-flexure').setAttribute('stroke-width', 1 + ((1 - biasVal) * 5));
+        }
+
+        // Web Speech synthesis interface narrator API trigger
+        function speakNarration() {
+            audio.playClick();
+            if ('speechSynthesis' in window) {
+                // Cancel active narration queues first
+                window.speechSynthesis.cancel();
+                
+                const txt = "To find the equivalent bending moment, we combine the primary bending moment with the torsion-induced moment. Notice how increasing the depth-to-width ratio significantly amplifies the impact of torsion on our design. Drag the interaction slider on the left to see the stress distribution morph.";
+                const utterance = new SpeechSynthesisUtterance(txt);
+                
+                // Choosing generic elegant English voice
+                const voices = window.speechSynthesis.getVoices();
+                const selectedVoice = voices.find(v => v.lang.includes('en-US')) || voices[0];
+                if (selectedVoice) utterance.voice = selectedVoice;
+                
+                utterance.rate = 0.95; // clean intellectual speech speed
+                utterance.pitch = 1.05;
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Speech synthesis is not natively supported by your browser software.");
+            }
+        }
+
+        // Copies design specifications data and pops beautiful toast prompt
+        function copyData() {
+            const MeVal = document.getElementById('out-Me').innerText;
+            const MtVal = document.getElementById('out-Mt').innerText;
+            
+            const clipboardText = `RCC Step 2 Outputs: Equivalent Moment Me = ${MeVal} kN.m, Torsional Mt = ${MtVal} kN.m`;
+            navigator.clipboard.writeText(clipboardText).then(() => {
+                // Play notification chime
+                audio.playSuccess();
+
+                // Trigger sliding toast alert display
+                const toast = document.getElementById('toast');
+                toast.classList.remove('opacity-0', 'translate-y-20', 'pointer-events-none');
+                toast.classList.add('opacity-100', 'translate-y-0');
+
+                setTimeout(() => {
+                    toast.classList.add('opacity-0', 'translate-y-20', 'pointer-events-none');
+                    toast.classList.remove('opacity-100', 'translate-y-0');
+                }, 3000);
+            });
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>T-Beam Structural Physics & ELI5 Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Tone.js for Sound Effects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Fredoka', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    },
+                    colors: {
+                        concrete: '#94a3b8',
+                        flange: '#3b82f6',
+                        web: '#1d4ed8',
+                        steel: '#ef4444',
+                        neutral: '#eab308'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+        .glow-box {
+            box-shadow: 0 0 25px rgba(59, 130, 246, 0.2);
+        }
+        .glow-box-success {
+            box-shadow: 0 0 25px rgba(34, 197, 94, 0.25);
+        }
+        .glow-box-warning {
+            box-shadow: 0 0 25px rgba(234, 179, 8, 0.25);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        @keyframes pulseGlow {
+            0%, 100% { filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.6)); }
+            50% { filter: drop-shadow(0 0 18px rgba(59, 130, 246, 0.9)); }
+        }
+        .pulse-active {
+            animation: pulseGlow 2s infinite;
+        }
+        @keyframes floatEffect {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+        }
+        .float-anim {
+            animation: floatEffect 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans bg-slate-950 text-slate-100">
+
+    <!-- Top Header & Global Controls -->
+    <header class="border-b border-slate-800 bg-slate-900/90 backdrop-blur sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-display text-2xl font-bold text-white shadow-lg">
+                    T
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold font-display tracking-wide text-white flex items-center gap-2">
+                        T-Beam Structural Lab
+                        <span class="text-xs font-mono font-normal bg-blue-500/20 text-blue-400 border border-blue-500/30 px-2 py-0.5 rounded-full">ELI5 + Dynamic Sim</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Interactive Flexural Mechanics & Limit State Analysis</p>
+                </div>
+            </div>
+
+            <!-- Voiceover & Sound Effect Toolbar -->
+            <div class="flex items-center space-x-3 bg-slate-800/80 p-1.5 rounded-xl border border-slate-700/60">
+                <button id="ttsBtn" onclick="toggleVoiceover()" class="flex items-center space-x-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition active:scale-95 shadow">
+                    <svg id="ttsPlayIcon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="ttsPauseIcon" class="w-4 h-4 fill-current hidden" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                    <span id="ttsBtnText">Read Step (Voice)</span>
+                </button>
+
+                <div class="h-4 w-[1px] bg-slate-700"></div>
+
+                <button onclick="toggleAudioMute()" id="muteBtn" class="text-slate-300 hover:text-white p-1.5 rounded-lg hover:bg-slate-700 transition" title="Toggle Sound FX">
+                    <svg id="soundOnIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+                    <svg id="soundOffIcon" class="w-4 h-4 hidden text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15zM17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg>
+                </button>
+
+                <select id="voiceSelect" onchange="changeVoice()" class="bg-slate-900 text-xs text-slate-300 rounded border border-slate-700 p-1 focus:outline-none max-w-[120px]">
+                    <option value="">Default Voice</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+        
+        <!-- Left Column: Story Mode & Parameter Controls -->
+        <div class="lg:col-span-5 flex flex-col space-y-5">
+            
+            <!-- Mode Switcher Tabs -->
+            <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                <button id="tabStory" onclick="switchTab('story')" class="flex-1 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow">
+                    📖 Step-by-Step (ELI5 Story)
+                </button>
+                <button id="tabSandbox" onclick="switchTab('sandbox')" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition">
+                    🎛️ Interactive Lab & Controls
+                </button>
+            </div>
+
+            <!-- STORY MODE PANEL -->
+            <div id="panelStory" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between space-y-4 glow-box min-h-[460px]">
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <span id="stepBadge" class="text-xs font-bold font-mono px-2.5 py-1 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                            Step 1 of 5
+                        </span>
+                        <div class="flex space-x-1" id="stepDots">
+                            <!-- JS populated dots -->
+                        </div>
+                    </div>
+
+                    <h2 id="stepTitle" class="text-lg font-bold text-white font-display flex items-center gap-2">
+                        <!-- Step Title -->
+                    </h2>
+
+                    <div id="stepBody" class="mt-3 text-sm text-slate-300 leading-relaxed space-y-3 custom-scrollbar max-h-[260px] overflow-y-auto pr-2">
+                        <!-- Step Content dynamically inserted -->
+                    </div>
+                </div>
+
+                <!-- Step Math Highlight Box -->
+                <div id="mathHighlightBox" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 font-mono text-xs text-amber-300 space-y-1">
+                    <!-- Formulas for step -->
+                </div>
+
+                <!-- Navigation Controls for Story -->
+                <div class="flex items-center justify-between pt-2 border-t border-slate-800">
+                    <button id="prevStepBtn" onclick="navigateStep(-1)" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition disabled:opacity-40 disabled:cursor-not-allowed">
+                        ← Previous
+                    </button>
+                    <span id="stepCounterText" class="text-xs font-mono text-slate-400">1 / 5</span>
+                    <button id="nextStepBtn" onclick="navigateStep(1)" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow active:scale-95">
+                        Next Step →
+                    </button>
+                </div>
+            </div>
+
+            <!-- SANDBOX PARAMETER LAB PANEL (Hidden by default) -->
+            <div id="panelSandbox" class="bg-slate-900/80 border border-slate-800 rounded-2xl p-5 hidden space-y-4 custom-scrollbar max-h-[580px] overflow-y-auto">
+                <h3 class="text-sm font-bold text-slate-200 uppercase tracking-wider font-mono flex items-center justify-between">
+                    <span>🎛️ Design Parameters</span>
+                    <button onclick="resetToDefaults()" class="text-xs text-blue-400 hover:underline font-normal lowercase">reset defaults</button>
+                </h3>
+
+                <!-- Sliders Group -->
+                <div class="space-y-4 text-xs">
+                    
+                    <!-- Flange Width -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex justify-between items-center font-medium">
+                            <label class="text-blue-300">Flange Width (b<sub>f</sub>)</label>
+                            <span id="val_bf" class="font-mono text-blue-400 font-bold bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800">1000 mm</span>
+                        </div>
+                        <input type="range" id="slider_bf" min="500" max="1600" step="25" value="1000" oninput="updateLabParams()" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+
+                    <!-- Flange Depth -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex justify-between items-center font-medium">
+                            <label class="text-blue-300">Flange Depth (D<sub>f</sub>)</label>
+                            <span id="val_Df" class="font-mono text-blue-400 font-bold bg-blue-950/60 px-2 py-0.5 rounded border border-blue-800">125 mm</span>
+                        </div>
+                        <input type="range" id="slider_Df" min="50" max="250" step="5" value="125" oninput="updateLabParams()" class="w-full accent-blue-500 cursor-pointer">
+                    </div>
+
+                    <!-- Web Width -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex justify-between items-center font-medium">
+                            <label class="text-indigo-300">Web Width (b<sub>w</sub>)</label>
+                            <span id="val_bw" class="font-mono text-indigo-400 font-bold bg-indigo-950/60 px-2 py-0.5 rounded border border-indigo-800">250 mm</span>
+                        </div>
+                        <input type="range" id="slider_bw" min="150" max="500" step="10" value="250" oninput="updateLabParams()" class="w-full accent-indigo-500 cursor-pointer">
+                    </div>
+
+                    <!-- Effective Depth -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5">
+                        <div class="flex justify-between items-center font-medium">
+                            <label class="text-teal-300">Effective Depth (d)</label>
+                            <span id="val_d" class="font-mono text-teal-400 font-bold bg-teal-950/60 px-2 py-0.5 rounded border border-teal-800">400 mm</span>
+                        </div>
+                        <input type="range" id="slider_d" min="250" max="700" step="10" value="400" oninput="updateLabParams()" class="w-full accent-teal-500 cursor-pointer">
+                    </div>
+
+                    <!-- Rebar Configuration -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-2">
+                        <div class="flex justify-between items-center font-medium">
+                            <label class="text-red-300">Steel Reinforcement (A<sub>st</sub>)</label>
+                            <span id="val_Ast" class="font-mono text-red-400 font-bold bg-red-950/60 px-2 py-0.5 rounded border border-red-800">1963.5 mm²</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] text-slate-400">Number of Bars</label>
+                                <select id="select_numBars" onchange="updateLabParams()" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-white font-mono">
+                                    <option value="2">2 Bars</option>
+                                    <option value="3">3 Bars</option>
+                                    <option value="4" selected>4 Bars</option>
+                                    <option value="5">5 Bars</option>
+                                    <option value="6">6 Bars</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-slate-400">Bar Diameter (mm)</label>
+                                <select id="select_barDia" onchange="updateLabParams()" class="w-full bg-slate-900 border border-slate-700 rounded p-1 text-white font-mono">
+                                    <option value="12">12 mm</option>
+                                    <option value="16">16 mm</option>
+                                    <option value="20">20 mm</option>
+                                    <option value="25" selected>25 mm</option>
+                                    <option value="32">32 mm</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Material Grades -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+                            <label class="text-[11px] text-slate-300 block mb-1">Concrete (f<sub>ck</sub>)</label>
+                            <select id="select_fck" onchange="updateLabParams()" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white font-mono">
+                                <option value="20" selected>M20 (20 MPa)</option>
+                                <option value="25">M25 (25 MPa)</option>
+                                <option value="30">M30 (30 MPa)</option>
+                                <option value="35">M35 (35 MPa)</option>
+                            </select>
+                        </div>
+                        <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800/80">
+                            <label class="text-[11px] text-slate-300 block mb-1">Steel (f<sub>y</sub>)</label>
+                            <select id="select_fy" onchange="updateLabParams()" class="w-full bg-slate-900 border border-slate-700 rounded p-1.5 text-xs text-white font-mono">
+                                <option value="250">Fe 250</option>
+                                <option value="415" selected>Fe 415</option>
+                                <option value="500">Fe 500</option>
+                                <option value="550">Fe 550</option>
+                            </select>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- Dynamic Live Results Summary Card -->
+            <div id="resultsCard" class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div class="flex justify-between items-center text-xs font-mono">
+                    <span class="text-slate-400">CALCULATED METRICS</span>
+                    <span id="statusBadge" class="px-2 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30">
+                        x<sub>u</sub> &lt; D<sub>f</sub> (Inside Flange)
+                    </span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-xs">
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-slate-400 text-[11px]">Neutral Axis (x<sub>u</sub>)</div>
+                        <div id="calc_xu" class="text-lg font-bold font-mono text-amber-400">98.46 mm</div>
+                        <div id="calc_xu_ratio" class="text-[10px] text-slate-500">0.788 × D<sub>f</sub></div>
+                    </div>
+                    <div class="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                        <div class="text-slate-400 text-[11px]">Moment Capacity (M<sub>u</sub>)</div>
+                        <div id="calc_Mu" class="text-lg font-bold font-mono text-emerald-400">254.28 kNm</div>
+                        <div id="calc_Mu_formula" class="text-[10px] text-slate-500">at d = 400 mm</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Interactive Diagram Canvas & Bending Test Lab -->
+        <div class="lg:col-span-7 flex flex-col space-y-4">
+            
+            <!-- Canvas View Controls -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex-grow flex flex-col justify-between relative overflow-hidden">
+                
+                <div class="flex justify-between items-center mb-2 z-10">
+                    <div class="flex items-center space-x-2">
+                        <button id="btnViewCross" onclick="setViewMode('cross')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow transition">
+                            📐 T-Beam Cross-Section & Stress Block
+                        </button>
+                        <button id="btnViewLoad" onclick="setViewMode('load')" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition">
+                            🏋️ Bending Load Test
+                        </button>
+                    </div>
+
+                    <button onclick="toggleAnimateForce()" id="btnAnimForce" class="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg border border-slate-700 flex items-center gap-1 transition">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span>Equilibrium Forces</span>
+                    </button>
+                </div>
+
+                <!-- Main Dynamic Canvas Container -->
+                <div class="relative w-full h-[420px] bg-slate-950 rounded-xl border border-slate-800/80 overflow-hidden flex items-center justify-center">
+                    <canvas id="beamCanvas" class="w-full h-full cursor-crosshair"></canvas>
+                    
+                    <!-- Interactive Hover Tooltip -->
+                    <div id="canvasTooltip" class="absolute hidden pointer-events-none bg-slate-900/95 border border-slate-700 text-white text-xs p-2 rounded-lg shadow-xl backdrop-blur font-mono z-20">
+                        Tooltip
+                    </div>
+
+                    <!-- Push Load Controls overlay on Bending View -->
+                    <div id="bendingControlsOverlay" class="absolute bottom-3 left-3 right-3 bg-slate-900/90 border border-slate-800 p-3 rounded-xl backdrop-blur hidden flex items-center justify-between gap-4 z-10">
+                        <div class="flex-grow space-y-1">
+                            <div class="flex justify-between text-xs font-mono">
+                                <span class="text-slate-300">Applied Downward Load (Bending Moment)</span>
+                                <span id="loadText" class="text-amber-400 font-bold">120.0 kNm (47%)</span>
+                            </div>
+                            <input type="range" id="loadSlider" min="0" max="350" value="120" oninput="onLoadSliderChange()" class="w-full accent-amber-500 cursor-pointer">
+                        </div>
+                        <button onclick="simulateBreak()" class="bg-red-600/80 hover:bg-red-500 text-white text-xs px-3 py-2 rounded-lg font-bold transition whitespace-nowrap active:scale-95">
+                            💥 Max Load Test
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Dynamic Explanation Bar at Canvas Footer -->
+                <div id="canvasFooterExplanation" class="mt-3 bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-xs text-slate-300 font-sans flex items-start gap-2">
+                    <span class="text-blue-400 text-base">💡</span>
+                    <span id="canvasFooterText">
+                        The top <strong>Flange</strong> takes compression (Push), while bottom <strong>Steel Bars</strong> take tension (Pull). The yellow dashed line is the <strong>Neutral Axis (x<sub>u</sub>)</strong>.
+                    </span>
+                </div>
+            </div>
+
+            <!-- Formulas & Equation Breakdown Interactive Card -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <h4 class="text-xs font-bold text-slate-300 font-mono uppercase tracking-wider flex items-center justify-between">
+                    <span>🧮 Interactive Step-by-Step Equations</span>
+                    <span class="text-[10px] text-slate-500">Click any variable to inspect</span>
+                </h4>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <!-- Equation 1 -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 hover:border-blue-500/50 transition cursor-pointer" onclick="highlightStepInStory(1)">
+                        <div class="text-[10px] text-blue-400 font-mono font-bold mb-1">1. STEEL AREA (A<sub>st</sub>)</div>
+                        <div class="font-mono text-slate-200">A<sub>st</sub> = N × (π/4) × φ²</div>
+                        <div class="text-[11px] text-slate-400 mt-1" id="eq1_val">4 × 490.87 = 1963.5 mm²</div>
+                    </div>
+
+                    <!-- Equation 2 -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 hover:border-amber-500/50 transition cursor-pointer" onclick="highlightStepInStory(2)">
+                        <div class="text-[10px] text-amber-400 font-mono font-bold mb-1">2. NEUTRAL AXIS (x<sub>u</sub>)</div>
+                        <div class="font-mono text-slate-200">0.36 f<sub>ck</sub> b<sub>f</sub> x<sub>u</sub> = 0.87 f<sub>y</sub> A<sub>st</sub></div>
+                        <div class="text-[11px] text-slate-400 mt-1" id="eq2_val">x<sub>u</sub> = 98.46 mm</div>
+                    </div>
+
+                    <!-- Equation 3 -->
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 hover:border-emerald-500/50 transition cursor-pointer" onclick="highlightStepInStory(4)">
+                        <div class="text-[10px] text-emerald-400 font-mono font-bold mb-1">3. MOMENT CAPACITY (M<sub>u</sub>)</div>
+                        <div class="font-mono text-slate-200">M<sub>u</sub> = 0.87 f<sub>y</sub> A<sub>st</sub> (d - 0.42x<sub>u</sub>)</div>
+                        <div class="text-[11px] text-slate-400 mt-1" id="eq3_val">254.28 kN·m</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        /* ====================================================================
+           1. GLOBAL STATE & PARAMETERS
+           ==================================================================== */
+        const state = {
+            // T-Beam geometry (mm)
+            bf: 1000,
+            Df: 125,
+            bw: 250,
+            d: 400,
+            
+            // Steel rebar
+            numBars: 4,
+            barDia: 25,
+            
+            // Material properties (N/mm^2 or MPa)
+            fck: 20,
+            fy: 415,
+            
+            // Computed values
+            Ast: 1963.5,
+            xu: 98.46,
+            Mu: 254.28,
+            xuMaxRatio: 0.48, // Fe415 limit xu_max/d = 0.48
+            
+            // Simulation UI state
+            currentStep: 0,
+            viewMode: 'cross', // 'cross' or 'load'
+            appliedLoad: 120, // kN.m for bending simulation
+            isBroken: false,
+            audioMuted: false,
+            isSpeaking: false,
+            animForceOffset: 0
+        };
+
+        // Story steps (ELI5 Explanations)
+        const storySteps = [
+            {
+                title: "1. Meet the T-Beam! 🪵",
+                badge: "Step 1: Understanding the Shape",
+                body: `Imagine a big concrete table shaped like the letter <strong>'T'</strong>. <br><br>
+                       • The wide top flat table top is called the <strong>Flange</strong> (Width $b_f = 1000\\text{ mm}$, Depth $D_f = 125\\text{ mm}$).<br>
+                       • The bottom vertical leg is called the <strong>Web</strong> (or Stem).<br>
+                       • Tucked down near the bottom of the leg are <strong>4 strong steel rods</strong>. Concrete is super strong when squeezed (compression), but weak when pulled apart (tension). Steel comes to the rescue to hold the bottom together!`,
+                math: "Flange (b_f) = 1000 mm | Flange Depth (D_f) = 125 mm\nRebar = 4 steel bars (25mm diameter each)",
+                speakText: "Step 1: Meet the T Beam! Imagine a big concrete table shaped like the letter T. The top flat table is called the Flange, and the vertical stem is called the Web. Inside near the bottom are 4 steel rods that stop the beam from snapping when pushed down."
+            },
+            {
+                title: "2. Finding Total Steel Area (A_st) 🔴",
+                badge: "Step 2: Circle Geometry",
+                body: `Each steel rod is just a circle! To find how much total steel strength we have, we calculate the area of all 4 circles combined.<br><br>
+                       • Area of 1 bar = $\\frac{\\pi}{4} \\times \\text{diameter}^2 = \\frac{\\pi}{4} \\times 25^2 \\approx 490.87\\text{ mm}^2$<br>
+                       • Total Steel Area ($A_{st}$) = $4 \\times 490.87 = 1963.5\\text{ mm}^2$<br><br>
+                       That's almost $20\\text{ cm}^2$ of solid high-strength steel holding the beam!`,
+                math: "Area of 1 Bar = (π / 4) × 25² = 490.87 mm²\nTotal Steel Area (Ast) = 4 × 490.87 = 1963.5 mm²",
+                speakText: "Step 2: Finding Total Steel Area. Think of each rod as a small circle. The area of one 25-millimeter bar is 490.87 square millimeters. Multiplying by 4 bars gives a total steel area of 1963.5 square millimeters."
+            },
+            {
+                title: "3. Balancing Push & Pull (Neutral Axis x_u) ⚖️",
+                badge: "Step 3: Force Equilibrium",
+                body: `When you push down on top of the beam, the top concrete gets <strong>SQUEEZED (Compression)</strong> while the steel at the bottom gets <strong>PULLED (Tension)</strong>.<br><br>
+                       The imaginary dividing line where pushing turns into pulling is called the <strong>Neutral Axis ($x_u$)</strong>.<br><br>
+                       To find where this line sits, we balance the Push Force with the Pull Force:<br>
+                       $$\\text{Push Force of Concrete} = \\text{Pull Force of Steel}$$
+                       $$0.36 \\cdot f_{ck} \\cdot b_f \\cdot x_u = 0.87 \\cdot f_y \\cdot A_{st}$$
+                       Solving for $x_u$ gives **$98.46\\text{ mm}$** from the top surface!`,
+                math: "Push Force (0.36 × fck × bf × xu) = Pull Force (0.87 × fy × Ast)\nxu = (0.87 × 415 × 1963.5) / (0.36 × 20 × 1000) = 98.46 mm",
+                speakText: "Step 3: Balancing Push and Pull. Inside the beam, concrete pushes and steel pulls. We balance the Push Force with the Pull Force to locate the Neutral Axis depth xu, which turns out to be 98.46 millimeters."
+            },
+            {
+                title: "4. Where Does the Line Sit? 🔍",
+                badge: "Step 4: Check Depth Condition",
+                body: `Now let's compare the Neutral Axis depth ($x_u = 98.46\\text{ mm}$) with the Flange thickness ($D_f = 125\\text{ mm}$):<br><br>
+                       $$\\mathbf{x_u (98.46\\text{ mm}) < D_f (125\\text{ mm})}$$<br>
+                       Because $x_u$ is smaller than $125\\text{ mm}$, the dividing line lies **entirely inside the top table portion (flange)**!<br><br>
+                       🎉 This makes calculations super simple! The entire squeeze zone is uniform, so the T-Beam behaves just like a simple rectangle of width $b_f = 1000\\text{ mm}$.`,
+                math: "xu (98.46 mm) < Df (125 mm)  ✓ TRUE\nResult: Neutral axis lies entirely inside the Flange!",
+                speakText: "Step 4: Checking where the line sits. Since 98.46 millimeters is less than the flange depth of 125 millimeters, the neutral axis stays inside the top flange table. This simplifies the behavior to a standard rectangular beam of width 1000 millimeters."
+            },
+            {
+                title: "5. Ultimate Strength (Moment Capacity M_u) 🏋️‍♂️",
+                badge: "Step 5: Ultimate Moment Capacity",
+                body: `The **Moment of Resistance ($M_u$)** is the maximum twisting force the beam can hold before giving up!<br><br>
+                       $$\\text{Formula: } M_u = 0.87 \\cdot f_y \\cdot A_{st} \\cdot (d - 0.42 \\cdot x_u)$$<br>
+                       • **Algebraic Result:** $M_u = 0.709 \\times (d - 41.35)\\text{ kN}\\cdot\\text{m}$<br>
+                       • **Numerical Example (assuming $d = 400\\text{ mm}$):**<br>
+                       $$M_u = 0.709 \\times (400 - 41.35) = \\mathbf{254.28\\text{ kN}\\cdot\\text{m}}$$
+                       That is equal to holding a heavy car on a 10-meter lever arm! 🚗💪`,
+                math: "Mu = 0.87 × 415 × 1963.5 × (400 - 0.42 × 98.46)\nMu = 708,919.35 × 358.65 N·mm = 254.28 kN·m",
+                speakText: "Step 5: Ultimate Strength. Using the formula for moment of resistance with an effective depth of 400 millimeters, our T-Beam can withstand an ultimate bending moment of 254.28 kilonewton meters!"
+            }
+        ];
+
+        /* ====================================================================
+           2. SOUND ENGINE (TONE.JS & SYNTHS)
+           ==================================================================== */
+        let synth, polySynth;
+
+        function initAudioEngine() {
+            try {
+                synth = new Tone.Synth({
+                    oscillator: { type: 'sine' },
+                    envelope: { attack: 0.01, decay: 0.1, sustain: 0.1, release: 0.2 }
+                }).toDestination();
+                synth.volume.value = -12;
+
+                polySynth = new Tone.PolySynth(Tone.Synth).toDestination();
+                polySynth.volume.value = -16;
+            } catch (e) {
+                console.warn("Audio init deferred until user gesture", e);
+            }
+        }
+
+        function playSound(type) {
+            if (state.audioMuted) return;
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start();
+                }
+                if (!synth) initAudioEngine();
+
+                if (type === 'click') {
+                    synth.triggerAttackRelease("C5", "8n");
+                } else if (type === 'step') {
+                    polySynth.triggerAttackRelease(["E4", "G4", "B4"], "8n");
+                } else if (type === 'slide') {
+                    synth.triggerAttackRelease("G3", "16n");
+                } else if (type === 'break') {
+                    polySynth.triggerAttackRelease(["C2", "C3", "F#3"], "4n");
+                } else if (type === 'success') {
+                    polySynth.triggerAttackRelease(["C4", "E4", "G4", "C5"], "8n");
+                }
+            } catch (err) {
+                // Ignore audio errors gracefully
+            }
+        }
+
+        function toggleAudioMute() {
+            state.audioMuted = !state.audioMuted;
+            document.getElementById('soundOnIcon').classList.toggle('hidden', state.audioMuted);
+            document.getElementById('soundOffIcon').classList.toggle('hidden', !state.audioMuted);
+            if (!state.audioMuted) playSound('click');
+        }
+
+        /* ====================================================================
+           3. NATIVE SPEECH SYNTHESIS ENGINE (TTS)
+           ==================================================================== */
+        let synthSpeech = window.speechSynthesis;
+        let voices = [];
+
+        function populateVoices() {
+            if (!synthSpeech) return;
+            voices = synthSpeech.getVoices().filter(v => v.lang.startsWith('en'));
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (!voiceSelect) return;
+            
+            voiceSelect.innerHTML = '<option value="">Default Voice</option>';
+            voices.forEach((voice, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = `${voice.name.split(' ')[0]} (${voice.lang})`;
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        if (synthSpeech) {
+            populateVoices();
+            if (speechSynthesis.onvoiceschanged !== undefined) {
+                speechSynthesis.onvoiceschanged = populateVoices;
+            }
+        }
+
+        function toggleVoiceover() {
+            if (!synthSpeech) {
+                alert("Speech synthesis not supported in this browser.");
+                return;
+            }
+
+            if (state.isSpeaking) {
+                synthSpeech.cancel();
+                state.isSpeaking = false;
+                updateTTSBtnUI(false);
+            } else {
+                speakCurrentStep();
+            }
+        }
+
+        function speakCurrentStep() {
+            if (!synthSpeech) return;
+            synthSpeech.cancel(); // Stop ongoing speech
+
+            const textToSpeak = storySteps[state.currentStep].speakText;
+            const utterance = new SpeechSynthesisUtterance(textToSpeak);
+            
+            const selectedVoiceIndex = document.getElementById('voiceSelect').value;
+            if (selectedVoiceIndex !== "" && voices[selectedVoiceIndex]) {
+                utterance.voice = voices[selectedVoiceIndex];
+            }
+
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+
+            utterance.onstart = () => {
+                state.isSpeaking = true;
+                updateTTSBtnUI(true);
+            };
+
+            utterance.onend = () => {
+                state.isSpeaking = false;
+                updateTTSBtnUI(false);
+            };
+
+            utterance.onerror = () => {
+                state.isSpeaking = false;
+                updateTTSBtnUI(false);
+            };
+
+            synthSpeech.speak(utterance);
+        }
+
+        function updateTTSBtnUI(isSpeaking) {
+            document.getElementById('ttsPlayIcon').classList.toggle('hidden', isSpeaking);
+            document.getElementById('ttsPauseIcon').classList.toggle('hidden', !isSpeaking);
+            document.getElementById('ttsBtnText').textContent = isSpeaking ? "Pause Voice" : "Read Step (Voice)";
+        }
+
+        function changeVoice() {
+            if (state.isSpeaking) {
+                speakCurrentStep();
+            }
+        }
+
+        /* ====================================================================
+           4. MATHEMATICAL COMPUTATION & CALCULATOR ENGINE
+           ==================================================================== */
+        function calculateTBeam() {
+            // Step 1: Area of steel
+            const areaOneBar = (Math.PI / 4) * Math.pow(state.barDia, 2);
+            state.Ast = state.numBars * areaOneBar;
+
+            // Step 2: Neutral Axis xu
+            // Push = Pull -> 0.36 * fck * bf * xu = 0.87 * fy * Ast
+            const pushFactor = 0.36 * state.fck * state.bf;
+            const pullForce = 0.87 * state.fy * state.Ast;
+            state.xu = pullForce / pushFactor;
+
+            // Step 3: Check xu vs Df & xu_max
+            let xuMaxRatio = 0.48; // Fe415 limit
+            if (state.fy === 250) xuMaxRatio = 0.53;
+            else if (state.fy >= 500) xuMaxRatio = 0.46;
+            
+            const xuMax = xuMaxRatio * state.d;
+
+            // Step 4: Ultimate Moment Capacity Mu
+            // Case A: xu <= Df (Inside Flange) -> standard rectangular behavior with b = bf
+            if (state.xu <= state.Df) {
+                state.Mu = (pullForce * (state.d - 0.42 * state.xu)) / 1e6; // in kN.m
+            } else {
+                // Case B: xu > Df (Neutral Axis lies in Web)
+                // Simplified IS456 formula for web depth
+                const yf = Math.min(state.Df, 0.15 * state.xu + 0.65 * state.Df);
+                const C_flange = 0.45 * state.fck * (state.bf - state.bw) * yf;
+                const C_web = 0.36 * state.fck * state.bw * state.xu;
+                
+                const M1 = C_web * (state.d - 0.42 * state.xu);
+                const M2 = C_flange * (state.d - 0.5 * yf);
+                state.Mu = (M1 + M2) / 1e6; // in kN.m
+            }
+
+            updateUIOutputs();
+        }
+
+        function updateUIOutputs() {
+            // Update labels
+            document.getElementById('val_bf').textContent = `${state.bf} mm`;
+            document.getElementById('val_Df').textContent = `${state.Df} mm`;
+            document.getElementById('val_bw').textContent = `${state.bw} mm`;
+            document.getElementById('val_d').textContent = `${state.d} mm`;
+            document.getElementById('val_Ast').textContent = `${state.Ast.toFixed(1)} mm²`;
+
+            document.getElementById('calc_xu').textContent = `${state.xu.toFixed(2)} mm`;
+            document.getElementById('calc_xu_ratio').textContent = `${(state.xu / state.Df).toFixed(3)} × Df`;
+            
+            document.getElementById('calc_Mu').textContent = `${state.Mu.toFixed(2)} kNm`;
+            document.getElementById('calc_Mu_formula').textContent = `at d = ${state.d} mm`;
+
+            // Status Badge
+            const badge = document.getElementById('statusBadge');
+            if (state.xu <= state.Df) {
+                badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-green-500/20 text-green-400 border border-green-500/30";
+                badge.innerHTML = "x<sub>u</sub> ≤ D<sub>f</sub> (Inside Flange)";
+            } else {
+                badge.className = "px-2 py-0.5 rounded text-[11px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                badge.innerHTML = "x<sub>u</sub> &gt; D<sub>f</sub> (Extends into Web)";
+            }
+
+            // Update interactive equation display values
+            document.getElementById('eq1_val').textContent = `${state.numBars} × ${((Math.PI/4)*state.barDia*state.barDia).toFixed(1)} = ${state.Ast.toFixed(1)} mm²`;
+            document.getElementById('eq2_val').textContent = `x_u = ${state.xu.toFixed(2)} mm (${state.xu <= state.Df ? 'In Flange' : 'In Web'})`;
+            document.getElementById('eq3_val').textContent = `M_u = ${state.Mu.toFixed(2)} kN·m`;
+
+            // Update load slider max to match current Mu capacity
+            const loadSlider = document.getElementById('loadSlider');
+            if (loadSlider) {
+                loadSlider.max = Math.round(state.Mu * 1.4);
+            }
+        }
+
+        function updateLabParams() {
+            state.bf = parseFloat(document.getElementById('slider_bf').value);
+            state.Df = parseFloat(document.getElementById('slider_Df').value);
+            state.bw = parseFloat(document.getElementById('slider_bw').value);
+            state.d = parseFloat(document.getElementById('slider_d').value);
+
+            state.numBars = parseInt(document.getElementById('select_numBars').value);
+            state.barDia = parseInt(document.getElementById('select_barDia').value);
+
+            state.fck = parseFloat(document.getElementById('select_fck').value);
+            state.fy = parseFloat(document.getElementById('select_fy').value);
+
+            playSound('slide');
+            calculateTBeam();
+            drawCanvas();
+        }
+
+        function resetToDefaults() {
+            document.getElementById('slider_bf').value = 1000;
+            document.getElementById('slider_Df').value = 125;
+            document.getElementById('slider_bw').value = 250;
+            document.getElementById('slider_d').value = 400;
+
+            document.getElementById('select_numBars').value = "4";
+            document.getElementById('select_barDia').value = "25";
+
+            document.getElementById('select_fck').value = "20";
+            document.getElementById('select_fy').value = "415";
+
+            updateLabParams();
+            playSound('click');
+        }
+
+        /* ====================================================================
+           5. STORY MODE NAVIGATION & TABS
+           ==================================================================== */
+        function switchTab(mode) {
+            playSound('click');
+            const tabStory = document.getElementById('tabStory');
+            const tabSandbox = document.getElementById('tabSandbox');
+            const panelStory = document.getElementById('panelStory');
+            const panelSandbox = document.getElementById('panelSandbox');
+
+            if (mode === 'story') {
+                tabStory.className = "flex-1 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                tabSandbox.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+                panelStory.classList.remove('hidden');
+                panelSandbox.classList.add('hidden');
+            } else {
+                tabSandbox.className = "flex-1 py-2 rounded-lg text-xs font-bold transition bg-blue-600 text-white shadow";
+                tabStory.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition";
+                panelSandbox.classList.remove('hidden');
+                panelStory.classList.add('hidden');
+            }
+        }
+
+        function updateStoryStepUI() {
+            const step = storySteps[state.currentStep];
+            document.getElementById('stepBadge').textContent = step.badge;
+            document.getElementById('stepTitle').innerHTML = step.title;
+            document.getElementById('stepBody').innerHTML = step.body;
+            document.getElementById('mathHighlightBox').innerHTML = `<pre class="whitespace-pre-wrap font-mono">${step.math}</pre>`;
+            document.getElementById('stepCounterText').textContent = `${state.currentStep + 1} / ${storySteps.length}`;
+
+            document.getElementById('prevStepBtn').disabled = (state.currentStep === 0);
+            
+            const nextBtn = document.getElementById('nextStepBtn');
+            if (state.currentStep === storySteps.length - 1) {
+                nextBtn.textContent = "Finish & Open Lab 🎉";
+            } else {
+                nextBtn.textContent = "Next Step →";
+            }
+
+            // Update Dots
+            const dotsContainer = document.getElementById('stepDots');
+            dotsContainer.innerHTML = '';
+            storySteps.forEach((_, idx) => {
+                const dot = document.createElement('div');
+                dot.className = `w-2 h-2 rounded-full transition-all ${idx === state.currentStep ? 'bg-blue-400 w-4' : 'bg-slate-700'}`;
+                dotsContainer.appendChild(dot);
+            });
+
+            if (state.isSpeaking) {
+                speakCurrentStep();
+            }
+
+            drawCanvas();
+        }
+
+        function navigateStep(direction) {
+            playSound('step');
+            state.currentStep += direction;
+            if (state.currentStep >= storySteps.length) {
+                state.currentStep = storySteps.length - 1;
+                switchTab('sandbox');
+                return;
+            }
+            if (state.currentStep < 0) state.currentStep = 0;
+
+            updateStoryStepUI();
+        }
+
+        function highlightStepInStory(stepNumber) {
+            switchTab('story');
+            state.currentStep = stepNumber - 1;
+            updateStoryStepUI();
+        }
+
+        /* ====================================================================
+           6. DYNAMIC CANVAS RENDERER & VISUALIZATIONS
+           ==================================================================== */
+        const canvas = document.getElementById('beamCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            drawCanvas();
+        }
+
+        function setViewMode(mode) {
+            playSound('click');
+            state.viewMode = mode;
+            document.getElementById('btnViewCross').className = mode === 'cross' ? 
+                "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow transition" : 
+                "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition";
+            
+            document.getElementById('btnViewLoad').className = mode === 'load' ? 
+                "px-3 py-1.5 rounded-lg text-xs font-bold bg-blue-600 text-white shadow transition" : 
+                "px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition";
+
+            document.getElementById('bendingControlsOverlay').classList.toggle('hidden', mode !== 'load');
+            drawCanvas();
+        }
+
+        function toggleAnimateForce() {
+            playSound('click');
+            state.animForceOffset = (state.animForceOffset + 1) % 100;
+            drawCanvas();
+        }
+
+        function drawCanvas() {
+            if (!canvas.width) return;
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+
+            ctx.clearRect(0, 0, width, height);
+
+            if (state.viewMode === 'cross') {
+                drawCrossSectionView(width, height);
+            } else {
+                drawBendingLoadView(width, height);
+            }
+        }
+
+        /* --------------------------------------------------------------------
+           View A: T-Beam Cross-Section & Stress Distribution Block
+           -------------------------------------------------------------------- */
+        function drawCrossSectionView(width, height) {
+            const centerX = width * 0.32;
+            const startY = 50;
+
+            // Scale calculations (fit T-beam comfortably on left side)
+            const scale = Math.min(width * 0.35 / state.bf, (height - 100) / (state.d + 80));
+
+            const bfPx = state.bf * scale;
+            const DfPx = state.Df * scale;
+            const bwPx = state.bw * scale;
+            const dPx = state.d * scale;
+            const xuPx = state.xu * scale;
+
+            // Geometry Coordinates
+            const flangeLeft = centerX - bfPx / 2;
+            const flangeRight = centerX + bfPx / 2;
+            const flangeBottom = startY + DfPx;
+
+            const webLeft = centerX - bwPx / 2;
+            const webRight = centerX + bwPx / 2;
+            const beamBottom = startY + dPx + 35 * scale; // Cover distance
+
+            // 1. Draw Concrete T-Shape
+            ctx.fillStyle = '#334155'; // Concrete fill
+            ctx.strokeStyle = '#64748b';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(flangeLeft, startY);
+            ctx.lineTo(flangeRight, startY);
+            ctx.lineTo(flangeRight, flangeBottom);
+            ctx.lineTo(webRight, flangeBottom);
+            ctx.lineTo(webRight, beamBottom);
+            ctx.lineTo(webLeft, beamBottom);
+            ctx.lineTo(webLeft, flangeBottom);
+            ctx.lineTo(flangeLeft, flangeBottom);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Concrete Texture hatches
+            ctx.fillStyle = 'rgba(255,255,255,0.08)';
+            for (let i = 0; i < 15; i++) {
+                const rx = flangeLeft + Math.random() * bfPx;
+                const ry = startY + Math.random() * DfPx;
+                ctx.beginPath();
+                ctx.arc(rx, ry, 1.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 2. Draw Steel Reinforcement Bars
+            const rebarY = startY + dPx;
+            const rebarRadius = Math.max(4, (state.barDia / 2) * scale);
+            const barSpacing = (bwPx - 20) / (state.numBars + 1);
+
+            for (let i = 1; i <= state.numBars; i++) {
+                const barX = webLeft + 10 + i * barSpacing;
+                
+                // Rebar outer glow
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(barX, rebarY, rebarRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Rebar highlight
+                ctx.fillStyle = '#fca5a5';
+                ctx.beginPath();
+                ctx.arc(barX - rebarRadius*0.3, rebarY - rebarRadius*0.3, rebarRadius*0.4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // 3. Draw Neutral Axis (x_u) Line
+            const xuY = startY + xuPx;
+            ctx.setLineDash([6, 4]);
+            ctx.strokeStyle = '#eab308'; // Amber
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(flangeLeft - 15, xuY);
+            ctx.lineTo(flangeRight + 110, xuY);
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset line dash
+
+            // Neutral Axis Label
+            ctx.fillStyle = '#eab308';
+            ctx.font = 'bold 11px JetBrains Mono';
+            ctx.fillText(`N.A. (x_u = ${state.xu.toFixed(1)}mm)`, flangeRight + 15, xuY - 6);
+
+            // 4. Dimension Annotations
+            drawDimensionArrow(flangeLeft, startY - 18, flangeRight, startY - 18, `b_f = ${state.bf}mm`, '#60a5fa');
+            drawDimensionArrow(flangeRight + 12, startY, flangeRight + 12, flangeBottom, `D_f = ${state.Df}mm`, '#60a5fa');
+            drawDimensionArrow(flangeLeft - 18, startY, flangeLeft - 18, rebarY, `d = ${state.d}mm`, '#2dd4bf');
+
+            // Highlight Step in Story Mode on Diagram
+            if (state.currentStep === 2) {
+                // Highlight Neutral Axis
+                ctx.fillStyle = 'rgba(234, 179, 8, 0.15)';
+                ctx.fillRect(flangeLeft, startY, bfPx, xuPx);
+            } else if (state.currentStep === 1) {
+                // Highlight Rebar
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(centerX, rebarY, bwPx*0.4, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+
+            // ----------------------------------------------------------------
+            // 5. STRESS DISTRIBUTION DIAGRAM (Right Side)
+            // ----------------------------------------------------------------
+            const stressStartX = width * 0.72;
+            const stressWidth = 90;
+
+            // Vertical Center Axis of Stress Block
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(stressStartX, startY - 10);
+            ctx.lineTo(stressStartX, beamBottom + 10);
+            ctx.stroke();
+
+            // Concrete Compression Stress Block (0.36 fck)
+            const stressTopX = stressStartX - stressWidth;
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.35)';
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 2;
+
+            ctx.beginPath();
+            ctx.moveTo(stressStartX, startY);
+            ctx.lineTo(stressTopX, startY);
+            ctx.lineTo(stressTopX, xuY);
+            ctx.lineTo(stressStartX, xuY);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Force Vector Arrows (Compression Push Left)
+            const pushForceY = startY + 0.42 * xuPx;
+            drawForceArrow(stressStartX, pushForceY, stressStartX - 65, pushForceY, 'C = 0.36 f_ck b_f x_u', '#3b82f6');
+
+            // Force Vector Arrows (Steel Tension Pull Right)
+            drawForceArrow(stressStartX, rebarY, stressStartX + 65, rebarY, 'T = 0.87 f_y A_st', '#ef4444');
+
+            // Lever Arm Line (z = d - 0.42 xu)
+            drawDimensionArrow(stressStartX + 18, pushForceY, stressStartX + 18, rebarY, `z = d - 0.42 x_u`, '#10b981');
+
+            // Equilibrium Scale Chime Graphic
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 12px Inter';
+            ctx.fillText("Stress Block & Forces", stressStartX - 50, startY - 25);
+        }
+
+        /* --------------------------------------------------------------------
+           View B: Bending Load Test Animation (Longitudinal Beam Deflection)
+           -------------------------------------------------------------------- */
+        function drawBendingLoadView(width, height) {
+            const beamLength = width * 0.75;
+            const startX = (width - beamLength) / 2;
+            const beamY = height * 0.45;
+            const beamHeight = 45;
+
+            // Load & Deflection ratio
+            const loadRatio = Math.min(1.5, state.appliedLoad / state.Mu);
+            const deflection = loadRatio * 28; // Pixels flexure
+
+            ctx.save();
+
+            // Supports at ends (Roller & Pin)
+            drawSupport(startX, beamY + beamHeight / 2 + deflection * 0.1, 'pin');
+            drawSupport(startX + beamLength, beamY + beamHeight / 2 + deflection * 0.1, 'roller');
+
+            // Beam Curves (Deflected longitudinal shape using quadratic Bezier)
+            const midX = startX + beamLength / 2;
+            const midY = beamY + deflection;
+
+            // Top concrete surface
+            ctx.fillStyle = state.isBroken ? '#7f1d1d' : '#334155';
+            ctx.strokeStyle = state.isBroken ? '#ef4444' : '#3b82f6';
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+            ctx.moveTo(startX, beamY - beamHeight / 2);
+            ctx.quadraticCurveTo(midX, beamY - beamHeight / 2 + deflection, startX + beamLength, beamY - beamHeight / 2);
+            ctx.lineTo(startX + beamLength, beamY + beamHeight / 2);
+            ctx.quadraticCurveTo(midX, beamY + beamHeight / 2 + deflection, startX, beamY + beamHeight / 2);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+
+            // Red Steel Reinforcement Bar along bottom
+            ctx.strokeStyle = '#ef4444';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(startX + 10, beamY + beamHeight / 2 - 8);
+            ctx.quadraticCurveTo(midX, beamY + beamHeight / 2 - 8 + deflection, startX + beamLength - 10, beamY + beamHeight / 2 - 8);
+            ctx.stroke();
+
+            // Downward Load Arrow at center
+            const arrowLength = 40 + loadRatio * 30;
+            const arrowTopY = beamY - beamHeight / 2 + deflection/2 - arrowLength;
+            drawForceArrow(midX, arrowTopY, midX, beamY - beamHeight / 2 + deflection/2 - 5, `${state.appliedLoad.toFixed(1)} kN·m`, '#f59e0b');
+
+            // Tension Cracks if overloaded (> 90% Mu)
+            if (loadRatio > 0.9) {
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                for (let i = -2; i <= 2; i++) {
+                    const cx = midX + i * 35;
+                    const cy = beamY + beamHeight / 2 + deflection * 0.8;
+                    ctx.beginPath();
+                    ctx.moveTo(cx, cy);
+                    ctx.lineTo(cx + (Math.random()-0.5)*10, cy - 18 - Math.random()*12);
+                    ctx.stroke();
+                }
+            }
+
+            // Warning Banner if broken
+            if (state.isBroken || loadRatio >= 1.0) {
+                ctx.fillStyle = '#ef4444';
+                ctx.font = 'bold 16px Fredoka';
+                ctx.textAlign = 'center';
+                ctx.fillText("⚠️ ULTIMATE CAPACITY EXCEEDED! (BEAM YIELD/FAILURE)", width / 2, 40);
+                ctx.textAlign = 'left';
+            } else {
+                ctx.fillStyle = '#10b981';
+                ctx.font = 'bold 14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Safe Bending Load (${(loadRatio*100).toFixed(0)}% of M_u)`, width / 2, 40);
+                ctx.textAlign = 'left';
+            }
+
+            ctx.restore();
+        }
+
+        /* --------------------------------------------------------------------
+           Drawing Helper Utilities
+           -------------------------------------------------------------------- */
+        function drawDimensionArrow(x1, y1, x2, y2, text, color) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 1.2;
+
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // End ticks
+            const isHoriz = Math.abs(y1 - y2) < 2;
+            if (isHoriz) {
+                ctx.beginPath();
+                ctx.moveTo(x1, y1 - 4); ctx.lineTo(x1, y1 + 4);
+                ctx.moveTo(x2, y2 - 4); ctx.lineTo(x2, y2 + 4);
+                ctx.stroke();
+
+                ctx.font = '10px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(text, (x1 + x2) / 2, y1 - 5);
+                ctx.textAlign = 'left';
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(x1 - 4, y1); ctx.lineTo(x1 + 4, y1);
+                ctx.moveTo(x2 - 4, y2); ctx.lineTo(x2 + 4, y2);
+                ctx.stroke();
+
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(text, x1 + 6, (y1 + y2) / 2 + 3);
+            }
+        }
+
+        function drawForceArrow(fromX, fromY, toX, toY, label, color) {
+            const headlen = 8;
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const angle = Math.atan2(dy, dx);
+
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 2.5;
+
+            ctx.beginPath();
+            ctx.moveTo(fromX, fromY);
+            ctx.lineTo(toX, toY);
+            ctx.stroke();
+
+            // Arrowhead
+            ctx.beginPath();
+            ctx.moveTo(toX, toY);
+            ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            // Label text
+            ctx.font = 'bold 10px JetBrains Mono';
+            ctx.fillText(label, Math.min(fromX, toX) - 10, Math.min(fromY, toY) - 6);
+        }
+
+        function drawSupport(x, y, type) {
+            ctx.fillStyle = '#64748b';
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 2;
+
+            if (type === 'pin') {
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x - 12, y + 20);
+                ctx.lineTo(x + 12, y + 20);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                // Roller
+                ctx.beginPath();
+                ctx.arc(x, y + 10, 8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+        }
+
+        /* --------------------------------------------------------------------
+           Bending Load Test Slider Events
+           -------------------------------------------------------------------- */
+        function onLoadSliderChange() {
+            const slider = document.getElementById('loadSlider');
+            state.appliedLoad = parseFloat(slider.value);
+            const loadRatio = state.appliedLoad / state.Mu;
+
+            state.isBroken = (loadRatio >= 1.0);
+            document.getElementById('loadText').textContent = `${state.appliedLoad.toFixed(1)} kNm (${(loadRatio * 100).toFixed(0)}%)`;
+
+            if (state.isBroken) {
+                playSound('break');
+            } else {
+                playSound('slide');
+            }
+
+            drawCanvas();
+        }
+
+        function simulateBreak() {
+            const slider = document.getElementById('loadSlider');
+            slider.value = Math.round(state.Mu * 1.15);
+            onLoadSliderChange();
+        }
+
+        /* ====================================================================
+           7. INITIALIZATION ON WINDOW LOAD
+           ==================================================================== */
+        window.onload = function () {
+            window.addEventListener('resize', resizeCanvas);
+            
+            calculateTBeam();
+            updateStoryStepUI();
+            resizeCanvas();
+
+            // Canvas interaction tooltip
+            canvas.addEventListener('mousemove', (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = e.clientX - rect.left;
+                const mouseY = e.clientY - rect.top;
+
+                const tooltip = document.getElementById('canvasTooltip');
+                
+                if (state.viewMode === 'cross' && mouseX > rect.width * 0.6) {
+                    tooltip.style.left = `${mouseX + 15}px`;
+                    tooltip.style.top = `${mouseY + 15}px`;
+                    tooltip.innerHTML = `<strong>Stress Block:</strong><br>Push = 0.36 f<sub>ck</sub> b<sub>f</sub> x<sub>u</sub><br>Pull = 0.87 f<sub>y</sub> A<sub>st</sub>`;
+                    tooltip.classList.remove('hidden');
+                } else {
+                    tooltip.classList.add('hidden');
+                }
+            });
+
+            canvas.addEventListener('mouseleave', () => {
+                document.getElementById('canvasTooltip').classList.add('hidden');
+            });
+        };
+    </script>
+</body>
+</html>

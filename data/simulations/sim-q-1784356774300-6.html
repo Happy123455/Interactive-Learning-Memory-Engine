@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel-Joint Playground | Cyber Structural Simulator</title>
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --panel: rgba(20, 25, 35, 0.8);
+            --accent: #00f2ff;
+            --danger: #ff0055;
+            --text: #e0e6ed;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            height: 100vh; 
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+        }
+
+        .panel { 
+            background: var(--panel); 
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            z-index: 10;
+        }
+
+        #canvas-container { position: relative; grid-column: 2; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+        .glass-card { background: rgba(0,0,0,0.3); border: 1px solid var(--accent); padding: 15px; border-radius: 8px; }
+        .draggable { cursor: grab; padding: 10px; background: #222; margin: 5px 0; border: 1px solid #444; border-radius: 4px; text-align: center; }
+        .draggable:active { cursor: grabbing; }
+
+        .ui-header { font-weight: bold; color: var(--accent); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 10px; }
+        
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+        .modal-content { background: #1a1c22; padding: 40px; border: 1px solid var(--accent); max-width: 500px; }
+    </style>
+</head>
+<body>
+
+    <aside class="panel">
+        <div class="ui-header">Components</div>
+        <div class="draggable" draggable="true" data-type="bolt">M20 Grade 8.8 Bolt</div>
+        <div class="draggable" draggable="true" data-type="bolt">M24 Grade 10.9 Bolt</div>
+        <hr style="opacity: 0.2;">
+        <div class="ui-header">Settings</div>
+        <label>Plate Thickness (mm)</label>
+        <input type="range" id="t-slider" min="10" max="50" value="20">
+        <div id="efficiency-bar" class="glass-card">Efficiency: 0%</div>
+        <button onclick="speakAnalogy()" style="margin-top:auto; padding:10px; background:var(--accent); border:none; cursor:pointer;">Explain Analogy</button>
+    </aside>
+
+    <main id="canvas-container">
+        <canvas id="simCanvas"></canvas>
+    </main>
+
+    <aside class="panel">
+        <div class="ui-header">Formula Slot</div>
+        <div class="glass-card" id="formula-drop">
+            η = (P<sub>j</sub> / P<sub>s</sub>) * 100
+        </div>
+        <button onclick="toggleModal()" style="margin-top:20px;">Open IS 800 Codebook</button>
+    </aside>
+
+    <div id="code-modal" class="modal" onclick="toggleModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h2>IS 800: Clause 10.2</h2>
+            <p>Bolt pitch and gauge distances are critical. Maintain minimum spacing of 2.5d to prevent plate tearing between holes.</p>
+            <button onclick="toggleModal()">Close</button>
+        </div>
+    </div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let tension = 0;
+    let bolts = [];
+
+    // Canvas Logic
+    function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Physics Loop
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Steel Plates
+        ctx.fillStyle = '#444';
+        ctx.fillRect(100, canvas.height/2 - 50, 200, 100);
+        ctx.fillRect(400, canvas.height/2 - 50, 200, 100);
+
+        // Tension Effect
+        const wobble = Math.sin(Date.now() * 0.01) * (tension * 0.5);
+        ctx.strokeStyle = tension > 80 ? 'red' : 'cyan';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(300 + wobble, canvas.height/2);
+        ctx.lineTo(400 + wobble, canvas.height/2);
+        ctx.stroke();
+
+        // Draw Bolts
+        bolts.forEach(b => {
+            ctx.fillStyle = 'silver';
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, 10, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    // Interaction
+    window.addEventListener('mousemove', (e) => {
+        tension = (e.clientX / window.innerWidth) * 100;
+        document.getElementById('efficiency-bar').innerText = `Efficiency: ${Math.floor(100 - tension/2)}%`;
+    });
+
+    // Drag and Drop
+    document.querySelectorAll('.draggable').forEach(el => {
+        el.addEventListener('dragstart', (e) => e.dataTransfer.setData('type', 'bolt'));
+    });
+
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        bolts.push({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        playSound();
+    });
+    canvas.addEventListener('dragover', (e) => e.preventDefault());
+
+    // Audio
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playSound() {
+        const osc = audioCtx.createOscillator();
+        osc.connect(audioCtx.destination);
+        osc.frequency.value = 440;
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    }
+
+    function speakAnalogy() {
+        const msg = new SpeechSynthesisUtterance("Think of this butt joint like two hands holding a rope; the bolts are your fingers—if you pull too hard, your grip slips!");
+        window.speechSynthesis.speak(msg);
+    }
+
+    function toggleModal() {
+        const m = document.getElementById('code-modal');
+        m.style.display = m.style.display === 'flex' ? 'none' : 'flex';
+    }
+
+    animate();
+</script>
+</body>
+</html>

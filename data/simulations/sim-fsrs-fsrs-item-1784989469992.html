@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Beam-Bender Playground</title>
+    <style>
+        body { margin: 0; background: #0a0a12; color: #0ff; font-family: 'Segoe UI', sans-serif; overflow: hidden; display: flex; flex-direction: column; align-items: center; }
+        canvas { cursor: crosshair; touch-action: none; background: #111; border-bottom: 2px solid #333; }
+        #ui-layer { position: absolute; top: 20px; text-align: center; pointer-events: none; width: 100%; }
+        .hud { background: rgba(0,255,255,0.1); border: 1px solid #0ff; padding: 15px; display: inline-block; border-radius: 10px; pointer-events: auto; }
+        .controls { position: absolute; bottom: 20px; width: 80%; display: flex; gap: 20px; }
+        .val-display { font-family: monospace; font-size: 1.2em; color: #ff0; }
+        .danger { color: #f00 !important; animation: shake 0.2s infinite; }
+        @keyframes shake { 0%{transform:translateX(-2px)} 100%{transform:translateX(2px)} }
+    </style>
+</head>
+<body>
+
+<div id="ui-layer">
+    <div class="hud">
+        <h1>Beam-Bender Playground</h1>
+        <p>Drag mouse to adjust Neutral Axis (X<sub>u</sub>)</p>
+        <div class="val-display" id="data">X<sub>u</sub>: 0 | Stress: 0</div>
+    </div>
+</div>
+
+<div class="controls">
+    <input type="range" id="load" min="10" max="500" value="200" style="width:100%">
+</div>
+
+<script>
+    const canvas = document.createElement('canvas');
+    document.body.appendChild(canvas);
+    const ctx = canvas.getContext('2d');
+    let w, h;
+    let xu = 100, d = 300, b = 200, fck = 20, fy = 415;
+    let audioCtx, osc;
+
+    function resize() {
+        w = canvas.width = window.innerWidth;
+        h = canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Audio Setup
+    function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        gain.gain.value = 0.05;
+        osc.start();
+    }
+
+    window.addEventListener('mousedown', initAudio);
+
+    canvas.addEventListener('mousemove', (e) => {
+        xu = Math.max(10, Math.min(e.clientY - 100, d));
+        if (osc) osc.frequency.value = 40 + (xu / d) * 800;
+        
+        // Speak
+        if (Math.random() < 0.01) {
+            const msg = new SpeechSynthesisUtterance(xu > 200 ? "Danger! Too much compression!" : "Balance achieved.");
+            window.speechSynthesis.speak(msg);
+        }
+    });
+
+    function draw() {
+        ctx.clearRect(0, 0, w, h);
+        
+        // Beam
+        const beamY = 150;
+        ctx.fillStyle = "#222";
+        ctx.fillRect(w/2 - 150, beamY, 300, d);
+
+        // Concrete Stress Block
+        ctx.fillStyle = `rgba(255, 0, 0, ${xu/d})`;
+        ctx.fillRect(w/2 - 150, beamY, 300, xu);
+
+        // Steel
+        ctx.fillStyle = "#ff0"; // Bottom
+        ctx.fillRect(w/2 - 140, beamY + d - 20, 280, 10);
+        ctx.fillStyle = "#0ff"; // Top
+        ctx.fillRect(w/2 - 140, beamY + 20, 280, 10);
+
+        // UI Updates
+        const ratio = (xu/d).toFixed(2);
+        const data = document.getElementById('data');
+        data.innerHTML = `X<sub>u</sub>/d: ${ratio} | Status: ${ratio > 0.48 ? '<span class="danger">UNSAFE</span>' : 'SAFE'}`;
+        
+        requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    // Party Poppers
+    function triggerSuccess() {
+        const cheer = new AudioContext(); // simplified placeholder
+        console.log("Party time!");
+    }
+</script>
+</body>
+</html>

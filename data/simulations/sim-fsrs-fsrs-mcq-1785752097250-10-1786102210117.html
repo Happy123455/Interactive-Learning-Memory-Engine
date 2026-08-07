@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Block Balance Bonanza!</title>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: #0d0d1a; /* Very dark background */
+            font-family: 'Press Start 2P', cursive, sans-serif;
+            color: #e0e0e0;
+            overflow: hidden;
+            -webkit-user-select: none; /* Disable text selection for better dragging experience */
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        #simulation-container {
+            position: relative;
+            width: 900px; /* Adjusted for more space */
+            height: 650px; /* Adjusted for more space */
+            background: linear-gradient(135deg, #1a1a2e, #0f0f1a); /* Dark cyber gradient */
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.4), 0 0 15px rgba(0, 255, 255, 0.2) inset; /* Cyan glow */
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        #architecturalCanvas {
+            display: block;
+            width: 100%;
+            height: 500px; /* Canvas area */
+            background-color: rgba(0, 0, 0, 0.3); /* Slightly transparent background for grid effect */
+            border-bottom: 2px solid rgba(0, 255, 255, 0.5);
+            cursor: grab;
+        }
+        #architecturalCanvas.dragging {
+            cursor: grabbing;
+        }
+        #ui-overlay {
+            position: relative; /* Changed to relative to fit into flex column */
+            width: 100%;
+            height: 150px; /* UI area */
+            background-color: rgba(0, 0, 0, 0.7); /* Darker, more opaque UI background */
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            align-items: flex-start;
+            color: #e0e0e0;
+            font-size: 12px;
+            border-top: 1px solid #00ffff; /* Cyber border */
+        }
+        #mcq-question {
+            margin: 5px 0;
+            padding-left: 15px;
+            font-weight: bold;
+            color: #b0e0e6; /* Light blue for question */
+            font-size: 13px;
+        }
+        #options-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            width: 100%;
+            padding: 0 10px;
+        }
+        .mcq-option-btn {
+            background-color: #4a007b; /* Dark purple button */
+            color: #e0e0e0;
+            border: 1px solid #9d52d9; /* Lighter purple border */
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 10px;
+            flex: 1 1 45%; /* Allow wrapping and distribution */
+            min-width: 250px; /* Minimum width for buttons */
+            text-align: left;
+            transition: background-color 0.2s, transform 0.1s, box-shadow 0.2s;
+        }
+        .mcq-option-btn:hover {
+            background-color: #6a00a1; /* Lighter purple on hover */
+            transform: translateY(-2px);
+            box-shadow: 0 0 10px #ff6f61; /* Orange glow on hover */
+        }
+        #read-listen-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background-color: #ff6f61; /* Vibrant coral */
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 11px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.2s, transform 0.1s;
+        }
+        #read-listen-btn:hover {
+            background-color: #ff8a7a;
+            transform: scale(1.02);
+        }
+        .playful-button { /* For simulation controls like "Clear" */
+            background-color: #00bfff; /* Deep sky blue */
+            color: white;
+            border: 2px solid #87ceeb;
+            padding: 8px 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 10px;
+            margin-top: 10px;
+            transition: transform 0.1s, box-shadow 0.2s, background-color 0.2s;
+        }
+        .playful-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px #00bfff;
+            background-color: #009acd;
+        }
+
+        /* Styling for the axis toggle slider for visual feedback */
+        .slider-handle {
+            transition: background-color 0.2s, box-shadow 0.2s;
+        }
+        .slider-handle-active {
+            box-shadow: 0 0 15px #FFD700, 0 0 5px rgba(255,255,0,0.7) inset;
+            background-color: #FFFACD;
+        }
+    </style>
+</head>
+<body>
+    <div id="simulation-container">
+        <canvas id="architecturalCanvas" width="900" height="500"></canvas>
+
+        <div id="ui-overlay">
+            <p id="mcq-question">"In architectural mass composition, how do axis configurations typically differ between symmetrical and asymmetrical buildings?"</p>
+            <div id="options-container">
+                <!-- Option buttons will be dynamically populated here -->
+            </div>
+            <button id="read-listen-btn">🔊 Read/Listen</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('architecturalCanvas');
+        const ctx = canvas.getContext('2d');
+        const uiOverlay = document.getElementById('ui-overlay');
+        const mcqQuestionElement = document.getElementById('mcq-question');
+        const optionsContainer = document.getElementById('options-container');
+        const readListenBtn = document.getElementById('read-listen-btn');
+
+        let currentOptions = []; // To store shuffled options
+
+        // Web Audio Context & Oscillators
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let oscillator, gainNode;
+
+        function initAudio() {
+            if (!audioCtx) return;
+            oscillator = audioCtx.createOscillator();
+            gainNode = audioCtx.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            oscillator.type = 'sine'; // Playful tone
+            oscillator.start(0); // Start immediately
+            gainNode.gain.value = 0; // Start silent
+        }
+        initAudio();
+
+        function playSound(frequency, duration, volume) {
+            if (!oscillator || !gainNode) return;
+            oscillator.frequency.value = frequency;
+            gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration);
+        }
+
+        function startContinuousSound(frequency, volume) {
+            if (!oscillator || !gainNode) return;
+            oscillator.frequency.value = frequency;
+            gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+        }
+
+        function stopContinuousSound() {
+            if (!gainNode) return;
+            gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            gainNode.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.1); // Fade out quickly
+        }
+
+
+        // Speech Synthesis
+        let speechSynth = window.speechSynthesis;
+        let speechUtterance = new SpeechSynthesisUtterance();
+        speechUtterance.lang = 'en-US'; // Set language
+
+        function speak(text) {
+            if (!speechSynth) {
+                console.warn("Speech Synthesis not supported in this browser.");
+                return;
+            }
+            if (speechSynth.speaking) {
+                speechSynth.cancel();
+            }
+            speechUtterance.text = text;
+            speechUtterance.rate = 1.0; // Playful, slightly faster
+            speechUtterance.pitch = 1.2; // Slightly higher pitch for childlike voice
+            speechSynth.speak(speechUtterance);
+        }
+
+        // Read/Listen Button Event Listener
+        readListenBtn.addEventListener('click', () => {
+            let fullText = mcqQuestionElement.innerText;
+            if (currentOptions.length > 0) {
+                 fullText += " The options are: ";
+            }
+            currentOptions.forEach((opt, index) => {
+                fullText += ` Option ${String.fromCharCode(65 + index)}. ${opt.text}.`;
+            });
+            speak(fullText);
+        });
+
+        // --- Simulation State Variables ---
+        const SYMMETRY_ZONE_LEFT = 50; // Left edge of symmetry zone excluding bin
+        const SYMMETRY_ZONE_RIGHT = canvas.width / 2 - 50; // Right edge of symmetry zone excluding bin
+        const SYMMETRY_ZONE_CENTER_X = (SYMMETRY_ZONE_LEFT + SYMMETRY_ZONE_RIGHT) / 2; // ~225
+        
+        const ASYMMETRY_ZONE_LEFT = canvas.width / 2 + 50; // Left edge of asymmetry zone excluding bin
+        const ASYMMETRY_ZONE_RIGHT = canvas.width - 50; // Right edge of asymmetry zone excluding bin
+        const ASYMMETRY_ZONE_CENTER_X = (ASYMMETRY_ZONE_LEFT + ASYMMETRY_ZONE_RIGHT) / 2; // ~675
+
+        let blocksSymmetry = []; // {x, y, color, type, size, placementTime}
+        let blocksAsymmetry = []; // {x, y, color, type, size, placementTime}
+        let draggedBlock = null;
+        let dragOffsetX, dragOffsetY;
+        let currentZone = null; // 'symmetry' or 'asymmetry'
+
+        let showAxes = true; // State for axis toggle
+        let isDraggingSlider = false;
+
+        // Block shapes and colors for the bin
+        const blockTypes = [
+            { type: 'cube', baseSize: 40, color: '#FFD700' }, // Gold
+            { type: 'cylinder', baseSize: 35, color: '#6A5ACD' }, // SlateBlue
+            { type: 'pyramid', baseSize: 45, color: '#FFA07A' }, // LightSalmon
+            { type: 'cube', baseSize: 50, color: '#20B2AA' }  // LightSeaGreen
+        ];
+
+        // --- Drawing Functions ---
+        function drawBlock(block, isGhost = false) {
+            ctx.save();
+            ctx.translate(block.x, block.y);
+
+            if (isGhost) {
+                ctx.globalAlpha = 0.4;
+            } else {
+                // Bouncy animation
+                const bounceAmplitude = block.isBin ? 2 : (draggedBlock === block ? 0 : 3); // More subtle for bin, none when dragging
+                ctx.translate(0, Math.sin(performance.now() * 0.005 + (block.placementTime || 0) * 0.1) * bounceAmplitude);
+
+                // Particle effect on placement (temporary glow)
+                if (block.placementTime && (performance.now() - block.placementTime < 300)) {
+                    const progress = (performance.now() - block.placementTime) / 300;
+                    ctx.globalAlpha = 1 - progress;
+                    ctx.fillStyle = `rgba(255, 255, 255, ${0.5 * (1 - progress)})`;
+                    ctx.beginPath();
+                    ctx.arc(0, 0, block.size * (0.5 + progress * 0.5), 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.globalAlpha = 1.0; // Reset alpha
+                }
+            }
+
+            ctx.fillStyle = block.color;
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+
+            const s = block.size;
+            const h = s / 2; // Half size for 3D effect
+            const p = s / 5; // Perspective offset
+
+            // Simple 3D drawing
+            if (block.type === 'cube') {
+                // Front face
+                ctx.fillRect(-h, -h, s, s);
+                ctx.strokeRect(-h, -h, s, s);
+                // Top face
+                ctx.beginPath();
+                ctx.moveTo(-h, -h);
+                ctx.lineTo(-h + p, -h - p);
+                ctx.lineTo(h + p, -h - p);
+                ctx.lineTo(h, -h);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                // Right face
+                ctx.beginPath();
+                ctx.moveTo(h, -h);
+                ctx.lineTo(h + p, -h - p);
+                ctx.lineTo(h + p, h - p);
+                ctx.lineTo(h, h);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            } else if (block.type === 'cylinder') {
+                // Main body
+                ctx.beginPath();
+                ctx.ellipse(0, 0, h, h / 3, 0, 0, Math.PI * 2); // Top ellipse
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.moveTo(-h, 0);
+                ctx.lineTo(-h, s);
+                ctx.lineTo(h, s);
+                ctx.lineTo(h, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.ellipse(0, s, h, h / 3, 0, 0, Math.PI * 2); // Bottom ellipse
+                ctx.fill();
+                ctx.stroke();
+            } else if (block.type === 'pyramid') {
+                // Base
+                ctx.fillRect(-h, h - p, s, p * 2);
+                ctx.strokeRect(-h, h - p, s, p * 2);
+
+                // Front face (triangle)
+                ctx.beginPath();
+                ctx.moveTo(0, -h);
+                ctx.lineTo(-h, h + p);
+                ctx.lineTo(h, h + p);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Right face (triangle, simplified)
+                ctx.beginPath();
+                ctx.moveTo(0, -h);
+                ctx.lineTo(h + p / 2, h + p / 2); // Approximate side vertex
+                ctx.lineTo(h, h + p);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawAxes(zone) {
+            if (!showAxes) return;
+
+            ctx.save();
+            ctx.setLineDash([10, 5]); // Dashed lines
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 15; // Glowing effect
+
+            if (zone === 'symmetry') {
+                // Major Symmetry Axis (Vertical)
+                ctx.strokeStyle = '#00FFFF'; // Cyan
+                ctx.shadowColor = '#00FFFF';
+                ctx.beginPath();
+                ctx.moveTo(SYMMETRY_ZONE_CENTER_X, 0);
+                ctx.lineTo(SYMMETRY_ZONE_CENTER_X, canvas.height);
+                ctx.stroke();
+            } else if (zone === 'asymmetry') {
+                // Implied "Center of Mass" Axis (dynamic, based on blocksAsymmetry)
+                if (blocksAsymmetry.length > 0) {
+                    let totalX = 0, totalY = 0;
+                    blocksAsymmetry.forEach(b => {
+                        totalX += b.x;
+                        totalY += b.y;
+                    });
+                    const avgX = totalX / blocksAsymmetry.length;
+                    const avgY = totalY / blocksAsymmetry.length;
+
+                    ctx.strokeStyle = '#FF6F61'; // Coral
+                    ctx.shadowColor = '#FF6F61';
+                    ctx.setLineDash([5, 10]); // More broken dashes
+                    ctx.beginPath();
+                    ctx.moveTo(avgX - 30, avgY);
+                    ctx.lineTo(avgX + 30, avgY);
+                    ctx.moveTo(avgX, avgY - 30);
+                    ctx.lineTo(avgX, avgY + 30);
+                    ctx.stroke();
+                }
+            }
+            ctx.restore();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background grid lines (subtle cyber effect)
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= canvas.width; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(i, 0);
+                ctx.lineTo(i, canvas.height);
+                ctx.stroke();
+            }
+            for (let i = 0; i <= canvas.height; i += 50) {
+                ctx.beginPath();
+                ctx.moveTo(0, i);
+                ctx.lineTo(canvas.width, i);
+                ctx.stroke();
+            }
+
+            // Draw zone divider
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(canvas.width / 2, 0);
+            ctx.lineTo(canvas.width / 2, canvas.height);
+            ctx.stroke();
+
+            // Draw zone labels
+            ctx.fillStyle = '#b0e0e6';
+            ctx.font = '16px "Press Start 2P"';
+            ctx.textAlign = 'center';
+            ctx.fillText('Symmetry Sandbox!', SYMMETRY_ZONE_CENTER_X, 30);
+            ctx.fillText('Asymmetry Adventures!', ASYMMETRY_ZONE_CENTER_X, 30);
+
+            // Draw blocks from bin
+            const binBlockOffset = 25;
+            blockTypes.forEach((type, i) => {
+                // Symmetry Bin
+                drawBlock({
+                    x: binBlockOffset, y: 150 + i * (type.baseSize + 20),
+                    size: type.baseSize, color: type.color, type: type.type, isBin: true
+                });
+                // Asymmetry Bin
+                drawBlock({
+                    x: canvas.width - binBlockOffset, y: 150 + i * (type.baseSize + 20),
+                    size: type.baseSize, color: type.color, type: type.type, isBin: true
+                });
+            });
+
+
+            blocksSymmetry.forEach(b => drawBlock(b));
+            blocksAsymmetry.forEach(b => drawBlock(b));
+
+            drawAxes('symmetry');
+            drawAxes('asymmetry');
+
+            // Draw dragged block (and ghost if symmetry zone)
+            if (draggedBlock) {
+                drawBlock(draggedBlock);
+                if (currentZone === 'symmetry') {
+                    const mirroredX = SYMMETRY_ZONE_CENTER_X - (draggedBlock.x - SYMMETRY_ZONE_CENTER_X);
+                    drawBlock({ ...draggedBlock, x: mirroredX }, true); // Ghost block
+                }
+            }
+
+            // Draw axis toggle slider
+            ctx.save();
+            ctx.setLineDash([]);
+            ctx.lineWidth = 5;
+            ctx.strokeStyle = '#00FF00'; // Green slider track
+            const sliderY = 50;
+            const sliderMinX = canvas.width / 2 - 100;
+            const sliderMaxX = canvas.width / 2 + 100;
+            ctx.beginPath();
+            ctx.moveTo(sliderMinX, sliderY);
+            ctx.lineTo(sliderMaxX, sliderY);
+            ctx.stroke();
+
+            const sliderHandleX = sliderMinX + (showAxes ? (sliderMaxX - sliderMinX) : 0);
+            ctx.fillStyle = '#FFD700'; // Gold handle
+            ctx.beginPath();
+            ctx.arc(sliderHandleX, sliderY, 15, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.fillStyle = '#e0e0e0';
+            ctx.font = '10px "Press Start 2P"';
+            ctx.fillText('AXES', canvas.width / 2, sliderY - 25);
+            ctx.fillText(showAxes ? 'ON' : 'OFF', sliderHandleX, sliderY + 30);
+            ctx.restore();
+
+            requestAnimationFrame(draw);
+        }
+
+        // --- Event Handlers ---
+        canvas.addEventListener('mousedown', (e) => {
+            const mouseX = e.offsetX;
+            const mouseY = e.offsetY;
+            canvas.classList.add('dragging');
+
+            // Check slider
+            const sliderY = 50;
+            const sliderMinX = canvas.width / 2 - 100;
+            const sliderMaxX = canvas.width / 2 + 100;
+            const sliderHandleX = sliderMinX + (showAxes ? (sliderMaxX - sliderMinX) : 0);
+
+            if (Math.abs(mouseY - sliderY) < 20 && Math.abs(mouseX - sliderHandleX) < 20) {
+                isDraggingSlider = true;
+                return;
+            }
+
+            // Check block bins
+            const binBlockOffset = 25;
+            let blockFound = false;
+            blockTypes.forEach((type, i) => {
+                const binY = 150 + i * (type.baseSize + 20);
+                const halfSize = type.baseSize / 2;
+
+                // Symmetry Bin
+                if (mouseX > (binBlockOffset - halfSize) && mouseX < (binBlockOffset + halfSize) &&
+                    mouseY > (binY - halfSize) && mouseY < (binY + halfSize)) {
+                    draggedBlock = { x: mouseX, y: mouseY, size: type.baseSize * 1.5, color: type.color, type: type.type }; // Make it bigger when dragging
+                    dragOffsetX = mouseX - draggedBlock.x;
+                    dragOffsetY = mouseY - draggedBlock.y;
+                    currentZone = 'symmetry';
+                    startContinuousSound(200, 0.3); // Low hum for dragging
+                    speak("Let's make a perfectly balanced tower!");
+                    blockFound = true;
+                    return;
+                }
+                // Asymmetry Bin
+                if (mouseX > (canvas.width - binBlockOffset - halfSize) && mouseX < (canvas.width - binBlockOffset + halfSize) &&
+                    mouseY > (binY - halfSize) && mouseY < (binY + halfSize)) {
+                    draggedBlock = { x: mouseX, y: mouseY, size: type.baseSize * 1.5, color: type.color, type: type.type };
+                    dragOffsetX = mouseX - draggedBlock.x;
+                    dragOffsetY = mouseY - draggedBlock.y;
+                    currentZone = 'asymmetry';
+                    startContinuousSound(250, 0.3); // Slightly wavering hum
+                    speak("Time to make a super unique building!");
+                    blockFound = true;
+                    return;
+                }
+            });
+
+            if (!blockFound) {
+                // If no block or slider is clicked, potentially allow dragging existing blocks (not implemented for simplicity)
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const mouseX = e.offsetX;
+            const mouseY = e.offsetY;
+
+            if (isDraggingSlider) {
+                const sliderMinX = canvas.width / 2 - 100;
+                const sliderMaxX = canvas.width / 2 + 100;
+                let newHandleX = Math.max(sliderMinX, Math.min(sliderMaxX, mouseX));
+                
+                let oldShowAxes = showAxes;
+                showAxes = (Math.abs(newHandleX - sliderMaxX) < Math.abs(newHandleX - sliderMinX)); // Closer to Max means ON
+                
+                if (oldShowAxes !== showAxes) {
+                    playSound(showAxes ? 1000 : 200, 0.1, 0.5); // High pitch for ON, low for OFF
+                    if (showAxes) {
+                        speak("Poof! Now you see them!");
+                    } else {
+                        speak("Now you don't!");
+                    }
+                }
+                return;
+            }
+
+            if (draggedBlock) {
+                draggedBlock.x = mouseX;
+                draggedBlock.y = mouseY;
+
+                // Dynamic pitch based on position
+                if (currentZone === 'symmetry') {
+                    // Check if ghost twin should appear
+                    const distFromCenter = Math.abs(draggedBlock.x - SYMMETRY_ZONE_CENTER_X);
+                    oscillator.frequency.value = 200 + distFromCenter * 0.5; // Higher pitch near center
+                } else if (currentZone === 'asymmetry') {
+                    const distFromCenter = Math.sqrt(Math.pow(draggedBlock.x - ASYMMETRY_ZONE_CENTER_X, 2) + Math.pow(draggedBlock.y - canvas.height/2, 2));
+                    oscillator.frequency.value = 250 + distFromCenter * 0.2; // Pitch for "balancing"
+                }
+                startContinuousSound(oscillator.frequency.value, 0.3); // Ensure sound plays during drag
+            }
+        });
+
+        canvas.addEventListener('mouseup', (e) => {
+            canvas.classList.remove('dragging');
+            if (isDraggingSlider) {
+                isDraggingSlider = false;
+                // No specific sound fade for slider, as it's toggled with instant sound
+                return;
+            }
+
+            if (draggedBlock) {
+                const mouseX = e.offsetX;
+                const mouseY = e.offsetY;
+
+                // Check for valid drop zones, adjusting for block's actual size (half_size from center)
+                const halfSize = draggedBlock.size / 2;
+                const isWithinSymmetryPlayArea = (mouseX - halfSize > SYMMETRY_ZONE_LEFT && mouseX + halfSize < SYMMETRY_ZONE_RIGHT && mouseY - halfSize > 50 && mouseY + halfSize < canvas.height - 50);
+                const isWithinAsymmetryPlayArea = (mouseX - halfSize > ASYMMETRY_ZONE_LEFT && mouseX + halfSize < ASYMMETRY_ZONE_RIGHT && mouseY - halfSize > 50 && mouseY + halfSize < canvas.height - 50);
+
+
+                if (currentZone === 'symmetry' && isWithinSymmetryPlayArea) {
+                    blocksSymmetry.push({ ...draggedBlock, size: draggedBlock.size / 1.5, placementTime: performance.now() }); // Add original
+                    const mirroredX = SYMMETRY_ZONE_CENTER_X - (draggedBlock.x - SYMMETRY_ZONE_CENTER_X);
+                    blocksSymmetry.push({ ...draggedBlock, x: mirroredX, size: draggedBlock.size / 1.5, placementTime: performance.now() }); // Add mirrored twin
+                    speak("Tada! A perfectly symmetrical pair!");
+                    playSound(880, 0.2, 0.5); // High pitched 'ding'
+                } else if (currentZone === 'asymmetry' && isWithinAsymmetryPlayArea) {
+                    blocksAsymmetry.push({ ...draggedBlock, size: draggedBlock.size / 1.5, placementTime: performance.now() });
+                    speak("A super unique block has joined the adventure!");
+                    playSound(330, 0.2, 0.4); // Lower pitched 'thump'
+                } else {
+                    // Dropped outside valid zone or back into bin area
+                    speak("Oops! That block went back to the bin!");
+                    playSound(150, 0.2, 0.2); // Low 'plop'
+                }
+                draggedBlock = null;
+                stopContinuousSound(); // Mute after drop
+            }
+        });
+
+        // Add a "Clear All" button below the canvas, above the UI overlay
+        const clearAllBtn = document.createElement('button');
+        clearAllBtn.id = 'clear-all-btn';
+        clearAllBtn.className = 'playful-button';
+        clearAllBtn.innerText = '✨ Clear All Blocks!';
+        clearAllBtn.style.position = 'absolute';
+        clearAllBtn.style.bottom = '155px'; // Adjust based on UI overlay height
+        clearAllBtn.style.left = '50%';
+        clearAllBtn.style.transform = 'translateX(-50%)';
+        document.getElementById('simulation-container').appendChild(clearAllBtn);
+
+        clearAllBtn.addEventListener('click', () => {
+            blocksSymmetry = [];
+            blocksAsymmetry = [];
+            speak("Whoosh! All gone! Let's build something new!");
+            // Whoosh sound effect: descending arpeggio
+            playSound(1200, 0.1, 0.6);
+            setTimeout(() => playSound(800, 0.1, 0.5), 100);
+            setTimeout(() => playSound(400, 0.1, 0.4), 200);
+        });
+
+        // --- Dynamic Option Shuffling and PostMessage ---
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'init-mcq-options') {
+                currentOptions = event.data.options; // 'options' is typically the property name
+                optionsContainer.innerHTML = ''; // Clear existing buttons
+
+                currentOptions.forEach((option, index) => {
+                    const button = document.createElement('button');
+                    button.className = 'mcq-option-btn';
+                    button.innerText = `${String.fromCharCode(65 + index)}) ${option.text}`;
+                    button.setAttribute('data-original-index', option.originalIndex);
+                    button.addEventListener('click', () => {
+                        window.parent.postMessage({
+                            type: 'mcq-selected',
+                            optionIndex: option.originalIndex
+                        }, '*'); // Post the original index back
+                    });
+                    optionsContainer.appendChild(button);
+                });
+            }
+        });
+
+        // Initial welcome message (can be triggered after a delay or user interaction)
+        setTimeout(() => {
+            speak("Hello, super builder! Let's play with our blocks and learn about making cool buildings! On the left, we'll make perfectly balanced houses, and on the right, we'll make super unique ones!");
+        }, 1500); // Give a little time for things to load
+
+        // Initial draw call
+        requestAnimationFrame(draw);
+    </script>
+</body>
+</html>

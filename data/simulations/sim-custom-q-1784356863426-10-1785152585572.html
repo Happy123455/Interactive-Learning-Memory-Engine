@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full w-full overflow-hidden select-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Pavement Stress Lab - Rigid Pavement Design Factors</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Orbitron:wght@500;700;900&family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --neon-cyan: #00f3ff;
+            --neon-purple: #b026ff;
+            --neon-pink: #ff007f;
+            --neon-yellow: #ffea00;
+            --neon-green: #00ff66;
+            --bg-dark: #070913;
+            --panel-bg: rgba(13, 18, 36, 0.75);
+            --panel-border: rgba(0, 243, 255, 0.25);
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: #e2e8f0;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(176, 38, 255, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(0, 243, 255, 0.08) 0%, transparent 40%),
+                linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 30px 30px, 30px 30px;
+        }
+
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5),
+                        inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+
+        .glass-panel-glow {
+            box-shadow: 0 0 20px rgba(0, 243, 255, 0.15),
+                        inset 0 0 15px rgba(0, 243, 255, 0.1);
+        }
+
+        /* Neon Glow Utility Effects */
+        .glow-cyan { text-shadow: 0 0 10px rgba(0, 243, 255, 0.7); }
+        .glow-purple { text-shadow: 0 0 10px rgba(176, 38, 255, 0.7); }
+        .glow-pink { text-shadow: 0 0 10px rgba(ff, 0, 127, 0.7); }
+        .border-glow-cyan { box-shadow: 0 0 12px rgba(0, 243, 255, 0.4); }
+
+        /* Drag Card Animation */
+        .factor-card {
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: grab;
+        }
+        .factor-card:active {
+            cursor: grabbing;
+            transform: scale(0.96);
+        }
+        .factor-card.dragging {
+            opacity: 0.5;
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 25px var(--neon-cyan);
+        }
+        .factor-card.placed {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 102, 0.08);
+        }
+
+        /* Drop Zone Target Pulse */
+        .drop-zone-active {
+            border-style: dashed !important;
+            border-color: var(--neon-cyan) !important;
+            background: rgba(0, 243, 255, 0.12) !important;
+            box-shadow: inset 0 0 30px rgba(0, 243, 255, 0.3);
+            animation: pulse-border 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-border {
+            from { border-color: rgba(0, 243, 255, 0.4); }
+            to { border-color: rgba(0, 243, 255, 1); }
+        }
+
+        /* Custom Scrollbar for Drawer */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(10, 15, 30, 0.8); }
+        ::-webkit-scrollbar-thumb { background: rgba(0, 243, 255, 0.3); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(0, 243, 255, 0.7); }
+
+        /* Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.1);
+            border-radius: 6px;
+            height: 6px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            cursor: pointer;
+            transition: transform 0.15s;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Formula Slot styling */
+        .formula-slot {
+            min-width: 60px;
+            height: 32px;
+            border: 1px dashed var(--neon-cyan);
+            background: rgba(0, 243, 255, 0.05);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: var(--neon-cyan);
+            transition: all 0.2s;
+        }
+        .formula-slot.filled {
+            border-style: solid;
+            background: rgba(0, 243, 255, 0.2);
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between p-3 gap-3">
+
+    <!-- TOP NAVBAR / HEADER -->
+    <header class="glass-panel rounded-xl px-5 py-2.5 flex items-center justify-between shrink-0 border-b border-cyan-500/30">
+        <div class="flex items-center space-x-3">
+            <div class="p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-400/40 text-cyan-400">
+                <i class="fa-solid fa-atom text-xl animate-spin-slow"></i>
+            </div>
+            <div>
+                <h1 class="font-orbitron font-bold text-lg md:text-xl tracking-wider text-white flex items-center gap-2">
+                    THE PAVEMENT STRESS LAB
+                    <span class="text-xs font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">RIGID PAVEMENT DESIGN</span>
+                </h1>
+                <p class="text-xs text-slate-400">Westergaard Stress Distribution & Thermal Curling Simulation Engine</p>
+            </div>
+        </div>
+
+        <!-- Controls & Audio Toggles -->
+        <div class="flex items-center space-x-3 text-xs">
+            <!-- Audio FX Toggle -->
+            <button id="btn-audio" title="Toggle Sound Effects" class="p-2 rounded-lg glass-panel hover:border-cyan-400 text-cyan-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-volume-high text-sm"></i>
+                <span class="hidden md:inline">AUDIO</span>
+            </button>
+
+            <!-- Voice Synthesis Toggle -->
+            <button id="btn-speech" title="Toggle AI Narrator Voice" class="p-2 rounded-lg glass-panel hover:border-purple-400 text-purple-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-headset text-sm"></i>
+                <span class="hidden md:inline">VOICE NARRATOR</span>
+            </button>
+
+            <!-- Zoom Critical Zone Toggle -->
+            <button id="btn-zoom-corner" class="p-2 rounded-lg glass-panel hover:border-yellow-400 text-yellow-300 transition flex items-center gap-1.5">
+                <i class="fa-solid fa-magnifying-glass-plus text-sm"></i>
+                <span>ZOOM CRITICAL ZONE</span>
+            </button>
+
+            <!-- Reference IS Codebook Drawer Toggle -->
+            <button id="btn-codebook" class="px-3 py-2 rounded-lg bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-semibold transition shadow-lg shadow-purple-900/30 flex items-center gap-2">
+                <i class="fa-solid fa-book-bookmark"></i>
+                <span>IS CODE FORMULAS</span>
+            </button>
+
+            <!-- Reset Simulation -->
+            <button id="btn-reset" class="p-2 rounded-lg glass-panel hover:border-red-400 text-red-400 transition" title="Reset All Variables">
+                <i class="fa-solid fa-rotate-right text-sm"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT DASHBOARD GRID -->
+    <main class="grid grid-cols-12 gap-3 grow h-full overflow-hidden">
+        
+        <!-- LEFT PANEL: FACTOR CARDS & INPUT CONTROLS -->
+        <section class="col-span-12 md:col-span-3 glass-panel rounded-xl p-3 flex flex-col justify-between overflow-y-auto space-y-3">
+            <div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-700/60 mb-3">
+                    <span class="font-orbitron text-xs font-semibold text-cyan-400 tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group"></i> DESIGN FACTORS (DRAG TO LAB)
+                    </span>
+                    <span id="factors-progress" class="text-xs font-mono px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">0/4 PLACED</span>
+                </div>
+
+                <!-- DRAGGABLE FACTOR CARDS -->
+                <div class="space-y-2.5" id="cards-container">
+                    
+                    <!-- Card 1: Wheel Load -->
+                    <div class="factor-card p-3 rounded-lg border border-cyan-500/30 bg-slate-900/60 hover:border-cyan-400" 
+                         draggable="true" id="card-wheel" data-factor="wheel">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold text-sm text-cyan-300 flex items-center gap-2">
+                                <i class="fa-solid fa-truck-monster text-cyan-400"></i> Wheel Load ($P$)
+                            </span>
+                            <span class="status-icon text-xs text-slate-500"><i class="fa-solid fa-circle-dot"></i> PENDING</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-tight">Direct vertical axle load causing maximum bending deflection & Westergaard contact stresses.</p>
+                    </div>
+
+                    <!-- Card 2: Temperature Gradient -->
+                    <div class="factor-card p-3 rounded-lg border border-purple-500/30 bg-slate-900/60 hover:border-purple-400" 
+                         draggable="true" id="card-temp" data-factor="temp">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold text-sm text-purple-300 flex items-center gap-2">
+                                <i class="fa-solid fa-temperature-half text-purple-400"></i> Thermal Gradient ($\Delta T$)
+                            </span>
+                            <span class="status-icon text-xs text-slate-500"><i class="fa-solid fa-circle-dot"></i> PENDING</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-tight">Top-to-bottom temperature differential inducing slab warping & curling stresses.</p>
+                    </div>
+
+                    <!-- Card 3: Subgrade Support -->
+                    <div class="factor-card p-3 rounded-lg border border-yellow-500/30 bg-slate-900/60 hover:border-yellow-400" 
+                         draggable="true" id="card-subgrade" data-factor="subgrade">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold text-sm text-yellow-300 flex items-center gap-2">
+                                <i class="fa-solid fa-cubes text-yellow-400"></i> Subgrade Modulus ($k$)
+                            </span>
+                            <span class="status-icon text-xs text-slate-500"><i class="fa-solid fa-circle-dot"></i> PENDING</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-tight">Modulus of subgrade reaction ($kg/cm^3$) defining elastic foundation support stiffness.</p>
+                    </div>
+
+                    <!-- Card 4: Slab Geometry -->
+                    <div class="factor-card p-3 rounded-lg border border-emerald-500/30 bg-slate-900/60 hover:border-emerald-400" 
+                         draggable="true" id="card-slab" data-factor="slab">
+                        <div class="flex items-center justify-between mb-1">
+                            <span class="font-semibold text-sm text-emerald-300 flex items-center gap-2">
+                                <i class="fa-solid fa-ruler-combined text-emerald-400"></i> Slab Thickness ($h$)
+                            </span>
+                            <span class="status-icon text-xs text-slate-500"><i class="fa-solid fa-circle-dot"></i> PENDING</span>
+                        </div>
+                        <p class="text-xs text-slate-400 leading-tight">Concrete slab depth providing flexural rigidity ($D = E h^3 / [12(1-\nu^2)]$).</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PARAMETER TWEAKER SLIDERS (Unlocked dynamically or active) -->
+            <div class="pt-3 border-t border-slate-700/60 space-y-3">
+                <div class="font-orbitron text-xs font-semibold text-cyan-400 flex items-center justify-between">
+                    <span>LIVE PARAMETERS</span>
+                    <i class="fa-solid fa-sliders text-xs"></i>
+                </div>
+
+                <!-- Wheel Load Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono">
+                        <span class="text-slate-300">Axle Load ($P$):</span>
+                        <span id="val-load" class="text-cyan-400 font-bold">5100 kg</span>
+                    </div>
+                    <input type="range" id="input-load" min="2000" max="12000" step="100" value="5100" class="w-full">
+                </div>
+
+                <!-- Thermal Gradient Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono">
+                        <span class="text-slate-300">Temp Gradient ($\Delta T$):</span>
+                        <span id="val-temp" class="text-purple-400 font-bold">+18.0 °C</span>
+                    </div>
+                    <input type="range" id="input-temp" min="-20" max="25" step="0.5" value="18" class="w-full">
+                </div>
+
+                <!-- Subgrade k Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono">
+                        <span class="text-slate-300">Subgrade Reaction ($k$):</span>
+                        <span id="val-k" class="text-yellow-400 font-bold">6.0 kg/cm³</span>
+                    </div>
+                    <input type="range" id="input-k" min="2" max="15" step="0.5" value="6.0" class="w-full">
+                </div>
+
+                <!-- Slab Thickness Slider -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs font-mono">
+                        <span class="text-slate-300">Slab Thickness ($h$):</span>
+                        <span id="val-h" class="text-emerald-400 font-bold">20 cm</span>
+                    </div>
+                    <input type="range" id="input-h" min="12" max="35" step="1" value="20" class="w-full">
+                </div>
+
+                <!-- Load Position Selector -->
+                <div class="pt-1">
+                    <label class="text-xs font-mono text-slate-300 mb-1 block">Critical Load Position:</label>
+                    <div class="grid grid-cols-3 gap-1.5">
+                        <button class="pos-btn p-1.5 rounded text-xs font-mono border border-cyan-500/40 bg-cyan-500/20 text-cyan-300 font-semibold" data-pos="interior">Interior</button>
+                        <button class="pos-btn p-1.5 rounded text-xs font-mono border border-slate-700 bg-slate-800 text-slate-400" data-pos="edge">Edge</button>
+                        <button class="pos-btn p-1.5 rounded text-xs font-mono border border-slate-700 bg-slate-800 text-slate-400" data-pos="corner">Corner</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER PANEL: HIGH-DPI INTERACTIVE SIMULATION CANVAS -->
+        <section class="col-span-12 md:col-span-6 flex flex-col space-y-2 h-full overflow-hidden">
+            <!-- CANVAS CONTAINER WITH DROP ZONE -->
+            <div id="canvas-drop-zone" class="relative grow glass-panel rounded-xl overflow-hidden border border-cyan-500/30 flex items-center justify-center">
+                
+                <!-- Dynamic High-DPI Canvas -->
+                <canvas id="simCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+                <!-- On-Canvas Drop Overlay Helper -->
+                <div id="drop-prompt" class="absolute inset-0 bg-slate-950/70 backdrop-blur-sm flex flex-col items-center justify-center pointer-events-none transition-opacity duration-300 z-10">
+                    <div class="p-4 rounded-2xl border border-dashed border-cyan-400/60 bg-cyan-950/40 text-center space-y-2 max-w-sm">
+                        <i class="fa-solid fa-hand-pointer text-3xl text-cyan-400 animate-bounce"></i>
+                        <h3 class="font-orbitron font-bold text-cyan-300 text-sm">DROP FACTORS INTO LAB CANVAS</h3>
+                        <p class="text-xs text-slate-300">Drag Factor Cards from the left sidebar directly onto the pavement slab to activate real-time physics & stress visualization.</p>
+                    </div>
+                </div>
+
+                <!-- Overlay Dynamic Status HUD -->
+                <div class="absolute top-3 left-3 bg-slate-950/80 border border-slate-700 backdrop-blur-md rounded-lg p-2.5 text-xs space-y-1 font-mono pointer-events-none z-10">
+                    <div class="flex items-center gap-2 text-cyan-400">
+                        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+                        <span class="font-bold">STATUS: <span id="hud-status">WAITING FOR FACTORS</span></span>
+                    </div>
+                    <div class="text-slate-300">Radius of Relative Stiffness ($l$): <span id="hud-l-val" class="text-yellow-400 font-bold">78.4 cm</span></div>
+                    <div class="text-slate-300">Warping State: <span id="hud-warp-val" class="text-purple-400 font-bold">Daytime (Downward Curl)</span></div>
+                </div>
+
+                <!-- Canvas Legend -->
+                <div class="absolute bottom-3 left-3 bg-slate-950/80 border border-slate-700/80 backdrop-blur-md rounded-lg p-2 text-xs font-mono flex items-center gap-4 text-slate-300 pointer-events-none z-10">
+                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-cyan-400 shadow-sm shadow-cyan-400"></span> Concrete Slab</div>
+                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-amber-600"></span> Sub-base (GSB)</div>
+                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-yellow-700"></span> Subgrade Soil</div>
+                    <div class="flex items-center gap-1.5"><span class="w-3 h-3 rounded bg-red-500 animate-pulse"></span> Max Tensile Stress</div>
+                </div>
+
+                <!-- Critical Zoom Reset Overlay Control -->
+                <button id="btn-zoom-reset" class="hidden absolute top-3 right-3 bg-yellow-500/20 border border-yellow-400/60 text-yellow-300 px-3 py-1.5 rounded-lg text-xs font-mono font-bold hover:bg-yellow-500/30 transition z-20">
+                    <i class="fa-solid fa-compress me-1"></i> RESET VIEW
+                </button>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: WESTERGAARD REAL-TIME STRESS ANALYTICS -->
+        <section class="col-span-12 md:col-span-3 glass-panel rounded-xl p-3 flex flex-col justify-between overflow-y-auto space-y-3">
+            <div>
+                <div class="flex items-center justify-between pb-2 border-b border-slate-700/60 mb-3">
+                    <span class="font-orbitron text-xs font-semibold text-purple-400 tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line"></i> STRESS DISTRIBUTION
+                    </span>
+                    <span id="safety-badge" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">SAFE</span>
+                </div>
+
+                <!-- STRESS INTENSITY METRICS -->
+                <div class="grid grid-cols-2 gap-2 mb-3">
+                    <div class="bg-slate-900/80 p-2.5 rounded-lg border border-cyan-500/20">
+                        <div class="text-xs text-slate-400 font-mono">Wheel Stress ($\sigma_p$)</div>
+                        <div id="metric-sigma-p" class="text-lg font-orbitron font-bold text-cyan-400">22.4 <span class="text-xs text-slate-400 font-normal">kg/cm²</span></div>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-lg border border-purple-500/20">
+                        <div class="text-xs text-slate-400 font-mono">Thermal Stress ($\sigma_t$)</div>
+                        <div id="metric-sigma-t" class="text-lg font-orbitron font-bold text-purple-400">14.1 <span class="text-xs text-slate-400 font-normal">kg/cm²</span></div>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900/90 p-3 rounded-lg border border-slate-700 mb-3">
+                    <div class="flex justify-between items-center text-xs font-mono mb-1">
+                        <span class="text-slate-300">TOTAL COMBINED STRESS:</span>
+                        <span id="metric-sigma-total" class="font-bold text-yellow-400 text-sm">36.5 kg/cm²</span>
+                    </div>
+                    <div class="w-full bg-slate-800 rounded-full h-2.5 overflow-hidden border border-slate-700">
+                        <div id="stress-bar" class="bg-gradient-to-r from-cyan-400 via-yellow-400 to-red-500 h-2.5 rounded-full transition-all duration-300" style="width: 70%;"></div>
+                    </div>
+                    <div class="flex justify-between text-2xs text-slate-500 font-mono mt-1">
+                        <span>0</span>
+                        <span>Allowable Flexural Strength ($f_{cr}$ = 45.0 kg/cm²)</span>
+                    </div>
+                </div>
+
+                <!-- REAL-TIME CHART CANVAS -->
+                <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-800 h-44 relative">
+                    <canvas id="stressChart"></canvas>
+                </div>
+            </div>
+
+            <!-- VALIDATION / CALCULATE BUTTON -->
+            <div class="pt-2 border-t border-slate-700/60 space-y-2">
+                <button id="btn-validate" class="w-full py-2.5 px-4 rounded-xl font-orbitron font-bold text-xs tracking-wider bg-gradient-to-r from-cyan-500 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white shadow-lg shadow-cyan-500/25 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-calculator text-sm"></i>
+                    <span>RUN FULL STRESS VALIDATION</span>
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- SLIDE-OUT DRAWER: IS CODEBOOK & FORMULA SLOT PUZZLE -->
+    <div id="codebook-drawer" class="fixed inset-y-0 right-0 w-full md:w-1/2 lg:w-5/12 glass-panel z-50 transform translate-x-full transition-transform duration-300 ease-in-out flex flex-col justify-between border-l border-cyan-500/40 p-5 shadow-2xl">
+        <div class="flex items-center justify-between pb-3 border-b border-cyan-500/30">
+            <div class="flex items-center gap-2 text-cyan-400 font-orbitron font-bold text-base">
+                <i class="fa-solid fa-book-open-reader text-xl"></i>
+                <span>IS 5851 / IRC RIGID PAVEMENT DESIGN EQUATIONS</span>
+            </div>
+            <button id="btn-close-codebook" class="text-slate-400 hover:text-white text-lg p-1">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+        </div>
+
+        <div class="grow overflow-y-auto my-4 space-y-4 pr-1 text-xs">
+            
+            <!-- Westergaard's Radius of Relative Stiffness -->
+            <div class="bg-slate-900/90 p-3.5 rounded-xl border border-cyan-500/30 space-y-2">
+                <h4 class="font-orbitron font-bold text-cyan-300">1. Radius of Relative Stiffness ($l$)</h4>
+                <div class="font-mono bg-slate-950 p-2.5 rounded text-cyan-200 text-center tracking-wide text-sm border border-slate-800">
+                    $$l = \left( \frac{E \cdot h^3}{12 \cdot (1 - \nu^2) \cdot k} \right)^{1/4}$$
+                </div>
+                <p class="text-slate-400 leading-relaxed">
+                    Measures relative stiffness of slab vs subgrade soil support. $E = 3 \times 10^5\ kg/cm^2$, Poisson's ratio $\nu = 0.15$.
+                </p>
+            </div>
+
+            <!-- Westergaard Load Stresses Slot Puzzle -->
+            <div class="bg-slate-900/90 p-3.5 rounded-xl border border-purple-500/30 space-y-3">
+                <h4 class="font-orbitron font-bold text-purple-300">2. Westergaard Load Stress Equations</h4>
+                
+                <!-- Corner Stress -->
+                <div class="space-y-1">
+                    <span class="font-mono text-slate-300 font-bold">Corner Load Stress ($\sigma_c$):</span>
+                    <div class="font-mono bg-slate-950 p-2.5 rounded text-purple-200 text-center tracking-wide border border-slate-800">
+                        $$\sigma_c = \frac{3P}{h^2} \left[ 1 - \left( \frac{a\sqrt{2}}{l} \right)^{0.6} \right]$$
+                    </div>
+                </div>
+
+                <!-- Edge Stress -->
+                <div class="space-y-1">
+                    <span class="font-mono text-slate-300 font-bold">Edge Load Stress ($\sigma_e$):</span>
+                    <div class="font-mono bg-slate-950 p-2.5 rounded text-purple-200 text-center tracking-wide border border-slate-800">
+                        $$\sigma_e = \frac{0.572 P}{h^2} \left[ 4 \log_{10}\left(\frac{l}{b}\right) + 0.359 \right]$$
+                    </div>
+                </div>
+
+                <!-- Interior Stress -->
+                <div class="space-y-1">
+                    <span class="font-mono text-slate-300 font-bold">Interior Load Stress ($\sigma_i$):</span>
+                    <div class="font-mono bg-slate-950 p-2.5 rounded text-purple-200 text-center tracking-wide border border-slate-800">
+                        $$\sigma_i = \frac{0.316 P}{h^2} \left[ 4 \log_{10}\left(\frac{l}{b}\right) + 1.069 \right]$$
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bradbury Thermal Curling Stress -->
+            <div class="bg-slate-900/90 p-3.5 rounded-xl border border-yellow-500/30 space-y-2">
+                <h4 class="font-orbitron font-bold text-yellow-300">3. Bradbury's Thermal Curling Stress ($\sigma_t$)</h4>
+                <div class="font-mono bg-slate-950 p-2.5 rounded text-yellow-200 text-center tracking-wide border border-slate-800">
+                    $$\sigma_t = \frac{C \cdot E \cdot \alpha \cdot \Delta T}{2}$$
+                </div>
+                <p class="text-slate-400 leading-relaxed">
+                    Where $C$ is Bradbury's curling coefficient ($C \approx 0.82$), $\alpha = 10 \times 10^{-6}\ /^\circ C$ thermal expansion of concrete.
+                </p>
+            </div>
+
+            <!-- INTERACTIVE FORMULA SOLVER PUZZLE -->
+            <div class="bg-cyan-950/30 p-3.5 rounded-xl border border-cyan-500/40 space-y-2">
+                <h4 class="font-orbitron font-bold text-cyan-300 flex items-center gap-2">
+                    <i class="fa-solid fa-puzzle-piece text-cyan-400"></i> LIVE EQUATION SOLVER
+                </h4>
+                <div class="p-3 bg-slate-950 rounded-lg text-center font-mono text-sm space-y-2 border border-slate-800">
+                    <div class="text-slate-300">
+                        $\sigma_{corner} = \frac{3 \times <span id="slot-P" class="formula-slot">5100</span>}{(<span id="slot-h" class="formula-slot">20</span>)^2} \left[ 1 - \left( \frac{15\sqrt{2}}{<span id="slot-l" class="formula-slot">78.4</span>} \right)^{0.6} \right]$
+                    </div>
+                    <div class="text-yellow-400 font-bold text-base pt-1 border-t border-slate-800">
+                        Calculated Corner Stress = <span id="slot-result">28.45</span> kg/cm²
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="pt-3 border-t border-slate-800 text-center">
+            <p class="text-2xs font-mono text-slate-500">Rigid Pavement Design Factors • IRC:58-2015 Guidelines</p>
+        </div>
+    </div>
+
+    <script>
+        // Global Application State
+        const state = {
+            factorsPlaced: {
+                wheel: false,
+                temp: false,
+                subgrade: false,
+                slab: false
+            },
+            params: {
+                P: 5100,      // Wheel Load (kg)
+                deltaT: 18.0, // Thermal Gradient (°C)
+                k: 6.0,       // Subgrade Reaction (kg/cm^3)
+                h: 20.0,      // Slab Thickness (cm)
+                E: 300000,    // Modulus of Elasticity concrete (kg/cm^2)
+                nu: 0.15,     // Poisson's ratio
+                alpha: 1e-5,  // Thermal expansion coefficient (/°C)
+                a: 15.0,      // Equivalent radius of contact area (cm)
+                pos: 'interior' // 'interior', 'edge', 'corner'
+            },
+            audioEnabled: true,
+            speechEnabled: true,
+            zoomCorner: false,
+            animTime: 0
+        };
+
+        // Initialize Web Audio API Synthesizer
+        let audioCtx = null;
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Web Audio Sound FX Generators
+        function playSound(type) {
+            if (!state.audioEnabled) return;
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+
+            if (type === 'snap') {
+                // High-pitched pleasant chime
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(523.25, now); // C5
+                osc.frequency.exponentialRampToValueAtTime(1046.50, now + 0.15); // C6
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } else if (type === 'click') {
+                // Subtle UI tick
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                gain.gain.setValueAtTime(0.08, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+                osc.start(now);
+                osc.stop(now + 0.05);
+            } else if (type === 'warning') {
+                // Low frequency hazard pulse
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.setValueAtTime(110, now + 0.1);
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.start(now);
+                osc.stop(now + 0.35);
+            }
+        }
+
+        // Voice Narrator (Web Speech Synthesis)
+        function speakNarrative(text) {
+            if (!state.speechEnabled || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel(); // Stop ongoing speech
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        // Westergaard Stress Calculations
+        function calculateStresses() {
+            const { P, deltaT, k, h, E, nu, alpha, a, pos } = state.params;
+
+            // 1. Radius of Relative Stiffness (l) in cm
+            const flexuralRigidity = (E * Math.pow(h, 3)) / (12 * (1 - Math.pow(nu, 2)));
+            const l = Math.pow(flexuralRigidity / k, 0.25);
+
+            // Equivalent radius of resistent section b
+            let b;
+            if (a < 1.724 * h) {
+                b = Math.sqrt(1.6 * a * a + h * h) - 0.675 * h;
+            } else {
+                b = a;
+            }
+
+            // 2. Wheel Load Stresses (kg/cm^2)
+            let sigma_p = 0;
+
+            if (pos === 'corner') {
+                // Westergaard Corner Stress
+                const factor = 1 - Math.pow((a * Math.SQRT2) / l, 0.6);
+                sigma_p = (3 * P / (h * h)) * factor;
+            } else if (pos === 'edge') {
+                // Westergaard Edge Stress
+                sigma_p = (0.572 * P / (h * h)) * (4 * Math.log10(l / b) + 0.359);
+            } else {
+                // Westergaard Interior Stress
+                sigma_p = (0.316 * P / (h * h)) * (4 * Math.log10(l / b) + 1.069);
+            }
+
+            // 3. Thermal Curling Stress Bradbury (kg/cm^2)
+            const C = 0.82; // Bradbury coefficient for standard slab length
+            const sigma_t = (C * E * alpha * Math.abs(deltaT)) / 2;
+
+            // 4. Combined Critical Tensile Stress
+            const sigma_total = sigma_p + sigma_t;
+
+            // Allowable Flexural Strength of Concrete f_cr ~ 0.7 * sqrt(f_ck) ~ 45 kg/cm^2
+            const f_cr = 45.0;
+
+            return {
+                l: l.toFixed(1),
+                sigma_p: Math.max(0, sigma_p),
+                sigma_t: Math.max(0, sigma_t),
+                sigma_total: Math.max(0, sigma_total),
+                f_cr: f_cr,
+                isSafe: sigma_total <= f_cr
+            };
+        }
+
+        // Canvas Rendering Architecture
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        setTimeout(resizeCanvas, 50);
+
+        // Render Simulation Loop
+        function drawSimulation() {
+            state.animTime += 0.03;
+            const width = canvas.parentElement.clientWidth;
+            const height = canvas.parentElement.clientHeight;
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.save();
+
+            // Camera Zoom Adjustment for Corner / Edge Critical Zone
+            if (state.zoomCorner) {
+                ctx.translate(width * 0.2, height * 0.2);
+                ctx.scale(1.4, 1.4);
+            }
+
+            // Calculations
+            const calc = calculateStresses();
+
+            // Render Layers Layout Parameters
+            const slabY = height * 0.52;
+            const slabHeight = Math.max(25, state.params.h * 1.8);
+            const slabWidth = width * 0.8;
+            const slabX = (width - slabWidth) / 2;
+
+            // 1. SUBGRADE SOIL LAYER
+            const subgradeY = slabY + slabHeight + 35;
+            ctx.fillStyle = '#2d1f10';
+            ctx.fillRect(0, subgradeY, width, height - subgradeY);
+
+            // Subgrade texture grid / soil dots
+            ctx.fillStyle = '#4a3520';
+            for (let x = 10; x < width; x += 25) {
+                for (let y = subgradeY + 10; y < height; y += 20) {
+                    ctx.beginPath();
+                    ctx.arc(x + (y % 3 === 0 ? 8 : 0), y, 2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            // Subgrade Spring Visuals if Subgrade factor active
+            if (state.factorsPlaced.subgrade) {
+                ctx.strokeStyle = '#eab308';
+                ctx.lineWidth = 1.5;
+                const springCount = 12;
+                const spacing = slabWidth / springCount;
+                for (let i = 0; i <= springCount; i++) {
+                    const sx = slabX + i * spacing;
+                    const sy1 = slabY + slabHeight + 35;
+                    const sy2 = subgradeY;
+                    ctx.beginPath();
+                    ctx.moveTo(sx, sy1);
+                    ctx.lineTo(sx - 5, sy1 + 10);
+                    ctx.lineTo(sx + 5, sy1 + 20);
+                    ctx.lineTo(sx, sy2);
+                    ctx.stroke();
+                }
+            }
+
+            // 2. SUB-BASE GRANULAR BASE LAYER (GSB / DLC)
+            const subbaseY = slabY + slabHeight;
+            ctx.fillStyle = '#d97706';
+            ctx.fillRect(slabX - 20, subbaseY, slabWidth + 40, 35);
+            ctx.strokeStyle = '#b45309';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(slabX - 20, subbaseY, slabWidth + 40, 35);
+
+            // Subbase label
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText('GRANULAR SUB-BASE (GSB / DLC)', slabX + 15, subbaseY + 22);
+
+            // 3. CONCRETE SLAB WITH THERMAL CURLING / DEFLECTION
+            ctx.save();
+            ctx.beginPath();
+
+            // Calculate Curling Deformation Shape
+            const deltaT = state.factorsPlaced.temp ? state.params.deltaT : 0;
+            const deflectionFactor = state.factorsPlaced.wheel ? (state.params.P / 3000) : 0;
+
+            // Compute curve points across slab
+            const points = [];
+            const numSegments = 60;
+            for (let i = 0; i <= numSegments; i++) {
+                const px = slabX + (i / numSegments) * slabWidth;
+                const normX = (i / numSegments) * 2 - 1; // -1 to 1
+
+                // Thermal Curling Curve: daytime (deltaT > 0 -> downward curl, convex center), nighttime (deltaT < 0 -> upward curl)
+                let curlY = 0;
+                if (state.factorsPlaced.temp) {
+                    curlY = -0.12 * deltaT * (1 - normX * normX);
+                }
+
+                // Wheel Load Deflection Curve under load position
+                let loadDeflectY = 0;
+                if (state.factorsPlaced.wheel) {
+                    let targetNormX = 0; // interior
+                    if (state.params.pos === 'edge') targetNormX = -0.6;
+                    if (state.params.pos === 'corner') targetNormX = -0.95;
+
+                    const dist = Math.abs(normX - targetNormX);
+                    loadDeflectY = Math.max(0, 18 - dist * 25) * (deflectionFactor / 2.5);
+                }
+
+                const py = slabY + curlY + loadDeflectY;
+                points.push({ x: px, y: py });
+            }
+
+            // Render Slab Polygon Top Path
+            ctx.moveTo(points[0].x, points[0].y);
+            for (let i = 1; i < points.length; i++) {
+                ctx.lineTo(points[i].x, points[i].y);
+            }
+            // Bottom Path
+            for (let i = points.length - 1; i >= 0; i--) {
+                ctx.lineTo(points[i].x, points[i].y + slabHeight);
+            }
+            ctx.closePath();
+
+            // Slab Fill Gradient (Concrete Texture + Heatmap overlay if Temp Active)
+            let slabGrad = ctx.createLinearGradient(slabX, slabY, slabX, slabY + slabHeight);
+            if (state.factorsPlaced.temp && Math.abs(deltaT) > 2) {
+                if (deltaT > 0) {
+                    // Hot top (Red -> Cyan bottom)
+                    slabGrad.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+                    slabGrad.addColorStop(1, 'rgba(6, 182, 212, 0.85)');
+                } else {
+                    // Cold top (Cyan -> Red bottom)
+                    slabGrad.addColorStop(0, 'rgba(6, 182, 212, 0.85)');
+                    slabGrad.addColorStop(1, 'rgba(239, 68, 68, 0.85)');
+                }
+            } else {
+                slabGrad.addColorStop(0, '#38bdf8');
+                slabGrad.addColorStop(1, '#0284c7');
+            }
+
+            ctx.fillStyle = slabGrad;
+            ctx.fill();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Dowel Bars visuals at joints
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillRect(slabX - 10, slabY + slabHeight / 2 - 3, 20, 6);
+            ctx.fillRect(slabX + slabWidth - 10, slabY + slabHeight / 2 - 3, 20, 6);
+
+            ctx.restore();
+
+            // 4. WHEEL LOAD ANIMATED FORCE VECTOR & TRUCK WHEEL
+            if (state.factorsPlaced.wheel) {
+                let wheelX = slabX + slabWidth / 2; // interior
+                if (state.params.pos === 'edge') wheelX = slabX + slabWidth * 0.2;
+                if (state.params.pos === 'corner') wheelX = slabX + slabWidth * 0.05;
+
+                const wheelY = slabY - 25;
+
+                // Wheel Tire Graphic
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.roundRect(wheelX - 18, wheelY - 35, 36, 35, 6);
+                ctx.fill();
+                ctx.strokeStyle = '#38bdf8';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Rim
+                ctx.fillStyle = '#64748b';
+                ctx.beginPath();
+                ctx.arc(wheelX, wheelY - 18, 10, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Animated Vertical Load Vector Arrow
+                const arrowOffset = Math.sin(state.animTime * 6) * 4;
+                const arrowTop = wheelY - 75 + arrowOffset;
+                const arrowBottom = wheelY - 40 + arrowOffset;
+
+                ctx.strokeStyle = '#00f3ff';
+                ctx.fillStyle = '#00f3ff';
+                ctx.lineWidth = 4;
+
+                ctx.beginPath();
+                ctx.moveTo(wheelX, arrowTop);
+                ctx.lineTo(wheelX, arrowBottom);
+                ctx.stroke();
+
+                // Arrowhead
+                ctx.beginPath();
+                ctx.moveTo(wheelX - 8, arrowBottom - 5);
+                ctx.lineTo(wheelX + 8, arrowBottom - 5);
+                ctx.lineTo(wheelX, arrowBottom + 5);
+                ctx.closePath();
+                ctx.fill();
+
+                // Load Text Annotations
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 12px JetBrains Mono';
+                ctx.fillText(`P = ${state.params.P} kg`, wheelX + 15, arrowTop + 20);
+            }
+
+            // 5. CRITICAL HIGH TENSILE STRESS ZONE HIGHLIGHT
+            if (state.factorsPlaced.wheel || state.factorsPlaced.temp) {
+                let stressX = slabX + slabWidth / 2;
+                let stressY = slabY + slabHeight - 5;
+                if (state.params.pos === 'corner') {
+                    stressX = slabX + 15;
+                    stressY = slabY + 5;
+                } else if (state.params.pos === 'edge') {
+                    stressX = slabX + slabWidth * 0.2;
+                }
+
+                // Pulsing Stress Ring
+                const pulse = Math.sin(state.animTime * 8) * 4 + 10;
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.4)';
+                ctx.beginPath();
+                ctx.arc(stressX, stressY, pulse + 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(stressX, stressY, 6, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Annotation Text Box with z-index contrast
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+                ctx.fillRect(stressX - 60, stressY + 12, 120, 22);
+                ctx.strokeStyle = '#ef4444';
+                ctx.strokeRect(stressX - 60, stressY + 12, 120, 22);
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 10px JetBrains Mono';
+                ctx.fillText('MAX TENSILE ZONE', stressX - 52, stressY + 26);
+            }
+
+            ctx.restore();
+
+            requestAnimationFrame(drawSimulation);
+        }
+
+        // Initialize Chart.js Real-time Dashboard Chart
+        let stressChart;
+        function initChart() {
+            const chartCtx = document.getElementById('stressChart').getContext('2d');
+            stressChart = new Chart(chartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Wheel Stress', 'Thermal Stress', 'Total Combined', 'Allowable f_cr'],
+                    datasets: [{
+                        data: [0, 0, 0, 45],
+                        backgroundColor: [
+                            'rgba(0, 243, 255, 0.8)',
+                            'rgba(176, 38, 255, 0.8)',
+                            'rgba(255, 234, 0, 0.85)',
+                            'rgba(0, 255, 102, 0.4)'
+                        ],
+                        borderColor: [
+                            '#00f3ff',
+                            '#b026ff',
+                            '#ffea00',
+                            '#00ff66'
+                        ],
+                        borderWidth: 1.5,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) { return context.raw + ' kg/cm²'; }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            max: 60,
+                            ticks: { color: '#94a3b8', font: { family: 'JetBrains Mono', size: 10 } },
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' }
+                        },
+                        x: {
+                            ticks: { color: '#e2e8f0', font: { family: 'Inter', size: 9, weight: '600' } },
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update All Dashboard UI Metrics & Chart
+        function updateUI() {
+            const calc = calculateStresses();
+
+            // Slider Values Display
+            document.getElementById('val-load').innerText = `${state.params.P} kg`;
+            document.getElementById('val-temp').innerText = `${state.params.deltaT > 0 ? '+' : ''}${state.params.deltaT} °C`;
+            document.getElementById('val-k').innerText = `${state.params.k} kg/cm³`;
+            document.getElementById('val-h').innerText = `${state.params.h} cm`;
+
+            // Canvas HUD Metrics
+            document.getElementById('hud-l-val').innerText = `${calc.l} cm`;
+            document.getElementById('hud-warp-val').innerText = state.params.deltaT >= 0 
+                ? 'Daytime (Downward Curl)' 
+                : 'Nighttime (Upward Curl)';
+
+            // Stress Metrics
+            const sigmaP = state.factorsPlaced.wheel ? calc.sigma_p : 0;
+            const sigmaT = state.factorsPlaced.temp ? calc.sigma_t : 0;
+            const total = sigmaP + sigmaT;
+
+            document.getElementById('metric-sigma-p').innerHTML = `${sigmaP.toFixed(1)} <span class="text-xs text-slate-400 font-normal">kg/cm²</span>`;
+            document.getElementById('metric-sigma-t').innerHTML = `${sigmaT.toFixed(1)} <span class="text-xs text-slate-400 font-normal">kg/cm²</span>`;
+            document.getElementById('metric-sigma-total').innerText = `${total.toFixed(1)} kg/cm²`;
+
+            // Stress Progress Bar
+            const pct = Math.min(100, (total / calc.f_cr) * 100);
+            const stressBar = document.getElementById('stress-bar');
+            stressBar.style.width = `${pct}%`;
+
+            // Safety Badge Indicator
+            const badge = document.getElementById('safety-badge');
+            if (total > calc.f_cr) {
+                badge.innerText = 'UNSAFE - CRACKING RISK';
+                badge.className = 'text-xs font-mono px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/40 animate-pulse';
+                playSound('warning');
+            } else {
+                badge.innerText = 'SAFE STRUCTURE';
+                badge.className = 'text-xs font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+            }
+
+            // Update Chart.js Data
+            if (stressChart) {
+                stressChart.data.datasets[0].data = [
+                    sigmaP.toFixed(1),
+                    sigmaT.toFixed(1),
+                    total.toFixed(1),
+                    calc.f_cr
+                ];
+                stressChart.update('none'); // smooth render without reset
+            }
+
+            // Codebook Drawer Formula Puzzle Slots
+            document.getElementById('slot-P').innerText = state.params.P;
+            document.getElementById('slot-h').innerText = state.params.h;
+            document.getElementById('slot-l').innerText = calc.l;
+            document.getElementById('slot-result').innerText = calc.sigma_p.toFixed(2);
+
+            // Factor Cards Placed Progress Tracker
+            const placedCount = Object.values(state.factorsPlaced).filter(Boolean).length;
+            document.getElementById('factors-progress').innerText = `${placedCount}/4 PLACED`;
+
+            if (placedCount > 0) {
+                document.getElementById('drop-prompt').style.opacity = '0';
+                document.getElementById('drop-prompt').style.pointerEvents = 'none';
+                document.getElementById('hud-status').innerText = 'SIMULATION ACTIVE';
+            }
+        }
+
+        function initDragAndDrop() {
+            const cards = document.querySelectorAll('.factor-card');
+            const dropZone = document.getElementById('canvas-drop-zone');
+
+            cards.forEach(card => {
+                card.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', card.dataset.factor);
+                    card.classList.add('dragging');
+                    playSound('click');
+                });
+
+                card.addEventListener('dragend', () => {
+                    card.classList.remove('dragging');
+                });
+            });
+
+            dropZone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropZone.classList.add('drop-zone-active');
+            });
+
+            dropZone.addEventListener('dragleave', () => {
+                dropZone.classList.remove('drop-zone-active');
+            });
+
+            dropZone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropZone.classList.remove('drop-zone-active');
+
+                const factor = e.dataTransfer.getData('text/plain');
+                if (factor && state.factorsPlaced.hasOwnProperty(factor)) {
+                    state.factorsPlaced[factor] = true;
+
+                    // Update Card UI
+                    const cardEl = document.getElementById(`card-${factor}`);
+                    if (cardEl) {
+                        cardEl.classList.add('placed');
+                        cardEl.querySelector('.status-icon').innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i> ACTIVE';
+                    }
+
+                    // Audio Snap Feedback
+                    playSound('snap');
+
+                    // Voice Speech Synthesis Narration
+                    const narratives = {
+                        wheel: "Wheel load produces intense vertical contact pressure, inducing maximum tensile flexural stress at the bottom of the concrete slab.",
+                        temp: "Temperature gradient causes thermal warping. Higher top temperatures force downward slab curling, creating critical edge stresses.",
+                        subgrade: "Modulus of subgrade reaction k defines soil foundation support. Stiffer subgrade reduces slab deflection and bending stress.",
+                        slab: "Concrete slab thickness provides flexural rigidity D. Doubling thickness dramatically reduces flexural stress proportional to h squared."
+                    };
+
+                    speakNarrative(narratives[factor]);
+                    updateUI();
+                }
+            });
+        }
+
+        // Initialize UI Control Listeners
+        function initControls() {
+            // Sliders
+            document.getElementById('input-load').addEventListener('input', (e) => {
+                state.params.P = parseFloat(e.target.value);
+                updateUI();
+            });
+
+            document.getElementById('input-temp').addEventListener('input', (e) => {
+                state.params.deltaT = parseFloat(e.target.value);
+                updateUI();
+            });
+
+            document.getElementById('input-k').addEventListener('input', (e) => {
+                state.params.k = parseFloat(e.target.value);
+                updateUI();
+            });
+
+            document.getElementById('input-h').addEventListener('input', (e) => {
+                state.params.h = parseFloat(e.target.value);
+                updateUI();
+            });
+
+            // Load Position Buttons
+            const posBtns = document.querySelectorAll('.pos-btn');
+            posBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    posBtns.forEach(b => {
+                        b.className = 'pos-btn p-1.5 rounded text-xs font-mono border border-slate-700 bg-slate-800 text-slate-400';
+                    });
+                    btn.className = 'pos-btn p-1.5 rounded text-xs font-mono border border-cyan-500/40 bg-cyan-500/20 text-cyan-300 font-semibold';
+                    state.params.pos = btn.dataset.pos;
+                    playSound('click');
+                    speakNarrative(`Load position shifted to ${state.params.pos} zone. Westergaard stress distribution updated.`);
+                    updateUI();
+                });
+            });
+
+            // Top Header Buttons
+            document.getElementById('btn-audio').addEventListener('click', function() {
+                state.audioEnabled = !state.audioEnabled;
+                this.classList.toggle('text-cyan-300');
+                this.classList.toggle('text-slate-500');
+                playSound('click');
+            });
+
+            document.getElementById('btn-speech').addEventListener('click', function() {
+                state.speechEnabled = !state.speechEnabled;
+                this.classList.toggle('text-purple-300');
+                this.classList.toggle('text-slate-500');
+                if (!state.speechEnabled && 'speechSynthesis' in window) {
+                    window.speechSynthesis.cancel();
+                }
+                playSound('click');
+            });
+
+            // Zoom Critical Zone Toggle
+            const zoomBtn = document.getElementById('btn-zoom-corner');
+            const zoomResetBtn = document.getElementById('btn-zoom-reset');
+
+            function toggleZoom(enable) {
+                state.zoomCorner = enable;
+                if (enable) {
+                    zoomResetBtn.classList.remove('hidden');
+                    speakNarrative("Zooming into critical corner stress zone.");
+                } else {
+                    zoomResetBtn.classList.add('hidden');
+                }
+                playSound('click');
+            }
+
+            zoomBtn.addEventListener('click', () => toggleZoom(!state.zoomCorner));
+            zoomResetBtn.addEventListener('click', () => toggleZoom(false));
+
+            // IS Codebook Drawer Toggles
+            const drawer = document.getElementById('codebook-drawer');
+            document.getElementById('btn-codebook').addEventListener('click', () => {
+                drawer.classList.remove('translate-x-full');
+                playSound('click');
+            });
+
+            document.getElementById('btn-close-codebook').addEventListener('click', () => {
+                drawer.classList.add('translate-x-full');
+                playSound('click');
+            });
+
+            // Reset Simulation Button
+            document.getElementById('btn-reset').addEventListener('click', () => {
+                Object.keys(state.factorsPlaced).forEach(k => state.factorsPlaced[k] = false);
+                document.querySelectorAll('.factor-card').forEach(c => {
+                    c.classList.remove('placed');
+                    c.querySelector('.status-icon').innerHTML = '<i class="fa-solid fa-circle-dot"></i> PENDING';
+                });
+                document.getElementById('drop-prompt').style.opacity = '1';
+                document.getElementById('drop-prompt').style.pointerEvents = 'auto';
+                document.getElementById('hud-status').innerText = 'WAITING FOR FACTORS';
+                playSound('click');
+                updateUI();
+            });
+
+            // Full Stress Validation Button Trigger
+            document.getElementById('btn-validate').addEventListener('click', () => {
+                // Activate all factors
+                Object.keys(state.factorsPlaced).forEach(k => {
+                    state.factorsPlaced[k] = true;
+                    const cardEl = document.getElementById(`card-${k}`);
+                    if (cardEl) {
+                        cardEl.classList.add('placed');
+                        cardEl.querySelector('.status-icon').innerHTML = '<i class="fa-solid fa-circle-check text-emerald-400"></i> ACTIVE';
+                    }
+                });
+
+                playSound('snap');
+                const calc = calculateStresses();
+                speakNarrative(`Validation complete. Total combined Westergaard stress is ${calc.sigma_total.toFixed(1)} kilogram per square centimeter against allowable flexural strength of ${calc.f_cr} kilogram per square centimeter.`);
+                updateUI();
+            });
+        }
+
+        // Initialize Everything On Window Load
+        window.onload = function() {
+            initChart();
+            initDragAndDrop();
+            initControls();
+            updateUI();
+            requestAnimationFrame(drawSimulation);
+        };
+    </script>
+</body>
+</html>

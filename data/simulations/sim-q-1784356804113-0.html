@@ -1,0 +1,1423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Singly Reinforced Concrete Beam Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.65);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-main: #f1f5f9;
+            --text-muted: #94a3b8;
+            --accent-cyan: #06b6d4;
+            --accent-magenta: #ec4899;
+            --accent-lime: #84cc16;
+            --accent-orange: #f97316;
+            --glow-cyan: 0 0 12px rgba(6, 182, 212, 0.6);
+            --glow-magenta: 0 0 12px rgba(236, 72, 153, 0.6);
+            --glow-lime: 0 0 12px rgba(132, 204, 22, 0.6);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--panel-border);
+            background: linear-gradient(180deg, rgba(15, 23, 42, 0.9) 0%, rgba(15, 23, 42, 0.4) 100%);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        header h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            background: linear-gradient(to right, #38bdf8, #a855f7);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        header p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 0.25rem;
+        }
+
+        .audio-controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .btn-audio {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            color: var(--text-main);
+            font-size: 0.8rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-audio:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--accent-cyan);
+        }
+
+        .btn-audio.active {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .dashboard {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 360px 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 16px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .main-workspace {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .canvas-container {
+            position: relative;
+            background: rgba(10, 15, 30, 0.8);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            overflow: hidden;
+            flex: 1;
+            min-height: 480px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        canvas {
+            display: block;
+        }
+
+        .presets-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.75rem;
+        }
+
+        .btn-preset {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            padding: 0.75rem 0.5rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+
+        .btn-preset:hover {
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.08);
+            border-color: var(--text-muted);
+        }
+
+        .btn-preset.active[data-type="under"] {
+            border-color: var(--accent-lime);
+            color: var(--accent-lime);
+            background: rgba(132, 204, 22, 0.1);
+            box-shadow: var(--glow-lime);
+        }
+
+        .btn-preset.active[data-type="balanced"] {
+            border-color: var(--accent-cyan);
+            color: var(--accent-cyan);
+            background: rgba(6, 182, 212, 0.1);
+            box-shadow: var(--glow-cyan);
+        }
+
+        .btn-preset.active[data-type="over"] {
+            border-color: var(--accent-magenta);
+            color: var(--accent-magenta);
+            background: rgba(236, 72, 153, 0.1);
+            box-shadow: var(--glow-magenta);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .control-label {
+            color: var(--text-muted);
+        }
+
+        .control-value {
+            font-family: monospace;
+            color: var(--text-main);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+        }
+
+        .slider-custom {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s ease;
+        }
+
+        .slider-custom::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        /* Color customizer for different sliders */
+        #slider-ast::-webkit-slider-thumb {
+            background: var(--accent-cyan);
+            box-shadow: var(--glow-cyan);
+        }
+        #slider-ast::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        #slider-load::-webkit-slider-thumb {
+            background: var(--accent-magenta);
+            box-shadow: var(--glow-magenta);
+        }
+        #slider-load::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .status-badge {
+            padding: 1rem;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.3s ease;
+        }
+
+        .status-under {
+            background: rgba(132, 204, 22, 0.1);
+            border: 1px solid var(--accent-lime);
+            color: var(--accent-lime);
+            box-shadow: inset 0 0 12px rgba(132, 204, 22, 0.15);
+        }
+
+        .status-balanced {
+            background: rgba(6, 182, 212, 0.1);
+            border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan);
+            box-shadow: inset 0 0 12px rgba(6, 182, 212, 0.15);
+        }
+
+        .status-over {
+            background: rgba(236, 72, 153, 0.1);
+            border: 1px solid var(--accent-magenta);
+            color: var(--accent-magenta);
+            box-shadow: inset 0 0 12px rgba(236, 72, 153, 0.15);
+        }
+
+        .secondary-workspace {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 1.5rem;
+        }
+
+        .math-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .math-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            color: var(--text-muted);
+            border-bottom: 1px solid var(--panel-border);
+            padding-bottom: 0.5rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .equation-box {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+        }
+
+        .eq-item {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--panel-border);
+            padding: 0.75rem;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .eq-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        .eq-formula {
+            font-family: monospace;
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--accent-cyan);
+        }
+
+        .eq-value {
+            font-size: 1.1rem;
+            font-weight: 800;
+            font-family: monospace;
+        }
+
+        .narrate-btn {
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+            border: none;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.3);
+            transition: all 0.2s ease;
+        }
+
+        .narrate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(79, 70, 229, 0.5);
+        }
+
+        .narrate-btn:active {
+            transform: translateY(0);
+        }
+
+        .canvas-label-overlay {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--panel-border);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            pointer-events: none;
+            z-index: 5;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .info-card {
+            font-size: 0.8rem;
+            line-height: 1.4;
+            color: var(--text-muted);
+            border-left: 3px solid var(--accent-cyan);
+            padding-left: 0.75rem;
+        }
+
+        /* Responsive Breakpoints */
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+            }
+            .secondary-workspace {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div>
+            <h1>Singly Reinforced Concrete Beam Simulator</h1>
+            <p>Interactive Limit State Failure Modes: Under-Reinforced vs. Over-Reinforced</p>
+        </div>
+        <div class="audio-controls">
+            <button id="btn-sound" class="btn-audio active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                Sound Effects
+            </button>
+            <button id="btn-voice" class="btn-audio active">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/></svg>
+                Voice Assist
+            </button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Control Dock (Left Column) -->
+        <div class="glass-panel">
+            <h2 class="math-title">Beam Configuration</h2>
+            
+            <div class="control-group">
+                <span class="control-label">Simulation Presets</span>
+                <div class="presets-grid">
+                    <button class="btn-preset active" data-type="under">Under-Reinf.</button>
+                    <button class="btn-preset" data-type="balanced">Balanced</button>
+                    <button class="btn-preset" data-type="over">Over-Reinf.</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Area of Steel (A<sub>st</sub>)</span>
+                    <span id="val-ast" class="control-value">400 mm²</span>
+                </div>
+                <input type="range" id="slider-ast" class="slider-custom" min="150" max="2200" step="10" value="400">
+                <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">
+                    Adjusting rebar area shifts depth of Neutral Axis (x<sub>u</sub>).
+                </p>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span class="control-label">Applied Load (P)</span>
+                    <span id="val-load" class="control-value">0 kN</span>
+                </div>
+                <input type="range" id="slider-load" class="slider-custom" min="0" max="100" step="1" value="0">
+                <p style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">
+                    Can also drag load arrow directly on the visualizer!
+                </p>
+            </div>
+
+            <div id="failure-status-badge" class="status-badge status-under">
+                Under-Reinforced Section
+            </div>
+
+            <div class="info-card" id="state-description">
+                Steel yielding occurs first. Large deflection and visible tensile cracks provide warning before failure (Ductile).
+            </div>
+
+            <button class="narrate-btn" id="btn-narrate">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></polygon></svg>
+                Narrate Analysis
+            </button>
+        </div>
+
+        <!-- Main Workspace (Right Column) -->
+        <div class="main-workspace">
+            <!-- Graphical Visualizer Panel -->
+            <div class="canvas-container">
+                <div class="canvas-label-overlay">Stress States & Interactive Loading Profile</div>
+                <canvas id="mainCanvas" width="850" height="420"></canvas>
+            </div>
+
+            <!-- Math and Secondary diagrams -->
+            <div class="secondary-workspace">
+                <!-- Mathematical breakdown -->
+                <div class="glass-panel math-card">
+                    <h2 class="math-title">Limit State Analysis (IS 456 / General LSM)</h2>
+                    <div class="equation-box">
+                        <div class="eq-item">
+                            <span class="eq-label">Neutral Axis Depth (x<sub>u</sub>)</span>
+                            <span class="eq-formula">0.87·f<sub>y</sub>·A<sub>st</sub> / (0.36·f<sub>ck</sub>·b)</span>
+                            <span id="math-xu" class="eq-value">0.0 mm</span>
+                        </div>
+                        <div class="eq-item">
+                            <span class="eq-label">NA Limit (x<sub>u,max</sub>)</span>
+                            <span class="eq-formula">0.48 · d (for Fe 415)</span>
+                            <span id="math-xumax" class="eq-value">192.0 mm</span>
+                        </div>
+                        <div class="eq-item">
+                            <span class="eq-label">Total Tension (T)</span>
+                            <span class="eq-formula">0.87 · f<sub>y</sub> · A<sub>st</sub></span>
+                            <span id="math-t" class="eq-value">0.0 kN</span>
+                        </div>
+                        <div class="eq-item">
+                            <span class="eq-label">Total Compression (C)</span>
+                            <span class="eq-formula">0.36 · f<sub>ck</sub> · b · x<sub>u</sub></span>
+                            <span id="math-c" class="eq-value">0.0 kN</span>
+                        </div>
+                        <div class="eq-item" style="grid-column: span 2;">
+                            <span class="eq-label">Moment Capacity (M<sub>u</sub>)</span>
+                            <span class="eq-formula">Under-reinf: T·(d - 0.42x<sub>u</sub>) | Over-reinf: capped at M<sub>u,lim</sub></span>
+                            <span id="math-mu" class="eq-value" style="color: var(--accent-lime)">0.0 kNm</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Strain Diagram Canvas -->
+                <div class="glass-panel" style="padding: 1rem; align-items: center; justify-content: center; position: relative;">
+                    <div class="canvas-label-overlay" style="top: 0.5rem; left: 0.5rem; font-size: 0.65rem;">Strain Triangle</div>
+                    <canvas id="strainCanvas" width="268" height="280"></canvas>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // --- STRUCTURAL ENGINE GLOBALS ---
+        const b = 250;      // Beam width (mm)
+        const d = 400;      // Effective depth (mm)
+        const D = 450;      // Overall depth (mm)
+        const fck = 25;     // M25 Concrete (N/mm²)
+        const fy = 415;     // Fe415 Steel Grade (N/mm²)
+        const Es = 200000;  // Steel Modulus (N/mm²)
+        const xu_lim = 0.48 * d; // 192 mm limiting neutral axis
+
+        // Simulation parameters
+        let Ast = 400;
+        let loadPercent = 0; // 0 to 100
+        let deflection = 0;
+        let sectionType = 'under'; // under, balanced, over
+        
+        // Track visual properties smoothly
+        let animatedXu = 0;
+        let animatedDeflection = 0;
+        let animatedCForce = 0;
+        let animatedTForce = 0;
+
+        // Interactive drag states
+        let isDraggingLoad = false;
+
+        // Crack generation database (so cracks stay in consistent points and grow dynamically)
+        const crackPatterns = [];
+        for (let i = 0; i < 15; i++) {
+            crackPatterns.push({
+                offset: (Math.random() - 0.5) * 120, // offset from center of beam
+                angle: (Math.random() - 0.5) * 0.2,
+                roughness: Array.from({length: 6}, () => (Math.random() - 0.5) * 6)
+            });
+        }
+
+        // Crushing particles
+        const particles = [];
+
+        // --- WEB AUDIO ENGINE ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.muted = false;
+            }
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+            playTick() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(900, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+            playPresetChime(freq) {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(freq * 1.5, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.12, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.35);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.4);
+            }
+            playTensionCrack() {
+                if (this.muted) return;
+                this.init();
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const bandpass = this.ctx.createBiquadFilter();
+                
+                bandpass.type = 'bandpass';
+                bandpass.frequency.setValueAtTime(400, this.ctx.currentTime);
+                bandpass.Q.setValueAtTime(8, this.ctx.currentTime);
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100 + Math.random() * 50, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(20, this.ctx.currentTime + 0.15);
+
+                gain.gain.setValueAtTime(0.18, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.18);
+
+                osc.connect(bandpass);
+                bandpass.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.2);
+            }
+            playConcreteShatter() {
+                if (this.muted) return;
+                this.init();
+                
+                // Audio noise buffer
+                const bufferSize = this.ctx.sampleRate * 0.6;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(450, this.ctx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.55);
+
+                const gain = this.ctx.createGain();
+                gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.6);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                // Add deep sub bass impact
+                const sub = this.ctx.createOscillator();
+                const subGain = this.ctx.createGain();
+                sub.frequency.setValueAtTime(85, this.ctx.currentTime);
+                sub.frequency.exponentialRampToValueAtTime(15, this.ctx.currentTime + 0.4);
+                subGain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                subGain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.45);
+                sub.connect(subGain);
+                subGain.connect(this.ctx.destination);
+
+                noise.start();
+                sub.start();
+                noise.stop(this.ctx.currentTime + 0.6);
+                sub.stop(this.ctx.currentTime + 0.6);
+            }
+        }
+
+        const sound = new SoundEngine();
+
+        // --- NARRATIVE AUDIO TTS ---
+        let voiceEnabled = true;
+        let lastNarratedState = '';
+
+        function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+        setTimeout(function() {
+          try {
+            var utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            var voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+              var eng = voices.find(function(v) { return v.lang && v.lang.startsWith('en'); });
+              if (eng) utterance.voice = eng;
+            }
+            window.speechSynthesis.speak(utterance);
+          } catch (err) {
+            console.error('TTS Speak Error:', err);
+          }
+        }, 60);
+      } catch (e) {
+        console.error('TTS Error:', e);
+      }
+    }
+
+        function triggerVoiceStateWarning(state) {
+            if (state === lastNarratedState) return;
+            lastNarratedState = state;
+            if (state === 'over') {
+                speakText("Warning: Over-reinforced section. The concrete reaches its ultimate strain before the steel yields, leading to brittle, catastrophic failure.");
+            } else if (state === 'under') {
+                speakText("Section is under-reinforced. This design ensures ductile tension failure with early cracking warnings.");
+            } else {
+                speakText("Balanced section reached. Theoretical simultaneous limit of concrete and steel capacities.");
+            }
+        }
+
+        // --- PARTICLE GENERATOR ---
+        class DebrisParticle {
+            constructor(x, y, color) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = (Math.random() - 0.5) * 5;
+                this.vy = (Math.random() - 0.8) * 6;
+                this.size = Math.random() * 4 + 1.5;
+                this.alpha = 1;
+                this.decay = Math.random() * 0.02 + 0.015;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += 0.22; // Gravity
+                this.alpha -= this.decay;
+            }
+            draw(ctx) {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- CANVAS RENDER SETUP ---
+        const mainCanvas = document.getElementById('mainCanvas');
+        const mainCtx = mainCanvas.getContext('2d');
+        const strainCanvas = document.getElementById('strainCanvas');
+        const strainCtx = strainCanvas.getContext('2d');
+
+        // Track screen shaking
+        let shakeFrames = 0;
+
+        function updateCalculations() {
+            // Under Indian / ISO Codes (Limit State Design)
+            // Neutral Axis Depth xu calculation: Equating Compression & Tension forces
+            // 0.36 * fck * b * xu = 0.87 * fy * Ast
+            const xu = (0.87 * fy * Ast) / (0.36 * fck * b);
+            
+            // Limit NA to something safe visually and physically, but perform pure theoretical checks
+            const xu_clamped = Math.min(Math.max(xu, 10), D - 20);
+
+            // Determine design zone state
+            if (xu < xu_lim - 3) {
+                sectionType = 'under';
+            } else if (xu > xu_lim + 3) {
+                sectionType = 'over';
+            } else {
+                sectionType = 'balanced';
+            }
+
+            // Calculations for display
+            const force_t = 0.87 * fy * Ast; // Newton
+            const force_c = 0.36 * fck * b * Math.min(xu, xu_lim); // Cap at balanced for standard capacity limit
+
+            // Moment of resistance Mu
+            let Mu = 0;
+            if (sectionType === 'under') {
+                Mu = 0.87 * fy * Ast * (d - 0.42 * xu); // N-mm
+            } else {
+                // Over-reinforced section limit cap design
+                Mu = 0.36 * fck * b * xu_lim * (d - 0.42 * xu_lim);
+            }
+
+            // Convert to engineering units (kN, kNm)
+            const T_kN = force_t / 1000;
+            const C_kN = (0.36 * fck * b * xu) / 1000; // actual un-capped compression for diagram visual
+            const Mu_kNm = Mu / 1000000;
+
+            // Compute structural deflection based on applied load percentage and state stiffness
+            // Over-reinforced is much stiffer but fails instantly; under-reinforced defjects highly.
+            let maxPotentialDeflection = 0;
+            if (sectionType === 'under') {
+                maxPotentialDeflection = 18; // Ductile flexural deflection
+            } else if (sectionType === 'balanced') {
+                maxPotentialDeflection = 9;
+            } else {
+                maxPotentialDeflection = 4; // Minimal warning deflection
+            }
+
+            deflection = (loadPercent / 100) * maxPotentialDeflection;
+
+            // Text outputs
+            document.getElementById('val-ast').innerText = `${Ast} mm²`;
+            document.getElementById('val-load').innerText = `${Math.round(loadPercent * 1.5)} kN`;
+            document.getElementById('math-xu').innerText = `${xu.toFixed(1)} mm`;
+            document.getElementById('math-xumax').innerText = `${xu_lim.toFixed(1)} mm`;
+            document.getElementById('math-t').innerText = `${T_kN.toFixed(1)} kN`;
+            document.getElementById('math-c').innerText = `${C_kN.toFixed(1)} kN`;
+            document.getElementById('math-mu').innerText = `${Mu_kNm.toFixed(1)} kNm`;
+
+            // Style UI adjustments based on state
+            const badge = document.getElementById('failure-status-badge');
+            const desc = document.getElementById('state-description');
+
+            badge.className = "status-badge";
+            if (sectionType === 'under') {
+                badge.classList.add('status-under');
+                badge.innerText = "Under-Reinforced Section";
+                desc.innerText = "The steel reinforcement yields before the concrete reaches ultimate strain. Safe, ductile tension failure occurs with generous crack warnings.";
+            } else if (sectionType === 'balanced') {
+                badge.classList.add('status-balanced');
+                badge.innerText = "Balanced Section";
+                desc.innerText = "Both materials reach their failure strain thresholds simultaneously. Highly controlled theoretical limit, rarely targeted due to lack of warning.";
+            } else {
+                badge.classList.add('status-over');
+                badge.innerText = "Over-Reinforced (Brittle!)";
+                desc.innerText = "DANGER: Concrete crushes at the top before the steel yields. The structural failure occurs without warning. Code strictly bans this design range.";
+            }
+
+            triggerVoiceStateWarning(sectionType);
+
+            // Trigger crack & failure sounds during loading
+            handleInteractiveFailureMechanics(loadPercent);
+        }
+
+        let soundThrottler = 0;
+        function handleInteractiveFailureMechanics(loadVal) {
+            if (loadVal === 100) {
+                if (soundThrottler === 0) {
+                    if (sectionType === 'under') {
+                        sound.playTensionCrack();
+                        shakeFrames = 10;
+                    } else {
+                        sound.playConcreteShatter();
+                        shakeFrames = 30;
+                    }
+                    soundThrottler = 1;
+                }
+            } else {
+                soundThrottler = 0;
+                // Crack popping noises for under reinforced section as load progresses
+                if (sectionType === 'under' && loadVal > 35 && loadVal % 15 === 0) {
+                    sound.playTensionCrack();
+                    shakeFrames = 3;
+                }
+            }
+        }
+
+        // --- DRAW UTILITIES ---
+        function drawVectorArrow(ctx, x1, y1, x2, y2, color, label, labelAlignLeft = false) {
+            const headlen = 8; // length of head in pixels
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const angle = Math.atan2(dy, dx);
+            
+            ctx.save();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 3.5;
+            ctx.fillStyle = color;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 4;
+
+            // Draw line
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Draw arrow head
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.fill();
+
+            // Draw vector label
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#f1f5f9';
+            ctx.font = '10px monospace';
+            const offset = labelAlignLeft ? -55 : 12;
+            ctx.fillText(label, labelAlignLeft ? x1 + offset : x2 + offset, y2 + 4);
+            ctx.restore();
+        }
+
+        function renderVisualizer() {
+            mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+            
+            // Screen Shake Effect
+            mainCtx.save();
+            if (shakeFrames > 0) {
+                const shiftX = (Math.random() - 0.5) * 8;
+                const shiftY = (Math.random() - 0.5) * 8;
+                mainCtx.translate(shiftX, shiftY);
+                shakeFrames--;
+            }
+
+            // Real-time smooth animations
+            const targetXu = (0.87 * fy * Ast) / (0.36 * fck * b);
+            animatedXu += (targetXu - animatedXu) * 0.15;
+            animatedDeflection += (deflection - animatedDeflection) * 0.15;
+
+            // Scale calculations: We have an overall beam height of D (450mm). Let's map 450mm to 220 pixels.
+            const mmToPx = 220 / D; 
+            const scaledXu = animatedXu * mmToPx;
+            const scaledD = d * mmToPx;
+            const scaledOverallD = D * mmToPx;
+
+            // Split visualizer into 2 viewports
+            // 1. Cross-section (left)
+            // 2. Simply supported profile under loading (right)
+
+            // --- VIEWPORT 1: CROSS-SECTION ---
+            const csX = 70;
+            const csY = 120;
+            const csW = b * mmToPx; // width (scaled)
+
+            // Draw concrete cross section outline
+            mainCtx.fillStyle = '#1e293b';
+            mainCtx.strokeStyle = 'rgba(148, 163, 184, 0.3)';
+            mainCtx.lineWidth = 2;
+            mainCtx.beginPath();
+            mainCtx.rect(csX, csY, csW, scaledOverallD);
+            mainCtx.fill();
+            mainCtx.stroke();
+
+            // Stress block rendering (Whitney parabolic block)
+            // Parabolic stress distribution at top edge down to neutral axis
+            mainCtx.fillStyle = 'rgba(249, 115, 22, 0.25)';
+            mainCtx.strokeStyle = 'rgba(249, 115, 22, 0.8)';
+            mainCtx.lineWidth = 1.5;
+            mainCtx.beginPath();
+            mainCtx.moveTo(csX, csY);
+            mainCtx.lineTo(csX + csW, csY);
+            mainCtx.lineTo(csX + csW, csY + scaledXu);
+            mainCtx.lineTo(csX, csY + scaledXu);
+            mainCtx.closePath();
+            mainCtx.fill();
+            mainCtx.stroke();
+
+            // Label Stress Block
+            mainCtx.fillStyle = 'rgba(249, 115, 22, 0.9)';
+            mainCtx.font = '10px sans-serif';
+            mainCtx.fillText("Stress Block", csX + 15, csY + Math.max(15, scaledXu / 2));
+
+            // Neutral Axis Line (Lime Dash)
+            mainCtx.save();
+            mainCtx.strokeStyle = varColor('--accent-lime');
+            mainCtx.lineWidth = 2;
+            mainCtx.setLineDash([4, 4]);
+            mainCtx.shadowColor = varColor('--accent-lime');
+            mainCtx.shadowBlur = 6;
+            mainCtx.beginPath();
+            mainCtx.moveTo(csX - 15, csY + scaledXu);
+            mainCtx.lineTo(csX + csW + 25, csY + scaledXu);
+            mainCtx.stroke();
+            mainCtx.restore();
+
+            mainCtx.fillStyle = varColor('--accent-lime');
+            mainCtx.font = 'bold 9px monospace';
+            mainCtx.fillText(`N.A. (x_u = ${Math.round(animatedXu)}mm)`, csX + csW + 30, csY + scaledXu + 3);
+
+            // Rebars rendering
+            const numRebars = Math.min(Math.max(Math.ceil(Ast / 200), 2), 6);
+            const barSpacing = csW / (numRebars + 1);
+            const rebarY = csY + scaledD;
+            const rebarRadius = Math.max(3, Math.min(7, Math.sqrt(Ast) / 5));
+
+            for (let i = 1; i <= numRebars; i++) {
+                const rx = csX + i * barSpacing;
+                mainCtx.save();
+                mainCtx.fillStyle = varColor('--accent-cyan');
+                mainCtx.shadowColor = varColor('--accent-cyan');
+                mainCtx.shadowBlur = 8;
+                mainCtx.beginPath();
+                mainCtx.arc(rx, rebarY, rebarRadius, 0, Math.PI * 2);
+                mainCtx.fill();
+                mainCtx.restore();
+            }
+
+            // --- FORCE VECTORS OVERLAY (CROSS-SECTION) ---
+            const T_ForceNewtons = 0.87 * fy * Ast;
+            const C_ForceNewtons = 0.36 * fck * b * animatedXu;
+            
+            // Interpolate force animations smoothly
+            animatedCForce += (C_ForceNewtons - animatedCForce) * 0.15;
+            animatedTForce += (T_ForceNewtons - animatedTForce) * 0.15;
+
+            const maxTheoreticalForce = 0.87 * 415 * 2200; // Force cap to scale length
+            const forceVecLength = Math.max(5, (animatedTForce / maxTheoreticalForce) * 80);
+
+            // Compression force arrow (from center of gravity of compression zone, approx 0.42 * xu from top)
+            const cy = csY + 0.42 * scaledXu;
+            drawVectorArrow(mainCtx, csX + csW/2, cy, csX + csW/2 + forceVecLength, cy, varColor('--accent-orange'), `C = ${Math.round(animatedCForce / 1000)} kN`);
+
+            // Tension force arrow (from center of steel)
+            drawVectorArrow(mainCtx, csX + csW/2, rebarY, csX + csW/2 - forceVecLength, rebarY, varColor('--accent-cyan'), `T = ${Math.round(animatedTForce / 1000)} kN`, true);
+
+            // --- VIEWPORT 2: PROFILE VIEW ---
+            const profX = 390;
+            const profY = 180;
+            const profW = 400;
+            const profH = scaledOverallD;
+
+            // Drawing simple supports
+            mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            mainCtx.lineWidth = 2;
+            // Left triangle support
+            mainCtx.beginPath();
+            mainCtx.moveTo(profX, profY + profH + animatedDeflection);
+            mainCtx.lineTo(profX - 10, profY + profH + 15 + animatedDeflection);
+            mainCtx.lineTo(profX + 10, profY + profH + 15 + animatedDeflection);
+            mainCtx.closePath();
+            mainCtx.stroke();
+            // Right roller support
+            mainCtx.beginPath();
+            mainCtx.moveTo(profX + profW, profY + profH + animatedDeflection);
+            mainCtx.lineTo(profX + profW - 10, profY + profH + 15 + animatedDeflection);
+            mainCtx.lineTo(profX + profW + 10, profY + profH + 15 + animatedDeflection);
+            mainCtx.closePath();
+            mainCtx.stroke();
+
+            // Beam Profile Path under deflection (curved parabola profile)
+            mainCtx.save();
+            mainCtx.strokeStyle = 'rgba(148, 163, 184, 0.4)';
+            mainCtx.fillStyle = '#1e293b';
+            mainCtx.lineWidth = 1.5;
+
+            // Render bent/deflected concrete beam as a single filled shape
+            mainCtx.beginPath();
+            // Top bent edge
+            mainCtx.moveTo(profX, profY);
+            mainCtx.quadraticCurveTo(profX + profW/2, profY + animatedDeflection, profX + profW, profY);
+            // Right straight edge
+            mainCtx.lineTo(profX + profW, profY + profH);
+            // Bottom bent edge
+            mainCtx.quadraticCurveTo(profX + profW/2, profY + profH + animatedDeflection, profX, profY + profH);
+            mainCtx.closePath();
+            mainCtx.fill();
+            mainCtx.stroke();
+
+            // Deflected steel line rendering inside beam
+            mainCtx.strokeStyle = 'rgba(6, 182, 212, 0.45)';
+            mainCtx.lineWidth = 3;
+            mainCtx.beginPath();
+            mainCtx.moveTo(profX, profY + scaledD);
+            mainCtx.quadraticCurveTo(profX + profW/2, profY + scaledD + animatedDeflection, profX + profW, profY + scaledD);
+            mainCtx.stroke();
+
+            // Tension Cracks Drawing (Under-reinforced / Ductile)
+            if (sectionType === 'under' || sectionType === 'balanced') {
+                const limitCrackCount = sectionType === 'balanced' ? 4 : 8;
+                const activeCracks = Math.min(limitCrackCount, Math.floor((loadPercent / 100) * limitCrackCount));
+                
+                mainCtx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+                mainCtx.lineWidth = 1.5;
+                
+                for (let k = 0; k < activeCracks; k++) {
+                    const crack = crackPatterns[k % crackPatterns.length];
+                    const cx = profX + profW/2 + crack.offset;
+                    // Find deflection at crack offset position via basic parabolic approx
+                    const normOffset = (crack.offset / (profW/2)); // -1 to 1
+                    const localDeflection = animatedDeflection * (1 - normOffset * normOffset);
+                    
+                    const cy_bottom = profY + profH + localDeflection;
+                    const crackMaxHt = profH * 0.55 * (loadPercent / 100);
+
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(cx, cy_bottom);
+                    
+                    let currY = cy_bottom;
+                    let currX = cx;
+                    const segments = 4;
+                    const segLen = crackMaxHt / segments;
+
+                    for (let s = 1; s <= segments; s++) {
+                        currY -= segLen;
+                        currX += (crack.roughness[s] || 0) * (loadPercent / 100);
+                        mainCtx.lineTo(currX, currY);
+                    }
+                    mainCtx.stroke();
+                }
+            }
+
+            // Concrete Crushing (Spalling) Visuals (Over-reinforced failure)
+            if (sectionType === 'over' && loadPercent > 85) {
+                const crushIntensity = (loadPercent - 85) / 15; // 0 to 1
+                mainCtx.fillStyle = '#ef4444';
+                mainCtx.shadowColor = '#ef4444';
+                mainCtx.shadowBlur = 10 * crushIntensity;
+
+                // Center upper area highlight
+                mainCtx.beginPath();
+                mainCtx.ellipse(profX + profW/2, profY + animatedDeflection, 25 * crushIntensity, 8 * crushIntensity, 0, 0, Math.PI * 2);
+                mainCtx.fill();
+                
+                // Spawn flying visual particles at 100% load (catastrophic failure event)
+                if (loadPercent === 100 && particles.length < 50) {
+                    for (let p = 0; p < 3; p++) {
+                        particles.push(new DebrisParticle(profX + profW/2 + (Math.random() - 0.5) * 40, profY + animatedDeflection, '#ef4444'));
+                        particles.push(new DebrisParticle(profX + profW/2 + (Math.random() - 0.5) * 40, profY + animatedDeflection, '#475569'));
+                    }
+                }
+            }
+
+            // Run particle system updates
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw(mainCtx);
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // --- POINT LOAD VECTOR CONTROLLER ---
+            // Draw a downward force arrow
+            const arrowX = profX + profW / 2;
+            const arrowStartY = profY - 60 - (loadPercent * 0.4);
+            const arrowEndY = profY + animatedDeflection - 4;
+
+            // Handle hover/active mouse states
+            const arrowHovered = isMouseNearLoadHandle(mouseX, mouseY);
+            const arrowColor = isDraggingLoad ? '#e11d48' : (arrowHovered ? '#ec4899' : '#f43f5e');
+
+            // Draw interaction boundary circle to assist users
+            mainCtx.fillStyle = isDraggingLoad ? 'rgba(236, 72, 153, 0.15)' : 'rgba(255, 255, 255, 0.04)';
+            mainCtx.beginPath();
+            mainCtx.arc(arrowX, arrowEndY, 18, 0, Math.PI * 2);
+            mainCtx.fill();
+
+            // Direct visual vector arrow
+            drawVectorArrow(mainCtx, arrowX, arrowStartY, arrowX, arrowEndY, arrowColor, `Applied Load: ${Math.round(loadPercent * 1.5)} kN`);
+
+            // Hover indicator icon/text
+            if (arrowHovered || isDraggingLoad) {
+                mainCtx.fillStyle = '#f8fafc';
+                mainCtx.font = 'bold 9px sans-serif';
+                mainCtx.fillText("DRAG LOAD", arrowX - 26, arrowStartY - 10);
+            }
+
+            mainCtx.restore(); // Restore shake transforms
+        }
+
+        // Helper to get raw CSS variables
+        function varColor(cssVar) {
+            return getComputedStyle(document.documentElement).getPropertyValue(cssVar).trim();
+        }
+
+        // --- SECONDARY CANVAS: STRAIN PROFILE TRIANGLE ---
+        function renderStrainCanvas() {
+            strainCtx.clearRect(0, 0, strainCanvas.width, strainCanvas.height);
+            
+            const cX = strainCanvas.width / 2;
+            const cY = 40;
+            const scaleH = 200; // height of beam scaled vertically
+            
+            // Map depths proportionally
+            const scaledXu = (animatedXu / D) * scaleH;
+            const scaledD = (d / D) * scaleH;
+
+            // Reference boundary grid lines
+            strainCtx.strokeStyle = 'rgba(255,255,255,0.06)';
+            strainCtx.lineWidth = 1;
+            strainCtx.beginPath();
+            strainCtx.moveTo(cX - 80, cY); strainCtx.lineTo(cX + 80, cY);
+            strainCtx.moveTo(cX - 80, cY + scaleH); strainCtx.lineTo(cX + 80, cY + scaleH);
+            strainCtx.stroke();
+
+            // Vertical centerline (Zero Strain reference)
+            strainCtx.strokeStyle = 'rgba(255,255,255,0.15)';
+            strainCtx.setLineDash([2, 4]);
+            strainCtx.beginPath();
+            strainCtx.moveTo(cX, cY);
+            strainCtx.lineTo(cX, cY + scaleH);
+            strainCtx.stroke();
+            strainCtx.setLineDash([]);
+
+            // Calculations for exact mechanical strains
+            // Concrete extreme strain max design limit = 0.0035
+            const currentCStrain = (loadPercent / 100) * 0.0035;
+            // Steel strain according to relative neutral axis relationship
+            const currentSStrain = currentCStrain * ((d - animatedXu) / animatedXu);
+
+            // Display values mapping
+            const pxPerStrain = 18000; // scale factor
+            const strainCX_width = currentCStrain * pxPerStrain;
+            const strainSX_width = currentSStrain * pxPerStrain;
+
+            // Draw Strain Area Triangles
+            strainCtx.fillStyle = sectionType === 'over' ? 'rgba(236, 72, 153, 0.15)' : 'rgba(132, 204, 22, 0.15)';
+            strainCtx.strokeStyle = sectionType === 'over' ? varColor('--accent-magenta') : varColor('--accent-lime');
+            strainCtx.lineWidth = 2.5;
+
+            strainCtx.beginPath();
+            // Compression strain triangle
+            strainCtx.moveTo(cX, cY);
+            strainCtx.lineTo(cX - strainCX_width, cY);
+            strainCtx.lineTo(cX, cY + scaledXu);
+            // Tension strain triangle
+            strainCtx.lineTo(cX + strainSX_width, cY + scaledD);
+            strainCtx.lineTo(cX, cY + scaledD);
+            strainCtx.closePath();
+            strainCtx.fill();
+            strainCtx.stroke();
+
+            // Label key depth references
+            strainCtx.fillStyle = varColor('--text-muted');
+            strainCtx.font = '9px monospace';
+            strainCtx.fillText("TOP", cX - 110, cY + 4);
+            strainCtx.fillText("REBAR", cX - 110, cY + scaledD + 3);
+
+            // Neutral Axis Line (Lime Dash)
+            strainCtx.strokeStyle = varColor('--accent-lime');
+            strainCtx.setLineDash([3, 3]);
+            strainCtx.lineWidth = 1;
+            strainCtx.beginPath();
+            strainCtx.moveTo(cX - 100, cY + scaledXu);
+            strainCtx.lineTo(cX + 100, cY + scaledXu);
+            strainCtx.stroke();
+            strainCtx.setLineDash([]);
+
+            // Strain Values Overlay Readouts
+            strainCtx.fillStyle = '#f8fafc';
+            strainCtx.font = 'bold 10px monospace';
+            strainCtx.fillText(`ε_c: ${currentCStrain.toFixed(5)}`, cX - strainCX_width - 70, cY - 8);
+            strainCtx.fillText(`ε_s: ${currentSStrain.toFixed(5)}`, cX + strainSX_width + 8, cY + scaledD + 4);
+
+            // Critical yielding limit reference line: fy / (Es * 1.15) + 0.002 = 0.0038
+            const yieldStrainLimit = 0.0038;
+            const yieldPxX = cX + yieldStrainLimit * pxPerStrain;
+            
+            strainCtx.strokeStyle = 'rgba(239, 68, 68, 0.35)';
+            strainCtx.setLineDash([1, 2]);
+            strainCtx.beginPath();
+            strainCtx.moveTo(yieldPxX, cY);
+            strainCtx.lineTo(yieldPxX, cY + scaleH);
+            strainCtx.stroke();
+            strainCtx.setLineDash([]);
+            strainCtx.fillStyle = 'rgba(239, 68, 68, 0.8)';
+            strainCtx.font = '8px sans-serif';
+            strainCtx.fillText("Yield limit", yieldPxX - 25, cY + scaleH + 12);
+        }
+
+        // --- INTERACTIVE EVENT LISTENERS & PHYSICS CLOOP ---
+        let mouseX = 0;
+        let mouseY = 0;
+
+        function isMouseNearLoadHandle(mx, my) {
+            const arrowX = 390 + 200; // center of profile view
+            const arrowY = 180 + animatedDeflection;
+            const dist = Math.hypot(mx - arrowX, my - arrowY);
+            return dist < 22; // within hover circle radius
+        }
+
+        function handlePointerMove(clientX, clientY) {
+            const rect = mainCanvas.getBoundingClientRect();
+            mouseX = clientX - rect.left;
+            mouseY = clientY - rect.top;
+
+            // Change pointer cursor
+            if (isMouseNearLoadHandle(mouseX, mouseY) || isDraggingLoad) {
+                mainCanvas.style.cursor = 'ns-resize';
+            } else {
+                mainCanvas.style.cursor = 'default';
+            }
+
+            if (isDraggingLoad) {
+                const beamY = 180;
+                const minDragY = beamY - 120;
+                const maxDragY = beamY + 80;
+                
+                // Map vertical slide range directly to loadPercent
+                const fraction = (mouseY - minDragY) / (maxDragY - minDragY);
+                const prevLoad = loadPercent;
+                loadPercent = Math.max(0, Math.min(100, Math.round(fraction * 100)));
+                
+                document.getElementById('slider-load').value = loadPercent;
+                if (Math.abs(loadPercent - prevLoad) > 1.5) {
+                    sound.playTick();
+                }
+                updateCalculations();
+            }
+        }
+
+        mainCanvas.addEventListener('mousemove', (e) => handlePointerMove(e.clientX, e.clientY));
+
+        mainCanvas.addEventListener('mousedown', (e) => {
+            sound.init(); // Initialize context safety on first interact
+            if (isMouseNearLoadHandle(mouseX, mouseY)) {
+                isDraggingLoad = true;
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingLoad = false;
+        });
+
+        // Touch support for mobiles/tablets
+        mainCanvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length > 0) {
+                handlePointerMove(e.touches[0].clientX, e.touches[0].clientY);
+                if (isDraggingLoad) e.preventDefault();
+            }
+        }, { passive: false });
+
+        mainCanvas.addEventListener('touchstart', (e) => {
+            sound.init();
+            if (e.touches.length > 0) {
+                const rect = mainCanvas.getBoundingClientRect();
+                mouseX = e.touches[0].clientX - rect.left;
+                mouseY = e.touches[0].clientY - rect.top;
+                if (isMouseNearLoadHandle(mouseX, mouseY)) {
+                    isDraggingLoad = true;
+                    e.preventDefault();
+                }
+            }
+        }, { passive: false });
+
+        mainCanvas.addEventListener('touchend', () => {
+            isDraggingLoad = false;
+        });
+
+        // Slider Listeners
+        const sliderAst = document.getElementById('slider-ast');
+        sliderAst.addEventListener('input', (e) => {
+            Ast = parseInt(e.target.value);
+            sound.playTick();
+            updateCalculations();
+            updateActivePresetButton();
+        });
+
+        const sliderLoad = document.getElementById('slider-load');
+        sliderLoad.addEventListener('input', (e) => {
+            loadPercent = parseInt(e.target.value);
+            sound.playTick();
+            updateCalculations();
+        });
+
+        // Preset buttons
+        const presetButtons = document.querySelectorAll('.btn-preset');
+        presetButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-type');
+                if (type === 'under') {
+                    Ast = 480;
+                    sound.playPresetChime(440);
+                } else if (type === 'balanced') {
+                    Ast = 1196; // Balanced Area for standard inputs
+                    sound.playPresetChime(660);
+                } else {
+                    Ast = 1850;
+                    sound.playPresetChime(880);
+                }
+                sliderAst.value = Ast;
+                updateCalculations();
+                setActivePresetClass(btn);
+            });
+        });
+
+        function setActivePresetClass(activeBtn) {
+            presetButtons.forEach(b => b.classList.remove('active'));
+            activeBtn.classList.add('active');
+        }
+
+        function updateActivePresetButton() {
+            // Check closeness to snap preset button styling dynamically
+            presetButtons.forEach(b => b.classList.remove('active'));
+            if (Ast < xu_lim / 0.1605 - 100) {
+                presetButtons[0].classList.add('active'); // under
+            } else if (Ast > xu_lim / 0.1605 + 100) {
+                presetButtons[2].classList.add('active'); // over
+            } else {
+                presetButtons[1].classList.add('active'); // balanced
+            }
+        }
+
+        // Voice and Sound Settings toggles
+        const btnSound = document.getElementById('btn-sound');
+        btnSound.addEventListener('click', () => {
+            sound.muted = !sound.muted;
+            btnSound.classList.toggle('active', !sound.muted);
+        });
+
+        const btnVoice = document.getElementById('btn-voice');
+        btnVoice.addEventListener('click', () => {
+            voiceEnabled = !voiceEnabled;
+            btnVoice.classList.toggle('active', voiceEnabled);
+            if (!voiceEnabled) window.speechSynthesis.cancel();
+        });
+
+        // Narrator Activation
+        document.getElementById('btn-narrate').addEventListener('click', () => {
+            sound.init();
+            let text = "";
+            if (sectionType === 'under') {
+                text = "Under-reinforced section. The area of tension steel is small, meaning the steel reaches its yield point first while concrete remains below its ultimate strain of zero point zero zero three five. This failure mode is safe and ductile as large deflections and widening cracks give plenty of visual warnings.";
+            } else if (sectionType === 'balanced') {
+                text = "Balanced section design. Tension steel yields and concrete reaches crushing point simultaneously. While optimal on paper, this limit state is rarely targeted because failure remains relatively sudden.";
+            } else {
+                text = "Warning. Over-reinforced section. The massive steel area prevents it from yielding before concrete reaches ultimate crushing limits. Concrete fails explosively without warning. Engineering codes strictly prohibit this configuration.";
+            }
+            speakText(text);
+        });
+
+        // Main game-loop
+        function loop() {
+            renderVisualizer();
+            renderStrainCanvas();
+            requestAnimationFrame(loop);
+        }
+
+        // Initialize state
+        updateCalculations();
+        loop();
+    </script>
+</body>
+</html>

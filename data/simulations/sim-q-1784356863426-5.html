@@ -1,0 +1,1748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AeroPave - Advanced Rigid Pavement Engineering Simulator</title>
+  <style>
+    :root {
+      --bg-dark: #080b11;
+      --bg-card: rgba(15, 23, 42, 0.65);
+      --bg-card-hover: rgba(20, 30, 55, 0.85);
+      --border-color: rgba(255, 255, 255, 0.08);
+      --border-glow: rgba(0, 243, 255, 0.25);
+      
+      /* Theme Accents */
+      --accent-jpcp: #00f3ff;
+      --accent-jrcp: #bd00ff;
+      --accent-crcp: #39ff14;
+      --accent-pcp: #ffaa00;
+      
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      
+      --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(13, 27, 42, 0.5) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(10, 35, 25, 0.4) 0px, transparent 50%);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Glassmorphism utility */
+    .glass-panel {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px) saturate(140%);
+      -webkit-backdrop-filter: blur(16px) saturate(140%);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Header styling */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--border-color);
+      background: rgba(8, 11, 17, 0.85);
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-mark {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--accent-jpcp), var(--accent-jrcp));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      color: #000;
+      box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+    }
+
+    .logo-text h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      background: linear-gradient(to right, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .logo-text p {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-crcp);
+      box-shadow: 0 0 8px var(--accent-crcp);
+      animation: pulse 2s infinite;
+    }
+
+    /* Core layout grid */
+    .dashboard-container {
+      display: grid;
+      grid-template-columns: 320px 1fr 340px;
+      gap: 16px;
+      padding: 16px;
+      flex-grow: 1;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* Panel layouts */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Custom thin scrollbars */
+    .sidebar::-webkit-scrollbar {
+      width: 4px;
+    }
+    .sidebar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+
+    .panel-header {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Pavement Selector Cards */
+    .pavement-list {
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .pavement-card {
+      padding: 14px;
+      cursor: grab;
+      position: relative;
+      overflow: hidden;
+      border-left: 3px solid transparent;
+    }
+
+    .pavement-card:active {
+      cursor: grabbing;
+    }
+
+    .pavement-card[data-type="jpcp"] { border-left-color: var(--accent-jpcp); }
+    .pavement-card[data-type="jrcp"] { border-left-color: var(--accent-jrcp); }
+    .pavement-card[data-type="crcp"] { border-left-color: var(--accent-crcp); }
+    .pavement-card[data-type="pcp"]  { border-left-color: var(--accent-pcp); }
+
+    .pavement-card:hover {
+      background: var(--bg-card-hover);
+      transform: translateX(4px);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    }
+
+    .pavement-card.active-selected {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .card-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: var(--text-main);
+    }
+
+    .card-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* System Inspector / Controls */
+    .control-group {
+      padding: 14px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .control-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    .control-value {
+      font-family: var(--font-mono);
+      color: var(--accent-jpcp);
+      font-weight: 700;
+    }
+
+    /* Sliders and custom nodes */
+    .slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      margin-bottom: 6px;
+    }
+
+    .slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #fff;
+      cursor: pointer;
+      box-shadow: 0 0 8px rgba(255, 255, 255, 0.8);
+      transition: transform 0.1s;
+    }
+
+    .slider::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    /* Toggle Switches */
+    .toggle-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 40px;
+      height: 20px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 20px;
+      border: 1px solid var(--border-color);
+    }
+
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 12px;
+      width: 12px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 50%;
+    }
+
+    input:checked + .toggle-slider {
+      background-color: rgba(0, 243, 255, 0.2);
+      border-color: var(--accent-jpcp);
+    }
+
+    input:checked + .toggle-slider:before {
+      transform: translateX(20px);
+      background-color: var(--accent-jpcp);
+      box-shadow: 0 0 8px var(--accent-jpcp);
+    }
+
+    /* Center Workbench */
+    .workbench-panel {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      height: 100%;
+    }
+
+    .workbench-header {
+      padding: 12px 18px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .workbench-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .canvas-container {
+      flex-grow: 1;
+      position: relative;
+      background: radial-gradient(circle at center, #0e1422 0%, #05070c 100%);
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Drop overlay indicator */
+    .drop-overlay {
+      position: absolute;
+      inset: 8px;
+      border: 2px dashed rgba(0, 243, 255, 0.2);
+      background: rgba(0, 243, 255, 0.02);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s ease;
+      z-index: 5;
+    }
+
+    .drop-overlay.drag-over {
+      opacity: 1;
+      border-color: var(--accent-jpcp);
+      background: rgba(0, 243, 255, 0.05);
+      box-shadow: inset 0 0 30px rgba(0, 243, 255, 0.1);
+    }
+
+    .drop-message {
+      text-align: center;
+      font-size: 0.9rem;
+      color: var(--accent-jpcp);
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      animation: pulse 1.5s infinite;
+    }
+
+    /* Dynamic overlay analytics directly on canvas */
+    .overlay-metrics {
+      position: absolute;
+      bottom: 16px;
+      left: 16px;
+      pointer-events: none;
+      display: flex;
+      gap: 12px;
+    }
+
+    .metric-badge {
+      background: rgba(8, 11, 17, 0.85);
+      border: 1px solid var(--border-color);
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-family: var(--font-mono);
+    }
+
+    .metric-badge .label {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+
+    .metric-badge .val {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent-jpcp);
+    }
+
+    /* Formula & Parameter sandbox styling */
+    .formula-sandbox {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .parameter-bank {
+      padding: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .param-badge {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 8px;
+      text-align: center;
+      cursor: grab;
+      transition: all 0.2s;
+    }
+
+    .param-badge:hover {
+      border-color: var(--accent-jpcp);
+      background: rgba(0, 243, 255, 0.04);
+      transform: translateY(-2px);
+    }
+
+    .param-badge:active {
+      cursor: grabbing;
+    }
+
+    .param-badge .p-val {
+      font-size: 0.85rem;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .param-badge .p-unit {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+    }
+
+    .sandbox-slots {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      border: 1px dashed var(--border-color);
+    }
+
+    .param-slot {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      font-size: 0.8rem;
+      transition: all 0.2s;
+    }
+
+    .param-slot.drag-over-slot {
+      border-color: var(--accent-jpcp);
+      background: rgba(0, 243, 255, 0.05);
+    }
+
+    .slot-label {
+      color: var(--text-muted);
+      font-size: 0.75rem;
+    }
+
+    .slot-dropzone {
+      width: 90px;
+      height: 30px;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      transition: all 0.2s;
+    }
+
+    .slot-dropzone.filled {
+      border-style: solid;
+      border-color: var(--accent-crcp);
+      background: rgba(57, 255, 20, 0.08);
+      color: #fff;
+      font-weight: 700;
+    }
+
+    /* Math Formula Render */
+    .formula-math-display {
+      padding: 16px;
+      text-align: center;
+      border-top: 1px solid var(--border-color);
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 1rem;
+      letter-spacing: 0.03em;
+      background: rgba(0,0,0,0.15);
+    }
+
+    .mini-chart-container {
+      height: 100px;
+      position: relative;
+      margin-top: 8px;
+      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    /* Button tools */
+    .action-btn {
+      background: linear-gradient(135deg, rgba(0, 243, 255, 0.1), rgba(0, 243, 255, 0.02));
+      border: 1px solid rgba(0, 243, 255, 0.3);
+      color: var(--accent-jpcp);
+      padding: 10px 16px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .action-btn:hover {
+      background: linear-gradient(135deg, rgba(0, 243, 255, 0.2), rgba(0, 243, 255, 0.05));
+      box-shadow: 0 0 12px rgba(0, 243, 255, 0.25);
+      border-color: var(--accent-jpcp);
+    }
+
+    /* Modals & Dialog overlays */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 6, 10, 0.85);
+      backdrop-filter: blur(10px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+      opacity: 1;
+    }
+
+    .modal-card {
+      width: 90%;
+      max-width: 580px;
+      max-height: 85vh;
+      overflow-y: auto;
+      padding: 24px;
+      position: relative;
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    .modal-close:hover {
+      color: #fff;
+    }
+
+    .modal-body p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 12px;
+    }
+
+    .modal-body ul {
+      margin-left: 20px;
+      margin-bottom: 16px;
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.6; }
+      50% { opacity: 1; }
+      100% { opacity: 0.6; }
+    }
+
+    /* Tooltip support for X-Ray elements */
+    .xray-tip {
+      position: absolute;
+      background: rgba(8, 11, 17, 0.95);
+      border: 1px solid var(--accent-jpcp);
+      padding: 6px 12px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      color: #fff;
+      pointer-events: none;
+      display: none;
+      z-index: 20;
+      box-shadow: 0 0 10px rgba(0,243,255,0.2);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Main System Header -->
+  <header>
+    <div class="logo-container">
+      <div class="logo-mark">R</div>
+      <div class="logo-text">
+        <h1>AeroPave Engine</h1>
+        <p>Rigid Pavement Computational Studio</p>
+      </div>
+    </div>
+    
+    <div class="system-status">
+      <div class="status-indicator">
+        <div class="status-dot"></div>
+        <span>Westergaard Solved</span>
+      </div>
+      <button class="action-btn" id="open-docs-btn">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20M4 19.5A2.5 2.5 0 0 0 6.5 22H20M4 19.5V3a1 1 0 0 1 1-1h15v20H5a1 1 0 0 1-1-1z"/></svg>
+        IS Codes & Theory
+      </button>
+    </div>
+  </header>
+
+  <!-- Workspace Container Grid -->
+  <div class="dashboard-container">
+    
+    <!-- Sidebar: Selection & Parameters -->
+    <div class="sidebar">
+      
+      <!-- Pavement Selection Deck -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+            Pavement Inventory
+          </div>
+        </div>
+        <div class="pavement-list" id="inventory-deck">
+          
+          <div class="pavement-card glass-panel" draggable="true" data-type="jpcp">
+            <div class="card-meta"><span>CLASS-I</span><span>PLAIN JOINTED</span></div>
+            <div class="card-title">JPCP</div>
+            <div class="card-desc">Jointed Plain Concrete Pavement. Relies on aggregate interlock & smooth dowels at regular contraction joints.</div>
+          </div>
+
+          <div class="pavement-card glass-panel" draggable="true" data-type="jrcp">
+            <div class="card-meta"><span>CLASS-II</span><span>MESH REINFORCED</span></div>
+            <div class="card-title">JRCP</div>
+            <div class="card-desc">Jointed Reinforced Concrete Pavement. Incorporates distributed steel mesh to prolong transverse joint spacing.</div>
+          </div>
+
+          <div class="pavement-card glass-panel" draggable="true" data-type="crcp">
+            <div class="card-meta"><span>CLASS-III</span><span>CONTINUOUS</span></div>
+            <div class="card-title">CRCP</div>
+            <div class="card-desc">Continuously Reinforced Concrete Pavement. Zero transverse contraction joints; continuous longitudinal steel bar structure.</div>
+          </div>
+
+          <div class="pavement-card glass-panel" draggable="true" data-type="pcp">
+            <div class="card-meta"><span>CLASS-IV</span><span>PRESTRESSED</span></div>
+            <div class="card-title">PCP</div>
+            <div class="card-desc">Prestressed Concrete Pavement. Utilizes tensioned high-strength tendons to lower slab thickness dramatically.</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Live Inspection Controllers -->
+      <div class="glass-panel">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16V12M12 8h.01"/></svg>
+            Diagnostic Control
+          </div>
+        </div>
+        
+        <div class="control-group">
+          <div class="toggle-container">
+            <span style="font-size: 0.8rem;">X-Ray Stress Lens</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="xray-toggle">
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.35;">
+            Toggle interactive inspection lens to map the internal stress concentration fields around rebars/base elements.
+          </p>
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Axle Wheel Load</span>
+            <span class="control-value" id="wheel-load-val">50 kN</span>
+          </div>
+          <input type="range" min="10" max="120" value="50" class="slider" id="wheel-load-slider">
+        </div>
+
+        <div class="control-group">
+          <div class="control-label">
+            <span>Voice Synthesis</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="audio-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Center Canvas: Workbench Simulator -->
+    <div class="glass-panel workbench-panel">
+      <div class="workbench-header">
+        <div class="panel-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+          Interactive Computational Canvas
+        </div>
+        <div class="workbench-desc">Drag items here or click on canvas to reposition load vector</div>
+      </div>
+      
+      <!-- Interactive Area -->
+      <div class="canvas-container" id="canvas-workspace">
+        <canvas id="pavement-canvas"></canvas>
+        <div class="drop-overlay" id="deck-dropzone">
+          <div class="drop-message">Drop to Construct Pavement System</div>
+        </div>
+        
+        <!-- Live status telemetry display overlay on canvas -->
+        <div class="overlay-metrics">
+          <div class="metric-badge">
+            <div class="label">Slab Stiffness (ℓ)</div>
+            <div class="val" id="telemetry-stiffness">840 mm</div>
+          </div>
+          <div class="metric-badge">
+            <div class="label">Relative Load Transfer</div>
+            <div class="val" id="telemetry-lte">85 %</div>
+          </div>
+          <div class="metric-badge">
+            <div class="label">Max Deflection (Δ)</div>
+            <div class="val" id="telemetry-deflection">0.12 mm</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Sidebar: Stress Sandbox & Formulae -->
+    <div class="sidebar">
+      
+      <!-- Westergaard Formulation -->
+      <div class="glass-panel formula-sandbox">
+        <div class="panel-header">
+          <div class="panel-title">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+            Westergaard Solver
+          </div>
+        </div>
+
+        <div style="padding: 12px; font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+          Drag concrete slab parameters below into the solver slots to compute real-time edge stresses.
+        </div>
+
+        <!-- Draggable Parameters -->
+        <div class="parameter-bank" id="param-bank">
+          <div class="param-badge" draggable="true" data-param="load" data-val="60" data-unit="kN">
+            <div class="p-unit">LOAD (P)</div>
+            <div class="p-val">60 kN</div>
+          </div>
+          <div class="param-badge" draggable="true" data-param="thickness" data-val="220" data-unit="mm">
+            <div class="p-unit">THICK (h)</div>
+            <div class="p-val">220 mm</div>
+          </div>
+          <div class="param-badge" draggable="true" data-param="subgrade" data-val="80" data-unit="MPa/m">
+            <div class="p-unit">SUBGR (k)</div>
+            <div class="p-val">80 MPa/m</div>
+          </div>
+        </div>
+
+        <!-- Drag Target Slots -->
+        <div class="sandbox-slots">
+          <div class="param-slot" data-slot="load">
+            <span class="slot-label">Wheel Load (P)</span>
+            <div class="slot-dropzone" id="slot-load">Drop Load</div>
+          </div>
+          <div class="param-slot" data-slot="thickness">
+            <span class="slot-label">Slab Depth (h)</span>
+            <div class="slot-dropzone" id="slot-thickness">Drop Depth</div>
+          </div>
+          <div class="param-slot" data-slot="subgrade">
+            <span class="slot-label">Subgrade Mod (k)</span>
+            <div class="slot-dropzone" id="slot-subgrade">Drop k-val</div>
+          </div>
+        </div>
+
+        <!-- Computed Output -->
+        <div class="formula-math-display" id="math-result-box">
+          <div style="font-size: 0.75rem; color: var(--text-muted); font-family: var(--font-mono); margin-bottom: 6px;">
+            CALCULATED EDGE STRESS (&sigma;<sub>e</sub>)
+          </div>
+          <div style="font-size: 1.6rem; font-weight: 800; color: var(--accent-crcp); font-family: var(--font-mono);" id="stress-result-val">
+            -- MPa
+          </div>
+        </div>
+
+        <!-- Real-time Deflection Curve Plotter -->
+        <div style="padding: 0 16px 16px 16px;">
+          <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: bold; margin-bottom: 4px;">
+            Deflection Profile Graph
+          </div>
+          <div class="mini-chart-container">
+            <canvas id="mini-deflection-chart"></canvas>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Educational Theory & Code Reference Modal Dialog -->
+  <div class="modal-overlay" id="docs-modal">
+    <div class="modal-card glass-panel">
+      <div class="modal-header">
+        <h3 style="font-size: 1rem; color:#fff;">Rigid Pavement Design & Westergaard Theory</h3>
+        <button class="modal-close" id="close-docs-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>1. Westergaard's Formulation</strong></p>
+        <p>
+          Westergaard's analysis treats a concrete slab as a homogeneous, elastic, isotropic plate resting on a dense liquid subgrade. The maximum edge stress ($\sigma_e$) caused by a loaded circular tire area is computed by:
+        </p>
+        <p style="font-family: var(--font-mono); font-size: 0.8rem; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 4px; color: var(--accent-jpcp); text-align: center;">
+          &sigma;<sub>e</sub> = 0.572 P/h<sup>2</sup> [ 4 log<sub>10</sub>(&ell;/b) + log<sub>10</sub>(b) + 0.359 ]
+        </p>
+        <p>Where:</p>
+        <ul>
+          <li><strong>P:</strong> Applied Wheel Load (N)</li>
+          <li><strong>h:</strong> Slab thickness (mm)</li>
+          <li><strong>&ell;:</strong> Radius of relative stiffness = ∜[E·h³ / (12(1-&mu;²)k)]</li>
+          <li><strong>b:</strong> Equivalent radius of resisting section</li>
+        </ul>
+        <p><strong>2. Pavement Structural Types</strong></p>
+        <ul>
+          <li><strong>JPCP:</strong> Joints every 4-5m. Relies on smooth metal dowel bars to transfer shear forces across contraction joints without letting slabs lock vertically.</li>
+          <li><strong>JRCP:</strong> Uses structural steel mesh. Designed to expand spacing of joints to 10-15m, with reinforcement holding shrinkage microcracks tight.</li>
+          <li><strong>CRCP:</strong> No expansion joints. Continuous rebars encourage thin hairline crack spacing at 1-2m, giving premium durability under intense transit loading.</li>
+          <li><strong>PCP:</strong> Pre-stressed cable steel blocks tensile strain, allowing thinner configurations for runway taxiways and marine ports.</li>
+        </ul>
+        <p><strong>3. Dynamic Load Transfer Efficiency (LTE)</strong></p>
+        <p>
+          Calculated dynamically as the percentage of load transferred to adjacent slab modules. High LTE prevents joint stepping, pumping, and eventual structural fatigue.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Web Audio & Core Physics engine scripts -->
+  <script>
+    // Audio Synth Engine Object
+    class AudioSynthEngine {
+      constructor() {
+        this.ctx = null;
+        this.lowThrumOsc = null;
+        this.lowThrumGain = null;
+      }
+      
+      init() {
+        if (this.ctx) return;
+        try {
+          this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+          
+          // Setup low thrum oscillator for active mouse actions
+          this.lowThrumOsc = this.ctx.createOscillator();
+          this.lowThrumGain = this.ctx.createGain();
+          this.lowThrumOsc.type = 'sawtooth';
+          this.lowThrumOsc.frequency.setValueAtTime(45, this.ctx.currentTime);
+          
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(80, this.ctx.currentTime);
+          
+          this.lowThrumOsc.connect(filter);
+          filter.connect(this.lowThrumGain);
+          this.lowThrumGain.connect(this.ctx.destination);
+          
+          this.lowThrumGain.gain.setValueAtTime(0, this.ctx.currentTime);
+          this.lowThrumOsc.start();
+        } catch (e) {
+          console.warn("Audio system initialized with restrictions", e);
+        }
+      }
+
+      playDropSound() {
+        this.init();
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc1 = this.ctx.createOscillator();
+        const osc2 = this.ctx.createOscillator();
+        const gainNode = this.ctx.createGain();
+        
+        osc1.type = 'sine';
+        osc1.frequency.setValueAtTime(440, now);
+        osc1.frequency.exponentialRampToValueAtTime(880, now + 0.25);
+        
+        osc2.type = 'triangle';
+        osc2.frequency.setValueAtTime(554.37, now); // C#5
+        osc2.frequency.exponentialRampToValueAtTime(1108.73, now + 0.25);
+        
+        gainNode.gain.setValueAtTime(0.12, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(this.ctx.destination);
+        
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.4);
+        osc2.stop(now + 0.4);
+      }
+
+      playHoverThrum(strength, freq = 45) {
+        this.init();
+        if (!this.ctx) return;
+        this.lowThrumGain.gain.setTargetAtTime(strength * 0.1, this.ctx.currentTime, 0.05);
+        this.lowThrumOsc.frequency.setTargetAtTime(freq, this.ctx.currentTime, 0.08);
+      }
+    }
+
+    const synth = new AudioSynthEngine();
+
+    // Global application configuration and simulation state
+    const state = {
+      pavementType: 'jpcp', // active selection: jpcp | jrcp | crcp | pcp
+      growthAnim: 0.0,      // construction transition state
+      xrayLensActive: false,
+      mousePos: { x: 400, y: 150 },
+      isDraggingLoad: false,
+      wheelLoad: 50,       // Wheel load value in kN
+      loadPosition: 0.5,   // horizontal alignment fractional index (0.0 to 1.0)
+      stiffness: 840,      // calculated radius of relative stiffness (mm)
+      lte: 85,             // calculated load transfer efficiency (%)
+      deflection: 0.12,    // max calculated displacement (mm)
+      solverParams: {
+        load: null,
+        thickness: null,
+        subgrade: null
+      }
+    };
+
+    // Concrete material attributes constant
+    const MATERIAL = {
+      E: 3.2e4, // concrete modulus of elasticity in MPa
+      mu: 0.15, // Poisson's ratio
+    };
+
+    // Canvas configuration and responsiveness
+    const canvas = document.getElementById('pavement-canvas');
+    const ctx = canvas.getContext('2d');
+    const miniChartCanvas = document.getElementById('mini-deflection-chart');
+    const miniChartCtx = miniChartCanvas.getContext('2d');
+
+    function resizeCanvases() {
+      // Primary Workspace canvas layout scaling
+      const container = document.getElementById('canvas-workspace');
+      const dpr = window.devicePixelRatio || 1;
+      const rect = container.getBoundingClientRect();
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      canvas.style.width = rect.width + 'px';
+      canvas.style.height = rect.height + 'px';
+      ctx.scale(dpr, dpr);
+
+      // Mini deflection chart scaling
+      const miniRect = miniChartCanvas.parentElement.getBoundingClientRect();
+      miniChartCanvas.width = miniRect.width * dpr;
+      miniChartCanvas.height = 100 * dpr;
+      miniChartCanvas.style.width = miniRect.width + 'px';
+      miniChartCanvas.style.height = '100px';
+      miniChartCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvases);
+
+    // Initial calculations of variables and stiffness radius & Westergaard stress solver
+    function runRigidCalculations() {
+      // Fetch or assume baseline values
+      const P_val = state.solverParams.load ? parseFloat(state.solverParams.load) * 1000 : state.wheelLoad * 1000; // in Newtons
+      const h_val = state.solverParams.thickness ? parseFloat(state.solverParams.thickness) : 220; // mm
+      const k_val = state.solverParams.subgrade ? parseFloat(state.solverParams.subgrade) : 80; // MPa/m, convert to N/mm^3
+      
+      // Convert k from MPa/m to N/mm^3: 80 MPa/m = 80 * 10^6 N / (10^9 mm^3) = 0.08 N/mm^3
+      const k_mm = k_val * 1e-3;
+
+      // 1. Calculate Radius of Relative Stiffness (l) in mm
+      const stiffness = Math.pow((MATERIAL.E * Math.pow(h_val, 3)) / (12 * (1 - Math.pow(MATERIAL.mu, 2)) * k_mm), 0.25);
+      state.stiffness = Math.round(stiffness);
+
+      // 2. Calculate Edge Stress using Westergaard edge load equations
+      // Assume radius of tire contact area (a) based on load and tire pressure (0.7 MPa)
+      const q = 0.7; // MPa contact pressure
+      const a_radius = Math.sqrt(P_val / (Math.PI * q));
+      
+      // Equivalent radius of resisting section (b)
+      let b_val;
+      if (a_radius < 1.724 * h_val) {
+        b_val = Math.sqrt(1.6 * Math.pow(a_radius, 2) + Math.pow(h_val, 2)) - 0.675 * h_val;
+      } else {
+        b_val = a_radius;
+      }
+
+      // Westergaard equation
+      const logRatio = Math.log10(stiffness / b_val);
+      const computedStress = (0.572 * P_val / Math.pow(h_val, 2)) * (4 * logRatio + Math.log10(b_val) + 0.359);
+      
+      // Update Westergaard Output displays
+      const stressResultElement = document.getElementById('stress-result-val');
+      if (state.solverParams.load && state.solverParams.thickness && state.solverParams.subgrade) {
+        stressResultElement.textContent = computedStress.toFixed(2) + " MPa";
+        stressResultElement.style.color = 'var(--accent-crcp)';
+      } else {
+        stressResultElement.textContent = "-- MPa";
+        stressResultElement.style.color = 'var(--text-muted)';
+      }
+
+      // 3. Dynamic displacement deflection mapping
+      const maxDeflection = P_val / (2 * Math.sqrt(2) * k_mm * Math.pow(stiffness, 2));
+      state.deflection = maxDeflection;
+
+      // Calculate localized Load Transfer Efficiency (LTE) based on structure configuration
+      if (state.pavementType === 'jpcp') {
+        state.lte = 75;
+      } else if (state.pavementType === 'jrcp') {
+        state.lte = 85;
+      } else if (state.pavementType === 'crcp') {
+        state.lte = 95;
+      } else {
+        state.lte = 98; // PCP high tension
+      }
+
+      // Update telemetry readout nodes on UI
+      document.getElementById('telemetry-stiffness').textContent = state.stiffness + " mm";
+      document.getElementById('telemetry-lte').textContent = state.lte + " %";
+      document.getElementById('telemetry-deflection').textContent = state.deflection.toFixed(3) + " mm";
+
+      drawMiniDeflectionCurve(maxDeflection, stiffness);
+    }
+
+    // Secondary plotter: Realtime mini deflection profile chart
+    function drawMiniDeflectionCurve(maxDef, stiffness) {
+      const rect = miniChartCanvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      
+      miniChartCtx.clearRect(0, 0, w, h);
+      
+      // Draw Grid Lines
+      miniChartCtx.strokeStyle = 'rgba(255,255,255,0.05)';
+      miniChartCtx.lineWidth = 1;
+      for (let i = 0; i < w; i += 25) {
+        miniChartCtx.beginPath();
+        miniChartCtx.moveTo(i, 0);
+        miniChartCtx.lineTo(i, h);
+        miniChartCtx.stroke();
+      }
+      for (let j = 0; j < h; j += 20) {
+        miniChartCtx.beginPath();
+        miniChartCtx.moveTo(0, j);
+        miniChartCtx.lineTo(w, j);
+        miniChartCtx.stroke();
+      }
+
+      // Drawing structural deflection path curve
+      miniChartCtx.beginPath();
+      miniChartCtx.strokeStyle = state.pavementType === 'jpcp' ? 'var(--accent-jpcp)' : 
+                               state.pavementType === 'jrcp' ? 'var(--accent-jrcp)' : 
+                               state.pavementType === 'crcp' ? 'var(--accent-crcp)' : 'var(--accent-pcp)';
+      miniChartCtx.lineWidth = 2;
+
+      const centerPoint = w / 2;
+      for (let x = 0; x < w; x++) {
+        const dist = Math.abs(x - centerPoint) * 5; // scaled mm coordinate simulation
+        // Westergaard structural deflection attenuation over distance: d = d_max * exp(-d / stiffness) * cos(d / stiffness)
+        const rad = dist / stiffness;
+        const disp = maxDef * Math.exp(-rad) * Math.cos(rad);
+        const yVal = h/4 + (disp * (h * 0.6) / maxDef);
+        
+        if (x === 0) {
+          miniChartCtx.moveTo(x, yVal);
+        } else {
+          miniChartCtx.lineTo(x, yVal);
+        }
+      }
+      miniChartCtx.stroke();
+
+      // Dynamic load indicator point visualizer
+      miniChartCtx.beginPath();
+      miniChartCtx.arc(centerPoint, h/4 + (maxDef * (h * 0.6) / maxDef), 4, 0, 2*Math.PI);
+      miniChartCtx.fillStyle = '#ff3366';
+      miniChartCtx.fill();
+    }
+
+    // Dynamic speech synthesis voice descriptions
+    function speakPavementStructure(type) {
+      const toggle = document.getElementById('audio-toggle');
+      if (!toggle.checked || !window.speechSynthesis) return;
+
+      window.speechSynthesis.cancel();
+      let pitchVal = 1.0;
+      let text = "";
+
+      if (type === 'jpcp') {
+        text = "Constructing Jointed Plain Concrete Pavement. System employs smooth transverse dowels at contraction joints to allow load sharing between slab aggregates.";
+      } else if (type === 'jrcp') {
+        text = "Constructing Jointed Reinforced Concrete Pavement. Embedded high tensile mesh structures allow prolonged expansion spacing and control intermediate microcracking.";
+      } else if (type === 'crcp') {
+        text = "Constructing Continuously Reinforced Concrete Pavement. Continuous structural steel layout provides uniform stiffness and removes transverse expansion joints entirely.";
+      } else if (type === 'pcp') {
+        text = "Constructing Prestressed Concrete Pavement. Post tensioned internal cables counteract mechanical bending strain to accommodate major high dynamic payloads.";
+      }
+
+      const speakObj = new SpeechSynthesisUtterance(text);
+      speakObj.rate = 1.1;
+      speakObj.pitch = pitchVal;
+      window.speechSynthesis.speak(speakObj);
+    }
+
+    // Core Canvas Rendering Engine loop
+    function drawSimulation() {
+      const w = canvas.getBoundingClientRect().width;
+      const h = canvas.getBoundingClientRect().height;
+      
+      ctx.clearRect(0, 0, w, h);
+      
+      // Animation step interpolations
+      if (state.growthAnim < 1.0) {
+        state.growthAnim += 0.03;
+        if (state.growthAnim > 1.0) state.growthAnim = 1.0;
+      }
+
+      // Height markers for layers
+      const subgradeY = h * 0.85;
+      const subbaseY = h * 0.68;
+      const slabTopY = h * 0.42;
+      const slabHeight = subbaseY - slabTopY;
+
+      // ---- 1. Subgrade Layer (Base Dirt and Earth) ----
+      ctx.fillStyle = '#111524';
+      ctx.fillRect(0, subbaseY, w, h - subbaseY);
+      
+      // Drawing engineering grids inside the subgrade earth layer
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < w; i += 30) {
+        ctx.beginPath();
+        ctx.moveTo(i, subbaseY);
+        ctx.lineTo(i, h);
+        ctx.stroke();
+      }
+      for (let j = subbaseY; j < h; j += 25) {
+        ctx.beginPath();
+        ctx.moveTo(0, j);
+        ctx.lineTo(w, j);
+        ctx.stroke();
+      }
+
+      // ---- 2. Subbase aggregate layer ----
+      ctx.fillStyle = '#1c223a';
+      ctx.fillRect(0, subbaseY - (subbaseY - slabTopY - slabHeight) * state.growthAnim, w, (subbaseY - slabTopY - slabHeight) * state.growthAnim);
+      
+      // Draw aggregate flecks
+      ctx.fillStyle = 'rgba(255,255,255,0.1)';
+      for (let i = 15; i < w; i += 40) {
+        ctx.beginPath();
+        ctx.arc(i + (i%3)*5, subbaseY + 12 + (i%2)*4, 2 + (i%3), 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // ---- 3. Main Concrete Slab Modules ----
+      const fillGlowStyle = state.pavementType === 'jpcp' ? 'rgba(0, 243, 255, 0.06)' : 
+                            state.pavementType === 'jrcp' ? 'rgba(189, 0, 255, 0.06)' : 
+                            state.pavementType === 'crcp' ? 'rgba(57, 255, 20, 0.06)' : 'rgba(255, 170, 0, 0.06)';
+      
+      const strokeGlowStyle = state.pavementType === 'jpcp' ? 'var(--accent-jpcp)' : 
+                              state.pavementType === 'jrcp' ? 'var(--accent-jrcp)' : 
+                              state.pavementType === 'crcp' ? 'var(--accent-crcp)' : 'var(--accent-pcp)';
+
+      ctx.save();
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = strokeGlowStyle;
+
+      // Slab rendering details based on type configuration
+      if (state.pavementType === 'jpcp' || state.pavementType === 'jrcp') {
+        // Multi slab setup separated by transverse contraction joints
+        const slabCount = 3;
+        const gapWidth = 6;
+        const totalGapWidth = gapWidth * (slabCount - 1);
+        const slabWidth = (w - totalGapWidth) / slabCount;
+
+        for (let idx = 0; idx < slabCount; idx++) {
+          const sX = idx * (slabWidth + gapWidth);
+          const currentHeight = slabHeight * state.growthAnim;
+          
+          ctx.fillStyle = fillGlowStyle;
+          ctx.strokeStyle = strokeGlowStyle;
+          ctx.lineWidth = 1.5;
+          ctx.fillRect(sX, subbaseY - currentHeight, slabWidth, currentHeight);
+          ctx.strokeRect(sX, subbaseY - currentHeight, slabWidth, currentHeight);
+
+          // Render internal components inside slabs
+          // Dowel Bars at joint intersections
+          if (idx < slabCount - 1 && state.growthAnim === 1.0) {
+            const jointCenterX = sX + slabWidth + gapWidth / 2;
+            const dowelY = subbaseY - slabHeight / 2;
+            
+            // Draw metallic cylinder represent joint dowels
+            ctx.fillStyle = '#8f9fb8';
+            ctx.shadowBlur = 4;
+            ctx.shadowColor = '#fff';
+            ctx.fillRect(jointCenterX - 30, dowelY - 4, 60, 8);
+            
+            // Draw alignment helper indicators
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.strokeRect(jointCenterX - 30, dowelY - 4, 60, 8);
+          }
+
+          // JRCP wire mesh rendering inside active slabs
+          if (state.pavementType === 'jrcp' && state.growthAnim === 1.0) {
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = 'rgba(189, 0, 255, 0.5)';
+            ctx.lineWidth = 1.5;
+            
+            const rebarLineY = subbaseY - slabHeight * 0.45;
+            ctx.beginPath();
+            ctx.moveTo(sX + 10, rebarLineY);
+            ctx.lineTo(sX + slabWidth - 10, rebarLineY);
+            ctx.stroke();
+
+            // Wire mesh vertical grid cross sections
+            ctx.fillStyle = 'var(--accent-jrcp)';
+            for (let meshX = sX + 20; meshX < sX + slabWidth; meshX += 24) {
+              ctx.beginPath();
+              ctx.arc(meshX, rebarLineY, 2.5, 0, 2*Math.PI);
+              ctx.fill();
+            }
+          }
+        }
+      } else if (state.pavementType === 'crcp') {
+        // Continuous single slab structure
+        const currentHeight = slabHeight * state.growthAnim;
+        ctx.fillStyle = fillGlowStyle;
+        ctx.strokeStyle = strokeGlowStyle;
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(0, subbaseY - currentHeight, w, currentHeight);
+        ctx.strokeRect(0, subbaseY - currentHeight, w, currentHeight);
+
+        // Continuous heavy rebar matrix details
+        if (state.growthAnim === 1.0) {
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'var(--accent-crcp)';
+          ctx.lineWidth = 2;
+          
+          const rebarY = subbaseY - slabHeight * 0.5;
+          ctx.beginPath();
+          ctx.moveTo(0, rebarY);
+          ctx.lineTo(w, rebarY);
+          ctx.stroke();
+
+          // Mesh ties vertical intersections
+          ctx.fillStyle = '#fff';
+          for (let rx = 15; rx < w; rx += 25) {
+            ctx.beginPath();
+            ctx.arc(rx, rebarY, 3, 0, 2*Math.PI);
+            ctx.fill();
+          }
+
+          // Micro cracks pattern simulation (natural control design of CRCP)
+          ctx.strokeStyle = 'rgba(57, 255, 20, 0.35)';
+          ctx.lineWidth = 1;
+          const crackPositions = [0.15, 0.33, 0.52, 0.71, 0.88];
+          crackPositions.forEach(frac => {
+            const cx = w * frac;
+            ctx.beginPath();
+            ctx.moveTo(cx, subbaseY - slabHeight);
+            ctx.lineTo(cx + (Math.random()-0.5)*15, subbaseY - slabHeight * 0.5);
+            ctx.lineTo(cx + (Math.random()-0.5)*10, subbaseY);
+            ctx.stroke();
+          });
+        }
+      } else if (state.pavementType === 'pcp') {
+        // Prestressed thinner slab structure representation
+        const currentHeight = slabHeight * 0.7 * state.growthAnim; // Thinner slab design
+        const pcpSlabTopY = subbaseY - currentHeight;
+
+        ctx.fillStyle = fillGlowStyle;
+        ctx.strokeStyle = strokeGlowStyle;
+        ctx.lineWidth = 1.5;
+        ctx.fillRect(0, pcpSlabTopY, w, currentHeight);
+        ctx.strokeRect(0, pcpSlabTopY, w, currentHeight);
+
+        // Tensioned tendons wire systems inside PCP
+        if (state.growthAnim === 1.0) {
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'var(--accent-pcp)';
+          ctx.lineWidth = 2;
+          
+          const tendonY = subbaseY - (currentHeight / 2);
+          ctx.beginPath();
+          ctx.moveTo(0, tendonY);
+          ctx.lineTo(w, tendonY);
+          ctx.stroke();
+
+          // Left/Right Mechanical Tension Anchor Blocks
+          ctx.fillStyle = '#ffaa00';
+          ctx.fillRect(0, tendonY - 6, 12, 12);
+          ctx.fillRect(w - 12, tendonY - 6, 12, 12);
+        }
+      }
+      ctx.restore();
+
+      // ---- 4. Dynamic Point Wheel Load Arrow Vector ----
+      if (state.growthAnim === 1.0) {
+        const loadX = w * state.loadPosition;
+        let activeSlabTopY = slabTopY;
+        if (state.pavementType === 'pcp') {
+          activeSlabTopY = subbaseY - (slabHeight * 0.7);
+        }
+
+        // Draw interactive load alignment markers
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 50, 100, 0.4)';
+        ctx.setLineDash([4, 4]);
+        ctx.moveTo(loadX, 20);
+        ctx.lineTo(loadX, activeSlabTopY);
+        ctx.stroke();
+        ctx.setLineDash([]); // clear dash state
+
+        // Heavy Arrow Pointer Graphic
+        ctx.fillStyle = '#ff3366';
+        ctx.beginPath();
+        ctx.moveTo(loadX, activeSlabTopY - 15);
+        ctx.lineTo(loadX - 8, activeSlabTopY - 30);
+        ctx.lineTo(loadX - 3, activeSlabTopY - 30);
+        ctx.lineTo(loadX - 3, activeSlabTopY - 55);
+        ctx.lineTo(loadX + 3, activeSlabTopY - 55);
+        ctx.lineTo(loadX + 3, activeSlabTopY - 30);
+        ctx.lineTo(loadX + 8, activeSlabTopY - 30);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw Wheel Hub Visual
+        ctx.beginPath();
+        ctx.arc(loadX, activeSlabTopY - 68, 12, 0, 2*Math.PI);
+        ctx.fillStyle = '#334155';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Load parameter label box
+        ctx.font = '10px monospace';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(`${state.wheelLoad} kN`, loadX + 16, activeSlabTopY - 50);
+
+        // Boussinesq stress distribution vector lines spreading out through slab to base
+        ctx.strokeStyle = 'rgba(255, 51, 102, 0.25)';
+        ctx.lineWidth = 1.5;
+        const numVectors = 9;
+        const dispersion = 120;
+        
+        for (let vIdx = 0; vIdx < numVectors; vIdx++) {
+          const progress = (vIdx / (numVectors - 1)) - 0.5; // -0.5 to 0.5
+          const endX = loadX + progress * dispersion;
+          
+          ctx.beginPath();
+          ctx.moveTo(loadX, activeSlabTopY);
+          ctx.quadraticCurveTo(loadX + progress * dispersion * 0.3, activeSlabTopY + (subbaseY - activeSlabTopY)*0.5, endX, subbaseY);
+          ctx.stroke();
+        }
+      }
+
+      // ---- 5. X-Ray Circular Lens Overlay Logic ----
+      if (state.xrayLensActive) {
+        const lensRadius = 90;
+        const lx = state.mousePos.x;
+        const ly = state.mousePos.y;
+
+        // Sound feedback dynamic thrum calculations based on distance from mouse lens to elements
+        let thrumStrength = 0;
+        let currentSlabTop = slabTopY;
+        if (state.pavementType === 'pcp') currentSlabTop = subbaseY - (slabHeight * 0.7);
+
+        // Thrum volume peaks if hovering near slab structural layer
+        if (ly > currentSlabTop && ly < subbaseY) {
+          thrumStrength = 0.5;
+          // Peak higher if close to active joints in jointed designs
+          if (state.pavementType === 'jpcp' || state.pavementType === 'jrcp') {
+            const joint1X = w * 0.333;
+            const joint2X = w * 0.666;
+            const d1 = Math.abs(lx - joint1X);
+            const d2 = Math.abs(lx - joint2X);
+            if (d1 < 40 || d2 < 40) thrumStrength = 1.0;
+          }
+        }
+        synth.playHoverThrum(thrumStrength, 45 + thrumStrength * 30);
+
+        // Highlight clipping region for structural FEM map inside lens boundaries
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(lx, ly, lensRadius, 0, Math.PI * 2);
+        ctx.clip();
+
+        // Overlay Finite Element structural stress mesh
+        ctx.fillStyle = 'rgba(0, 0, 50, 0.4)';
+        ctx.fillRect(lx - lensRadius, ly - lensRadius, lensRadius * 2, lensRadius * 2);
+
+        // Drawing rainbow-hued thermal stress contours centered on loading point location
+        const loadX = w * state.loadPosition;
+        let activeSlabTopY = slabTopY;
+        if (state.pavementType === 'pcp') {
+          activeSlabTopY = subbaseY - (slabHeight * 0.7);
+        }
+
+        const stressCenter = { x: loadX, y: activeSlabTopY };
+        const grad = ctx.createRadialGradient(stressCenter.x, stressCenter.y, 5, stressCenter.x, stressCenter.y, 250);
+        grad.addColorStop(0, 'rgba(255, 0, 0, 0.6)');
+        grad.addColorStop(0.2, 'rgba(255, 120, 0, 0.4)');
+        grad.addColorStop(0.4, 'rgba(255, 255, 0, 0.3)');
+        grad.addColorStop(0.7, 'rgba(0, 255, 255, 0.15)');
+        grad.addColorStop(1, 'rgba(0, 0, 255, 0)');
+
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(lx, ly, lensRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw structural wire lines representation inside lens zone
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+        ctx.lineWidth = 1;
+        for (let sx = lx - lensRadius; sx < lx + lensRadius; sx += 12) {
+          ctx.beginPath();
+          ctx.moveTo(sx, ly - lensRadius);
+          ctx.lineTo(sx, ly + lensRadius);
+          ctx.stroke();
+        }
+        for (let sy = ly - lensRadius; sy < ly + lensRadius; sy += 12) {
+          ctx.beginPath();
+          ctx.moveTo(lx - lensRadius, sy);
+          ctx.lineTo(lx + lensRadius, sy);
+          ctx.stroke();
+        }
+
+        ctx.restore();
+
+        // Drawing physical frame rim for X-Ray Diagnostic scope
+        ctx.strokeStyle = 'var(--accent-jpcp)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(lx, ly, lensRadius, 0, 2*Math.PI);
+        ctx.stroke();
+
+        // Inner HUD UI ticks on the lens outer rim
+        ctx.strokeStyle = 'rgba(0, 243, 255, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(lx, ly, lensRadius - 5, 0, 2*Math.PI);
+        ctx.stroke();
+      } else {
+        synth.playHoverThrum(0.0); // mute sound feedback when lens inactive
+      }
+
+      requestAnimationFrame(drawSimulation);
+    }
+
+    // ---- Event Orchestration & Interactivity ----
+
+    // Draggable card configurations from Inventory Deck
+    const cards = document.querySelectorAll('.pavement-card');
+    const dropzone = document.getElementById('deck-dropzone');
+    const workspaceContainer = document.getElementById('canvas-workspace');
+
+    cards.forEach(card => {
+      card.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', card.dataset.type);
+        dropzone.classList.add('drag-over');
+      });
+
+      card.addEventListener('dragend', () => {
+        dropzone.classList.remove('drag-over');
+      });
+    });
+
+    workspaceContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    workspaceContainer.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+
+    workspaceContainer.addEventListener('dragleave', () => {
+      dropzone.classList.remove('drag-over');
+    });
+
+    workspaceContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+      const payloadType = e.dataTransfer.getData('text/plain');
+      
+      if (['jpcp', 'jrcp', 'crcp', 'pcp'].includes(payloadType)) {
+        state.pavementType = payloadType;
+        state.growthAnim = 0.0; // Trigger animated build sequence
+        
+        // Render Active Selector styling
+        cards.forEach(c => c.classList.remove('active-selected'));
+        const activeCard = document.querySelector(`.pavement-card[data-type="${payloadType}"]`);
+        if (activeCard) activeCard.classList.add('active-selected');
+
+        synth.playDropSound();
+        speakPavementStructure(payloadType);
+        runRigidCalculations();
+      }
+    });
+
+    // Handle clicking directly on card as a desktop fallback mechanism
+    cards.forEach(card => {
+      card.addEventListener('click', () => {
+        const payloadType = card.dataset.type;
+        state.pavementType = payloadType;
+        state.growthAnim = 0.0;
+        
+        cards.forEach(c => c.classList.remove('active-selected'));
+        card.classList.add('active-selected');
+
+        synth.playDropSound();
+        speakPavementStructure(payloadType);
+        runRigidCalculations();
+      });
+    });
+
+    // Tracking mouse operations for interactive point load positioning
+    workspaceContainer.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      state.mousePos.x = x;
+      state.mousePos.y = y;
+
+      // Handle horizontal shifting of dynamic Wheel Loading alignment
+      if (state.isDraggingLoad) {
+        state.loadPosition = Math.max(0.05, Math.min(0.95, x / rect.width));
+        runRigidCalculations();
+      }
+    });
+
+    workspaceContainer.addEventListener('mousedown', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      const loadX = rect.width * state.loadPosition;
+      // Determine if click target aligns near vertical load arrow interface
+      if (Math.abs(x - loadX) < 30) {
+        state.isDraggingLoad = true;
+      } else {
+        // Fallback: move load vector to click center directly
+        state.loadPosition = Math.max(0.05, Math.min(0.95, x / rect.width));
+        state.isDraggingLoad = true;
+        runRigidCalculations();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      state.isDraggingLoad = false;
+    });
+
+    // Slider for controlling Axle wheel load
+    const loadSlider = document.getElementById('wheel-load-slider');
+    const loadLabel = document.getElementById('wheel-load-val');
+
+    loadSlider.addEventListener('input', (e) => {
+      const val = parseInt(e.target.value);
+      state.wheelLoad = val;
+      loadLabel.textContent = `${val} kN`;
+      runRigidCalculations();
+    });
+
+    // X-Ray Diagnostic switch interaction
+    const xraySwitch = document.getElementById('xray-toggle');
+    xraySwitch.addEventListener('change', (e) => {
+      state.xrayLensActive = e.target.checked;
+    });
+
+    // Drag and Drop implementation for Westergaard Formula Sand-box
+    const draggableParams = document.querySelectorAll('.param-badge');
+    const parameterSlots = document.querySelectorAll('.param-slot');
+
+    draggableParams.forEach(badge => {
+      badge.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('paramType', badge.dataset.param);
+        e.dataTransfer.setData('paramVal', badge.dataset.val);
+        e.dataTransfer.setData('paramUnit', badge.dataset.unit);
+      });
+    });
+
+    parameterSlots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('drag-over-slot');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('drag-over-slot');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('drag-over-slot');
+        
+        const dragType = e.dataTransfer.getData('paramType');
+        const dragVal = e.dataTransfer.getData('paramVal');
+        const dragUnit = e.dataTransfer.getData('paramUnit');
+        const slotTargetType = slot.dataset.slot;
+
+        if (dragType === slotTargetType) {
+          state.solverParams[slotTargetType] = dragVal;
+          
+          const dropzoneNode = slot.querySelector('.slot-dropzone');
+          dropzoneNode.textContent = `${dragVal} ${dragUnit}`;
+          dropzoneNode.classList.add('filled');
+          
+          synth.playDropSound();
+          runRigidCalculations();
+        }
+      });
+    });
+
+    // Documentation Modals handling
+    const docsModal = document.getElementById('docs-modal');
+    const openDocsBtn = document.getElementById('open-docs-btn');
+    const closeDocsBtn = document.getElementById('close-docs-btn');
+
+    openDocsBtn.addEventListener('click', () => {
+      docsModal.classList.add('active');
+    });
+
+    closeDocsBtn.addEventListener('click', () => {
+      docsModal.classList.remove('active');
+    });
+
+    docsModal.addEventListener('click', (e) => {
+      if (e.target === docsModal) {
+        docsModal.classList.remove('active');
+      }
+    });
+
+    // Bootstrap Initialization sequence
+    function initApp() {
+      resizeCanvases();
+      runRigidCalculations();
+      
+      // Default construct JPCP selector highlight
+      const activeCard = document.querySelector(`.pavement-card[data-type="jpcp"]`);
+      if (activeCard) activeCard.classList.add('active-selected');
+      
+      requestAnimationFrame(drawSimulation);
+    }
+
+    // Trigger loading sequence
+    document.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>

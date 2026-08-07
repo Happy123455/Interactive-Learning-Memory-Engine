@@ -1,0 +1,1570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pavement Engineering Diagnostics Lab: Flexible vs. Rigid</title>
+  <style>
+    :root {
+      --bg-dark: #080c14;
+      --panel-bg: rgba(16, 24, 40, 0.75);
+      --panel-border: rgba(0, 240, 255, 0.15);
+      --neon-cyan: #00f0ff;
+      --neon-magenta: #ff007f;
+      --neon-lime: #39ff14;
+      --neon-orange: #ff6c00;
+      --text-light: #e2e8f0;
+      --text-muted: #708090;
+      --glass-blur: blur(12px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-light);
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Grid Layout */
+    .dashboard {
+      display: grid;
+      grid-template-rows: 60px 1fr 140px;
+      grid-template-columns: 1fr 1fr 360px;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* Top Header */
+    header {
+      grid-column: 1 / -1;
+      background: rgba(10, 15, 26, 0.9);
+      border-bottom: 2px solid var(--panel-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      stroke: var(--neon-cyan);
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .system-status {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      font-size: 0.85rem;
+    }
+
+    .status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--neon-cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 10px var(--neon-cyan);
+      animation: pulse 2s infinite;
+    }
+
+    /* Controls Row in Header */
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--panel-border);
+      color: var(--text-light);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--neon-cyan);
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+    }
+
+    .btn.active {
+      background: rgba(255, 0, 127, 0.15);
+      border-color: var(--neon-magenta);
+      box-shadow: 0 0 12px rgba(255, 0, 127, 0.25);
+    }
+
+    /* Canvas Sandbox Areas */
+    .sandbox {
+      position: relative;
+      background: radial-gradient(circle at center, rgba(16,24,40,0.5) 0%, rgba(8,12,20,0.9) 100%);
+      border-right: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sandbox-header {
+      padding: 10px 15px;
+      background: rgba(10, 15, 26, 0.7);
+      border-bottom: 1px solid var(--panel-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 5;
+    }
+
+    .sandbox-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .flexible-title { color: var(--neon-cyan); }
+    .rigid-title { color: var(--neon-magenta); }
+
+    .dropzone-container {
+      position: absolute;
+      top: 55px;
+      right: 15px;
+      width: 220px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      z-index: 5;
+    }
+
+    .drop-slot {
+      height: 46px;
+      background: rgba(10, 15, 26, 0.75);
+      border: 1px dashed var(--panel-border);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      backdrop-filter: var(--glass-blur);
+    }
+
+    .drop-slot.drag-over {
+      background: rgba(0, 240, 255, 0.1);
+      border-color: var(--neon-cyan);
+      box-shadow: inset 0 0 10px rgba(0, 240, 255, 0.1);
+    }
+
+    .drop-slot.filled {
+      border-style: solid;
+      background: rgba(16, 24, 40, 0.9);
+    }
+
+    .drop-slot.filled[data-type="flexible"] { border-color: var(--neon-cyan); }
+    .drop-slot.filled[data-type="rigid"] { border-color: var(--neon-magenta); }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Side Panel */
+    .side-panel {
+      grid-row: 2 / 4;
+      grid-column: 3;
+      background: rgba(10, 15, 26, 0.95);
+      border-left: 2px solid var(--panel-border);
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      overflow-y: auto;
+      z-index: 8;
+    }
+
+    .panel-section {
+      background: rgba(16, 24, 40, 0.6);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .panel-section-title {
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-section-title span {
+      font-size: 0.65rem;
+      padding: 2px 6px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 3px;
+    }
+
+    /* Live Readouts */
+    .metric-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .metric-card {
+      background: rgba(10, 15, 26, 0.5);
+      border: 1px solid rgba(255,255,255,0.03);
+      padding: 8px;
+      border-radius: 4px;
+    }
+
+    .metric-label {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+
+    .metric-value {
+      font-size: 0.95rem;
+      font-family: monospace;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .flex-val { color: var(--neon-cyan); }
+    .rigid-val { color: var(--neon-magenta); }
+
+    /* Graph Canvas */
+    .graph-container {
+      width: 100%;
+      height: 180px;
+      position: relative;
+      background: rgba(5, 8, 15, 0.9);
+      border-radius: 4px;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    /* Bottom Drag Bank */
+    .parameter-bank {
+      grid-column: 1 / 3;
+      background: rgba(10, 15, 26, 0.95);
+      border-top: 2px solid var(--panel-border);
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 9;
+    }
+
+    .bank-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .bank-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+    }
+
+    .bank-deck {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      padding: 4px 2px 10px 2px;
+      flex: 1;
+    }
+
+    /* Custom Draggable Card */
+    .param-card {
+      background: linear-gradient(135deg, rgba(20, 27, 45, 0.9) 0%, rgba(10, 15, 26, 0.9) 100%);
+      border: 1px solid rgba(0, 240, 255, 0.25);
+      border-radius: 6px;
+      padding: 8px 12px;
+      min-width: 170px;
+      max-width: 170px;
+      height: 55px;
+      cursor: grab;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
+      touch-action: none;
+      z-index: 15;
+    }
+
+    .param-card:active {
+      cursor: grabbing;
+    }
+
+    .param-card-text {
+      font-size: 0.75rem;
+      font-weight: 600;
+      line-height: 1.2;
+    }
+
+    .param-card-desc {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    /* Floating absolute draggable */
+    .param-card.dragging {
+      opacity: 0.8;
+      box-shadow: 0 10px 20px rgba(0, 240, 255, 0.3);
+      border-color: var(--neon-cyan);
+      cursor: grabbing;
+      pointer-events: none; /* Let pointer pass through to detect drop zones */
+    }
+
+    /* Drop-Snapped Mode inside slots */
+    .snapped-card {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding: 0 10px;
+      border-radius: 5px;
+    }
+    .snapped-card .param-card-text { font-size: 0.72rem; }
+    .snapped-card .param-card-desc { font-size: 0.55rem; }
+
+    /* Action Trigger Block */
+    .action-container {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .run-btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: not-allowed;
+      transition: all 0.3s;
+      background: #141b2d;
+      color: var(--text-muted);
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .run-btn.unlocked {
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-magenta));
+      color: #000;
+      cursor: pointer;
+      font-weight: 800;
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+    }
+
+    .run-btn.unlocked:hover {
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.6);
+      transform: translateY(-1px);
+    }
+
+    /* Modals & Backdrop Blur overlays */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(5, 8, 15, 0.8);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: var(--bg-dark);
+      border: 2px solid var(--panel-border);
+      border-radius: 12px;
+      width: 500px;
+      max-width: 90%;
+      padding: 25px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .modal-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 15px;
+      color: var(--neon-cyan);
+      text-transform: uppercase;
+    }
+
+    .modal-body {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text-light);
+      margin-bottom: 20px;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 15px;
+      right: 15px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .modal-close:hover {
+      color: var(--text-light);
+    }
+
+    /* Animations */
+    @keyframes pulse {
+      0% { opacity: 0.6; box-shadow: 0 0 5px var(--neon-cyan); }
+      50% { opacity: 1; box-shadow: 0 0 15px var(--neon-cyan); }
+      100% { opacity: 0.6; box-shadow: 0 0 5px var(--neon-cyan); }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--panel-border);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--neon-cyan);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="dashboard">
+    <!-- TOP HEADER -->
+    <header>
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 24 24">
+          <path d="M4 6h16M4 12h16M4 18h16M12 2l-4 4 4 4 4-4-4-4z" />
+        </svg>
+        <span class="brand-title">Pavement Diagnostics Lab</span>
+      </div>
+
+      <div class="header-controls">
+        <button class="btn" id="audioToggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          Audio: ON
+        </button>
+        <button class="btn" id="voiceToggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"/></svg>
+          Narration: ON
+        </button>
+        <button class="btn" id="vectorToggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          Vectors: ON
+        </button>
+        <button class="btn" id="inspectorToggle">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Microscope: OFF
+        </button>
+        <button class="btn" id="resetBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+          Reset Lab
+        </button>
+        <button class="btn" id="helpTrigger">?</button>
+      </div>
+    </header>
+
+    <!-- LEFT SANDBOX: FLEXIBLE PAVEMENT -->
+    <div class="sandbox" id="flexibleSandbox">
+      <div class="sandbox-header">
+        <span class="sandbox-title flexible-title">Flexible Structure Sandbox</span>
+        <div class="status-indicator">
+          <span class="status-dot" style="background-color: var(--neon-cyan); box-shadow: 0 0 8px var(--neon-cyan)"></span>
+          <span style="font-size: 0.75rem" id="flexStatusText">0/4 Categorized</span>
+        </div>
+      </div>
+
+      <!-- Dropzones -->
+      <div class="dropzone-container" id="flexDropzones">
+        <div class="drop-slot" data-index="0" data-type="flexible">Drop Layer Parameter</div>
+        <div class="drop-slot" data-index="1" data-type="flexible">Drop Stress Transfer</div>
+        <div class="drop-slot" data-index="2" data-type="flexible">Drop Flexural Trait</div>
+        <div class="drop-slot" data-index="3" data-type="flexible">Drop Joint Constraint</div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="flexibleCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- CENTER SANDBOX: RIGID PAVEMENT -->
+    <div class="sandbox" id="rigidSandbox">
+      <div class="sandbox-header">
+        <span class="sandbox-title rigid-title">Rigid Structure Sandbox</span>
+        <div class="status-indicator">
+          <span class="status-dot" style="background-color: var(--neon-magenta); box-shadow: 0 0 8px var(--neon-magenta)"></span>
+          <span style="font-size: 0.75rem" id="rigidStatusText">0/4 Categorized</span>
+        </div>
+      </div>
+
+      <!-- Dropzones -->
+      <div class="dropzone-container" id="rigidDropzones">
+        <div class="drop-slot" data-index="0" data-type="rigid">Drop Layer Parameter</div>
+        <div class="drop-slot" data-index="1" data-type="rigid">Drop Stress Transfer</div>
+        <div class="drop-slot" data-index="2" data-type="rigid">Drop Flexural Trait</div>
+        <div class="drop-slot" data-index="3" data-type="rigid">Drop Joint Constraint</div>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="rigidCanvas"></canvas>
+      </div>
+    </div>
+
+    <!-- RIGHT DIAGNOSTICS & GRAPHS PANEL -->
+    <div class="side-panel">
+      <div class="panel-section">
+        <div class="panel-section-title">Diagnostic Telemetry <span>Live</span></div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <div class="metric-label">Axle Stress</div>
+            <div class="metric-value" id="valAxleLoad">0.00 kN</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Sim Progress</div>
+            <div class="metric-value" id="valProgress" style="color: var(--neon-lime)">Ready</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Flex Deflection</div>
+            <div class="metric-value flex-val" id="valFlexDeflection">0.00 mm</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Rigid Deflection</div>
+            <div class="metric-value rigid-val" id="valRigidDeflection">0.00 mm</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Flex Subgrade Stress</div>
+            <div class="metric-value flex-val" id="valFlexSubgrade">0.00 kPa</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Rigid Subgrade Stress</div>
+            <div class="metric-value rigid-val" id="valRigidSubgrade">0.00 kPa</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel-section" style="flex: 1; display: flex; flex-direction: column;">
+        <div class="panel-section-title">Stress vs depth profile <span>Chart</span></div>
+        <div class="graph-container">
+          <canvas id="graphCanvas"></canvas>
+        </div>
+      </div>
+
+      <div class="action-container">
+        <button class="run-btn" id="runSimBtn">Axle Simulation Locked</button>
+      </div>
+    </div>
+
+    <!-- BOTTOM DECK: DRAGGABLE ELEMENT BANK -->
+    <div class="parameter-bank">
+      <div class="bank-header">
+        <span class="bank-title">Component Engineering Bank (Drag items into slots)</span>
+      </div>
+      <div class="bank-deck" id="cardBank">
+        <!-- Draggable elements dynamically created here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- HELP MODAL -->
+  <div class="modal-overlay" id="helpModal">
+    <div class="modal-card">
+      <button class="modal-close" id="helpClose">&times;</button>
+      <div class="modal-title">Engineering Lab Guidelines</div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px;">Welcome to the <strong>Flexible vs. Rigid Pavement Diagnostic System</strong>. Your task is to investigate the stress propagation and layer mechanics of these two core infrastructure pavements.</p>
+        <p style="margin-bottom: 12px;"><strong>Step 1: Classification Phase</strong><br>Drag parameters from the bank below and drop them into the empty classification slots on the sandbox dashboards. You must pair all parameters to their scientifically accurate pavement design pattern.</p>
+        <p style="margin-bottom: 12px;"><strong>Step 2: Load Simulation Phase</strong><br>Once both structural models are fully classified, the <strong>Axle Simulation</strong> will unlock. Run the wheel loading stress test to trace how physical pressure attenuates through depth.</p>
+        <p><strong>Step 3: Advanced Diagnostics</strong><br>Enable <strong>Microscope mode</strong> to hover your pointer over the base boundary and physically examine dynamic micro-aggregate point interactions!</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // System Configurations & Setup
+    const state = {
+      audio: true,
+      voice: true,
+      vectors: true,
+      inspector: false,
+      isSimulating: false,
+      simTime: 0,
+      loadProgress: 0, // 0 to 1
+      flexMatched: [null, null, null, null],
+      rigidMatched: [null, null, null, null],
+      activeDrag: null,
+      mousePos: { x: 0, y: 0, canvasTarget: null }
+    };
+
+    // Parameter deck database
+    const cardData = [
+      { id: "flex_layer", text: "Asphalt Concrete", desc: "Surface layer", target: "flexible", slotIdx: 0 },
+      { id: "flex_stress", text: "Grain-to-Grain", desc: "Stress Transfer", target: "flexible", slotIdx: 1 },
+      { id: "flex_strength", text: "Low Flexural Strength", desc: "Slab stiffness", target: "flexible", slotIdx: 2 },
+      { id: "flex_joint", text: "Joints: Unnecessary", desc: "Thermal behavior", target: "flexible", slotIdx: 3 },
+      { id: "rigid_layer", text: "Portland Cement Concrete", desc: "Slab layer", target: "rigid", slotIdx: 0 },
+      { id: "rigid_stress", text: "Slab Bending Action", desc: "Stress Transfer", target: "rigid", slotIdx: 1 },
+      { id: "rigid_strength", text: "High Flexural Strength", desc: "Slab stiffness", target: "rigid", slotIdx: 2 },
+      { id: "rigid_joint", text: "Joints & Dowels Mandatory", desc: "Thermal behavior", target: "rigid", slotIdx: 3 }
+    ];
+
+    // Audio Engine
+    let audioCtx = null;
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type = 'sine', duration = 0.2, volume = 0.1) {
+      if (!state.audio) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (e) {}
+    }
+
+    function playSuccess() {
+      playTone(523.25, 'triangle', 0.12, 0.1);
+      setTimeout(() => playTone(659.25, 'triangle', 0.2, 0.1), 80);
+    }
+
+    function playFailure() {
+      playTone(150, 'sawtooth', 0.25, 0.15);
+    }
+
+    function playWhir() {
+      if (!state.audio) return;
+      initAudio();
+      try {
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(700, audioCtx.currentTime + 1.2);
+        gainNode.gain.setValueAtTime(0.01, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(0.08, audioCtx.currentTime + 0.3);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 1.2);
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 1.2);
+      } catch (e) {}
+    }
+
+    function speakNow(text) {
+      if (!state.voice) return;
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.05;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // High DPI Canvas Resizer Helper
+    function resizeCanvasToDisplay(canvas) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      if (canvas.width !== Math.floor(rect.width * dpr) || canvas.height !== Math.floor(rect.height * dpr)) {
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        return true;
+      }
+      return false;
+    }
+
+    // Dynamic Layer Data Generators
+    const layersData = {
+      flexible: [
+        { name: "Asphalt Concrete Surface", color1: "#2a2d34", color2: "#191b1f", ratio: 0.18, text: "E ≈ 3,000 MPa" },
+        { name: "Base Course (Crushed Stone)", color1: "#565a62", color2: "#3f4247", ratio: 0.22, text: "E ≈ 300 MPa" },
+        { name: "Sub-Base (Gravel / Sand)", color1: "#828790", color2: "#6c7077", ratio: 0.25, text: "E ≈ 150 MPa" },
+        { name: "Soil Subgrade Layer", color1: "#a58e74", color2: "#816d56", ratio: 0.35, text: "E ≈ 40 MPa" }
+      ],
+      rigid: [
+        { name: "Portland Cement Slab", color1: "#b3c1cd", color2: "#95a5b2", ratio: 0.22, text: "E ≈ 30,000 MPa" },
+        { name: "Granular Base Support", color1: "#565a62", color2: "#3f4247", ratio: 0.20, text: "E ≈ 150 MPa" },
+        { name: "Soil Subgrade Layer", color1: "#a58e74", color2: "#816d56", ratio: 0.58, text: "E ≈ 40 MPa" }
+      ]
+    };
+
+    // Pre-calculated aggregates matrix to prevent render-jumping
+    const aggregatePoints = [];
+    for (let i = 0; i < 300; i++) {
+      aggregatePoints.push({
+        x: Math.random(),
+        y: Math.random(),
+        size: 3 + Math.random() * 8,
+        angle: Math.random() * Math.PI * 2
+      });
+    }
+
+    // Element Elements DOM Cache
+    const elFlexibleCanvas = document.getElementById('flexibleCanvas');
+    const elRigidCanvas = document.getElementById('rigidCanvas');
+    const elGraphCanvas = document.getElementById('graphCanvas');
+    const elCardBank = document.getElementById('cardBank');
+    const elRunSimBtn = document.getElementById('runSimBtn');
+
+    // Canvas Contexts
+    const ctxFlex = elFlexibleCanvas.getContext('2d');
+    const ctxRigid = elRigidCanvas.getContext('2d');
+    const ctxGraph = elGraphCanvas.getContext('2d');
+
+    // Setup Draggable Parameter Cards
+    function buildBank() {
+      elCardBank.innerHTML = '';
+      const shuffled = [...cardData].sort(() => Math.random() - 0.5);
+      shuffled.forEach(card => {
+        // Only generate card in bank if it hasn't been placed yet
+        const isMatchedInFlex = state.flexMatched.some(m => m && m.id === card.id);
+        const isMatchedInRigid = state.rigidMatched.some(m => m && m.id === card.id);
+        if (!isMatchedInFlex && !isMatchedInRigid) {
+          const el = document.createElement('div');
+          el.className = 'param-card';
+          el.dataset.id = card.id;
+          el.innerHTML = `
+            <div class="param-card-text">${card.text}</div>
+            <div class="param-card-desc">${card.desc}</div>
+          `;
+          setupPointerDrag(el, card);
+          elCardBank.appendChild(el);
+        }
+      });
+    }
+
+    // Custom Pointer Drag System (highly responsive on mobile/desktop without broken standard HTML5 DnD)
+    function setupPointerDrag(element, card) {
+      element.addEventListener('pointerdown', (e) => {
+        if (state.isSimulating) return;
+        e.preventDefault();
+        initAudio();
+        
+        const rect = element.getBoundingClientRect();
+        const offsetLeft = e.clientX - rect.left;
+        const offsetTop = e.clientY - rect.top;
+        
+        state.activeDrag = {
+          element,
+          card,
+          offsetLeft,
+          offsetTop,
+          width: rect.width,
+          height: rect.height,
+          originalParent: element.parentElement
+        };
+
+        element.classList.add('dragging');
+        element.style.width = rect.width + 'px';
+        element.style.height = rect.height + 'px';
+        element.style.position = 'fixed';
+        element.style.left = (e.clientX - offsetLeft) + 'px';
+        element.style.top = (e.clientY - offsetTop) + 'px';
+        document.body.appendChild(element);
+
+        document.addEventListener('pointermove', onPointerMove);
+        document.addEventListener('pointerup', onPointerUp);
+      });
+    }
+
+    function onPointerMove(e) {
+      if (!state.activeDrag) return;
+      const ad = state.activeDrag;
+      ad.element.style.left = (e.clientX - ad.offsetLeft) + 'px';
+      ad.element.style.top = (e.clientY - ad.offsetTop) + 'px';
+
+      // Highlight target slots during drag over
+      checkHoverZones(e.clientX, e.clientY);
+    }
+
+    function checkHoverZones(x, y) {
+      const slots = document.querySelectorAll('.drop-slot');
+      slots.forEach(slot => {
+        const r = slot.getBoundingClientRect();
+        if (x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+          slot.classList.add('drag-over');
+        } else {
+          slot.classList.remove('drag-over');
+        }
+      });
+    }
+
+    function onPointerUp(e) {
+      if (!state.activeDrag) return;
+      const ad = state.activeDrag;
+      document.removeEventListener('pointermove', onPointerMove);
+      document.removeEventListener('pointerup', onPointerUp);
+
+      let snapped = false;
+      const slots = document.querySelectorAll('.drop-slot');
+      
+      slots.forEach(slot => {
+        const r = slot.getBoundingClientRect();
+        if (e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom) {
+          const type = slot.dataset.type;
+          const index = parseInt(slot.dataset.index);
+
+          // Verify design constraint compatibility match
+          if (ad.card.target === type && ad.card.slotIdx === index) {
+            snapped = true;
+            slot.classList.remove('drag-over');
+            
+            // Accept the placement
+            if (type === 'flexible') {
+              state.flexMatched[index] = ad.card;
+            } else {
+              state.rigidMatched[index] = ad.card;
+            }
+
+            slot.classList.add('filled');
+            slot.dataset.id = ad.card.id;
+            slot.innerHTML = `
+              <div class="snapped-card" style="border-left: 4px solid ${type === 'flexible' ? 'var(--neon-cyan)' : 'var(--neon-magenta)'}">
+                <div class="param-card-text">${ad.card.text}</div>
+                <div class="param-card-desc" style="color: ${type === 'flexible' ? 'var(--neon-cyan)' : 'var(--neon-magenta)'}">${ad.card.desc}</div>
+              </div>
+            `;
+            
+            ad.element.remove();
+            playSuccess();
+            checkEvaluationComplete();
+            evaluateVoiceResponse(ad.card);
+          }
+        }
+      });
+
+      if (!snapped) {
+        // Return item to storage deck dock
+        ad.element.classList.remove('dragging');
+        ad.element.style.position = '';
+        ad.element.style.left = '';
+        ad.element.style.top = '';
+        ad.element.style.width = '';
+        ad.element.style.height = '';
+        ad.originalParent.appendChild(ad.element);
+        playFailure();
+      }
+
+      state.activeDrag = null;
+      document.querySelectorAll('.drop-slot').forEach(s => s.classList.remove('drag-over'));
+    }
+
+    function evaluateVoiceResponse(card) {
+      if (card.id === "flex_stress") {
+        speakNow("Correct. Flexible pavement transfers pressure grain-to-grain downwards.");
+      } else if (card.id === "rigid_stress") {
+        speakNow("Correct. Rigid pavements rely on monolithic structural concrete slab action.");
+      } else if (card.id === "rigid_joint") {
+        speakNow("Excellent. Temperature joints with dowel bars are vital to control slab buckling.");
+      }
+    }
+
+    function checkEvaluationComplete() {
+      const flexCount = state.flexMatched.filter(x => x !== null).length;
+      const rigidCount = state.rigidMatched.filter(x => x !== null).length;
+      
+      document.getElementById('flexStatusText').innerText = `${flexCount}/4 Categorized`;
+      document.getElementById('rigidStatusText').innerText = `${rigidCount}/4 Categorized`;
+
+      if (flexCount === 4 && rigidCount === 4) {
+        elRunSimBtn.classList.add('unlocked');
+        elRunSimBtn.innerText = "Execute Axle Load Test";
+        speakNow("Structural categorization complete. Axle simulation ready.");
+      } else {
+        elRunSimBtn.classList.remove('unlocked');
+        elRunSimBtn.innerText = "Axle Simulation Locked";
+      }
+    }
+
+    // Reset Lab State
+    document.getElementById('resetBtn').addEventListener('click', () => {
+      state.flexMatched = [null, null, null, null];
+      state.rigidMatched = [null, null, null, null];
+      state.isSimulating = false;
+      state.loadProgress = 0;
+      state.simTime = 0;
+
+      // Re-initialize DOM slots
+      const slots = document.querySelectorAll('.drop-slot');
+      slots.forEach(slot => {
+        slot.classList.remove('filled');
+        slot.innerHTML = `Drop ${slot.dataset.index === '0' ? 'Layer Parameter' : slot.dataset.index === '1' ? 'Drop Stress Transfer' : slot.dataset.index === '2' ? 'Drop Flexural Trait' : 'Drop Joint Constraint'}`;
+      });
+
+      buildBank();
+      checkEvaluationComplete();
+      playTone(330, 'sine', 0.4, 0.1);
+      speakNow("Pavement structural models reset to default clean-state.");
+    });
+
+    // Toggle Buttons UI Mechanics
+    function bindToggles() {
+      const tAudio = document.getElementById('audioToggle');
+      tAudio.addEventListener('click', () => {
+        state.audio = !state.audio;
+        tAudio.classList.toggle('active', !state.audio);
+        tAudio.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Audio: ${state.audio ? 'ON' : 'OFF'}`;
+      });
+
+      const tVoice = document.getElementById('voiceToggle');
+      tVoice.addEventListener('click', () => {
+        state.voice = !state.voice;
+        tVoice.classList.toggle('active', !state.voice);
+        tVoice.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 19v4M8 23h8"/></svg> Narration: ${state.voice ? 'ON' : 'OFF'}`;
+      });
+
+      const tVector = document.getElementById('vectorToggle');
+      tVector.addEventListener('click', () => {
+        state.vectors = !state.vectors;
+        tVector.classList.toggle('active', !state.vectors);
+        tVector.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg> Vectors: ${state.vectors ? 'ON' : 'OFF'}`;
+      });
+
+      const tInspector = document.getElementById('inspectorToggle');
+      tInspector.addEventListener('click', () => {
+        state.inspector = !state.inspector;
+        tInspector.classList.toggle('active', state.inspector);
+        tInspector.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Microscope: ${state.inspector ? 'ON' : 'OFF'}`;
+      });
+
+      // Modals
+      const helpModal = document.getElementById('helpModal');
+      document.getElementById('helpTrigger').addEventListener('click', () => helpModal.classList.add('active'));
+      document.getElementById('helpClose').addEventListener('click', () => helpModal.classList.remove('active'));
+    }
+
+    // Real-time mouse position tracking relative to sandboxes for the magnifying glass
+    function setupCanvasMouseTracking() {
+      const handleMove = (e, target) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        state.mousePos.x = e.clientX - rect.left;
+        state.mousePos.y = e.clientY - rect.top;
+        state.mousePos.canvasTarget = target;
+      };
+
+      const handleLeave = () => {
+        state.mousePos.canvasTarget = null;
+      };
+
+      elFlexibleCanvas.addEventListener('pointermove', (e) => handleMove(e, 'flexible'));
+      elFlexibleCanvas.addEventListener('pointerleave', handleLeave);
+
+      elRigidCanvas.addEventListener('pointermove', (e) => handleMove(e, 'rigid'));
+      elRigidCanvas.addEventListener('pointerleave', handleLeave);
+    }
+
+    // Live Run axel Load Simulator
+    elRunSimBtn.addEventListener('click', () => {
+      const isComplete = state.flexMatched.every(x => x !== null) && state.rigidMatched.every(x => x !== null);
+      if (!isComplete || state.isSimulating) return;
+
+      state.isSimulating = true;
+      state.loadProgress = 0;
+      state.simTime = 0;
+      playWhir();
+      speakNow("Applying simulated standard 80 kilonewton tire load. Compare the stress dispersion cones.");
+    });
+
+    // -----------------------------------------------------
+    // Physics Rendering Logic Loop
+    // -----------------------------------------------------
+    
+    function drawGrid(ctx, w, h) {
+      ctx.strokeStyle = "rgba(0, 240, 255, 0.03)";
+      ctx.lineWidth = 1;
+      const step = 25;
+      for (let x = 0; x < w; x += step) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = 0; y < h; y += step) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+    }
+
+    function computeDeflection(x, amplitude, width, cx) {
+      // Gaussian shape profile curve for flexible dip
+      const dist = Math.abs(x - cx);
+      return amplitude * Math.exp(-0.5 * Math.pow(dist / width, 2));
+    }
+
+    // Smooth point load deformation of layers
+    function drawPavement(ctx, type, canvas) {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      ctx.clearRect(0, 0, w, h);
+
+      drawGrid(ctx, w, h);
+
+      const layers = layersData[type];
+      let currentY = 55; // Surface depth offset
+      const cx = w / 2;
+
+      // Dynamics calculation based on simulated loading state
+      const loadVal = state.loadProgress;
+      const maxDeflection = type === 'flexible' ? 22 * loadVal : 3 * loadVal; // Max elastic bending amplitude
+      const deflectionWidth = type === 'flexible' ? 52 : 180; // Rigidity slab distribution width
+
+      // Create deformed layer pathways dynamically
+      const activeDeformedBoundary = [];
+
+      for (let i = 0; i < layers.length; i++) {
+        const layer = layers[i];
+        const nextDepth = currentY + (h - 55) * layer.ratio;
+
+        ctx.fillStyle = layer.color2;
+        ctx.beginPath();
+        
+        // Build upper boundary
+        if (i === 0) {
+          // Top surface interaction path
+          ctx.moveTo(0, currentY);
+          for (let sx = 0; sx <= w; sx += 5) {
+            const dy = computeDeflection(sx, maxDeflection, deflectionWidth, cx);
+            ctx.lineTo(sx, currentY + dy);
+          }
+        } else {
+          // Inner boundaries inherit attenuated surface deflection
+          const attenuation = type === 'flexible' ? Math.max(0.2, 1 - (i * 0.25)) : 0.95;
+          ctx.moveTo(0, currentY);
+          for (let sx = 0; sx <= w; sx += 5) {
+            const dy = computeDeflection(sx, maxDeflection * attenuation, deflectionWidth, cx);
+            ctx.lineTo(sx, currentY + dy);
+          }
+        }
+
+        // Build lower boundary
+        if (i === layers.length - 1) {
+          ctx.lineTo(w, h);
+          ctx.lineTo(0, h);
+        } else {
+          const attenuationNext = type === 'flexible' ? Math.max(0.2, 1 - ((i + 1) * 0.25)) : 0.95;
+          for (let sx = w; sx >= 0; sx -= 5) {
+            const dy = computeDeflection(sx, maxDeflection * attenuationNext, deflectionWidth, cx);
+            ctx.lineTo(sx, nextDepth + dy);
+          }
+        }
+
+        ctx.closePath();
+        ctx.fill();
+
+        // Layer highlights & borders
+        ctx.strokeStyle = "rgba(255,255,255,0.06)";
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        // Draw Layer Annotations with semi-translucent background for high contrast legibility
+        ctx.fillStyle = "rgba(10, 15, 26, 0.65)";
+        ctx.fillRect(15, currentY + 12, 145, 20);
+        ctx.fillStyle = type === 'flexible' ? "var(--neon-cyan)" : "var(--neon-magenta)";
+        ctx.font = "bold 8px monospace";
+        ctx.fillText(layer.name.toUpperCase(), 18, currentY + 20);
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.font = "8px monospace";
+        ctx.fillText(layer.text, 18, currentY + 28);
+
+        // Render granular components inside base courses
+        if (layer.name.includes("Base") || layer.name.includes("Sub-Base")) {
+          ctx.save();
+          // Create clipping bounds for current layer to draw decorative gravels inside
+          ctx.beginPath();
+          if (i === 0) {
+            ctx.moveTo(0, currentY);
+            for (let sx = 0; sx <= w; sx += 5) ctx.lineTo(sx, currentY + computeDeflection(sx, maxDeflection, deflectionWidth, cx));
+          } else {
+            const attenuation = type === 'flexible' ? Math.max(0.2, 1 - (i * 0.25)) : 0.95;
+            ctx.moveTo(0, currentY);
+            for (let sx = 0; sx <= w; sx += 5) ctx.lineTo(sx, currentY + computeDeflection(sx, maxDeflection * attenuation, deflectionWidth, cx));
+          }
+          if (i === layers.length - 1) {
+            ctx.lineTo(w, h); ctx.lineTo(0, h);
+          } else {
+            const attenuationNext = type === 'flexible' ? Math.max(0.2, 1 - ((i + 1) * 0.25)) : 0.95;
+            for (let sx = w; sx >= 0; sx -= 5) ctx.lineTo(sx, nextDepth + computeDeflection(sx, maxDeflection * attenuationNext, deflectionWidth, cx));
+          }
+          ctx.clip();
+
+          // Render pebbles based on index coordinates
+          ctx.fillStyle = "rgba(255,255,255,0.03)";
+          for (let pIdx = 0; pIdx < 80; pIdx++) {
+            const pt = aggregatePoints[pIdx];
+            const px = pt.x * w;
+            const py = currentY + pt.y * (nextDepth - currentY);
+            ctx.beginPath();
+            ctx.arc(px, py, pt.size * 0.6, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          ctx.restore();
+        }
+
+        // Rigidity Dowel Joint rendering
+        if (type === 'rigid' && layer.name.includes("Slab")) {
+          // Draw Dowel horizontal bar inside rigid joint (mid slab depth)
+          const midY = currentY + (nextDepth - currentY)/2;
+          ctx.strokeStyle = "rgba(255, 108, 0, 0.45)";
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(cx - 30, midY);
+          ctx.lineTo(cx + 30, midY);
+          ctx.stroke();
+
+          // Draw vertical expansion gap line
+          ctx.strokeStyle = "rgba(10, 15, 26, 0.95)";
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(cx, currentY + computeDeflection(cx, maxDeflection, deflectionWidth, cx));
+          ctx.lineTo(cx, nextDepth + computeDeflection(cx, maxDeflection * 0.95, deflectionWidth, cx));
+          ctx.stroke();
+          
+          ctx.fillStyle = "var(--neon-orange)";
+          ctx.font = "8px sans-serif";
+          ctx.fillText("STEEL DOWEL BAR", cx - 35, midY - 6);
+        }
+
+        currentY = nextDepth;
+      }
+
+      // Render Force Vector Overlays
+      if (state.vectors && loadVal > 0.05) {
+        ctx.save();
+        if (type === 'flexible') {
+          // Flexible narrow cone of stress path distribution
+          const coneAngle = Math.PI / 6; // ~30 degrees spread
+          ctx.fillStyle = "rgba(0, 240, 255, 0.07)";
+          ctx.beginPath();
+          ctx.moveTo(cx, 55 + maxDeflection);
+          ctx.lineTo(cx - (h - 55) * Math.tan(coneAngle), h);
+          ctx.lineTo(cx + (h - 55) * Math.tan(coneAngle), h);
+          ctx.closePath();
+          ctx.fill();
+
+          // Glowing force path vectors
+          ctx.strokeStyle = "rgba(0, 240, 255, 0.65)";
+          ctx.setLineDash([5, 8]);
+          ctx.lineWidth = 2;
+          for (let stepAngle = -coneAngle; stepAngle <= coneAngle; stepAngle += coneAngle/1.5) {
+            ctx.beginPath();
+            ctx.moveTo(cx, 55 + maxDeflection);
+            ctx.lineTo(cx + (h - 100) * Math.sin(stepAngle), h - 30);
+            ctx.stroke();
+          }
+        } else {
+          // Rigid broad slab beam load dispersion
+          ctx.fillStyle = "rgba(255, 0, 127, 0.06)";
+          ctx.fillRect(0, 55 + maxDeflection, w, h - 55);
+
+          // Wide parallel downward force vector fields
+          ctx.strokeStyle = "rgba(255, 0, 127, 0.65)";
+          ctx.setLineDash([4, 6]);
+          ctx.lineWidth = 1.5;
+          for (let sx = 30; sx < w; sx += 40) {
+            ctx.beginPath();
+            ctx.moveTo(sx, 55 + computeDeflection(sx, maxDeflection, deflectionWidth, cx));
+            ctx.lineTo(sx, h - 30);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+      }
+
+      // Draw descending dynamic tire/wheel load vector visual
+      ctx.save();
+      const wheelY = 55 + maxDeflection - 2;
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = type === 'flexible' ? "var(--neon-cyan)" : "var(--neon-magenta)";
+      
+      // Draw simulated wheel rim
+      ctx.fillStyle = "rgba(10, 15, 26, 0.9)";
+      ctx.beginPath();
+      ctx.arc(cx, wheelY - 25, 20, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      // Tire footprint contact block
+      ctx.fillStyle = "#111";
+      ctx.fillRect(cx - 15, wheelY - 6, 30, 6);
+
+      // Downward load arrow
+      if (loadVal > 0.02) {
+        ctx.strokeStyle = "var(--neon-lime)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(cx, wheelY - 45);
+        ctx.lineTo(cx, wheelY - 20);
+        ctx.lineTo(cx - 6, wheelY - 26);
+        ctx.moveTo(cx, wheelY - 20);
+        ctx.lineTo(cx + 6, wheelY - 26);
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(10, 15, 26, 0.8)";
+        ctx.fillRect(cx - 28, wheelY - 62, 56, 12);
+        ctx.fillStyle = "var(--neon-lime)";
+        ctx.font = "bold 9px monospace";
+        ctx.fillText("80 kN AXLE", cx - 24, wheelY - 53);
+      }
+      ctx.restore();
+
+      // Microscopic magnifying loupe overlay
+      if (state.inspector && state.mousePos.canvasTarget === type) {
+        drawInspectorLens(ctx, canvas, state.mousePos.x, state.mousePos.y, type, maxDeflection, deflectionWidth, cx);
+      }
+    }
+
+    // Advanced dynamic internal structural inspector magnifier engine
+    function drawInspectorLens(ctx, canvas, mx, my, type, maxDef, defW, cx) {
+      const radius = 72;
+      const scale = 2.0;
+
+      ctx.save();
+      
+      // Lens Path boundary masking
+      ctx.beginPath();
+      ctx.arc(mx, my, radius, 0, Math.PI * 2);
+      ctx.clip();
+
+      // Deep clean magnifier base inside circle
+      ctx.fillStyle = "#0c101b";
+      ctx.fillRect(mx - radius, my - radius, radius * 2, radius * 2);
+
+      // Multi-scale contextual draw
+      ctx.save();
+      // Apply magnifying spatial linear transformations
+      ctx.translate(mx, my);
+      ctx.scale(scale, scale);
+      ctx.translate(-mx, -my);
+
+      // Re-draw micro structural geology under magnification bounds
+      const suby_base = 55;
+      const layer1Height = (canvas.height / (window.devicePixelRatio || 1) - 55) * (type === 'flexible' ? 0.18 : 0.22);
+      const boundaryY = suby_base + layer1Height;
+
+      // Draw magnified structural grains
+      if (type === 'flexible') {
+        // Render aggregate-to-aggregate point contact network
+        ctx.fillStyle = "#3a414c";
+        ctx.strokeStyle = "rgba(255,255,255,0.08)";
+        ctx.lineWidth = 0.5;
+
+        // Draw contacting interlock pebbles
+        for (let i = 0; i < 40; i++) {
+          const pt = aggregatePoints[i];
+          const px = mx - 50 + (pt.x * 100);
+          const py = boundaryY - 40 + (pt.y * 80);
+          ctx.beginPath();
+          ctx.arc(px, py, pt.size * 1.1, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          // Render active pressure force vector paths passing through grain point connections
+          if (state.loadProgress > 0.1) {
+            ctx.strokeStyle = "rgba(255, 108, 0, 0.75)";
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(px + (pt.size * 0.6) * Math.cos(pt.angle), py + (pt.size * 0.6) * Math.sin(pt.angle));
+            ctx.stroke();
+          }
+        }
+        
+        ctx.fillStyle = "var(--neon-cyan)";
+        ctx.font = "bold 5px monospace";
+        ctx.fillText("POINT CONTACT INTERLOCKS", mx - radius/1.8, boundaryY + 10);
+      } else {
+        // Crystalline C-S-H Cement Matrix mesh grid representing high flexural rigid integrity
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.25)";
+        ctx.lineWidth = 0.8;
+        ctx.beginPath();
+        for (let sx = mx - radius; sx <= mx + radius; sx += 8) {
+          ctx.moveTo(sx, boundaryY - 50);
+          ctx.lineTo(sx + 12, boundaryY + 50);
+        }
+        for (let sy = boundaryY - 50; sy <= boundaryY + 50; sy += 8) {
+          ctx.moveTo(mx - radius, sy);
+          ctx.lineTo(mx + radius, sy + 12);
+        }
+        ctx.stroke();
+
+        // Slab crystalline monolithic mass base
+        ctx.fillStyle = "rgba(255,255,255,0.06)";
+        ctx.fillRect(mx - radius, boundaryY - 40, radius * 2, 80);
+
+        ctx.fillStyle = "var(--neon-magenta)";
+        ctx.font = "bold 5px monospace";
+        ctx.fillText("MONOLITHIC CRYSTALLINE SLAB", mx - radius/1.8, boundaryY + 10);
+      }
+
+      ctx.restore();
+      ctx.restore();
+
+      // Premium HUD lens frame graphic elements
+      ctx.strokeStyle = type === 'flexible' ? "var(--neon-cyan)" : "var(--neon-magenta)";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(mx, my, radius, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Shiny reflections across optical scope lens
+      const gradGlare = ctx.createLinearGradient(mx - radius, my - radius, mx + radius, my + radius);
+      gradGlare.addColorStop(0, "rgba(255, 255, 255, 0.2)");
+      gradGlare.addColorStop(0.4, "rgba(255, 255, 255, 0.0)");
+      gradGlare.addColorStop(1, "rgba(0, 0, 0, 0.4)");
+      ctx.fillStyle = gradGlare;
+      ctx.beginPath();
+      ctx.arc(mx, my, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // -----------------------------------------------------
+    // Real-Time Engineering Live Graph Plotter
+    // -----------------------------------------------------
+    function drawGraph() {
+      const w = elGraphCanvas.width / (window.devicePixelRatio || 1);
+      const h = elGraphCanvas.height / (window.devicePixelRatio || 1);
+      ctxGraph.clearRect(0, 0, w, h);
+
+      // Plotter Frame & Border Grid
+      ctxGraph.strokeStyle = "rgba(255,255,255,0.04)";
+      ctxGraph.lineWidth = 1;
+      const graphPadding = 30;
+      
+      // Vertical grid lines representing soil stress level (kPa)
+      for (let x = graphPadding; x < w; x += (w - graphPadding)/5) {
+        ctxGraph.beginPath();
+        ctxGraph.moveTo(x, 10);
+        ctxGraph.lineTo(x, h - graphPadding);
+        ctxGraph.stroke();
+      }
+      // Horizontal lines showing subgrade depth progression (m)
+      for (let y = 10; y < h - graphPadding; y += (h - graphPadding - 10)/4) {
+        ctxGraph.beginPath();
+        ctxGraph.moveTo(graphPadding, y);
+        ctxGraph.lineTo(w - 10, y);
+        ctxGraph.stroke();
+      }
+
+      // Graph Axes labels
+      ctxGraph.fillStyle = "var(--text-muted)";
+      ctxGraph.font = "8px sans-serif";
+      ctxGraph.fillText("0 kPa", graphPadding - 5, h - 18);
+      ctxGraph.fillText("150 kPa", w - 45, h - 18);
+      ctxGraph.fillText("0.0m Depth", graphPadding - 25, 18);
+      ctxGraph.fillText("2.0m Subgrade", graphPadding - 25, h - 35);
+
+      // Curve equations representing stress attenuation formulas
+      // Flexible stress: transfers deeply with moderate attenuation
+      // Rigid stress: wide slab distributes load instantly, yielding flat low values
+      const startX = graphPadding;
+      const endX = w - 15;
+      const totalGraphWidth = endX - startX;
+
+      // Plot Flexible curve line (Cyan)
+      ctxGraph.strokeStyle = "var(--neon-cyan)";
+      ctxGraph.lineWidth = 2;
+      ctxGraph.beginPath();
+      for (let y = 10; y <= h - graphPadding; y++) {
+        const normY = (y - 10) / (h - graphPadding - 10); // 0 to 1
+        // Attenuation equation: stress = max * e^(-2 * normY)
+        const stressVal = 135 * Math.exp(-1.4 * normY) * state.loadProgress;
+        const x = startX + (stressVal / 150) * totalGraphWidth;
+        if (y === 10) ctxGraph.moveTo(x, y); else ctxGraph.lineTo(x, y);
+      }
+      ctxGraph.stroke();
+
+      // Plot Rigid curve line (Magenta)
+      ctxGraph.strokeStyle = "var(--neon-magenta)";
+      ctxGraph.lineWidth = 2;
+      ctxGraph.beginPath();
+      for (let y = 10; y <= h - graphPadding; y++) {
+        const normY = (y - 10) / (h - graphPadding - 10);
+        const stressVal = 18 * Math.exp(-0.4 * normY) * state.loadProgress;
+        const x = startX + (stressVal / 150) * totalGraphWidth;
+        if (y === 10) ctxGraph.moveTo(x, y); else ctxGraph.lineTo(x, y);
+      }
+      ctxGraph.stroke();
+
+      // Realtime legend titles
+      ctxGraph.fillStyle = "var(--neon-cyan)";
+      ctxGraph.fillText("Flexible Stress", w - 85, 30);
+      ctxGraph.fillStyle = "var(--neon-magenta)";
+      ctxGraph.fillText("Rigid Stress", w - 85, 42);
+    }
+
+    // -----------------------------------------------------
+    // Unified Main Animation Tick Run Loop
+    // -----------------------------------------------------
+    function updatePhysicsAndRender() {
+      // Dynamic Canvas high dpr checks
+      const dpr = window.devicePixelRatio || 1;
+      if (resizeCanvasToDisplay(elFlexibleCanvas)) {
+        ctxFlex.scale(dpr, dpr);
+      }
+      if (resizeCanvasToDisplay(elRigidCanvas)) {
+        ctxRigid.scale(dpr, dpr);
+      }
+      if (resizeCanvasToDisplay(elGraphCanvas)) {
+        ctxGraph.scale(dpr, dpr);
+      }
+
+      // Linear physics load progression simulation engine
+      if (state.isSimulating) {
+        state.simTime += 0.012;
+        // Periodic sine oscillation simulating wheel moving down and bouncing off pavement
+        state.loadProgress = Math.sin(state.simTime * Math.PI);
+        
+        // Sim telemetry updates
+        const activeKilonewtons = (state.loadProgress * 80).toFixed(2);
+        document.getElementById('valAxleLoad').innerText = `${activeKilonewtons} kN`;
+        document.getElementById('valProgress').innerText = "In Progress";
+        document.getElementById('valProgress').style.color = "var(--neon-orange)";
+
+        // Computed structural displacement metrics
+        document.getElementById('valFlexDeflection').innerText = `${(state.loadProgress * 2.35).toFixed(2)} mm`;
+        document.getElementById('valRigidDeflection').innerText = `${(state.loadProgress * 0.32).toFixed(2)} mm`;
+
+        // Computed subgrade foundation pressures
+        document.getElementById('valFlexSubgrade').innerText = `${(state.loadProgress * 128.4).toFixed(1)} kPa`;
+        document.getElementById('valRigidSubgrade').innerText = `${(state.loadProgress * 14.8).toFixed(1)} kPa`;
+
+        if (state.simTime >= 1.0) {
+          state.isSimulating = false;
+          state.loadProgress = 0;
+          state.simTime = 0;
+          document.getElementById('valProgress').innerText = "Complete";
+          document.getElementById('valProgress').style.color = "var(--neon-lime)";
+          speakNow("Loading simulation complete. High elastic modulus of rigid concrete reduced soil pressure by eighty-eight percent.");
+        }
+      } else {
+        document.getElementById('valAxleLoad').innerText = "0.00 kN";
+        document.getElementById('valFlexDeflection').innerText = "0.00 mm";
+        document.getElementById('valRigidDeflection').innerText = "0.00 mm";
+        document.getElementById('valFlexSubgrade').innerText = "0.00 kPa";
+        document.getElementById('valRigidSubgrade').innerText = "0.00 kPa";
+      }
+
+      // Render Both Sandboxes
+      drawPavement(ctxFlex, 'flexible', elFlexibleCanvas);
+      drawPavement(ctxRigid, 'rigid', elRigidCanvas);
+
+      // Render Dashboard Telemetry Graph
+      drawGraph();
+
+      requestAnimationFrame(updatePhysicsAndRender);
+    }
+
+    // Initialize Diagnostic Lab System
+    function initLab() {
+      buildBank();
+      bindToggles();
+      setupCanvasMouseTracking();
+      checkEvaluationComplete();
+      
+      // Kickstart Core Engine Thread
+      requestAnimationFrame(updatePhysicsAndRender);
+      
+      speakNow("Lab ready. Classify structural components to unlock axle load pressure test.");
+    }
+
+    window.onload = initLab;
+  </script>
+</body>
+</html>

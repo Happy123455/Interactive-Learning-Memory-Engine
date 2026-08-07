@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Flanged T-Beam Simulator | IS 456</title>
+    
+    <!-- Load Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Load MathJax for rendering engineering formulas -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #0b0f19;
+            --panel-bg: rgba(20, 30, 50, 0.7);
+            --border-color: rgba(255, 255, 255, 0.08);
+            --neon-cyan: #06b6d4;
+            --neon-purple: #a855f7;
+            --neon-green: #10b981;
+            --neon-red: #f43f5e;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(6, 182, 212, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+        }
+
+        /* Top Navigation Bar */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-purple));
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            color: #fff;
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+
+        .logo-title h1 {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(to right, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .logo-title p {
+            font-size: 0.75rem;
+            color: var(--neon-cyan);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .system-controls {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.2);
+        }
+
+        .control-btn.active {
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        /* Gamified Step Indicator */
+        .step-progress-bar {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 0.75rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .step-node {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0.4;
+            transition: all 0.3s ease;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .step-node.active {
+            opacity: 1;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.4);
+        }
+
+        .step-node.completed {
+            opacity: 0.8;
+            color: var(--neon-green);
+        }
+
+        .step-circle {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid currentColor;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Dashboard Core Grid */
+        .dashboard-container {
+            display: grid;
+            grid-template-columns: 350px 1fr 400px;
+            flex: 1;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-height: calc(100vh - 120px);
+            overflow: hidden;
+        }
+
+        /* Glassmorphic Panels */
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .panel:hover {
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+
+        .panel-header {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.5);
+        }
+
+        .panel-header h2 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--neon-cyan);
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .panel-content {
+            padding: 1.25rem;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Step 1: Problem Studio Interactive Text */
+        .problem-box {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px dashed var(--border-color);
+            border-radius: 8px;
+            padding: 1rem;
+            line-height: 1.6;
+            font-size: 0.9rem;
+        }
+
+        .interactive-var {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-color);
+            padding: 2px 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: 'JetBrains Mono', monospace;
+            font-weight: 700;
+            color: var(--neon-purple);
+            transition: all 0.2s ease;
+            display: inline-block;
+        }
+
+        .interactive-var:hover {
+            background: rgba(168, 85, 247, 0.15);
+            border-color: var(--neon-purple);
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.3);
+        }
+
+        .interactive-var.verified {
+            color: var(--neon-green);
+            background: rgba(16, 185, 129, 0.1);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.2);
+        }
+
+        /* Step 2: Virtual Codebook */
+        .codebook-container {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: #111827;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .codebook-tab {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: grab;
+        }
+
+        .codebook-tab:active {
+            cursor: grabbing;
+        }
+
+        .drag-handle {
+            color: var(--neon-cyan);
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .codebook-body {
+            padding: 1rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+        }
+
+        .dropzone {
+            border: 2px dashed var(--neon-cyan);
+            border-radius: 8px;
+            padding: 1.5rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            background: rgba(6, 182, 212, 0.02);
+        }
+
+        .dropzone.dragover {
+            background: rgba(6, 182, 212, 0.1);
+            border-color: var(--neon-green);
+            color: #fff;
+        }
+
+        .dropzone.unlocked {
+            border-color: var(--neon-green);
+            background: rgba(16, 185, 129, 0.05);
+            color: var(--neon-green);
+        }
+
+        /* Step 3: Drag & Drop Formula Assembly */
+        .formula-assembly {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .draggable-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .formula-chip {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-color);
+            padding: 0.5rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            cursor: grab;
+            transition: all 0.2s;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .formula-chip:active {
+            cursor: grabbing;
+        }
+
+        .equation-slots {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .equation-slot-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(15, 23, 42, 0.4);
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            border-radius: 8px;
+        }
+
+        .slot-label {
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .slot-target {
+            width: 160px;
+            height: 38px;
+            border: 2px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            transition: all 0.3s ease;
+        }
+
+        .slot-target.correct {
+            border-color: var(--neon-green);
+            background: rgba(16, 185, 129, 0.08);
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.15);
+        }
+
+        .slot-target.incorrect {
+            border-color: var(--neon-red);
+            background: rgba(244, 63, 94, 0.08);
+            animation: shake 0.3s ease;
+        }
+
+        /* Canvas Viewport (Middle Panel) */
+        .canvas-container {
+            position: relative;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #090d16;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            overflow: hidden;
+        }
+
+        #mainCanvas {
+            width: 100%;
+            height: 100%;
+            background: #070b12;
+        }
+
+        .canvas-overlay {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        /* Step 5: Live Sliders */
+        .interactive-sliders {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .slider-header span:last-child {
+            color: var(--neon-cyan);
+            font-weight: 700;
+        }
+
+        .custom-slider {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 5px;
+            border-radius: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        .custom-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transition: transform 0.1s;
+        }
+
+        .custom-slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Capacity Bars (Equilibrium Logic) */
+        .equilibrium-meter {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            background: rgba(15, 23, 42, 0.4);
+            padding: 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        .bar-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            font-size: 0.75rem;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .bar-label {
+            width: 40px;
+            font-weight: 700;
+        }
+
+        .bar-track {
+            flex: 1;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .bar-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .bar-fill.comp {
+            background: linear-gradient(90deg, var(--neon-cyan), #3b82f6);
+            box-shadow: 0 0 8px rgba(6, 182, 212, 0.5);
+        }
+
+        .bar-fill.ten {
+            background: linear-gradient(90deg, var(--neon-purple), #ec4899);
+            box-shadow: 0 0 8px rgba(168, 85, 247, 0.5);
+        }
+
+        .case-indicator {
+            text-align: center;
+            padding: 0.5rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            font-family: 'JetBrains Mono', monospace;
+            animation: pulse 2s infinite;
+        }
+
+        /* Step 6: Output Decomposition Chart */
+        .chart-module {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        .stacked-chart {
+            display: flex;
+            height: 24px;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+        }
+
+        .chart-segment {
+            transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .segment-web {
+            background: #1d4ed8;
+        }
+
+        .segment-flange {
+            background: #047857;
+        }
+
+        .chart-legend {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .legend-color {
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
+        }
+
+        /* Animations */
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.8; }
+            50% { opacity: 1; box-shadow: 0 0 15px rgba(6, 182, 212, 0.1); }
+        }
+
+        /* Scrollbar custom styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        /* Status LEDs */
+        .status-led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4b5563;
+            display: inline-block;
+        }
+        .status-led.active {
+            background: var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">T</div>
+            <div class="logo-title">
+                <h1>FLANGED SECTIONS (T-BEAM)</h1>
+                <p>IS 456:2000 NEUTRAL AXIS CALCULATOR</p>
+            </div>
+        </div>
+
+        <div class="system-controls">
+            <button class="control-btn" id="voiceToggleBtn" onclick="toggleSpeech()">
+                <span id="voiceIcon">🔊</span> Narration: ON
+            </button>
+            <button class="control-btn" id="audioToggleBtn" onclick="toggleAudio()">
+                <span>🎵</span> Sound FX: ON
+            </button>
+            <button class="control-btn" onclick="resetSimulator()">
+                <span>🔄</span> Reset
+            </button>
+        </div>
+    </header>
+
+    <!-- Step Tracker Progress Bar -->
+    <div class="step-progress-bar">
+        <div class="step-node active" id="stepNode1">
+            <div class="step-circle">1</div> Data Extraction
+        </div>
+        <div class="step-node" id="stepNode2">
+            <div class="step-circle">2</div> Codebook Lookup
+        </div>
+        <div class="step-node" id="stepNode3">
+            <div class="step-circle">3</div> Equation Drag-n-Drop
+        </div>
+        <div class="step-node" id="stepNode4">
+            <div class="step-circle">4</div> Mechanics & Pour
+        </div>
+        <div class="step-node" id="stepNode5">
+            <div class="step-circle">5</div> State Verification
+        </div>
+        <div class="step-node" id="stepNode6">
+            <div class="step-circle">6</div> Decomposition
+        </div>
+    </div>
+
+    <!-- Main Grid Dashboard Layout -->
+    <div class="dashboard-container">
+        
+        <!-- Left Column: Step 1 & 2 Workspace -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><span>🔍</span> Problem Studio</h2>
+                <span class="status-led active"></span>
+            </div>
+            <div class="panel-content">
+                <div class="problem-box">
+                    <strong>Problem Statement:</strong><br>
+                    Determine the neutral axis location for a reinforced concrete T-beam with an effective span 
+                    <span class="interactive-var" id="var-l0" onclick="verifyVar('l0')">l₀ = 6.0m</span>, 
+                    web width <span class="interactive-var" id="var-bw" onclick="verifyVar('bw')">b_w = 300mm</span>, 
+                    flange depth <span class="interactive-var" id="var-Df" onclick="verifyVar('Df')">D_f = 120mm</span>, and effective depth 
+                    <span class="interactive-var" id="var-d" onclick="verifyVar('d')">d = 500mm</span>. 
+                    The tensile steel area provided is <span class="interactive-var" id="var-Ast" onclick="verifyVar('Ast')">A_st = 1500mm²</span>. 
+                    Concrete grade is M25 and steel grade is Fe415.
+                </div>
+
+                <!-- Handbook Panel (Unlocked at Step 2) -->
+                <div id="handbookModule" style="opacity: 0.5; pointer-events: none; transition: opacity 0.3s;">
+                    <div class="panel-header" style="padding: 0.5rem 0; border-bottom: none;">
+                        <h2 style="color: var(--neon-purple);"><span>📖</span> IS 456 Reference</h2>
+                    </div>
+                    <div class="codebook-container">
+                        <div class="codebook-tab" id="clauseTab" draggable="true" ondragstart="drag(event)">
+                            <span>Clause G-1.1: Flanged Section</span>
+                            <span class="drag-handle">☰ DRAG ME</span>
+                        </div>
+                        <div class="codebook-body">
+                            For $x_u > D_f$, the flanged T-section behavior must be evaluated using the equivalent flange thickness method.
+                        </div>
+                    </div>
+                    <div class="dropzone" id="handbookDropzone" ondragover="allowDrop(event)" ondragleave="dragLeave(event)" ondrop="drop(event)">
+                        Drop IS 456 Clause Here to Unlock Math Engine
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Column: HTML5 Dynamic Simulation Canvas -->
+        <div class="panel" style="grid-column: 2;">
+            <div class="panel-header">
+                <h2><span>📐</span> Interactive Mechanics & Stress Block</h2>
+                <button class="control-btn" id="zoomBtn" style="padding: 2px 8px;" onclick="toggleZoom()">Zoom Boundary</button>
+            </div>
+            <div class="canvas-container">
+                <canvas id="mainCanvas"></canvas>
+                <div class="canvas-overlay">
+                    <button class="control-btn active" id="pourBtn" onclick="triggerConcretePour()" style="display:none; animation: pulse 1.5s infinite;">
+                        💧 Pour Concrete
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Step 3, 5 & 6 Controls & Outputs -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><span>📊</span> Calculation Hub</h2>
+                <span class="status-led" id="calcLed"></span>
+            </div>
+            <div class="panel-content">
+                
+                <!-- Step 3: Formula Matching Box -->
+                <div id="formulaModule" style="display:none;">
+                    <div class="formula-assembly">
+                        <p style="font-size:0.8rem; color:var(--text-muted);">Match mechanics components with correct formulation:</p>
+                        <div class="draggable-chips">
+                            <div class="formula-chip" draggable="true" id="chip-T" ondragstart="drag(event)">0.87 f_y A_st</div>
+                            <div class="formula-chip" draggable="true" id="chip-Cw" ondragstart="drag(event)">0.36 f_ck b_w x_u</div>
+                            <div class="formula-chip" draggable="true" id="chip-Cf" ondragstart="drag(event)">0.45 f_ck (b_f - b_w) y_f</div>
+                        </div>
+
+                        <div class="equation-slots">
+                            <div class="equation-slot-container">
+                                <span class="slot-label">Steel Tension ($T_u$)</span>
+                                <div class="slot-target" id="slot-tension" ondragover="allowDrop(event)" ondrop="dropFormula(event, 'chip-T')">Drop here</div>
+                            </div>
+                            <div class="equation-slot-container">
+                                <span class="slot-label">Web Compression ($C_{uw}$)</span>
+                                <div class="slot-target" id="slot-web" ondragover="allowDrop(event)" ondrop="dropFormula(event, 'chip-Cw')">Drop here</div>
+                            </div>
+                            <div class="equation-slot-container">
+                                <span class="slot-label">Flange Compression ($C_{uf}$)</span>
+                                <div class="slot-target" id="slot-flange" ondragover="allowDrop(event)" ondrop="dropFormula(event, 'chip-Cf')">Drop here</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 5: Live Controls and Comparative Logic -->
+                <div id="analysisModule" style="display:none;">
+                    <div class="interactive-sliders">
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <span>Steel Area (A_st)</span>
+                                <span id="val-ast-display">1500 mm²</span>
+                            </div>
+                            <input type="range" class="custom-slider" id="astSlider" min="500" max="3500" value="1500" oninput="updateParameters()">
+                        </div>
+                        <div class="slider-group">
+                            <div class="slider-header">
+                                <span>Flange Depth (D_f)</span>
+                                <span id="val-df-display">120 mm</span>
+                            </div>
+                            <input type="range" class="custom-slider" id="dfSlider" min="80" max="200" value="120" oninput="updateParameters()">
+                        </div>
+                    </div>
+
+                    <div class="equilibrium-meter">
+                        <div class="case-indicator" id="caseDisplay">Calculating Case...</div>
+                        <div class="bar-container">
+                            <span class="bar-label">C_u</span>
+                            <div class="bar-track">
+                                <div class="bar-fill comp" id="compBar"></div>
+                            </div>
+                            <span id="compVal">0 kN</span>
+                        </div>
+                        <div class="bar-container">
+                            <span class="bar-label">T_u</span>
+                            <div class="bar-track">
+                                <div class="bar-fill ten" id="tenBar"></div>
+                            </div>
+                            <span id="tenVal">0 kN</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 6: Moment Capacity Decomposition -->
+                <div id="outputModule" style="display:none;">
+                    <div class="chart-module">
+                        <div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:1px; font-weight:700;">Moment Resistance (M_u)</div>
+                        <div class="stacked-chart">
+                            <div class="chart-segment segment-web" id="segWeb" style="width: 50%;">Web</div>
+                            <div class="chart-segment segment-flange" id="segFlange" style="width: 50%;">Flange</div>
+                        </div>
+                        <div class="chart-legend">
+                            <div class="legend-item">
+                                <div class="legend-color segment-web"></div>
+                                <span>Web Block (M_uw)</span>
+                            </div>
+                            <div class="legend-item">
+                                <div class="legend-color segment-flange"></div>
+                                <span>Flange Block (M_uf)</span>
+                            </div>
+                        </div>
+                        <div style="text-align: center; font-size:1.5rem; font-weight:800; color:var(--neon-cyan); margin-top:0.5rem;" id="totalMu">
+                            0.0 kN·m
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Web Mechanics Engine & Logic scripts -->
+    <script>
+        // Web Audio Context Setup
+        let audioCtx = null;
+        let audioEnabled = true;
+        let narrationEnabled = true;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        function playSound(type) {
+            if (!audioEnabled) return;
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            const osc = audioCtx.createOscillator();
+            const gainNode = audioCtx.createGain();
+            osc.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+
+            if (type === 'click') {
+                osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.1);
+            } else if (type === 'chime') {
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.5);
+            } else if (type === 'hum') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.6);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.6);
+            } else if (type === 'pour') {
+                // Simulate concrete pouring with pinkish noise filter
+                let bufferSize = audioCtx.sampleRate * 1.5;
+                let buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                let data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                let noise = audioCtx.createBufferSource();
+                noise.buffer = buffer;
+                let filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(200, audioCtx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(800, audioCtx.currentTime + 1.5);
+                
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+                noise.start();
+                noise.stop(audioCtx.currentTime + 1.5);
+            }
+        }
+
+        function speak(text) {
+            if (!narrationEnabled) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.pitch = 1.0;
+            utterance.rate = 1.05;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleSpeech() {
+            narrationEnabled = !narrationEnabled;
+            document.getElementById('voiceToggleBtn').classList.toggle('active', narrationEnabled);
+            document.getElementById('voiceIcon').innerText = narrationEnabled ? "🔊" : "🔇";
+        }
+
+        function toggleAudio() {
+            audioEnabled = !audioEnabled;
+            document.getElementById('audioToggleBtn').classList.toggle('active', audioEnabled);
+        }
+
+        // State & Parameter Variables
+        let currentStep = 1;
+        const verifiedVars = { l0: false, bw: false, Df: false, d: false, Ast: false };
+        let handbookUnlocked = false;
+        let formulaProgress = { tension: false, web: false, flange: false };
+        let concretePoured = false;
+        let concretePourProgress = 0.0;
+        let isZoomed = false;
+
+        // Physical Parameters
+        let bf = 1200; // Flange width
+        let bw = 300;  // Web width
+        let Df = 120;  // Flange depth
+        let d = 500;   // Effective depth
+        let Ast = 1500; // Reinforcement area
+        const fck = 25; // concrete grade
+        const fy = 415; // steel grade
+
+        // Math outcomes
+        let calculatedXu = 0;
+        let finalCu = 0;
+        let finalTu = 0;
+        let MuFlange = 0;
+        let MuWeb = 0;
+
+        // Initialize Simulator
+        window.addEventListener('load', () => {
+            initCanvas();
+            animate();
+            speak("Welcome to the flanged sections engineering simulator. Begin step 1 by clicking on the geometric design parameters highlighted in the Problem Statement.");
+        });
+
+        // Step 1: Variable Identification
+        function verifyVar(id) {
+            playSound('click');
+            if (!verifiedVars[id]) {
+                verifiedVars[id] = true;
+                document.getElementById(`var-${id}`).classList.add('verified');
+                speak(`Extracted design value for ${id}`);
+                
+                // Draw glow highlighting on Canvas specific element if appropriate
+                checkStep1Completion();
+            }
+        }
+
+        function checkStep1Completion() {
+            if (Object.values(verifiedVars).every(v => v === true)) {
+                transitionToStep(2);
+            }
+        }
+
+        // Step 2: Codebook Drag and Drop
+        function allowDrop(ev) {
+            ev.preventDefault();
+            if (ev.target.id === 'handbookDropzone' || ev.target.classList.contains('slot-target')) {
+                ev.target.classList.add('dragover');
+            }
+        }
+
+        function dragLeave(ev) {
+            ev.target.classList.remove('dragover');
+        }
+
+        function drag(ev) {
+            ev.dataTransfer.setData("text", ev.target.id);
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            ev.target.classList.remove('dragover');
+            const data = ev.dataTransfer.getData("text");
+            if (data === "clauseTab") {
+                playSound('chime');
+                document.getElementById('handbookDropzone').innerText = "✓ IS 456 Annex G Unlocked!";
+                document.getElementById('handbookDropzone').classList.add('unlocked');
+                handbookUnlocked = true;
+                transitionToStep(3);
+            }
+        }
+
+        // Step 3: Formula Drag and Drop Matching
+        function dropFormula(ev, expectedChipId) {
+            ev.preventDefault();
+            ev.target.classList.remove('dragover');
+            const draggedId = ev.dataTransfer.getData("text");
+            
+            if (draggedId === expectedChipId) {
+                playSound('chime');
+                ev.target.innerText = document.getElementById(draggedId).innerText;
+                ev.target.classList.add('correct');
+                document.getElementById(draggedId).style.visibility = 'hidden';
+                
+                if (expectedChipId === 'chip-T') formulaProgress.tension = true;
+                if (expectedChipId === 'chip-Cw') formulaProgress.web = true;
+                if (expectedChipId === 'chip-Cf') formulaProgress.flange = true;
+
+                if (formulaProgress.tension && formulaProgress.web && formulaProgress.flange) {
+                    transitionToStep(4);
+                }
+            } else {
+                playSound('hum');
+                ev.target.classList.add('incorrect');
+                setTimeout(() => ev.target.classList.remove('incorrect'), 500);
+            }
+        }
+
+        // Step 4: Concrete Pouring Animation
+        function triggerConcretePour() {
+            playSound('pour');
+            document.getElementById('pourBtn').style.display = 'none';
+            let interval = setInterval(() => {
+                concretePourProgress += 0.05;
+                if (concretePourProgress >= 1.0) {
+                    concretePourProgress = 1.0;
+                    concretePoured = true;
+                    clearInterval(interval);
+                    speak("Concrete hydrated. Rebars activated under structural load.");
+                    transitionToStep(5);
+                }
+            }, 100);
+        }
+
+        function transitionToStep(step) {
+            currentStep = step;
+            for (let i = 1; i <= 6; i++) {
+                const node = document.getElementById(`stepNode${i}`);
+                if (i < step) {
+                    node.className = 'step-node completed';
+                } else if (i === step) {
+                    node.className = 'step-node active';
+                } else {
+                    node.className = 'step-node';
+                }
+            }
+
+            if (step === 2) {
+                document.getElementById('handbookModule').style.opacity = '1.0';
+                document.getElementById('handbookModule').style.pointerEvents = 'all';
+                speak("Excellent work. Step 2. Drag and drop the relevant IS 456 Handbook clause into the workspace dropzone.");
+            } else if (step === 3) {
+                document.getElementById('formulaModule').style.display = 'block';
+                speak("Step 3. Standardize calculations by matching algebraic forces with equivalent IS 456 formula slots.");
+            } else if (step === 4) {
+                document.getElementById('pourBtn').style.display = 'block';
+                speak("Mechanics formulas compiled. Click the hydration trigger overlay on the Canvas to perform the concrete pour.");
+            } else if (step === 5) {
+                document.getElementById('analysisModule').style.display = 'block';
+                document.getElementById('calcLed').classList.add('active');
+                updateParameters();
+                speak("Step 5. State verification. Manipulate steel areas and flange bounds to track limit state shift of the neutral axis.");
+            } else if (step === 6) {
+                document.getElementById('outputModule').style.display = 'block';
+                speak("Simulation complete. Evaluate final moments breakdown on the structural bar chart.");
+            }
+        }
+
+        // Math Engine (T-Beam State Solver)
+        function solveTBeam() {
+            const Tu = 0.87 * fy * Ast;
+            
+            // Try Case 1: NA lies within Flange (xu <= Df)
+            let xu = Tu / (0.36 * fck * bf);
+            let caseStr = "";
+            let Cu = 0;
+
+            if (xu <= Df) {
+                caseStr = "CASE 1: NA IN FLANGE";
+                Cu = 0.36 * fck * bf * xu;
+                MuFlange = Cu * (d - 0.42 * xu) / 1e6; // Convert to kN-m
+                MuWeb = 0;
+            } else {
+                // Case 2: NA lies in Web (xu > Df)
+                caseStr = "CASE 2: NA IN WEB";
+                // Iterative/Bisection Solver to compute exact Neutral Axis position based on IS 456 Clause G-1.1
+                let low = Df, high = d * 1.5;
+                for (let i = 0; i < 40; i++) {
+                    let mid = (low + high) / 2;
+                    let yf = 0.15 * mid + 0.65 * Df;
+                    if (yf > Df) yf = Df;
+                    
+                    let Cw = 0.36 * fck * bw * mid;
+                    let Cf = 0.45 * fck * (bf - bw) * yf;
+                    let totalC = Cw + Cf;
+
+                    if (totalC < Tu) {
+                        low = mid;
+                    } else {
+                        high = mid;
+                    }
+                }
+                xu = (low + high) / 2;
+                
+                let yf = 0.15 * xu + 0.65 * Df;
+                if (yf > Df) yf = Df;
+                
+                let Cw = 0.36 * fck * bw * xu;
+                let Cf = 0.45 * fck * (bf - bw) * yf;
+                Cu = Cw + Cf;
+
+                MuWeb = Cw * (d - 0.42 * xu) / 1e6;
+                MuFlange = Cf * (d - yf / 2) / 1e6;
+            }
+
+            calculatedXu = xu;
+            finalCu = Cu;
+            finalTu = Tu;
+
+            // Trigger Dynamic Speech Alerts on State Shifts
+            const prevCase = document.getElementById('caseDisplay').innerText;
+            if (prevCase !== "" && prevCase !== caseStr) {
+                if (caseStr.includes("WEB")) {
+                    speak("Warning. The neutral axis has exited the flange and entered the web zone.");
+                } else {
+                    speak("Balanced logic restored. The neutral axis has retracted into the flange.");
+                }
+            }
+
+            // Update DOM Output Display Elements
+            document.getElementById('caseDisplay').innerText = caseStr;
+            document.getElementById('caseDisplay').style.color = (xu <= Df) ? 'var(--neon-green)' : 'var(--neon-red)';
+            document.getElementById('caseDisplay').style.border = (xu <= Df) ? '1px solid var(--neon-green)' : '1px solid var(--neon-red)';
+
+            document.getElementById('compVal').innerText = `${(Cu / 1000).toFixed(1)} kN`;
+            document.getElementById('tenVal').innerText = `${(Tu / 1000).toFixed(1)} kN`;
+
+            // Max possible force scale for visualization limits
+            const maxForce = 2000 * 1000; 
+            document.getElementById('compBar').style.width = `${Math.min(100, (Cu / maxForce) * 100)}%`;
+            document.getElementById('tenBar').style.width = `${Math.min(100, (Tu / maxForce) * 100)}%`;
+
+            // Moment updates
+            const totalMuVal = MuWeb + MuFlange;
+            document.getElementById('totalMu').innerText = `${totalMuVal.toFixed(1)} kN·m`;
+            
+            const pctWeb = totalMuVal > 0 ? (MuWeb / totalMuVal) * 100 : 0;
+            const pctFlange = totalMuVal > 0 ? (MuFlange / totalMuVal) * 100 : 0;
+            
+            document.getElementById('segWeb').style.width = `${pctWeb}%`;
+            document.getElementById('segWeb').innerText = pctWeb > 15 ? `Web: ${pctWeb.toFixed(0)}%` : '';
+            document.getElementById('segFlange').style.width = `${pctFlange}%`;
+            document.getElementById('segFlange').innerText = pctFlange > 15 ? `Flange: ${pctFlange.toFixed(0)}%` : '';
+
+            if (currentStep === 5 && totalMuVal > 0) {
+                transitionToStep(6);
+            }
+        }
+
+        function updateParameters() {
+            Ast = parseFloat(document.getElementById('astSlider').value);
+            Df = parseFloat(document.getElementById('dfSlider').value);
+            
+            document.getElementById('val-ast-display').innerText = `${Ast} mm²`;
+            document.getElementById('val-df-display').innerText = `${Df} mm`;
+
+            solveTBeam();
+        }
+
+        function toggleZoom() {
+            isZoomed = !isZoomed;
+            document.getElementById('zoomBtn').classList.toggle('active', isZoomed);
+            playSound('click');
+        }
+
+        // Canvas Rendering Architecture
+        let canvas, ctx;
+        function initCanvas() {
+            canvas = document.getElementById('mainCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        function resizeCanvas() {
+            const rect = canvas.parentNode.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawScene();
+            requestAnimationFrame(animate);
+        }
+
+        function drawScene() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.save();
+            
+            // Dynamic Camera Zoom Engine
+            if (isZoomed && concretePoured) {
+                const targetY = height / 2 - (d/3) + calculatedXu;
+                ctx.translate(width / 2, height / 2);
+                ctx.scale(1.5, 1.5);
+                ctx.translate(-width / 2, -targetY);
+            }
+
+            // Geometry variables mapped to canvas pixels
+            const scale = 0.5; 
+            const originX = width / 2 - (bf * scale) / 2;
+            const originY = 60;
+
+            const flangeW = bf * scale;
+            const flangeD = Df * scale;
+            const webW = bw * scale;
+            const webD = d * scale;
+            const totalH = (d + 50) * scale;
+
+            // Draw concrete path outline
+            ctx.beginPath();
+            ctx.moveTo(originX, originY);
+            ctx.lineTo(originX + flangeW, originY);
+            ctx.lineTo(originX + flangeW, originY + flangeD);
+            ctx.lineTo(originX + flangeW/2 + webW/2, originY + flangeD);
+            ctx.lineTo(originX + flangeW/2 + webW/2, originY + totalH);
+            ctx.lineTo(originX + flangeW/2 - webW/2, originY + totalH);
+            ctx.lineTo(originX + flangeW/2 - webW/2, originY + flangeD);
+            ctx.lineTo(originX, originY + flangeD);
+            ctx.closePath();
+
+            // Background raw concrete mold
+            ctx.fillStyle = '#111827';
+            ctx.fill();
+            ctx.strokeStyle = '#374151';
+            ctx.lineWidth = 1.5;
+            ctx.stroke();
+
+            // Concrete Pour Animation Rendering
+            if (concretePourProgress > 0) {
+                ctx.save();
+                ctx.clip(); // Restrict filling within our custom geometric envelope bounds
+                const pourH = totalH * concretePourProgress;
+                
+                const grad = ctx.createLinearGradient(0, originY + totalH, 0, originY + totalH - pourH);
+                grad.addColorStop(0, '#1e293b');
+                grad.addColorStop(1, '#334155');
+                ctx.fillStyle = grad;
+                ctx.fillRect(originX, originY + totalH - pourH, flangeW, pourH);
+                ctx.restore();
+            }
+
+            // Rebars & Steel Glow Animation Rendering
+            const rebarY = originY + d * scale;
+            const rebarXLeft = originX + flangeW/2 - webW/3;
+            const rebarXRight = originX + flangeW/2 + webW/3;
+
+            if (concretePoured) {
+                // Neon glow effect for active steel
+                ctx.save();
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = 'var(--neon-purple)';
+                ctx.fillStyle = 'var(--neon-purple)';
+                ctx.beginPath();
+                ctx.arc(rebarXLeft, rebarY, 6, 0, Math.PI * 2);
+                ctx.arc(rebarXRight, rebarY, 6, 0, Math.PI * 2);
+                ctx.arc(originX + flangeW/2, rebarY, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Dynamic Stress Block & Neutral Axis Mechanics
+            if (concretePoured) {
+                const xuY = originY + calculatedXu * scale;
+
+                // Draw Neutral Axis Dashed line
+                ctx.strokeStyle = 'var(--neon-red)';
+                ctx.setLineDash([6, 4]);
+                ctx.beginPath();
+                ctx.moveTo(originX - 30, xuY);
+                ctx.lineTo(originX + flangeW + 30, xuY);
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset line dash
+
+                // Neutral Axis text tag
+                ctx.fillStyle = 'var(--neon-red)';
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(`N.A. (xu = ${calculatedXu.toFixed(0)}mm)`, originX + flangeW + 10, xuY - 5);
+
+                // Draw Stress Block Envelope on the right flank
+                const blockX = originX + flangeW + 50;
+                ctx.strokeStyle = '#4b5563';
+                ctx.beginPath();
+                ctx.moveTo(blockX, originY);
+                ctx.lineTo(blockX, xuY);
+                ctx.stroke();
+
+                // Parabolic stress curve rendering
+                // Strain = 0.0035 at extreme fiber (top), 0.002 at 4/7 xu depth.
+                const rectangularD = (4/7) * calculatedXu * scale;
+                const parabolicD = (3/7) * calculatedXu * scale;
+
+                ctx.beginPath();
+                ctx.fillStyle = 'rgba(6, 182, 212, 0.2)';
+                ctx.strokeStyle = 'var(--neon-cyan)';
+                ctx.lineWidth = 2;
+                ctx.moveTo(blockX, originY);
+                ctx.lineTo(blockX + 50, originY); // Max stress 0.447 fck
+                ctx.lineTo(blockX + 50, originY + rectangularD);
+                
+                // Draw Parabolic curve down to Neutral Axis
+                for (let currY = rectangularD; currY <= calculatedXu * scale; currY++) {
+                    const localY = currY - rectangularD;
+                    const normalized = localY / parabolicD;
+                    const stressRatio = 1.0 - (normalized * normalized);
+                    ctx.lineTo(blockX + 50 * stressRatio, originY + currY);
+                }
+                ctx.lineTo(blockX, xuY);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+
+                // Leader Lines & Dimensions
+                ctx.fillStyle = '#6b7280';
+                ctx.font = '9px JetBrains Mono';
+                ctx.fillText("0.446 f_ck", blockX + 55, originY + 12);
+            }
+
+            // Draw Auto-Routing Structural Dimensions Leader Lines
+            ctx.restore();
+        }
+
+        function resetSimulator() {
+            playSound('click');
+            concretePoured = false;
+            concretePourProgress = 0.0;
+            handbookUnlocked = false;
+            isZoomed = false;
+            Object.keys(verifiedVars).forEach(v => {
+                verifiedVars[v] = false;
+                document.getElementById(`var-${v}`).className = 'interactive-var';
+            });
+            document.getElementById('handbookDropzone').innerText = "Drop IS 456 Clause Here to Unlock Math Engine";
+            document.getElementById('handbookDropzone').className = 'dropzone';
+            document.getElementById('handbookModule').style.opacity = '0.5';
+            document.getElementById('handbookModule').style.pointerEvents = 'none';
+            document.getElementById('formulaModule').style.display = 'none';
+            document.getElementById('analysisModule').style.display = 'none';
+            document.getElementById('outputModule').style.display = 'none';
+            document.getElementById('calcLed').className = 'status-led';
+            
+            // Re-show math elements inside chip array
+            ['chip-T', 'chip-Cw', 'chip-Cf'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.visibility = 'visible';
+            });
+            document.querySelectorAll('.slot-target').forEach(el => {
+                el.innerText = 'Drop here';
+                el.className = 'slot-target';
+            });
+            formulaProgress = { tension: false, web: false, flange: false };
+
+            transitionToStep(1);
+        }
+    </script>
+</body>
+</html>

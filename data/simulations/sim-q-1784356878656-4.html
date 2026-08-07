@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theory of Architecture: Principles of Composition Lab</title>
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(15, 23, 42, 0.75);
+            --border-color: rgba(34, 211, 238, 0.2);
+            --border-glow: rgba(34, 211, 238, 0.4);
+            --cyan: #22d3ee;
+            --purple: #a855f7;
+            --amber: #f59e0b;
+            --emerald: #10b981;
+            --rose: #f43f5e;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --font-mono: 'Courier New', Courier, monospace;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Scanline effect overlay */
+        body::before {
+            content: " ";
+            display: block;
+            position: absolute;
+            top: 0; left: 0; bottom: 0; right: 0;
+            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            z-index: 9999;
+            background-size: 100% 4px, 6px 100%;
+            pointer-events: none;
+        }
+
+        header {
+            background: rgba(15, 23, 42, 0.9);
+            border-bottom: 1px solid var(--border-color);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            border: 2px solid var(--cyan);
+            transform: rotate(45deg);
+            position: relative;
+            animation: pulse-glow 3s infinite alternate;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            top: 4px; left: 4px; right: 4px; bottom: 4px;
+            border: 1px dashed var(--purple);
+        }
+
+        h1 {
+            font-size: 1.4rem;
+            font-weight: 800;
+            letter-spacing: 0.07em;
+            text-transform: uppercase;
+            background: linear-gradient(90deg, var(--cyan), var(--purple));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .status-pill {
+            background: rgba(34, 211, 238, 0.1);
+            border: 1px solid var(--border-color);
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            color: var(--cyan);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--cyan);
+            border-radius: 50%;
+            box-shadow: 0 0 8px var(--cyan);
+            animation: blink 1.5s infinite;
+        }
+
+        /* Controls / Layout */
+        .dashboard {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            gap: 15px;
+            padding: 15px;
+            height: calc(100vh - 75px);
+            position: relative;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .panel-header {
+            padding: 12px 18px;
+            background: rgba(34, 211, 238, 0.05);
+            border-bottom: 1px solid var(--border-color);
+            font-family: var(--font-mono);
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Elements Shelf & Scale Chips */
+        .element-shelf {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+        }
+
+        .draggable-element {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-left: 4px solid var(--purple);
+            border-radius: 4px;
+            padding: 10px 12px;
+            cursor: grab;
+            transition: all 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .draggable-element:hover {
+            background: rgba(34, 211, 238, 0.05);
+            border-color: rgba(34, 211, 238, 0.3);
+            transform: translateX(4px);
+            box-shadow: -4px 0 12px rgba(34, 211, 238, 0.1);
+        }
+
+        .draggable-element:active {
+            cursor: grabbing;
+        }
+
+        .element-title {
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: var(--text-main);
+            margin-bottom: 4px;
+        }
+
+        .element-desc {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            line-height: 1.3;
+        }
+
+        .element-preview {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            height: 30px;
+            opacity: 0.3;
+            pointer-events: none;
+        }
+
+        /* Scale Formula Chips */
+        .scale-shelf {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .scale-chip {
+            background: rgba(168, 85, 247, 0.1);
+            border: 1px dashed var(--purple);
+            color: #d8b4fe;
+            padding: 6px 10px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-family: var(--font-mono);
+            cursor: grab;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .scale-chip:hover {
+            background: rgba(168, 85, 247, 0.25);
+            transform: scale(1.05);
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+        }
+
+        .scale-chip::before {
+            content: 'Φ';
+            font-weight: bold;
+            color: var(--purple);
+        }
+
+        /* Canvas Workspace */
+        .workspace-container {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .canvas-wrapper {
+            flex: 1;
+            position: relative;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: radial-gradient(circle at center, #111e36 0%, #090d16 100%);
+            overflow: hidden;
+            box-shadow: inset 0 0 40px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* HUD & Controls Overlays on Canvas */
+        .hud-overlay {
+            position: absolute;
+            pointer-events: none;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            color: rgba(34, 211, 238, 0.7);
+            z-index: 2;
+        }
+
+        .hud-grid-specs { top: 12px; left: 15px; }
+        .hud-rendering-stats { top: 12px; right: 15px; text-align: right; }
+        .hud-crosshair {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 30px; height: 30px;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        .hud-crosshair::before, .hud-crosshair::after {
+            content: '';
+            position: absolute;
+            background: var(--cyan);
+        }
+        .hud-crosshair::before { top: 14px; left: 0; right: 0; height: 2px; }
+        .hud-crosshair::after { left: 14px; top: 0; bottom: 0; width: 2px; }
+
+        /* Environmental Sliders */
+        .control-group {
+            border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255,255,255,0.01);
+            border-radius: 6px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .control-label {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-family: var(--font-mono);
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .control-value {
+            color: var(--cyan);
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--cyan);
+            box-shadow: 0 0 8px var(--cyan);
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        /* Metrics Display */
+        .metric-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .metric-bar-wrapper {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            height: 24px;
+            border-radius: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric-fill {
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s cubic-bezier(0.1, 0.8, 0.2, 1);
+            position: relative;
+        }
+
+        .metric-fill.balance { background: linear-gradient(90deg, var(--cyan), var(--purple)); }
+        .metric-fill.emphasis { background: linear-gradient(90deg, var(--purple), var(--amber)); }
+        .metric-fill.proportion { background: linear-gradient(90deg, var(--amber), var(--emerald)); }
+
+        .metric-text {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 10px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+        }
+
+        /* Interactive Challenge Engine */
+        .challenge-deck {
+            background: rgba(168, 85, 247, 0.05);
+            border: 1px solid rgba(168, 85, 247, 0.2);
+            border-radius: 6px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .brief-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            color: #d8b4fe;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            text-transform: uppercase;
+        }
+
+        .brief-title {
+            font-weight: bold;
+            font-size: 0.95rem;
+            color: white;
+        }
+
+        .brief-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .criteria-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .criteria-item {
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+        }
+
+        .criteria-item.met {
+            color: var(--emerald);
+        }
+
+        .criteria-item.unmet {
+            color: var(--rose);
+        }
+
+        .criteria-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* Action Buttons */
+        .btn {
+            background: linear-gradient(135deg, var(--cyan) 0%, rgba(34,211,238,0.4) 100%);
+            border: none;
+            border-radius: 4px;
+            color: var(--bg-color);
+            padding: 10px 16px;
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            box-shadow: 0 4px 15px rgba(34, 211, 238, 0.3);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 211, 238, 0.5);
+            filter: brightness(1.1);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-purple {
+            background: linear-gradient(135deg, var(--purple) 0%, rgba(168,85,247,0.4) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(168, 85, 247, 0.3);
+        }
+
+        .btn-purple:hover {
+            box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--cyan);
+            box-shadow: none;
+        }
+
+        .btn-outline:hover {
+            background: rgba(34, 211, 238, 0.1);
+            border-color: var(--cyan);
+            box-shadow: 0 0 15px rgba(34, 211, 238, 0.2);
+        }
+
+        /* Audio feedback notification */
+        .toast-box {
+            position: absolute;
+            bottom: 25px;
+            right: 25px;
+            background: rgba(15, 23, 42, 0.95);
+            border: 1px solid var(--cyan);
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            color: var(--cyan);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5), 0 0 15px var(--border-glow);
+            z-index: 100;
+            transform: translateY(150%);
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            pointer-events: none;
+        }
+
+        .toast-box.active {
+            transform: translateY(0);
+        }
+
+        /* Audio controls header status */
+        .audio-toggle {
+            cursor: pointer;
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-family: var(--font-mono);
+            font-size: 0.7rem;
+            transition: all 0.2s ease;
+        }
+
+        .audio-toggle.active {
+            border-color: var(--cyan);
+            color: var(--cyan);
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.3);
+        }
+
+        /* Responsive Layout Overwrite */
+        @media (max-width: 1024px) {
+            .dashboard {
+                grid-template-columns: 240px 1fr;
+                grid-template-rows: auto auto;
+                overflow-y: auto;
+                height: auto;
+            }
+            .panel:last-child {
+                grid-column: span 2;
+            }
+        }
+
+        /* Animation Keyframes */
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes pulse-glow {
+            0% { box-shadow: 0 0 5px var(--cyan); }
+            100% { box-shadow: 0 0 15px var(--cyan), 0 0 25px var(--purple); }
+        }
+
+        /* Drag Over Visual Indicator */
+        .canvas-drag-active {
+            border-color: var(--cyan) !important;
+            box-shadow: inset 0 0 30px rgba(34, 211, 238, 0.2) !important;
+        }
+
+        /* Floating Element Panel on Zoom */
+        .inspector-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            display: none;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 200px;
+            pointer-events: auto;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+        }
+
+        .inspector-title {
+            color: var(--purple);
+            font-weight: bold;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon"></div>
+            <div>
+                <h1>Principles of Composition Lab</h1>
+                <div class="subtitle">ARCHITECTURAL DESIGN & PARAMETRIC SYNTHESIS</div>
+            </div>
+        </div>
+        <div class="system-status">
+            <button id="narrationToggle" class="audio-toggle active" onclick="app.toggleSpeech()">SPEECH: ON</button>
+            <button id="synthToggle" class="audio-toggle active" onclick="app.toggleSynth()">SYNTH: ON</button>
+            <div class="status-pill">
+                <span class="status-dot"></span>
+                <span>ENGINE: ONLINE</span>
+            </div>
+        </div>
+    </header>
+
+    <div class="dashboard">
+        <!-- LEFT PANEL: Architectural Elements Library -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>ELEMENTS LIBRARY</span>
+                <span style="font-size: 0.65rem; color: var(--purple);">DRAG TO CANVAS</span>
+            </div>
+            <div class="panel-content">
+                <div class="element-shelf">
+                    <div class="draggable-element" draggable="true" data-type="line" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Line</div>
+                        <div class="element-desc">Establishes direction, visual pathing, structural axes, and movement.</div>
+                    </div>
+                    <div class="draggable-element" draggable="true" data-type="shape" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Shape</div>
+                        <div class="element-desc">2D planar configurations outlining volumetric boundaries and forms.</div>
+                    </div>
+                    <div class="draggable-element" draggable="true" data-type="form" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Form</div>
+                        <div class="element-desc">3D mass and volume. Adds tectonic weight and architectural scale.</div>
+                    </div>
+                    <div class="draggable-element" draggable="true" data-type="color" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Color</div>
+                        <div class="element-desc">Dynamic pigment fields to alter balance, weight, and emotional density.</div>
+                    </div>
+                    <div class="draggable-element" draggable="true" data-type="texture" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Texture</div>
+                        <div class="element-desc">Surface characteristics altering light diffusion, shadow, and tactical focus.</div>
+                    </div>
+                    <div class="draggable-element" draggable="true" data-type="space" ondragstart="app.handleDragStart(event)">
+                        <div class="element-title">Space</div>
+                        <div class="element-desc">Negative/void configurations that contrast solid structural enclosures.</div>
+                    </div>
+                </div>
+
+                <div class="panel-header" style="margin-top: 15px; padding: 6px 0; border-top: 1px solid var(--border-color); border-bottom: none; background: none;">
+                    <span>FORMULA SHAPE CHIPS</span>
+                </div>
+                <p class="element-desc">Drag onto dropped canvas shapes to change geometric scale/proportion:</p>
+                <div class="scale-shelf">
+                    <div class="scale-chip" draggable="true" data-ratio="1" ondragstart="app.handleDragStart(event)">1:1 Standard</div>
+                    <div class="scale-chip" draggable="true" data-ratio="1.618" ondragstart="app.handleDragStart(event)">1:1.618 Golden</div>
+                    <div class="scale-chip" draggable="true" data-ratio="2" ondragstart="app.handleDragStart(event)">1:2 Double</div>
+                    <div class="scale-chip" draggable="true" data-ratio="3" ondragstart="app.handleDragStart(event)">1:3 Triple</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER PANEL: Interactive Canvas Workspace -->
+        <div class="workspace-container">
+            <div class="canvas-wrapper" id="canvasContainer"
+                 ondragover="app.handleDragOver(event)"
+                 ondragleave="app.handleDragLeave(event)"
+                 ondrop="app.handleDrop(event)">
+                
+                <div class="hud-overlay hud-grid-specs" id="hudGrid">GRID: 10m SQUARES | SCALE: 1:100 | AUTO-SNAP ON</div>
+                <div class="hud-overlay hud-rendering-stats" id="hudStats">CAMERA: ORTHO 2D<br>SUN-RENDER: ENABLED<br>COMPLEX SHADOWS: ACTIVED</div>
+                <div class="hud-crosshair"></div>
+
+                <canvas id="compositionCanvas"></canvas>
+
+                <!-- Zoomed Element Inspector overlay -->
+                <div class="inspector-panel" id="inspector">
+                    <div class="inspector-title" id="inspectorTitle"><span>Form #1</span> <span style="cursor:pointer;" onclick="app.deselectElement()">X</span></div>
+                    <div style="margin-top:5px; color: var(--text-muted);">Scale: <span id="inspectorScale" class="control-value">1:1.618</span></div>
+                    <div style="color: var(--text-muted);">Z-Angle: <span id="inspectorRotation" class="control-value">0°</span></div>
+                    <div style="color: var(--text-muted);">Pos: <span id="inspectorPos" class="control-value">X: 120, Y: 240</span></div>
+                    <button class="btn btn-outline" style="padding: 4px 8px; margin-top: 8px; width: 100%; font-size: 0.65rem;" onclick="app.removeSelectedElement()">DELETE ELEMENT</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Control Panel, Metrics & Challenges -->
+        <div class="panel">
+            <div class="panel-header">
+                <span>ENVIRONMENTAL DRIVERS</span>
+            </div>
+            <div class="panel-content">
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Sun Projection Angle</span>
+                        <span class="control-value" id="valSunAngle">135°</span>
+                    </div>
+                    <input type="range" id="sunAngle" min="0" max="360" value="135" oninput="app.updateEnvironment()">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Atmosphere (Shadow Diff)</span>
+                        <span class="control-value" id="valSunIntensity">60%</span>
+                    </div>
+                    <input type="range" id="sunIntensity" min="10" max="100" value="60" oninput="app.updateEnvironment()">
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label">
+                        <span>Wind Vector Velocity</span>
+                        <span class="control-value" id="valWind">12 m/s</span>
+                    </div>
+                    <input type="range" id="windVelocity" min="0" max="50" value="12" oninput="app.updateEnvironment()">
+                </div>
+
+                <div class="panel-header" style="padding: 6px 0; border-top: 1px solid var(--border-color); border-bottom: none; background: none; margin-top: 5px;">
+                    <span>DESIGN COMPOSITION METRICS</span>
+                </div>
+                <div class="metric-container">
+                    <div>
+                        <div class="control-label" style="margin-bottom: 4px;">Balance Matrix</div>
+                        <div class="metric-bar-wrapper">
+                            <div class="metric-fill balance" id="metricBalance"></div>
+                            <div class="metric-text"><span id="metricBalanceLabel">Asymmetrical Tension</span><span id="metricBalanceVal">0%</span></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="control-label" style="margin-bottom: 4px;">Emphasis Rating</div>
+                        <div class="metric-bar-wrapper">
+                            <div class="metric-fill emphasis" id="metricEmphasis"></div>
+                            <div class="metric-text"><span id="metricEmphasisLabel">Homogeneous</span><span id="metricEmphasisVal">0%</span></div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="control-label" style="margin-bottom: 4px;">Proportional Cohesion</div>
+                        <div class="metric-bar-wrapper">
+                            <div class="metric-fill proportion" id="metricProportion"></div>
+                            <div class="metric-text"><span id="metricProportionLabel">Linear Ratio</span><span id="metricProportionVal">0%</span></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Live Gamified Design Brief Card -->
+                <div class="challenge-deck" style="margin-top: auto;">
+                    <div class="brief-header">
+                        <span>ACTIVE DESIGN BRIEF</span>
+                        <span id="briefID" style="color: var(--cyan);">BRIEF 01</span>
+                    </div>
+                    <div class="brief-title" id="briefTitle">Verticality & Dynamic Tension</div>
+                    <div class="brief-desc" id="briefDesc">Assemble a soaring, tall structural footprint on the canvas. Scale elements using the Golden Ratio (1:1.618) to anchor visual weight asymmetrical to the right.</div>
+                    
+                    <div style="border-bottom: 1px dashed rgba(255, 255, 255, 0.1); margin: 5px 0;"></div>
+                    
+                    <ul class="criteria-list" id="criteriaList">
+                        <li class="criteria-item unmet" id="crit1"><div class="criteria-dot"></div>Vertical Form present</li>
+                        <li class="criteria-item unmet" id="crit2"><div class="criteria-dot"></div>Proportion using 1:1.618</li>
+                        <li class="criteria-item unmet" id="crit3"><div class="criteria-dot"></div>Emphasis rating > 60%</li>
+                    </ul>
+
+                    <div style="display: flex; gap: 8px; margin-top: 5px;">
+                        <button class="btn btn-purple" style="flex: 1;" onclick="app.evaluateBriefSubmit()">EVALUATE</button>
+                        <button class="btn btn-outline" style="padding: 8px 12px;" onclick="app.nextBrief()">NEXT BRIEF</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Live Toast/Audio/Speech HUD Notifications -->
+    <div class="toast-box" id="toast">
+        <span style="font-weight: bold; color: var(--purple);">SYSTEM SYNTH:</span>
+        <span id="toastMsg">Formula chip scaled element successfully.</span>
+    </div>
+
+    <script>
+        // WEB AUDIO ENGINE & INTERACTIVE SYNTH CONTROLLER
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.active = true;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playSnap() {
+                if (!this.active) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                let filter = this.ctx.createBiquadFilter();
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(1000, now);
+                osc.frequency.exponentialRampToValueAtTime(150, now + 0.12);
+
+                filter.type = 'highpass';
+                filter.frequency.setValueAtTime(300, now);
+
+                gain.gain.setValueAtTime(0.3, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+                osc.start(now);
+                osc.stop(now + 0.12);
+            }
+
+            playSuccess() {
+                if (!this.active) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let notes = [261.63, 329.63, 392.00, 523.25, 659.25]; // Harmonious C Major arpeggio
+                notes.forEach((freq, index) => {
+                    let osc = this.ctx.createOscillator();
+                    let gain = this.ctx.createGain();
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + index * 0.08);
+
+                    gain.gain.setValueAtTime(0.2, now + index * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + index * 0.08 + 0.4);
+
+                    osc.start(now + index * 0.08);
+                    osc.stop(now + index * 0.08 + 0.45);
+                });
+            }
+
+            playError() {
+                if (!this.active) return;
+                this.init();
+                let now = this.ctx.currentTime;
+                let osc = this.ctx.createOscillator();
+                let gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(110, now);
+                osc.frequency.linearRampToValueAtTime(75, now + 0.25);
+
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+
+                osc.start(now);
+                osc.stop(now + 0.25);
+            }
+        }
+
+        // DESIGN BRIEFS DATA
+        const BRIEF_DECK = [
+            {
+                id: "BRIEF 01",
+                title: "Verticality & Tension",
+                desc: "Assemble structural elements emphasizing soaring verticality. Scale elements using the Golden Ratio (1:1.618) to anchor massive visual weight asymmetrically.",
+                eval: (elements, metrics) => {
+                    let hasVertical = elements.some(el => el.type === 'form' && el.scale >= 1.5);
+                    let hasGolden = elements.some(el => el.scale === 1.618);
+                    let highEmphasis = metrics.emphasis > 55;
+                    return [
+                        { text: "Form with vertical scale on canvas", met: hasVertical },
+                        { text: "Scaled with Golden Ratio (1.618)", met: hasGolden },
+                        { text: "Emphasis Rating > 55%", met: highEmphasis }
+                    ];
+                }
+            },
+            {
+                id: "BRIEF 02",
+                title: "Asymmetric Balance & Color",
+                desc: "Create an architecture layout that achieves asymmetrical balance. Introduce 'Color' as a primary structural element and shift focus to the left of your workspace.",
+                eval: (elements, metrics) => {
+                    let hasColor = elements.some(el => el.type === 'color');
+                    let asymmetric = metrics.balance > 40 && metrics.balance < 85;
+                    let leftWeight = elements.some(el => el.x < window.compositionCanvasWidth / 2);
+                    return [
+                        { text: "Color architectural element present", met: hasColor },
+                        { text: "Asymmetrical Balance reached", met: asymmetric },
+                        { text: "Element located on Left coordinate plane", met: leftWeight }
+                    ];
+                }
+            },
+            {
+                id: "BRIEF 03",
+                title: "Atmospheric Monolith",
+                desc: "Configure a massive geometric center shape. Apply a detailed dynamic texture overlay and set high ambient haze to simulate heavy tectonic presence.",
+                eval: (elements, metrics) => {
+                    let hasTexture = elements.some(el => el.type === 'texture');
+                    let highIntensity = parseFloat(document.getElementById('sunIntensity').value) > 70;
+                    let heavyCenter = elements.some(el => Math.abs(el.x - window.compositionCanvasWidth / 2) < 100);
+                    return [
+                        { text: "Surface Texture element applied", met: hasTexture },
+                        { text: "Atmospheric shadow level > 70%", met: highIntensity },
+                        { text: "Heavy tectonic center placement", met: heavyCenter }
+                    ];
+                }
+            }
+        ];
+
+        // MAIN APPLICATION INTERACTIVE ENGINE
+        class CompositionApp {
+            constructor() {
+                this.canvas = document.getElementById('compositionCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.elements = [];
+                this.selectedElement = null;
+                this.draggedType = null;
+                this.draggedRatio = null;
+                this.isCanvasDragging = false;
+                this.dragOffset = { x: 0, y: 0 };
+                
+                // Sound and Speech Settings
+                this.audio = new SoundEngine();
+                this.speechActive = true;
+                this.synthActive = true;
+
+                // Environmental Values
+                this.sunAngle = 135;
+                this.sunIntensity = 60;
+                this.windVelocity = 12;
+
+                // Challenge States
+                this.currentBriefIndex = 0;
+
+                // Camera/Zoom focus metrics
+                this.cameraZoom = 1.0;
+                this.cameraOffset = { x: 0, y: 0 };
+                this.targetZoom = 1.0;
+                this.targetOffset = { x: 0, y: 0 };
+
+                this.initListeners();
+                this.resizeCanvas();
+                this.renderLoop();
+                this.updateMetrics();
+                this.updateBriefUI();
+            }
+
+            initListeners() {
+                window.addEventListener('resize', () => this.resizeCanvas());
+
+                // Desktop Drag Actions onto Canvas
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                window.addEventListener('mouseup', () => this.handleMouseUp());
+                
+                // Double Click to Focus Element
+                this.canvas.addEventListener('dblclick', (e) => this.handleDoubleClick(e));
+            }
+
+            resizeCanvas() {
+                const rect = this.canvas.parentElement.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                window.compositionCanvasWidth = rect.width;
+                window.compositionCanvasHeight = rect.height;
+            }
+
+            toggleSpeech() {
+                this.speechActive = !this.speechActive;
+                document.getElementById('narrationToggle').textContent = `SPEECH: ${this.speechActive ? 'ON' : 'OFF'}`;
+                document.getElementById('narrationToggle').classList.toggle('active', this.speechActive);
+                if (this.speechActive) {
+                    this.speak("Acoustic narration initialized.");
+                }
+            }
+
+            toggleSynth() {
+                this.synthActive = !this.synthActive;
+                this.audio.active = this.synthActive;
+                document.getElementById('synthToggle').textContent = `SYNTH: ${this.synthActive ? 'ON' : 'OFF'}`;
+                document.getElementById('synthToggle').classList.toggle('active', this.synthActive);
+            }
+
+            speak(text) {
+                if (!this.speechActive) return;
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 1.05;
+                utterance.pitch = 0.95;
+                window.speechSynthesis.speak(utterance);
+            }
+
+            toast(message) {
+                const t = document.getElementById('toast');
+                document.getElementById('toastMsg').textContent = message;
+                t.classList.add('active');
+                setTimeout(() => t.classList.remove('active'), 3500);
+            }
+
+            // DRAG & DROP ELEMENT LIBRARY HANDLERS
+            handleDragStart(e) {
+                const target = e.currentTarget;
+                if (target.dataset.type) {
+                    this.draggedType = target.dataset.type;
+                    this.draggedRatio = null;
+                } else if (target.dataset.ratio) {
+                    this.draggedRatio = parseFloat(target.dataset.ratio);
+                    this.draggedType = null;
+                }
+            }
+
+            handleDragOver(e) {
+                e.preventDefault();
+                document.getElementById('canvasContainer').classList.add('canvas-drag-active');
+            }
+
+            handleDragLeave(e) {
+                document.getElementById('canvasContainer').classList.remove('canvas-drag-active');
+            }
+
+            handleDrop(e) {
+                e.preventDefault();
+                document.getElementById('canvasContainer').classList.remove('canvas-drag-active');
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const dropX = e.clientX - rect.left;
+                const dropY = e.clientY - rect.top;
+
+                if (this.draggedType) {
+                    this.addElement(this.draggedType, dropX, dropY);
+                } else if (this.draggedRatio) {
+                    this.applyRatioToLocation(dropX, dropY, this.draggedRatio);
+                }
+            }
+
+            addElement(type, x, y) {
+                let defaultWidth = 80;
+                let defaultHeight = 80;
+                let color = "rgba(168, 85, 247, 0.5)"; // Purple accent fallback
+
+                if (type === 'line') {
+                    defaultWidth = 150; defaultHeight = 5;
+                } else if (type === 'shape') {
+                    defaultWidth = 100; defaultHeight = 60;
+                } else if (type === 'form') {
+                    defaultWidth = 90; defaultHeight = 120;
+                } else if (type === 'color') {
+                    color = "rgba(34, 211, 238, 0.7)"; // Cyan neon color block
+                }
+
+                const newElement = {
+                    id: Date.now(),
+                    type: type,
+                    x: x,
+                    y: y,
+                    width: defaultWidth,
+                    height: defaultHeight,
+                    scale: 1.0,
+                    rotation: 0,
+                    color: color,
+                    activeTexture: type === 'texture' ? 'hatch' : null
+                };
+
+                this.elements.push(newElement);
+                this.selectedElement = newElement;
+                this.updateInspector();
+
+                this.audio.playSnap();
+                this.updateMetrics();
+                this.triggerPedagogySpeech(type);
+                this.toast(`Added architectural element: ${type.toUpperCase()}`);
+            }
+
+            applyRatioToLocation(x, y, ratio) {
+                // Find element at coordinates
+                const element = this.elements.find(el => {
+                    const w = el.width * el.scale;
+                    const h = el.height * el.scale;
+                    return x >= el.x - w/2 && x <= el.x + w/2 &&
+                           y >= el.y - h/2 && y <= el.y + h/2;
+                });
+
+                if (element) {
+                    element.scale = ratio;
+                    this.audio.playSnap();
+                    this.updateMetrics();
+                    this.updateInspector();
+                    this.toast(`Scale proportion adjusted to 1 : ${ratio}`);
+                    this.speak(`Proportions scaled using ratio formula 1 to ${ratio === 1.618 ? 'one point six one eight golden mean' : ratio}.`);
+                } else {
+                    this.audio.playError();
+                    this.toast("Drop ratio chips directly over canvas elements!");
+                }
+            }
+
+            triggerPedagogySpeech(type) {
+                const speechMap = {
+                    'line': "Line elements introduce directional sight lines, structuring flow and grid axes across your visual plane.",
+                    'shape': "Shape bounds raw volume into structural plains. Notice how simple flat geometry frames the void.",
+                    'form': "Form introduces three-dimensional isometric space, giving weight, tectonic balance, and cast shadows to the terrain.",
+                    'color': "Color adjusts structural dominance, shifting focal weight to manipulate architectural balance.",
+                    'texture': "Surface texture breaks specular reflection, distributing ambient light to soften geometric focal points.",
+                    'space': "Space serves as a negative geometric relief, creating dynamic voids that contrast dense physical structures."
+                };
+                if (speechMap[type]) this.speak(speechMap[type]);
+            }
+
+            // INTERACTIVE CANVAS CAMERA & SELECTION ACTIONS
+            handleMouseDown(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left - this.cameraOffset.x) / this.cameraZoom;
+                const mouseY = (e.clientY - rect.top - this.cameraOffset.y) / this.cameraZoom;
+
+                // Find if clicking existing element
+                const hit = this.elements.find(el => {
+                    const w = el.width * el.scale;
+                    const h = el.height * el.scale;
+                    return mouseX >= el.x - w/2 && mouseX <= el.x + w/2 &&
+                           mouseY >= el.y - h/2 && mouseY <= el.y + h/2;
+                });
+
+                if (hit) {
+                    this.selectedElement = hit;
+                    this.isCanvasDragging = true;
+                    this.dragOffset = {
+                        x: mouseX - hit.x,
+                        y: mouseY - hit.y
+                    };
+                    this.updateInspector();
+                    this.audio.playSnap();
+                } else {
+                    // Clicking outside resets zoom and selection
+                    this.deselectElement();
+                }
+            }
+
+            handleMouseMove(e) {
+                if (this.isCanvasDragging && this.selectedElement) {
+                    const rect = this.canvas.getBoundingClientRect();
+                    const mouseX = (e.clientX - rect.left - this.cameraOffset.x) / this.cameraZoom;
+                    const mouseY = (e.clientY - rect.top - this.cameraOffset.y) / this.cameraZoom;
+
+                    this.selectedElement.x = mouseX - this.dragOffset.x;
+                    this.selectedElement.y = mouseY - this.dragOffset.y;
+                    this.updateMetrics();
+                    this.updateInspector();
+                }
+            }
+
+            handleMouseUp() {
+                this.isCanvasDragging = false;
+            }
+
+            handleDoubleClick(e) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left - this.cameraOffset.x) / this.cameraZoom;
+                const mouseY = (e.clientY - rect.top - this.cameraOffset.y) / this.cameraZoom;
+
+                const hit = this.elements.find(el => {
+                    const w = el.width * el.scale;
+                    const h = el.height * el.scale;
+                    return mouseX >= el.x - w/2 && mouseX <= el.x + w/2 &&
+                           mouseY >= el.y - h/2 && mouseY <= el.y + h/2;
+                });
+
+                if (hit) {
+                    // Smooth Zoom towards element
+                    this.targetZoom = 1.6;
+                    this.targetOffset = {
+                        x: this.canvas.width / 2 - hit.x * 1.6,
+                        y: this.canvas.height / 2 - hit.y * 1.6
+                    };
+                    this.speak(`Focusing element ${hit.type}. Scale set to zoom detail focus view.`);
+                } else {
+                    // Reset Camera
+                    this.targetZoom = 1.0;
+                    this.targetOffset = { x: 0, y: 0 };
+                }
+            }
+
+            deselectElement() {
+                this.selectedElement = null;
+                this.targetZoom = 1.0;
+                this.targetOffset = { x: 0, y: 0 };
+                document.getElementById('inspector').style.display = 'none';
+            }
+
+            removeSelectedElement() {
+                if (this.selectedElement) {
+                    this.elements = this.elements.filter(el => el.id !== this.selectedElement.id);
+                    this.deselectElement();
+                    this.audio.playError();
+                    this.updateMetrics();
+                    this.toast("Deleted element from canvas.");
+                }
+            }
+
+            updateInspector() {
+                if (!this.selectedElement) return;
+                const panel = document.getElementById('inspector');
+                panel.style.display = 'flex';
+                document.getElementById('inspectorTitle').firstElementChild.textContent = `${this.selectedElement.type.toUpperCase()} ELEMENT`;
+                document.getElementById('inspectorScale').textContent = `1:${this.selectedElement.scale.toFixed(3)}`;
+                document.getElementById('inspectorRotation').textContent = `${Math.round(this.selectedElement.rotation)}°`;
+                document.getElementById('inspectorPos').textContent = `X: ${Math.round(this.selectedElement.x)}, Y: ${Math.round(this.selectedElement.y)}`;
+            }
+
+            // ENVIRONMENTAL CONTROLS UPDATER
+            updateEnvironment() {
+                this.sunAngle = parseInt(document.getElementById('sunAngle').value);
+                this.sunIntensity = parseInt(document.getElementById('sunIntensity').value);
+                this.windVelocity = parseInt(document.getElementById('windVelocity').value);
+
+                document.getElementById('valSunAngle').textContent = `${this.sunAngle}°`;
+                document.getElementById('valSunIntensity').textContent = `${this.sunIntensity}%`;
+                document.getElementById('valWind').textContent = `${this.windVelocity} m/s`;
+            }
+
+            // DESIGN METRICS PROCESSING PIPELINE
+            updateMetrics() {
+                if (this.elements.length === 0) {
+                    this.setMetric('balance', 0, "No Elements");
+                    this.setMetric('emphasis', 0, "Homogeneous");
+                    this.setMetric('proportion', 0, "Null Ratio");
+                    this.evaluateBriefRealtime();
+                    return;
+                }
+
+                // 1. Balance Formula Calculation (Spatial standard deviation off mid-axis)
+                let centerTarget = this.canvas.width / 2;
+                let deviationTotal = 0;
+                this.elements.forEach(el => {
+                    deviationTotal += (el.x - centerTarget);
+                });
+                let avgDeviation = deviationTotal / this.elements.length;
+                let rawBalance = Math.max(0, 100 - Math.abs(avgDeviation) * 0.4);
+                let balanceText = "Symmetrical Grid";
+                if (rawBalance < 45) balanceText = "Unbalanced Strain";
+                else if (rawBalance < 80) balanceText = "Asymmetrical Tension";
+                this.setMetric('balance', Math.round(rawBalance), balanceText);
+
+                // 2. Emphasis Formula (Scale Contrast + Color distribution)
+                let maxScale = Math.max(...this.elements.map(el => el.scale));
+                let colorCount = this.elements.filter(el => el.type === 'color').length;
+                let rawEmphasis = Math.min(100, (maxScale - 1.0) * 40 + (colorCount * 15) + (this.elements.length > 0 ? 20 : 0));
+                let emphasisText = "Homogeneous Context";
+                if (rawEmphasis > 70) emphasisText = "Hero Focal Center";
+                else if (rawEmphasis > 35) emphasisText = "Articulated Nodes";
+                this.setMetric('emphasis', Math.round(rawEmphasis), emphasisText);
+
+                // 3. Proportional Ratio Scoring (How close elements are to Golden Mean or whole increments)
+                let proportionScore = 0;
+                this.elements.forEach(el => {
+                    if (Math.abs(el.scale - 1.618) < 0.05) proportionScore += 50;
+                    else if (el.scale === 2 || el.scale === 3) proportionScore += 25;
+                    else proportionScore += 10;
+                });
+                let avgProportion = Math.min(100, proportionScore / this.elements.length + 30);
+                let proportionText = "Disjointed Scale";
+                if (avgProportion > 75) proportionText = "Golden Symphony";
+                else if (avgProportion > 45) proportionText = "Standardized Scale";
+                this.setMetric('proportion', Math.round(avgProportion), proportionText);
+
+                this.evaluateBriefRealtime();
+            }
+
+            setMetric(id, value, desc) {
+                const fill = document.getElementById(`metric${id.charAt(0).toUpperCase() + id.slice(1)}`);
+                const valText = document.getElementById(`metric${id.charAt(0).toUpperCase() + id.slice(1)}Val`);
+                const labelText = document.getElementById(`metric${id.charAt(0).toUpperCase() + id.slice(1)}Label`);
+
+                fill.style.width = `${value}%`;
+                valText.textContent = `${value}%`;
+                labelText.textContent = desc;
+            }
+
+            // GAMIFIED BRIEF SYSTEM VALIDATORS
+            evaluateBriefRealtime() {
+                const activeBrief = BRIEF_DECK[this.currentBriefIndex];
+                const metricsObj = {
+                    balance: parseFloat(document.getElementById('metricBalanceVal').textContent),
+                    emphasis: parseFloat(document.getElementById('metricEmphasisVal').textContent),
+                    proportion: parseFloat(document.getElementById('metricProportionVal').textContent)
+                };
+
+                const evaluations = activeBrief.eval(this.elements, metricsObj);
+                const listContainer = document.getElementById('criteriaList');
+                listContainer.innerHTML = '';
+
+                evaluations.forEach(ev => {
+                    const li = document.createElement('li');
+                    li.className = `criteria-item ${ev.met ? 'met' : 'unmet'}`;
+                    li.innerHTML = `<div class="criteria-dot"></div>${ev.text}`;
+                    listContainer.appendChild(li);
+                });
+            }
+
+            evaluateBriefSubmit() {
+                const activeBrief = BRIEF_DECK[this.currentBriefIndex];
+                const metricsObj = {
+                    balance: parseFloat(document.getElementById('metricBalanceVal').textContent),
+                    emphasis: parseFloat(document.getElementById('metricEmphasisVal').textContent),
+                    proportion: parseFloat(document.getElementById('metricProportionVal').textContent)
+                };
+
+                const evaluations = activeBrief.eval(this.elements, metricsObj);
+                const allMet = evaluations.every(ev => ev.met);
+
+                if (allMet) {
+                    this.audio.playSuccess();
+                    this.toast("CHALLENGE SOLVED: Structural metrics met target parameter matrix!");
+                    this.speak("Composition criteria met completely. Excellent execution of architectural theory parameters.");
+                } else {
+                    this.audio.playError();
+                    this.toast("EVALUATION FAILURE: Redesign elements to match criteria.");
+                    this.speak("Current spatial alignment fails criteria vectors. Readjust scales and positions.");
+                }
+            }
+
+            nextBrief() {
+                this.currentBriefIndex = (this.currentBriefIndex + 1) % BRIEF_DECK.length;
+                this.updateBriefUI();
+                this.updateMetrics();
+                this.speak(`Initialized ${BRIEF_DECK[this.currentBriefIndex].title} brief layout rules.`);
+            }
+
+            updateBriefUI() {
+                const activeBrief = BRIEF_DECK[this.currentBriefIndex];
+                document.getElementById('briefID').textContent = activeBrief.id;
+                document.getElementById('briefTitle').textContent = activeBrief.title;
+                document.getElementById('briefDesc').textContent = activeBrief.desc;
+            }
+
+            // CANVAS RENDERING & BLUEPRINT DRAWING PIPELINE
+            renderLoop() {
+                // Smooth camera transition updates
+                this.cameraZoom += (this.targetZoom - this.cameraZoom) * 0.1;
+                this.cameraOffset.x += (this.targetOffset.x - this.cameraOffset.x) * 0.1;
+                this.cameraOffset.y += (this.targetOffset.y - this.cameraOffset.y) * 0.1;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.ctx.save();
+                this.ctx.translate(this.cameraOffset.x, this.cameraOffset.y);
+                this.ctx.scale(this.cameraZoom, this.cameraZoom);
+
+                this.drawGrid();
+                this.drawShadows();
+                this.drawElements();
+                this.drawWindWaves();
+                this.drawOverlays();
+
+                this.ctx.restore();
+
+                requestAnimationFrame(() => this.renderLoop());
+            }
+
+            drawGrid() {
+                const spacing = 40;
+                this.ctx.strokeStyle = "rgba(34, 211, 238, 0.05)";
+                this.ctx.lineWidth = 1;
+
+                // Infinite feeling grid based on boundaries
+                for (let x = -spacing * 5; x < this.canvas.width * 2; x += spacing) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, -this.canvas.height);
+                    this.ctx.lineTo(x, this.canvas.height * 2);
+                    this.ctx.stroke();
+                }
+                for (let y = -spacing * 5; y < this.canvas.height * 2; y += spacing) {
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(-this.canvas.width, y);
+                    this.ctx.lineTo(this.canvas.width * 2, y);
+                    this.ctx.stroke();
+                }
+
+                // Main Axis vectors
+                this.ctx.strokeStyle = "rgba(168, 85, 247, 0.15)";
+                this.ctx.lineWidth = 2;
+                this.ctx.beginPath();
+                this.ctx.moveTo(this.canvas.width / 2, 0);
+                this.ctx.lineTo(this.canvas.width / 2, this.canvas.height);
+                this.ctx.stroke();
+            }
+
+            drawShadows() {
+                // Calculate skew factor based on Sun Sliders
+                const radians = (this.sunAngle * Math.PI) / 180;
+                const distanceRatio = (110 - this.sunIntensity) * 0.4; // intensity changes opacity/length
+                
+                const sx = Math.cos(radians) * distanceRatio;
+                const sy = Math.sin(radians) * distanceRatio;
+
+                this.elements.forEach(el => {
+                    // Only 3D Forms & Solid Shapes cast dynamic isometric projection shadows
+                    if (el.type === 'form' || el.type === 'shape') {
+                        const w = el.width * el.scale;
+                        const h = el.height * el.scale;
+
+                        this.ctx.save();
+                        this.ctx.fillStyle = `rgba(0, 3, 10, ${this.sunIntensity / 170})`;
+                        
+                        this.ctx.beginPath();
+                        // Project bounding shadow polygons
+                        this.ctx.moveTo(el.x - w/2, el.y - h/2);
+                        this.ctx.lineTo(el.x - w/2 + sx, el.y - h/2 + sy);
+                        this.ctx.lineTo(el.x + w/2 + sx, el.y + h/2 + sy);
+                        this.ctx.lineTo(el.x + w/2, el.y + h/2);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                        this.ctx.restore();
+                    }
+                });
+            }
+
+            drawElements() {
+                this.elements.forEach(el => {
+                    const w = el.width * el.scale;
+                    const h = el.height * el.scale;
+
+                    this.ctx.save();
+                    this.ctx.translate(el.x, el.y);
+                    this.ctx.rotate((el.rotation * Math.PI) / 180);
+
+                    // If currently selected, draw focus feedback
+                    if (this.selectedElement && this.selectedElement.id === el.id) {
+                        this.ctx.shadowBlur = 15;
+                        this.ctx.shadowColor = "rgba(34, 211, 238, 0.6)";
+                        this.ctx.strokeStyle = varColor('--cyan');
+                        this.ctx.lineWidth = 2;
+                    } else {
+                        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.15)";
+                        this.ctx.lineWidth = 1.5;
+                    }
+
+                    // Render specific architectural components
+                    if (el.type === 'line') {
+                        // Drawing architectural vector style line
+                        this.ctx.strokeStyle = "rgba(34, 211, 238, 0.85)";
+                        this.ctx.lineWidth = 3;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(-w/2, 0);
+                        this.ctx.lineTo(w/2, 0);
+                        this.ctx.stroke();
+
+                        // End point dimension ticks
+                        this.ctx.strokeStyle = "rgba(168, 85, 247, 0.8)";
+                        this.ctx.lineWidth = 2;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(-w/2 - 5, -8); this.ctx.lineTo(-w/2 + 5, 8);
+                        this.ctx.moveTo(w/2 - 5, -8); this.ctx.lineTo(w/2 + 5, 8);
+                        this.ctx.stroke();
+
+                    } else if (el.type === 'shape') {
+                        // Planar projection geometry block
+                        this.ctx.fillStyle = "rgba(168, 85, 247, 0.25)";
+                        this.ctx.beginPath();
+                        this.ctx.rect(-w/2, -h/2, w, h);
+                        this.ctx.fill();
+                        this.ctx.stroke();
+
+                        // Dimension boundary guides
+                        this.ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+                        this.ctx.setLineDash([2, 4]);
+                        this.ctx.strokeRect(-w/2 - 6, -h/2 - 6, w + 12, h + 12);
+
+                    } else if (el.type === 'form') {
+                        // Isometric 3D block projections (Teconics)
+                        const topHeight = h * 0.45;
+                        
+                        // Side Face Shadow (Value shading shifts relative to light direction)
+                        const sunRad = (this.sunAngle * Math.PI) / 180;
+                        const sideNormalVal = Math.max(0.1, Math.min(0.9, Math.cos(sunRad) * 0.5 + 0.5));
+                        
+                        // Right Face
+                        this.ctx.fillStyle = `rgba(147, 51, 234, ${0.1 + sideNormalVal * 0.5})`;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(0, topHeight/2);
+                        this.ctx.lineTo(w/2, 0);
+                        this.ctx.lineTo(w/2, h - topHeight/2);
+                        this.ctx.lineTo(0, h);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                        this.ctx.stroke();
+
+                        // Left Face
+                        this.ctx.fillStyle = `rgba(168, 85, 247, ${0.6 - sideNormalVal * 0.4})`;
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(-w/2, 0);
+                        this.ctx.lineTo(0, topHeight/2);
+                        this.ctx.lineTo(0, h);
+                        this.ctx.lineTo(-w/2, h - topHeight/2);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                        this.ctx.stroke();
+
+                        // Cap Face
+                        this.ctx.fillStyle = "rgba(216, 180, 254, 0.8)";
+                        this.ctx.beginPath();
+                        this.ctx.moveTo(0, -topHeight/2);
+                        this.ctx.lineTo(w/2, 0);
+                        this.ctx.lineTo(0, topHeight/2);
+                        this.ctx.lineTo(-w/2, 0);
+                        this.ctx.closePath();
+                        this.ctx.fill();
+                        this.ctx.stroke();
+
+                    } else if (el.type === 'color') {
+                        // Neon Color pigments field
+                        let grad = this.ctx.createRadialGradient(0, 0, 5, 0, 0, w/2);
+                        grad.addColorStop(0, "rgba(34, 211, 238, 0.9)");
+                        grad.addColorStop(0.5, "rgba(168, 85, 247, 0.4)");
+                        grad.addColorStop(1, "rgba(0,0,0,0)");
+                        this.ctx.fillStyle = grad;
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, w, 0, Math.PI * 2);
+                        this.ctx.fill();
+
+                    } else if (el.type === 'texture') {
+                        // Hatch Shading pattern elements
+                        this.ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+                        this.ctx.fillRect(-w/2, -h/2, w, h);
+                        this.ctx.strokeRect(-w/2, -h/2, w, h);
+
+                        // Draw Hatch lines
+                        this.ctx.strokeStyle = "rgba(34, 211, 238, 0.4)";
+                        this.ctx.lineWidth = 1;
+                        this.ctx.beginPath();
+                        for (let i = -w/2; i < w/2; i += 8) {
+                            this.ctx.moveTo(i, -h/2);
+                            this.ctx.lineTo(i + 15, h/2);
+                        }
+                        this.ctx.stroke();
+
+                    } else if (el.type === 'space') {
+                        // Void Space structure (dashed boundaries with golden ratio circle overlay)
+                        this.ctx.strokeStyle = "rgba(245, 158, 11, 0.6)";
+                        this.ctx.setLineDash([5, 5]);
+                        this.ctx.lineWidth = 1.5;
+                        this.ctx.strokeRect(-w/2, -h/2, w, h);
+                        
+                        this.ctx.beginPath();
+                        this.ctx.arc(0, 0, w/2.5, 0, Math.PI * 2);
+                        this.ctx.stroke();
+                    }
+
+                    // Golden Proportion overlay indicators on elements with 1.618 ratio applied
+                    if (Math.abs(el.scale - 1.618) < 0.01 && el.type !== 'line') {
+                        this.ctx.strokeStyle = "rgba(245, 158, 11, 0.5)";
+                        this.ctx.setLineDash([1, 4]);
+                        this.ctx.beginPath();
+                        // Draw logarithmic spiral arc miniature inside element boundaries
+                        this.ctx.arc(-w/4, -h/4, w/2, 0, Math.PI * 0.5);
+                        this.ctx.stroke();
+                    }
+
+                    this.ctx.restore();
+                });
+            }
+
+            drawWindWaves() {
+                // Vector particle flow representation based on wind magnitude slider
+                if (this.windVelocity === 0) return;
+                
+                const time = Date.now() * 0.002;
+                this.ctx.save();
+                this.ctx.strokeStyle = "rgba(34, 211, 238, 0.12)";
+                this.ctx.lineWidth = 1;
+
+                for (let i = 0; i < this.canvas.height; i += 80) {
+                    this.ctx.beginPath();
+                    for (let x = 0; x < this.canvas.width; x += 20) {
+                        const waveY = i + Math.sin(x * 0.008 + time * (this.windVelocity * 0.1)) * 15;
+                        if (x === 0) this.ctx.moveTo(x, waveY);
+                        else this.ctx.lineTo(x, waveY);
+                    }
+                    this.ctx.stroke();
+                }
+                this.ctx.restore();
+            }
+
+            drawOverlays() {
+                // Main visual coordinates alignment
+                if (this.selectedElement) {
+                    this.ctx.save();
+                    this.ctx.strokeStyle = "rgba(34, 211, 238, 0.3)";
+                    this.ctx.setLineDash([3, 3]);
+                    this.ctx.lineWidth = 1;
+
+                    // Projection guidelines to edges
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(this.selectedElement.x, 0);
+                    this.ctx.lineTo(this.selectedElement.x, this.canvas.height);
+                    this.ctx.moveTo(0, this.selectedElement.y);
+                    this.ctx.lineTo(this.canvas.width, this.selectedElement.y);
+                    this.ctx.stroke();
+
+                    // Text labels next to selection
+                    this.ctx.fillStyle = "rgba(34, 211, 238, 0.8)";
+                    this.ctx.font = "9px monospace";
+                    this.ctx.fillText(
+                        `AXIS_X: ${Math.round(this.selectedElement.x)}m`, 
+                        this.selectedElement.x + 10, 
+                        25
+                    );
+                    this.ctx.fillText(
+                        `AXIS_Y: ${Math.round(this.selectedElement.y)}m`, 
+                        15, 
+                        this.selectedElement.y - 10
+                    );
+
+                    this.ctx.restore();
+                }
+            }
+        }
+
+        // Helper CSS Var utility function
+        function varColor(variable) {
+            return getComputedStyle(document.documentElement).getPropertyValue(variable).trim();
+        }
+
+        // Global app instance startup
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new CompositionApp();
+        });
+    </script>
+</body>
+</html>

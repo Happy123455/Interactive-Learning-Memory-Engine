@@ -1,0 +1,1366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Vehicle Damage Factor (VDF) Interactive Simulator</title>
+  <style>
+    /* RESET & BASE SYSTEM */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      background-color: #060913;
+      color: #e2e8f0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* THEME VARIABLES & GLOWS */
+    :root {
+      --cyan-glow: 0 0 12px rgba(0, 240, 255, 0.4);
+      --pink-glow: 0 0 12px rgba(255, 0, 127, 0.4);
+      --neon-cyan: #00f0ff;
+      --neon-pink: #ff007f;
+      --neon-green: #39ff14;
+      --bg-panel: rgba(13, 20, 35, 0.75);
+      --border-panel: rgba(0, 240, 255, 0.15);
+    }
+
+    /* HEADER */
+    header {
+      height: 60px;
+      background: linear-gradient(90deg, #090e1a 0%, #0d1527 100%);
+      border-bottom: 2px solid rgba(0, 240, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      z-index: 10;
+    }
+    .header-logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .header-logo svg {
+      width: 28px;
+      height: 28px;
+      filter: drop-shadow(var(--cyan-glow));
+    }
+    .header-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      letter-spacing: 1.5px;
+      background: linear-gradient(90deg, #00f0ff, #ff007f);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-transform: uppercase;
+    }
+    .header-controls {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+    .btn-cyber {
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.2s ease;
+      box-shadow: var(--cyan-glow);
+    }
+    .btn-cyber:hover {
+      background: var(--neon-cyan);
+      color: #060913;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.7);
+    }
+    .btn-pink {
+      border-color: var(--neon-pink);
+      color: var(--neon-pink);
+      box-shadow: var(--pink-glow);
+      background: rgba(255, 0, 127, 0.08);
+    }
+    .btn-pink:hover {
+      background: var(--neon-pink);
+      color: #060913;
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.7);
+    }
+
+    /* MAIN CONTAINER GRID */
+    .dashboard-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 340px 1fr 380px;
+      gap: 15px;
+      padding: 15px;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+      background-image: radial-gradient(circle at 50% 50%, #0d162a 0%, #060913 100%);
+    }
+
+    /* COLUMN TEMPLATES */
+    .dashboard-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-panel);
+      border-radius: 12px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+    }
+    .panel-header {
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.03);
+      border-bottom: 1px solid rgba(0, 240, 255, 0.1);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #00f0ff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .panel-content {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* LEFT SIDEBAR: PARAMETERS & VEHICLE COLLECTION */
+    .checklist-container {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .checklist-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+      opacity: 0.7;
+      transition: opacity 0.3s;
+    }
+    .checklist-item.verified {
+      opacity: 1;
+      color: var(--neon-green);
+    }
+    .checklist-checkbox {
+      width: 14px;
+      height: 14px;
+      border: 2px solid #555;
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+    }
+    .verified .checklist-checkbox {
+      border-color: var(--neon-green);
+      background: rgba(57, 255, 20, 0.1);
+    }
+    .verified .checklist-checkbox::after {
+      content: '✓';
+    }
+
+    .vehicle-selector {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .vehicle-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+      position: relative;
+      overflow: hidden;
+    }
+    .vehicle-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: transparent;
+      transition: background 0.3s;
+    }
+    .vehicle-card:hover {
+      background: rgba(0, 240, 255, 0.05);
+      border-color: rgba(0, 240, 255, 0.3);
+      transform: translateY(-2px);
+    }
+    .vehicle-card.active {
+      background: rgba(0, 240, 255, 0.1);
+      border-color: var(--neon-cyan);
+      box-shadow: var(--cyan-glow);
+    }
+    .vehicle-card.active::before {
+      background: var(--neon-cyan);
+    }
+    .vehicle-title {
+      font-size: 0.9rem;
+      font-weight: bold;
+      margin-bottom: 4px;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+    }
+    .vehicle-stats {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      display: flex;
+      justify-content: space-between;
+    }
+    .stat-val {
+      color: var(--neon-cyan);
+      font-weight: 600;
+    }
+
+    .pavement-zoom-panel {
+      margin-top: auto;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
+      padding: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    .zoom-slider-container {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+    .zoom-slider {
+      flex: 1;
+      margin: 0 10px;
+      accent-color: var(--neon-cyan);
+    }
+
+    /* CENTER COLUMN: THE MAIN PHYSICS SIMULATOR */
+    .simulator-container {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      background: #020408;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+    .interactive-hotspots {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+    .hotspot {
+      background: rgba(13, 20, 35, 0.85);
+      border: 1px solid var(--neon-cyan);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      color: var(--neon-cyan);
+      box-shadow: var(--cyan-glow);
+      opacity: 0;
+      transform: translateX(-15px);
+      transition: all 0.4s ease;
+    }
+    .hotspot.visible {
+      opacity: 1;
+      transform: translateX(0);
+    }
+
+    /* RIGHT COLUMN: EQUATION SOLVER & FORMULA DRAG/DROP */
+    .formula-area {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px dashed var(--neon-cyan);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
+    }
+    .formula-title {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 12px;
+    }
+    .formula-dropzone-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 1.1rem;
+      font-weight: bold;
+    }
+    .dropzone {
+      width: 70px;
+      height: 36px;
+      border: 2px dashed rgba(0, 240, 255, 0.3);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.02);
+      transition: all 0.2s;
+      font-size: 0.85rem;
+      color: #555;
+    }
+    .dropzone.hovered {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--neon-cyan);
+      box-shadow: var(--cyan-glow);
+    }
+    .dropzone.filled {
+      border: 1px solid var(--neon-green);
+      background: rgba(57, 255, 20, 0.08);
+      color: #fff;
+    }
+    .draggable-chips-container {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 15px;
+      width: 100%;
+    }
+    .drag-chip {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      color: #fff;
+      cursor: grab;
+      transition: all 0.2s;
+    }
+    .drag-chip:active {
+      cursor: grabbing;
+    }
+    .drag-chip:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 240, 255, 0.1);
+    }
+
+    .analytics-display {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
+      padding: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .vdf-gauge-wrapper {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+    }
+    .gauge {
+      width: 100px;
+      height: 100px;
+      position: relative;
+    }
+    .gauge-svg {
+      width: 100%;
+      height: 100%;
+      transform: rotate(-90deg);
+    }
+    .gauge-bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.05);
+      stroke-width: 10px;
+    }
+    .gauge-val {
+      fill: none;
+      stroke: var(--neon-cyan);
+      stroke-width: 10px;
+      stroke-dasharray: 283;
+      stroke-dashoffset: 283;
+      transition: stroke-dashoffset 0.8s ease;
+    }
+    .gauge-text {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.1rem;
+      font-weight: bold;
+      text-shadow: var(--cyan-glow);
+    }
+    .gauge-info {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .gauge-info-title {
+      font-size: 0.75rem;
+      color: #94a3b8;
+    }
+    .gauge-info-desc {
+      font-size: 0.85rem;
+      font-weight: bold;
+      color: #fff;
+    }
+
+    .exponent-graph {
+      height: 120px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* MODAL GLASSMORPHISM */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(4, 6, 12, 0.85);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+    }
+    .modal-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .modal-card {
+      background: rgba(13, 20, 35, 0.95);
+      border: 2px solid var(--neon-cyan);
+      width: 580px;
+      border-radius: 16px;
+      box-shadow: 0 0 40px rgba(0, 240, 255, 0.3);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: modalSlide 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+    @keyframes modalSlide {
+      from { transform: translateY(30px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+    .modal-body {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      color: #e2e8f0;
+      line-height: 1.5;
+    }
+    .modal-code-ref {
+      background: rgba(0, 240, 255, 0.05);
+      border-left: 4px solid var(--neon-cyan);
+      padding: 12px;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.85rem;
+      border-radius: 4px;
+    }
+    .modal-footer {
+      padding: 16px 24px;
+      background: rgba(255, 255, 255, 0.02);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    /* DRAG-AND-DROP CODE SEAL */
+    .code-seal-container {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: rgba(255, 0, 127, 0.05);
+      border: 1px dashed var(--neon-pink);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 5px;
+    }
+    .code-seal {
+      width: 48px;
+      height: 48px;
+      background: var(--neon-pink);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: #060913;
+      cursor: grab;
+      box-shadow: var(--pink-glow);
+      font-size: 0.65rem;
+      text-align: center;
+      line-height: 1.1;
+      text-transform: uppercase;
+    }
+
+    /* SCROLLBAR CUSTOMIZATION */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.01);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(0, 240, 255, 0.2);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 240, 255, 0.5);
+    }
+
+    /* GRAPH STYLES INSIDE RIGHT COLUMN */
+    .graph-tooltip {
+      position: absolute;
+      background: rgba(13, 20, 35, 0.95);
+      border: 1px solid var(--neon-cyan);
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      border-radius: 4px;
+      pointer-events: none;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="header-logo">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L2 22H22L12 2Z" stroke="#00f0ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <path d="M12 10V16" stroke="#ff007f" stroke-width="2" stroke-linecap="round"/>
+        <circle cx="12" cy="18" r="1" fill="#ff007f"/>
+      </svg>
+      <div class="header-title">VDF Pavement Synapse</div>
+    </div>
+    <div class="header-controls">
+      <button class="btn-cyber btn-pink" id="btn-sound">Enable Sound Engine</button>
+      <button class="btn-cyber" id="btn-open-codebook">IRC:37-2018 Codebook</button>
+    </div>
+  </header>
+
+  <!-- DASHBOARD WRAPPER -->
+  <div class="dashboard-container">
+
+    <!-- LEFT PANEL: PARAMS & VEHICLES -->
+    <div class="dashboard-panel">
+      <div class="panel-header">
+        <span>Calibration Pipeline</span>
+      </div>
+      <div class="panel-content">
+        <div class="checklist-container">
+          <div class="checklist-item" id="chk-code">
+            <div class="checklist-checkbox"></div>
+            <span>Calibrate IRC:37 Engine</span>
+          </div>
+          <div class="checklist-item" id="chk-vehicle">
+            <div class="checklist-checkbox"></div>
+            <span>Load Interactive Axle Set</span>
+          </div>
+          <div class="checklist-item" id="chk-formula">
+            <div class="checklist-checkbox"></div>
+            <span>Solve 4th Power Equivalency</span>
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: bold;">
+          Select Diagnostic Vehicle
+        </div>
+        <div class="vehicle-selector" id="vehicle-list">
+          <!-- Populated by JS -->
+        </div>
+
+        <div class="pavement-zoom-panel">
+          <div style="font-size: 0.8rem; font-weight: bold; color: var(--neon-cyan);">Pavement Depth Zoom</div>
+          <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 2px;">Inspect subterranean shear deformation</div>
+          <div class="zoom-slider-container">
+            <span style="font-size: 0.7rem;">1X</span>
+            <input type="range" class="zoom-slider" id="zoom-depth" min="1" max="3" step="0.1" value="1">
+            <span style="font-size: 0.7rem;">3X</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CENTER PANEL: HIGH-DPI CANVAS PHYSICS SIMULATOR -->
+    <div class="dashboard-panel simulator-container">
+      <div class="panel-header">
+        <span>Structural Road Simulator</span>
+        <span style="color: var(--neon-pink); font-size: 0.8rem;" id="sim-status">STANDBY - CALIBRATION REQUIRED</span>
+      </div>
+      <div class="canvas-wrapper" id="canvas-container">
+        <canvas id="physics-canvas"></canvas>
+        <div class="interactive-hotspots" id="hotspots-group">
+          <!-- Dynamic parameter notifications -->
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: EQUATION & LIVE ANALYTICS -->
+    <div class="dashboard-panel">
+      <div class="panel-header">
+        <span>Analytical Sandbox</span>
+      </div>
+      <div class="panel-content">
+        <div class="formula-area">
+          <div class="formula-title">Equivalency Solver</div>
+          <div class="formula-dropzone-row">
+            <span>VDF = (</span>
+            <div class="dropzone" id="drop-axle" data-accept="axle">L (Axle)</div>
+            <span>/</span>
+            <div class="dropzone" id="drop-std" data-accept="std">Ls (Std)</div>
+            <span>) ^</span>
+            <div class="dropzone" id="drop-power" data-accept="power">y (Exp)</div>
+          </div>
+          <div class="draggable-chips-container" id="chips-dock">
+            <div class="drag-chip" draggable="true" id="chip-axle" data-type="axle">L (Axle)</div>
+            <div class="drag-chip" draggable="true" id="chip-std" data-type="std">Ls (80kN)</div>
+            <div class="drag-chip" draggable="true" id="chip-power" data-type="power">4 (Exp)</div>
+          </div>
+        </div>
+
+        <div class="analytics-display">
+          <div class="vdf-gauge-wrapper">
+            <div class="gauge">
+              <svg class="gauge-svg">
+                <circle class="gauge-bg" cx="50" cy="50" r="45" />
+                <circle class="gauge-val" id="gauge-progress" cx="50" cy="50" r="45" />
+              </svg>
+              <div class="gauge-text" id="gauge-vdf-val">0.00</div>
+            </div>
+            <div class="gauge-info">
+              <span class="gauge-info-title">Pavement Damage Level</span>
+              <span class="gauge-info-desc" id="pavement-damage-desc">System Idle</span>
+              <span style="font-size: 0.7rem; color: #ef4444; font-weight: bold; display: none;" id="warning-notice">CRITICAL SHEAR RISK</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; font-weight: bold;">
+          Exponent Damage Curve
+        </div>
+        <div class="exponent-graph" id="graph-panel">
+          <svg id="svg-graph" width="100%" height="100%" viewBox="0 0 350 120" style="overflow: visible;">
+            <!-- Grid lines -->
+            <line x1="40" y1="10" x2="40" y2="100" stroke="rgba(255,255,255,0.1)" />
+            <line x1="40" y1="100" x2="330" y2="100" stroke="rgba(255,255,255,0.1)" />
+            <!-- The 4th Power curve -->
+            <path id="curve-path" fill="none" stroke="rgba(255, 0, 127, 0.4)" stroke-width="2" />
+            <!-- Track node -->
+            <circle id="track-node" cx="40" cy="100" r="6" fill="#00f0ff" stroke="#fff" stroke-width="1.5" />
+          </svg>
+        </div>
+        <div style="font-size: 0.7rem; color: #64748b; line-height: 1.3;">
+          Note: Damage increases exponentially by the 4th power of axle load. A double axle load does not double damage—it multiplies damage by <b style="color: var(--neon-pink);">sixteen times</b>.
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- MODAL: IRC:37-2018 CODEBOOK -->
+  <div class="modal-overlay" id="modal-codebook">
+    <div class="modal-card">
+      <div class="panel-header">
+        <span>IRC:37-2018 Codebook Reference</span>
+      </div>
+      <div class="modal-body">
+        <p>The <b>Vehicle Damage Factor (VDF)</b> is a multiplier to convert number of commercial vehicles of different axle loads and configurations to the number of standard axle load repetitions (80 kN).</p>
+        <div class="modal-code-ref">
+          <b>Clause 3.1.2: Equivalency Factor Formula</b><br>
+          For Single Axle Load (L) in kN:<br>
+          Equivalency Factor = ( L / 80 )^4<br>
+          Standard Axle Load (L_s) = 80 kN (Single) / 100 kN (Tandem)
+        </div>
+        <p style="font-size: 0.8rem; color: #94a3b8;">To unlock the automated simulation pipeline, you must drag the glowing <b>IRC Certification Seal</b> below directly into the main workspace simulator.</p>
+        
+        <div class="code-seal-container">
+          <div class="code-seal" draggable="true" id="irc-seal">IRC<br>37</div>
+          <div style="font-size: 0.75rem; color: var(--neon-pink); font-weight: bold; animation: pulse 2s infinite;">DRAG THIS SEAL TO THE ROAD CANVAS</div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-cyber" id="btn-close-modal">Dismiss Codebook</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="graph-tooltip" id="g-tooltip">VDF: 0</div>
+
+  <!-- SCRIPTING ENGINE -->
+  <script>
+    // SYNTH SOUND ENGINE (Web Audio API)
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        document.getElementById('btn-sound').innerText = "Audio Connected";
+        document.getElementById('btn-sound').classList.remove('btn-pink');
+        playSynth(600, 0.1, 'sine');
+      }
+    }
+
+    document.getElementById('btn-sound').addEventListener('click', initAudio);
+
+    function playSynth(freq, duration, type = 'sine') {
+      if (!audioCtx) return;
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function soundCorrect() {
+      if (!audioCtx) return;
+      playSynth(523.25, 0.15, 'triangle'); // C5
+      setTimeout(() => playSynth(659.25, 0.25, 'triangle'), 100); // E5
+    }
+
+    function soundWarning() {
+      if (!audioCtx) return;
+      playSynth(120, 0.4, 'sawtooth');
+    }
+
+    function soundClick() {
+      if (!audioCtx) return;
+      playSynth(800, 0.05, 'sine');
+    }
+
+    // SPEECH SYNTHESIS PEDAGOGY
+    function speakPedagogy(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    // SIMULATOR STATE
+    const state = {
+      calibrated: false,
+      selectedVehicleIndex: null,
+      formulaComplete: false,
+      zoom: 1.0,
+      vdf: 0.0,
+      deformationOffset: 0,
+      activeHotspot: '',
+    };
+
+    // VEHICLE DATA REPRESENTATION
+    const vehicles = [
+      {
+        name: "Eco Commuter EV",
+        axleLoad: 12, // kN
+        type: "Light Single Axle",
+        color: "#10b981",
+        description: "Minimal axle load. Generates negligible pavement strain.",
+        vdf: Math.pow(12 / 80, 4),
+        damageRating: "Negligible Damage",
+        spriteWidth: 60,
+        spriteHeight: 25,
+        axles: [20, 50]
+      },
+      {
+        name: "Dual-Axle Intercity Coach",
+        axleLoad: 65, // kN
+        type: "Medium Rigid Axle",
+        color: "#f59e0b",
+        description: "Standard bus axle configurations. Approaches standard design parameters.",
+        vdf: Math.pow(65 / 80, 4),
+        damageRating: "Moderate Damage",
+        spriteWidth: 100,
+        spriteHeight: 35,
+        axles: [25, 85]
+      },
+      {
+        name: "Standard Design Truck (IRC)",
+        axleLoad: 80, // kN
+        type: "Standard Single Axle",
+        color: "#00f0ff",
+        description: "The baseline 80 kN (8.16 Metric Tonne) design load. VDF is strictly 1.0.",
+        vdf: 1.0,
+        damageRating: "1.0 Standard Equivalency",
+        spriteWidth: 120,
+        spriteHeight: 40,
+        axles: [30, 95]
+      },
+      {
+        name: "Tri-Axle Heavy Transporter",
+        axleLoad: 160, // kN
+        type: "Overloaded Multi-Axle",
+        color: "#ff007f",
+        description: "Grossly overloaded heavy haulage. Massive exponent multiplication risk.",
+        vdf: Math.pow(160 / 80, 4),
+        damageRating: "CRITICAL DEFORMATION",
+        spriteWidth: 140,
+        spriteHeight: 45,
+        axles: [30, 80, 115]
+      }
+    ];
+
+    // INITIALIZE UI LISTS & BINDINGS
+    const vehicleListEl = document.getElementById('vehicle-list');
+    function renderVehicleSelector() {
+      vehicleListEl.innerHTML = '';
+      vehicles.forEach((veh, idx) => {
+        const card = document.createElement('div');
+        card.className = `vehicle-card ${state.selectedVehicleIndex === idx ? 'active' : ''}`;
+        card.innerHTML = `
+          <div class="vehicle-title">
+            <span>${veh.name}</span>
+            <span style="color: ${veh.color}">${veh.axleLoad} kN</span>
+          </div>
+          <div class="vehicle-stats">
+            <span>Axle Configuration: <b>${veh.type}</b></span>
+            <span>VDF: <span class="stat-val">${veh.vdf.toFixed(4)}</span></span>
+          </div>
+        `;
+        card.addEventListener('click', () => {
+          if (!state.calibrated) {
+            triggerAlert("UNLOCK CODEBOOK SIMULATION CALIBRATION FIRST");
+            return;
+          }
+          soundClick();
+          selectVehicle(idx);
+        });
+        vehicleListEl.appendChild(card);
+      });
+    }
+
+    function selectVehicle(idx) {
+      state.selectedVehicleIndex = idx;
+      renderVehicleSelector();
+      document.getElementById('chk-vehicle').classList.add('verified');
+      
+      const v = vehicles[idx];
+      updateCalcs(v);
+      
+      // Update interactive text and dynamic hints
+      setHotspot(`Axle Load: ${v.axleLoad} kN. Dynamic Stress Vector Active.`);
+      
+      // Structural Zoom Trigger on heavy loads
+      if (v.axleLoad >= 80) {
+        document.getElementById('zoom-depth').value = 1.8;
+        state.zoom = 1.8;
+        speakPedagogy(`Observe structural pavement shear contours expanding as axle load reaches ${v.axleLoad} kilonewtons.`);
+      } else {
+        document.getElementById('zoom-depth').value = 1.0;
+        state.zoom = 1.0;
+      }
+    }
+
+    function updateCalcs(v) {
+      if (state.formulaComplete) {
+        state.vdf = v.vdf;
+        document.getElementById('gauge-vdf-val').innerText = v.vdf.toFixed(2);
+        
+        // Progress ring logic (capped at 16.0 visual gauge range)
+        const progressRadius = 45;
+        const circ = 2 * Math.PI * progressRadius;
+        const offset = Math.max(0, circ - (Math.min(v.vdf, 16) / 16) * circ);
+        document.getElementById('gauge-progress').style.strokeDashoffset = offset;
+        
+        document.getElementById('pavement-damage-desc').innerText = v.damageRating;
+        document.getElementById('pavement-damage-desc').style.color = v.color;
+        
+        if (v.vdf > 2.0) {
+          document.getElementById('warning-notice').style.display = "block";
+          soundWarning();
+        } else {
+          document.getElementById('warning-notice').style.display = "none";
+        }
+        
+        // Update Graph Node
+        updateCurveGraph(v);
+      }
+    }
+
+    // CANVAS DRAWING & HIGHDPI SETUP
+    const canvas = document.getElementById('physics-canvas');
+    const ctx = canvas.getContext('2d');
+    const container = document.getElementById('canvas-container');
+
+    function resizeCanvas() {
+      const rect = container.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // INTERACTIVE HOTSPOT NOTIFICATIONS
+    function setHotspot(text) {
+      const g = document.getElementById('hotspots-group');
+      g.innerHTML = `<div class="hotspot visible">${text}</div>`;
+    }
+
+    // MATH HELPERS FOR DEFORMATION CONTUORS
+    function getGaussianOffset(x, targetX, peak, spread) {
+      return peak * Math.exp(-Math.pow(x - targetX, 2) / (2 * Math.pow(spread, 2)));
+    }
+
+    // CORE CANVAS PHYSICS RENDER LOOP
+    let anglePulse = 0;
+    function drawSimulation() {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Grid Base (Cyberpunk background style)
+      ctx.strokeStyle = "rgba(0, 240, 255, 0.05)";
+      ctx.lineWidth = 1;
+      const gridSize = 40;
+      for (let x = 0; x < w; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // 1. Structural Zoom Offset computations
+      const zoom = state.zoom;
+      const pavementTopY = h * 0.45; // base road surface level
+      
+      // Draw Pavement layers with customizable deep deflection
+      const layers = [
+        { name: "Wearing Course (Asphalt)", depth: 40, color1: "#2d3748", color2: "#1a202c" },
+        { name: "Base Course (Granular)", depth: 70, color1: "#4a5568", color2: "#2d3748" },
+        { name: "Sub-base (Gravel/Crushed)", depth: 100, color1: "#718096", color2: "#4a5568" },
+        { name: "Subgrade (Compacted Soil)", depth: 400, color1: "#3c3124", color2: "#221a12" }
+      ];
+
+      // Draw horizontal layers, with localized wheel deflection based on VDF
+      let currentY = pavementTopY;
+      const activeVeh = state.selectedVehicleIndex !== null ? vehicles[state.selectedVehicleIndex] : null;
+
+      layers.forEach((layer, layerIdx) => {
+        ctx.beginPath();
+        
+        // Render layers using detailed multi-segment vertex points for real-time deflection
+        const resolution = 60;
+        const segWidth = w / resolution;
+        
+        // Define bottom profile
+        const bottomLine = [];
+        const topLine = [];
+
+        for (let i = 0; i <= resolution; i++) {
+          const x = i * segWidth;
+          let deformationTop = 0;
+          let deformationBottom = 0;
+
+          if (activeVeh && state.formulaComplete) {
+            // Apply deflection logic below wheels
+            const midX = w / 2;
+            activeVeh.axles.forEach((axleOffset) => {
+              const wheelX = midX - (activeVeh.spriteWidth / 2) + axleOffset;
+              // Diminishing load propagation down structural layers
+              const attenuation = Math.max(0.2, 1.0 - (layerIdx * 0.22));
+              const intensity = (activeVeh.vdf * 3.5) * attenuation * zoom;
+              const spread = 45 * zoom * (1 + layerIdx * 0.2);
+              
+              deformationTop += getGaussianOffset(x, wheelX, intensity, spread);
+              deformationBottom += getGaussianOffset(x, wheelX, intensity * 0.85, spread * 1.15);
+            });
+          }
+
+          topLine.push({ x: x, y: currentY + deformationTop });
+          bottomLine.push({ x: x, y: currentY + (layer.depth * zoom) + deformationBottom });
+        }
+
+        // Draw Layer Path
+        ctx.beginPath();
+        ctx.moveTo(topLine[0].x, topLine[0].y);
+        for (let i = 1; i <= resolution; i++) {
+          ctx.lineTo(topLine[i].x, topLine[i].y);
+        }
+        for (let i = resolution; i >= 0; i--) {
+          ctx.lineTo(bottomLine[i].x, bottomLine[i].y);
+        }
+        ctx.closePath();
+
+        // Create Layer Gradient
+        const grad = ctx.createLinearGradient(0, currentY, 0, currentY + layer.depth * zoom);
+        grad.addColorStop(0, layer.color1);
+        grad.addColorStop(1, layer.color2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Draw layer separator
+        ctx.strokeStyle = "rgba(0, 240, 255, 0.2)";
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(topLine[0].x, topLine[0].y);
+        for (let i = 1; i <= resolution; i++) {
+          ctx.lineTo(topLine[i].x, topLine[i].y);
+        }
+        ctx.stroke();
+
+        // Layer Title overlays
+        if (xHover < 160 && xHover > 10) {
+          ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+          ctx.font = "10px sans-serif";
+          ctx.fillText(layer.name, 15, currentY + 18);
+        }
+
+        currentY += layer.depth * zoom;
+      });
+
+      // 2. Draw Wheel Load Vectors & Strain Contour Lines
+      if (activeVeh && state.formulaComplete) {
+        const midX = w / 2;
+        activeVeh.axles.forEach((axleOffset) => {
+          const wheelX = midX - (activeVeh.spriteWidth / 2) + axleOffset;
+          const roadY = pavementTopY + getGaussianOffset(wheelX, wheelX, activeVeh.vdf * 3.5, 45);
+
+          // Pavement Vector Arrows
+          ctx.beginPath();
+          ctx.strokeStyle = activeVeh.color;
+          ctx.lineWidth = 3 + Math.min(activeVeh.vdf * 0.8, 8);
+          ctx.moveTo(wheelX, roadY - 35);
+          ctx.lineTo(wheelX, roadY - 5);
+          ctx.stroke();
+
+          // Arrowhead
+          ctx.beginPath();
+          ctx.fillStyle = activeVeh.color;
+          ctx.moveTo(wheelX - 6, roadY - 8);
+          ctx.lineTo(wheelX + 6, roadY - 8);
+          ctx.lineTo(wheelX, roadY);
+          ctx.fill();
+
+          // Real-time Pulsating Strain contours
+          anglePulse += 0.05;
+          const rangePulse = (1.2 + 0.15 * Math.sin(anglePulse));
+          ctx.beginPath();
+          ctx.arc(wheelX, roadY + 5, 25 * zoom * rangePulse * (activeVeh.vdf * 0.25 + 0.75), 0, Math.PI);
+          ctx.strokeStyle = "rgba(255,0,127,0.4)";
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(wheelX, roadY + 5, 55 * zoom * rangePulse * (activeVeh.vdf * 0.15 + 0.85), 0, Math.PI);
+          ctx.strokeStyle = "rgba(255, 0, 127, 0.15)";
+          ctx.setLineDash([4, 4]);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        });
+      }
+
+      // 3. Draw Vehicle Sprite (Retro wireframe cyberpunk look)
+      if (activeVeh) {
+        const midX = w / 2;
+        const vWidth = activeVeh.spriteWidth;
+        const vHeight = activeVeh.spriteHeight;
+        const vX = midX - (vWidth / 2);
+        const vY = pavementTopY - vHeight - 12;
+
+        // Draw chassis wireframe
+        ctx.fillStyle = "rgba(13, 22, 38, 0.9)";
+        ctx.strokeStyle = activeVeh.color;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.roundRect(vX, vY, vWidth, vHeight, 6);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw window detail
+        ctx.fillStyle = "rgba(0, 240, 255, 0.3)";
+        ctx.beginPath();
+        ctx.roundRect(vX + vWidth - 32, vY + 4, 25, vHeight / 2, 3);
+        ctx.fill();
+
+        // Wheels
+        activeVeh.axles.forEach((axleOffset) => {
+          const wheelX = vX + axleOffset;
+          const wheelY = pavementTopY - 10;
+          ctx.beginPath();
+          ctx.arc(wheelX, wheelY, 10, 0, Math.PI * 2);
+          ctx.fillStyle = "#111";
+          ctx.strokeStyle = activeVeh.color;
+          ctx.lineWidth = 2;
+          ctx.fill();
+          ctx.stroke();
+
+          // Hub cap accent
+          ctx.beginPath();
+          ctx.arc(wheelX, wheelY, 4, 0, Math.PI * 2);
+          ctx.fillStyle = "#fff";
+          ctx.fill();
+        });
+
+        // Vehicle Labels / Dynamic Indicators
+        ctx.fillStyle = "#fff";
+        ctx.font = "bold 11px Courier New";
+        ctx.shadowColor = "rgba(0,0,0,0.8)";
+        ctx.shadowBlur = 4;
+        ctx.fillText(activeVeh.name, vX + 6, vY - 14);
+        ctx.fillStyle = activeVeh.color;
+        ctx.fillText(`Load: ${activeVeh.axleLoad} kN`, vX + 6, vY - 4);
+        ctx.shadowBlur = 0;
+      }
+
+      // Calibration lock indicator watermarks
+      if (!state.calibrated) {
+        ctx.fillStyle = "rgba(255, 0, 127, 0.8)";
+        ctx.font = "bold 16px sans-serif";
+        ctx.fillText("IRC SECURE LINK OFFLINE", w / 2 - 110, h / 2 - 30);
+        ctx.font = "11px sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.fillText("Drag calibration seal from Codebook to link system.", w / 2 - 128, h / 2 - 10);
+      }
+
+      requestAnimationFrame(drawSimulation);
+    }
+
+    // Capture hover position for layers popup text
+    let xHover = 0, yHover = 0;
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      xHover = e.clientX - rect.left;
+      yHover = e.clientY - rect.top;
+    });
+
+    // Start rendering engine loop
+    requestAnimationFrame(drawSimulation);
+
+    // DYNAMIC EXPONENT GRAPH DRAWER (SVG)
+    function buildGraphCurve() {
+      const p = document.getElementById('curve-path');
+      let d = "";
+      // Map domain [0, 180] (axle load) -> Range [x: 40 to 330], [y: 100 to 10] (damage factor mapping)
+      for (let load = 0; load <= 185; load += 5) {
+        const v = Math.pow(load / 80, 4);
+        const cx = 40 + (load / 180) * 290;
+        const cy = 100 - (Math.min(v, 16.0) / 16.0) * 90;
+        if (load === 0) d += `M ${cx} ${cy}`;
+        else d += ` L ${cx} ${cy}`;
+      }
+      p.setAttribute('d', d);
+    }
+    buildGraphCurve();
+
+    function updateCurveGraph(v) {
+      const node = document.getElementById('track-node');
+      const load = v.axleLoad;
+      const val = Math.min(v.vdf, 16.0);
+      const cx = 40 + (load / 180) * 290;
+      const cy = 100 - (val / 16.0) * 90;
+      node.setAttribute('cx', cx);
+      node.setAttribute('cy', cy);
+      node.setAttribute('fill', v.color);
+    }
+
+    // EXPOSITION ON HOVER NODE GRAPH
+    const svgG = document.getElementById('svg-graph');
+    const tooltip = document.getElementById('g-tooltip');
+    svgG.addEventListener('mousemove', (e) => {
+      const rect = svgG.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const domainX = Math.round(((x - 40) / 290) * 180);
+      if (domainX >= 0 && domainX <= 180) {
+        const targetVdf = Math.pow(domainX / 80, 4);
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 10) + 'px';
+        tooltip.style.top = (e.clientY - 25) + 'px';
+        tooltip.innerHTML = `Load: <b>${domainX} kN</b> | VDF: <b>${targetVdf.toFixed(3)}</b>`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+    svgG.addEventListener('mouseleave', () => tooltip.style.display = 'none');
+
+    // ZOOM SLIDER EVENT BINDING
+    document.getElementById('zoom-depth').addEventListener('input', (e) => {
+      state.zoom = parseFloat(e.target.value);
+    });
+
+    // DRAG AND DROP SETUP FOR FORMULA EXERCISE
+    const chips = document.querySelectorAll('.drag-chip');
+    const dropzones = document.querySelectorAll('.dropzone');
+
+    chips.forEach(chip => {
+      chip.addEventListener('dragstart', (e) => {
+        soundClick();
+        e.dataTransfer.setData('text/plain', e.target.id);
+      });
+    });
+
+    dropzones.forEach(zone => {
+      zone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        zone.classList.add('hovered');
+      });
+      zone.addEventListener('dragleave', () => {
+        zone.classList.remove('hovered');
+      });
+      zone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        zone.classList.remove('hovered');
+        const id = e.dataTransfer.getData('text/plain');
+        const draggedEl = document.getElementById(id);
+        if (!draggedEl) return;
+        
+        const type = draggedEl.getAttribute('data-type');
+        const accept = zone.getAttribute('data-accept');
+
+        if (type === accept) {
+          zone.innerText = draggedEl.innerText;
+          zone.classList.add('filled');
+          soundCorrect();
+          checkFormulaCompletion();
+        } else {
+          soundWarning();
+          triggerAlert("COMPONENT MISMATCH: Check equation indices.");
+        }
+      });
+    });
+
+    function checkFormulaCompletion() {
+      const filledZones = document.querySelectorAll('.dropzone.filled');
+      if (filledZones.length === 3) {
+        state.formulaComplete = true;
+        document.getElementById('chk-formula').classList.add('verified');
+        document.getElementById('chips-dock').style.display = 'none';
+        
+        speakPedagogy("Equivalency matrix calibrated. Fourth-power structural damage calculations are now active.");
+        soundCorrect();
+        
+        // Auto select standard design truck as initial baseline
+        selectVehicle(2);
+      }
+    }
+
+    // MODAL CONTROL INTERACTION
+    const modal = document.getElementById('modal-codebook');
+    const btnOpen = document.getElementById('btn-open-codebook');
+    const btnClose = document.getElementById('btn-close-modal');
+
+    btnOpen.addEventListener('click', () => {
+      soundClick();
+      modal.classList.add('open');
+    });
+
+    btnClose.addEventListener('click', () => {
+      soundClick();
+      modal.classList.remove('open');
+    });
+
+    // IRC DRAG STAMP VERIFICATION (Drags directly into Canvas Container)
+    const seal = document.getElementById('irc-seal');
+    const canvasContainer = document.getElementById('canvas-container');
+
+    seal.addEventListener('dragstart', (e) => {
+      e.dataTransfer.setData('text/plain', 'seal-calibration');
+    });
+
+    canvasContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    canvasContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData('text/plain');
+      if (id === 'seal-calibration') {
+        modal.classList.remove('open');
+        state.calibrated = true;
+        document.getElementById('chk-code').classList.add('verified');
+        
+        const statusEl = document.getElementById('sim-status');
+        statusEl.innerText = "ONLINE - INTERACTIVE METRIC DEPLOYED";
+        statusEl.style.color = "var(--neon-green)";
+        
+        soundCorrect();
+        speakPedagogy("IRC standard calibrated. System operational. Now construct the VDF analytical solver.");
+        renderVehicleSelector();
+      }
+    });
+
+    function triggerAlert(msg) {
+      setHotspot(msg);
+      setTimeout(() => {
+        setHotspot("Calibration status pending.");
+      }, 4000);
+    }
+
+    // Open Codebook initially to lead the pedagogical storyboarding
+    setTimeout(() => {
+      modal.classList.add('open');
+    }, 1000);
+
+  </script>
+</body>
+</html>

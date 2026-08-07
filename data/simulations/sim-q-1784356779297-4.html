@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel Connection Workshop | Cyber-Engineering</title>
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: rgba(20, 26, 35, 0.7);
+            --accent: #00f2ff;
+            --danger: #ff4757;
+            --success: #2ed573;
+            --glass: rgba(255, 255, 255, 0.05);
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            height: 100vh; width: 100vw;
+            background: var(--bg);
+            color: white;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+            display: flex;
+        }
+
+        #dashboard {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            width: 100vw; height: 100vh;
+            gap: 10px; padding: 10px;
+        }
+
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+
+        #simulation-area {
+            position: relative;
+            background: radial-gradient(circle at center, #1a2230 0%, #0a0e14 100%);
+            border-radius: 12px;
+            cursor: crosshair;
+        }
+
+        canvas { width: 100%; height: 100%; display: block; }
+
+        .draggable {
+            background: #2f3542;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            cursor: grab;
+            text-align: center;
+            user-select: none;
+        }
+
+        .modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center;
+            z-index: 100;
+        }
+
+        .btn {
+            background: var(--accent); color: #000;
+            padding: 10px; border: none; border-radius: 4px;
+            cursor: pointer; font-weight: bold; margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div id="dashboard">
+    <div class="panel">
+        <h3>BOLT PARAMETERS</h3>
+        <div class="draggable" draggable="true" ondragstart="event.dataTransfer.setData('bolt', 'M16')">M16 Grade 8.8</div>
+        <div class="draggable" draggable="true" ondragstart="event.dataTransfer.setData('bolt', 'M20')">M20 Grade 8.8</div>
+        <div class="draggable" draggable="true" ondragstart="event.dataTransfer.setData('bolt', 'M24')">M24 Grade 8.8</div>
+        <hr style="width:100%; opacity:0.2">
+        <h3>LOAD INPUT</h3>
+        <input type="range" id="loadSlider" min="0" max="200" value="50" style="width:100%">
+        <div id="loadVal">Load: 50 kN</div>
+        <button class="btn" onclick="speakIntro()">Voice Guide</button>
+    </div>
+
+    <div id="simulation-area">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="panel">
+        <h3>STRUCTURAL HUD</h3>
+        <div id="capacityMeter" style="height: 20px; background: #333; margin: 10px 0;">
+            <div id="bar" style="height:100%; width: 0%; background: var(--accent); transition: width 0.3s;"></div>
+        </div>
+        <p>Stress Level: <span id="stressText">0%</span></p>
+        <button class="btn" onclick="toggleFormula()">Show IS:800 Codebook</button>
+    </div>
+</div>
+
+<div id="codebook" class="modal" onclick="this.style.display='none'">
+    <div style="background:#1a2230; padding:40px; border-radius:20px; color:white">
+        <h2>IS:800 Clause 10.2</h2>
+        <p>Think of this plate like a backpack strap—too few bolts and it pops off like a loose button!</p>
+        <div class="draggable">Formula: Vdb = (Vnb / γmb)</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let load = 50;
+    let boltType = 'M16';
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Interaction Handling
+    canvas.addEventListener('dragover', e => e.preventDefault());
+    canvas.addEventListener('drop', e => {
+        boltType = e.dataTransfer.getData('bolt');
+        draw();
+    });
+
+    document.getElementById('loadSlider').oninput = (e) => {
+        load = e.target.value;
+        document.getElementById('loadVal').innerText = `Load: ${load} kN`;
+        updatePhysics();
+    };
+
+    function updatePhysics() {
+        const capacity = boltType === 'M16' ? 100 : (boltType === 'M20' ? 150 : 200);
+        const stress = (load / capacity) * 100;
+        document.getElementById('bar').style.width = Math.min(stress, 100) + '%';
+        document.getElementById('stressText').innerText = Math.round(stress) + '%';
+        
+        if (stress > 90) {
+            document.getElementById('bar').style.background = 'var(--danger)';
+            triggerAlarm();
+        } else {
+            document.getElementById('bar').style.background = 'var(--accent)';
+        }
+        draw();
+    }
+
+    function triggerAlarm() {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.frequency.value = 100;
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.5);
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+
+    function draw() {
+        const w = canvas.clientWidth;
+        const h = canvas.clientHeight;
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw Plates
+        ctx.fillStyle = '#4b5563';
+        ctx.fillRect(w/2 - 100, h/2 - 150, 200, 300); // Gusset
+        
+        // Bolts
+        ctx.fillStyle = '#00f2ff';
+        for(let i=0; i<3; i++) {
+            ctx.beginPath();
+            ctx.arc(w/2, h/2 - 100 + (i*80), 10, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Force Arrow
+        ctx.strokeStyle = '#ff4757';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.moveTo(w/2, h/2 + 150);
+        ctx.lineTo(w/2, h/2 + 150 + (load*0.5));
+        ctx.stroke();
+    }
+
+    function speakIntro() {
+        const msg = new SpeechSynthesisUtterance("Let's connect this plate! Drag the bolt grade onto the gusset to start.");
+        window.speechSynthesis.speak(msg);
+    }
+
+    function toggleFormula() {
+        document.getElementById('codebook').style.display = 'flex';
+    }
+
+    function animate() {
+        draw();
+        requestAnimationFrame(animate);
+    }
+    animate();
+</script>
+</body>
+</html>

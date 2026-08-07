@@ -1,0 +1,1500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrologic Abstractions Explorer</title>
+    
+    <!-- MathJax for rendering gorgeous LaTeX equations -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            --bg-dark: #090d16;
+            --panel-bg: rgba(13, 20, 35, 0.75);
+            --panel-border: rgba(0, 243, 255, 0.15);
+            --neon-cyan: #00f3ff;
+            --neon-lime: #39ff14;
+            --neon-amber: #ffaa00;
+            --neon-magenta: #ff007f;
+            --text-light: #f0f4f8;
+            --text-muted: #8a99ad;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Premium Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-dark);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 243, 255, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 243, 255, 0.6);
+        }
+
+        header {
+            background: linear-gradient(180deg, rgba(9, 13, 22, 0.95) 0%, rgba(9, 13, 22, 0.7) 100%);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--panel-border);
+            padding: 15px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+        }
+
+        .header-title-container h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(90deg, var(--neon-cyan), #9d00ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .header-title-container p {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        /* Glassmorphic buttons */
+        .btn {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--panel-border);
+            color: var(--text-light);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(5px);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 243, 255, 0.1);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.35);
+            transform: translateY(-1px);
+        }
+
+        .btn-tour {
+            border-color: var(--neon-magenta);
+        }
+        .btn-tour:hover {
+            background: rgba(255, 0, 127, 0.1);
+            border-color: var(--neon-magenta);
+            box-shadow: 0 0 15px rgba(255, 0, 127, 0.35);
+        }
+
+        .btn-audio {
+            border-color: var(--neon-amber);
+        }
+        .btn-audio:hover {
+            background: rgba(255, 170, 0, 0.1);
+            border-color: var(--neon-amber);
+            box-shadow: 0 0 15px rgba(255, 170, 0, 0.35);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        /* Main Workspace Grid */
+        .workspace {
+            display: grid;
+            grid-template-columns: 340px 1fr;
+            flex-grow: 1;
+            height: calc(100vh - 73px);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* Sidebar Panel (Glassmorphic) */
+        .sidebar {
+            background: var(--panel-bg);
+            border-right: 1px solid var(--panel-border);
+            backdrop-filter: blur(15px);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            overflow-y: auto;
+            z-index: 5;
+        }
+
+        .panel-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel-section h2 {
+            font-size: 0.95rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--neon-cyan);
+            border-bottom: 1px solid rgba(0, 243, 255, 0.1);
+            padding-bottom: 8px;
+        }
+
+        /* Custom Styled Inputs & Sliders */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .control-label-wrapper {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .control-value {
+            color: var(--text-light);
+            font-weight: bold;
+        }
+
+        .slider-container {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(0, 243, 255, 0.8);
+            transition: transform 0.1s, background-color 0.2s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #fff;
+        }
+
+        /* Tool Library for Planting */
+        .tool-library {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .tool-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px dashed rgba(255, 255, 255, 0.15);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.3s;
+            user-select: none;
+        }
+
+        .tool-card:hover {
+            border-color: var(--neon-lime);
+            background: rgba(57, 255, 20, 0.05);
+        }
+
+        .tool-card:active {
+            cursor: grabbing;
+        }
+
+        .tool-icon {
+            font-size: 1.5rem;
+            margin-bottom: 4px;
+            display: block;
+        }
+
+        .tool-name {
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+        }
+
+        /* Simulation Canvas & Live Render View */
+        .simulation-container {
+            position: relative;
+            display: grid;
+            grid-template-rows: 1fr 220px;
+            height: 100%;
+            background: radial-gradient(circle at center, #101626 0%, #060911 100%);
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Dashboard HUD overlays directly on canvas */
+        .hud-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+            z-index: 3;
+        }
+
+        .hud-card {
+            background: var(--panel-bg);
+            border: 1px solid var(--panel-border);
+            padding: 12px 18px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+            min-width: 200px;
+        }
+
+        .hud-card h3 {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            color: var(--neon-amber);
+            letter-spacing: 0.5px;
+            margin-bottom: 6px;
+        }
+
+        .hud-metric {
+            font-size: 1.4rem;
+            font-weight: 800;
+            color: var(--text-light);
+        }
+
+        .hud-unit {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        /* Bottom Analytics Panel (Graph + Math) */
+        .analytics-panel {
+            background: var(--panel-bg);
+            border-top: 1px solid var(--panel-border);
+            backdrop-filter: blur(15px);
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            padding: 20px;
+            gap: 20px;
+            z-index: 5;
+            overflow: hidden;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 100%;
+            min-height: 160px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+
+        .chart-title {
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-muted);
+        }
+
+        .chart-legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.75rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-color {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+        }
+
+        /* Live Equation Renderer */
+        .equation-box {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            min-height: 100%;
+            transition: transform 0.3s;
+        }
+
+        .equation-box:hover {
+            transform: scale(1.02);
+            border-color: rgba(0, 243, 255, 0.25);
+        }
+
+        .equation-box h4 {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+        }
+
+        .math-output {
+            font-size: 1.15rem;
+            color: var(--text-light);
+            margin: 5px 0;
+        }
+
+        /* Highlight indicator overlay for Tutorial */
+        .highlight-ring {
+            position: absolute;
+            border: 3px solid var(--neon-magenta);
+            border-radius: 50%;
+            box-shadow: 0 0 20px var(--neon-magenta), inset 0 0 20px var(--neon-magenta);
+            animation: pulse-ring 1.5s infinite;
+            pointer-events: none;
+            display: none;
+            z-index: 8;
+        }
+
+        @keyframes pulse-ring {
+            0% { transform: scale(0.9); opacity: 0.8; }
+            50% { transform: scale(1.1); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.8; }
+        }
+
+        /* Narration Subtitle Overlay */
+        .narration-box {
+            position: absolute;
+            bottom: 240px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(9, 13, 22, 0.9);
+            border: 1px solid var(--neon-magenta);
+            padding: 15px 25px;
+            border-radius: 10px;
+            color: var(--text-light);
+            font-weight: 500;
+            max-width: 600px;
+            text-align: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 15px rgba(255, 0, 127, 0.2);
+            backdrop-filter: blur(10px);
+            z-index: 10;
+            display: none;
+        }
+
+        /* Drag-and-drop Visual Cursor/Avatar */
+        .drag-avatar {
+            position: fixed;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+            font-size: 2.5rem;
+            transform: translate(-50%, -50%);
+            filter: drop-shadow(0 0 10px rgba(57, 255, 20, 0.8));
+        }
+
+        /* Responsive UI Adjustments */
+        @media(max-width: 1024px) {
+            .workspace {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow-y: scroll;
+            }
+            .sidebar {
+                border-right: none;
+                border-bottom: 1px solid var(--panel-border);
+                height: auto;
+            }
+            .simulation-container {
+                height: 600px;
+            }
+            .analytics-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header Block -->
+    <header>
+        <div class="header-title-container">
+            <h1>Hydrologic Abstractions</h1>
+            <p>Interactive engineering exploration of system losses & abstractions</p>
+        </div>
+        <div class="header-controls">
+            <button class="btn btn-tour" id="tourBtn">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.01.388-1.01.94z"/></svg>
+                Guided Tour
+            </button>
+            <button class="btn btn-audio" id="audioBtn">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.536 14.01A8.473 8.473 0 0 0 14 8c0-2.29-.904-4.37-2.37-5.914l-.706.707A7.478 7.478 0 0 1 13 8c0 2.02-.793 3.847-2.07 5.18l.706.707z"/><path d="M9.707 12.5a6.47 6.47 0 0 0 1.879-4.5 6.47 6.47 0 0 0-1.879-4.515l-.707.708A5.478 5.478 0 0 1 10.5 8c0 1.507-.614 2.87-1.609 3.857l.716.713z"/><path d="M11.586 8 .5 12V4l11.086 4z"/></svg>
+                Mute Audio
+            </button>
+            <button class="btn" id="resetBtn">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.425 2.308a.25.25 0 0 0 0 .384l2.166 1.966A.25.25 0 0 0 8 4.466z"/></svg>
+                Reset Conditions
+            </button>
+        </div>
+    </header>
+
+    <!-- Workspace Viewport -->
+    <div class="workspace">
+        <!-- Sidebar Controls -->
+        <aside class="sidebar">
+            <div class="panel-section">
+                <h2>Abstractions Controls</h2>
+                
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span>Precipitation Intensity</span>
+                        <span class="control-value" id="val-precip">45 mm/hr</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-precip" min="0" max="100" value="45">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span>Vegetation Density</span>
+                        <span class="control-value" id="val-veg">50%</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-veg" min="0" max="100" value="50">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span>Surface Roughness</span>
+                        <span class="control-value" id="val-rough">30%</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-rough" min="0" max="100" value="30">
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <div class="control-label-wrapper">
+                        <span>Ambient Temperature</span>
+                        <span class="control-value" id="val-temp">24°C</span>
+                    </div>
+                    <div class="slider-container">
+                        <input type="range" id="slide-temp" min="5" max="45" value="24">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section">
+                <h2>Vegetation Library</h2>
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top:-5px;">Drag vegetation to the terrain to plant trees & increase Interception Capacity live.</p>
+                <div class="tool-library">
+                    <div class="tool-card" draggable="true" id="tree-evergreen">
+                        <span class="tool-icon">🌲</span>
+                        <span class="tool-name">Conifer (High Int.)</span>
+                    </div>
+                    <div class="tool-card" draggable="true" id="tree-deciduous">
+                        <span class="tool-icon">🌳</span>
+                        <span class="tool-name">Broadleaf (Med Int.)</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-section" style="margin-top: auto;">
+                <h2>Interaction Guide</h2>
+                <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+                    Click direct landscape systems (Lake, Forest canopy, rough depression basins) to hear descriptive interactive voice explanations on the scientific abstractions of Engineering Hydrology.
+                </p>
+            </div>
+        </aside>
+
+        <!-- Dynamic Simulation Frame -->
+        <main class="simulation-container">
+            <!-- Simulated Environment -->
+            <div class="canvas-wrapper" id="canvasFrame">
+                <canvas id="simCanvas"></canvas>
+                
+                <!-- Overlay HUD metric cards -->
+                <div class="hud-overlay">
+                    <div class="hud-card" id="hud-et">
+                        <h3>Evapotranspiration (ET)</h3>
+                        <div class="hud-metric" id="hud-et-val">0.00<span class="hud-unit">mm/hr</span></div>
+                    </div>
+                    <div class="hud-card" id="hud-interception">
+                        <h3>Canopy Interception</h3>
+                        <div class="hud-metric" id="hud-interception-val">0.00<span class="hud-unit">mm/hr</span></div>
+                    </div>
+                    <div class="hud-card" id="hud-depression">
+                        <h3>Depression Storage</h3>
+                        <div class="hud-metric" id="hud-depression-val">0.00<span class="hud-unit">mm</span></div>
+                    </div>
+                </div>
+
+                <!-- Guided Tour Highlight ring element -->
+                <div class="highlight-ring" id="highlightRing"></div>
+                <!-- Interactive Narrator subtitle frame -->
+                <div class="narration-box" id="narratorBox">Welcome to the Hydrologic Abstractions simulation.</div>
+            </div>
+
+            <!-- Bottom Analytics / Mathematical Panel -->
+            <section class="analytics-panel">
+                <!-- Custom interactive Canvas graph display -->
+                <div class="chart-container">
+                    <div class="chart-header">
+                        <span class="chart-title">Real-Time Mass-Balance Abstraction Curve</span>
+                        <div class="chart-legend">
+                            <div class="legend-item"><div class="legend-color" style="background:#00f3ff;"></div>Precipitation</div>
+                            <div class="legend-item"><div class="legend-color" style="background:#ffaa00;"></div>Total Losses</div>
+                            <div class="legend-item"><div class="legend-color" style="background:#39ff14;"></div>Infiltration</div>
+                        </div>
+                    </div>
+                    <canvas id="chartCanvas" style="flex-grow:1;"></canvas>
+                </div>
+
+                <!-- Equation Renderer Block -->
+                <div class="equation-box">
+                    <h4>Dynamic Governing Abstraction Equations</h4>
+                    <div class="math-output" id="latex-eq1">
+                        $$ET = E_L + T_V$$
+                    </div>
+                    <div class="math-output" id="latex-eq2" style="font-size: 1rem; color: var(--neon-cyan);">
+                        $$P = ET + I_a + D_s + F + R_{run}$$
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Drag Avatar Item -->
+    <div class="drag-avatar" id="dragAvatar">🌲</div>
+
+    <script>
+        // High-performance single file Hydrologic Simulator
+        
+        // Ensure browser compatibility & audio context
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        let audioCtx = null;
+        let rainSoundNode = null;
+        let soundGainNode = null;
+        let isMuted = true; // Start muted to bypass aggressive Autoplay policies, toggle via audio btn
+
+        // MathJax/Math elements scale tracking
+        let updateMathTimeout;
+
+        // Custom canvas contexts
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const chartCanvas = document.getElementById('chartCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        // State Machine
+        const state = {
+            precipitation: 45, // Intensity in mm/hr
+            vegetation: 50,    // density %
+            roughness: 30,     // surface roughness %
+            temperature: 24,   // Celcius
+            trees: [
+                {x: 0.35, y: 0.65, type: 'evergreen', size: 45, health: 1.0},
+                {x: 0.48, y: 0.62, type: 'deciduous', size: 55, health: 1.0},
+                {x: 0.58, y: 0.64, type: 'evergreen', size: 40, health: 1.0}
+            ],
+            // Dynamic system variables
+            evaporation: 0,
+            transpiration: 0,
+            interception: 0,
+            interceptionCap: 0,
+            interceptionCurrent: 0,
+            depressionStorage: 0,
+            depressionCap: 0,
+            infiltrationRate: 0,
+            runoffRate: 0,
+            // Visual elements
+            particles: [],
+            vaporParticles: [],
+            ripples: [],
+            time: 0,
+            // Real-time chart series log data
+            history: []
+        };
+
+        // UI Inputs
+        const slidePrecip = document.getElementById('slide-precip');
+        const slideVeg = document.getElementById('slide-veg');
+        const slideRough = document.getElementById('slide-rough');
+        const slideTemp = document.getElementById('slide-temp');
+
+        const valPrecip = document.getElementById('val-precip');
+        const valVeg = document.getElementById('val-veg');
+        const valRough = document.getElementById('val-rough');
+        const valTemp = document.getElementById('val-temp');
+
+        // Dynamic simulation canvas resizing
+        function resizeCanvases() {
+            const frame = document.getElementById('canvasFrame');
+            canvas.width = frame.clientWidth * window.devicePixelRatio;
+            canvas.height = frame.clientHeight * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+            const chartFrame = chartCanvas.parentElement;
+            chartCanvas.width = chartFrame.clientWidth * window.devicePixelRatio;
+            chartCanvas.height = chartFrame.clientHeight * window.devicePixelRatio;
+            chartCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // Web Audio system generators (Procedural Rain White-noise Filter)
+        function initAudio() {
+            if (audioCtx) return;
+            audioCtx = new AudioContext();
+            
+            // Build procedural audio buffer for rain white noise
+            const bufferSize = 2 * audioCtx.sampleRate;
+            const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const output = noiseBuffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                output[i] = Math.random() * 2 - 1;
+            }
+
+            const noiseSource = audioCtx.createBufferSource();
+            noiseSource.buffer = noiseBuffer;
+            noiseSource.loop = true;
+
+            const rainFilter = audioCtx.createBiquadFilter();
+            rainFilter.type = 'lowpass';
+            rainFilter.frequency.value = 800; // soft rain filter
+
+            soundGainNode = audioCtx.createGain();
+            soundGainNode.gain.value = isMuted ? 0 : 0.15;
+
+            noiseSource.connect(rainFilter);
+            rainFilter.connect(soundGainNode);
+            soundGainNode.connect(audioCtx.destination);
+            noiseSource.start(0);
+
+            rainSoundNode = {
+                source: noiseSource,
+                filter: rainFilter,
+                gain: soundGainNode
+            };
+        }
+
+        function playSynthBeep(freq, type = 'sine', duration = 0.1) {
+            if (!audioCtx || isMuted) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = type;
+            osc.frequency.value = freq;
+            
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        // Setup sound interface events
+        document.getElementById('audioBtn').addEventListener('click', () => {
+            initAudio();
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            isMuted = !isMuted;
+            const btn = document.getElementById('audioBtn');
+            if (isMuted) {
+                btn.innerHTML = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M11.536 14.01A8.473 8.473 0 0 0 14 8c0-2.29-.904-4.37-2.37-5.914l-.706.707A7.478 7.478 0 0 1 13 8c0 2.02-.793 3.847-2.07 5.18l.706.707z"/><path d="M9.707 12.5a6.47 6.47 0 0 0 1.879-4.5 6.47 6.47 0 0 0-1.879-4.515l-.707.708A5.478 5.478 0 0 1 10.5 8c0 1.507-.614 2.87-1.609 3.857l.716.713z"/><path d="M11.586 8 .5 12V4l11.086 4z"/></svg> Mute Audio`;
+                if (soundGainNode) soundGainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            } else {
+                btn.innerHTML = `<svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M6.717 3.55A.5.5 0 0 1 7 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.363-1.89a.5.5 0 0 1 .529-.06zM6 11.196 3.882 9.5H2V6.5h1.882L6 4.804v6.392z"/><path d="M11.586 8 .5 12V4l11.086 4z"/></svg> Unmuted`;
+                if (soundGainNode) soundGainNode.gain.setTargetAtTime(0.2, audioCtx.currentTime, 0.1);
+                playSynthBeep(440, 'triangle', 0.15);
+            }
+        });
+
+        // Guided Tour Narrator Workflow using browser TTS
+        const tourSteps = [
+            {
+                element: null,
+                focusX: 0.15,
+                focusY: 0.75,
+                title: "Evaporation Direct Losses",
+                text: "Here, open surface water from the reservoir evaporates. Higher wind rates and higher temperatures drive up direct molecular evaporation, directly subtracting water from the water basin before overland flow reaches the stream network."
+            },
+            {
+                element: null,
+                focusX: 0.45,
+                focusY: 0.5,
+                title: "Canopy Interception",
+                text: "Rain falling over vegetation is caught by leaves and branches. This is Interception. High vegetation density dynamically scales interception capacity. The captured rainfall never reaches the soil and evaporates back directly."
+            },
+            {
+                element: null,
+                focusX: 0.5,
+                focusY: 0.65,
+                title: "Plant Transpiration",
+                text: "Trees act as hydraulic pumps, pulling deep groundwater from the subsurface soil and releasing it back into the sky through leaf stomata. Together with evaporation, this constitutes the primary regional Evapotranspiration stream."
+            },
+            {
+                element: null,
+                focusX: 0.85,
+                focusY: 0.78,
+                title: "Depression Storage",
+                text: "Small soil valleys, terrain cracks and pockets trap rainfall directly. If terrain roughness is high, huge volumes are locked in depression storage. This water slowly infiltrates deep into aquifers or evaporates."
+            }
+        ];
+
+        let currentTourStep = -1;
+        const synth = window.speechSynthesis;
+        let currentUtterance = null;
+
+        function runTour() {
+            currentTourStep = 0;
+            executeTourStep();
+        }
+
+        function executeTourStep() {
+            if (currentTourStep >= tourSteps.length) {
+                // End tour
+                document.getElementById('highlightRing').style.display = 'none';
+                document.getElementById('narratorBox').style.display = 'none';
+                return;
+            }
+
+            const step = tourSteps[currentTourStep];
+            
+            // Audio blip
+            initAudio();
+            playSynthBeep(587.33, 'sine', 0.2); // D5
+
+            // Position highlight ring on canvas coordinates
+            const ring = document.getElementById('highlightRing');
+            const box = document.getElementById('narratorBox');
+            const parentWidth = canvas.clientWidth;
+            const parentHeight = canvas.clientHeight;
+
+            ring.style.left = `${(step.focusX * parentWidth) - 50}px`;
+            ring.style.top = `${(step.focusY * parentHeight) - 50}px`;
+            ring.style.width = '100px';
+            ring.style.height = '100px';
+            ring.style.display = 'block';
+
+            box.innerHTML = `<strong>${step.title}</strong><br>${step.text}`;
+            box.style.display = 'block';
+
+            // Speech
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            currentUtterance = new SpeechSynthesisUtterance(step.text);
+            currentUtterance.rate = 1.05;
+            currentUtterance.pitch = 1.0;
+
+            currentUtterance.onend = () => {
+                setTimeout(() => {
+                    currentTourStep++;
+                    executeTourStep();
+                }, 2000); // 2 second delay before next step
+            };
+
+            synth.speak(currentUtterance);
+        }
+
+        document.getElementById('tourBtn').addEventListener('click', runTour);
+
+        // Simulation Hydrologic Math loop calculations
+        function calculateHydrologicEquations() {
+            // Evaporation based on Temp and Water Surface
+            // Base evap model: E = C * Temp
+            const tFactor = Math.max(0.1, state.temperature / 20.0);
+            state.evaporation = 1.8 * tFactor; 
+
+            // Transpiration based on vegetation canopy density and temp
+            state.transpiration = 0.8 * (state.vegetation / 100.0) * tFactor * 2.2;
+
+            // Canopy Interception dynamic filling
+            // Capacities are governed by density of foliage
+            state.interceptionCap = (state.vegetation / 100.0) * 8.0; // Max stored interception in mm
+            
+            // Actual interception capture rate
+            if (state.precipitation > 0) {
+                // If it rains, canopy intercepts up to its capacity
+                const interceptionRatio = 0.25 * (state.vegetation / 100.0);
+                state.interception = Math.min(state.precipitation * interceptionRatio, state.interceptionCap);
+                
+                // Keep track of accumulated physical canopy storage
+                state.interceptionCurrent = Math.min(state.interceptionCap, state.interceptionCurrent + (state.interception * 0.016));
+            } else {
+                // No rain, so intercepted water evaporates off canopy
+                state.interception = 0;
+                state.interceptionCurrent = Math.max(0, state.interceptionCurrent - (state.evaporation * 0.1));
+            }
+
+            // Depression Storage filling
+            // Base roughness capacity
+            state.depressionCap = (state.roughness / 100.0) * 12.0; // Max mm stored
+            
+            // Effective precipitation hitting the ground
+            const groundRainfall = Math.max(0, state.precipitation - state.interception);
+
+            // Infiltration rate behaves dynamically (Horton's model representation)
+            // Starts high, decays down
+            const baseInfiltration = 3.0 + (1.0 - (state.roughness/100))*5.0; // dry soil has higher initial
+            state.infiltrationRate = Math.min(groundRainfall, baseInfiltration);
+
+            // Fill depression storage
+            if (groundRainfall > state.infiltrationRate) {
+                const waterToStorage = groundRainfall - state.infiltrationRate;
+                state.depressionStorage = Math.min(state.depressionCap, state.depressionStorage + (waterToStorage * 0.01));
+            } else {
+                // Natural drainage of pockets
+                state.depressionStorage = Math.max(0, state.depressionStorage - (1.5 * 0.016));
+            }
+
+            // Calculate direct engineering runoff surface yields
+            const abstractions = state.interception + state.infiltrationRate;
+            state.runoffRate = Math.max(0, state.precipitation - abstractions);
+
+            // Update UI HUD text outputs
+            document.getElementById('hud-et-val').innerHTML = `${(state.evaporation + state.transpiration).toFixed(2)}<span class="hud-unit">mm/hr</span>`;
+            document.getElementById('hud-interception-val').innerHTML = `${state.interception.toFixed(2)}<span class="hud-unit">mm/hr</span>`;
+            document.getElementById('hud-depression-val').innerHTML = `${state.depressionStorage.toFixed(1)}<span class="hud-unit">mm</span>`;
+
+            // Adjust rain procedural noise frequency & volume based on precipitation rate
+            if (rainSoundNode && !isMuted) {
+                const targetFreq = 400 + (state.precipitation * 15);
+                const targetGain = (state.precipitation / 100.0) * 0.25;
+                rainSoundNode.filter.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.2);
+                rainSoundNode.gain.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.2);
+            }
+        }
+
+        // Render functions for Canvas Environments
+        function drawTerrain() {
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            
+            ctx.clearRect(0, 0, w, h);
+
+            // Draw Sky background
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+            skyGrad.addColorStop(0, '#040712');
+            skyGrad.addColorStop(1, '#111827');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Evaporation Vapor rising particles
+            updateAndDrawVapor(w, h);
+
+            // Render Lake Surface (Left boundary)
+            const lakeY = h * 0.7;
+            const lakeW = w * 0.25;
+            
+            // Smooth natural hills and rough terrain coordinates
+            ctx.beginPath();
+            ctx.moveTo(0, lakeY);
+            
+            // Draw Lake Basin base
+            ctx.quadraticCurveTo(lakeW * 0.4, lakeY + 30, lakeW, lakeY);
+            
+            // Gentle rising bank towards vegetation sector (Middle landscape)
+            const vegStartX = w * 0.25;
+            const vegEndX = w * 0.65;
+            const centerBaseY = h * 0.65;
+            ctx.lineTo(vegStartX, centerBaseY);
+            ctx.lineTo(vegEndX, centerBaseY);
+
+            // Rough, jagged depression basin terrain profile (Right landscape)
+            const roughStartX = vegEndX;
+            const roughEndX = w;
+            const numPeaks = 10 + Math.floor(state.roughness / 10);
+            const rWidth = roughEndX - roughStartX;
+            const segmentW = rWidth / numPeaks;
+
+            for (let i = 1; i <= numPeaks; i++) {
+                const curX = roughStartX + i * segmentW;
+                // Height variance driven directly by Surface Roughness slider
+                const roughnessAmplitude = (state.roughness / 100.0) * 35;
+                const offset = (i % 2 === 0) ? roughnessAmplitude : -roughnessAmplitude;
+                ctx.lineTo(curX, centerBaseY + offset);
+            }
+
+            ctx.lineTo(w, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+
+            // Soil gradient styling
+            const soilGrad = ctx.createLinearGradient(0, centerBaseY - 20, 0, h);
+            soilGrad.addColorStop(0, '#221c17');
+            soilGrad.addColorStop(1, '#0e0b08');
+            ctx.fillStyle = soilGrad;
+            ctx.fill();
+
+            // Stroke outline
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = '#2d3748';
+            ctx.stroke();
+
+            // Render Reservoir Lake water inside basin
+            const lakeGrad = ctx.createLinearGradient(0, lakeY, 0, h);
+            lakeGrad.addColorStop(0, 'rgba(0, 243, 255, 0.65)');
+            lakeGrad.addColorStop(1, 'rgba(0, 26, 127, 0.85)');
+            ctx.fillStyle = lakeGrad;
+            ctx.beginPath();
+            ctx.moveTo(0, lakeY);
+            ctx.quadraticCurveTo(lakeW * 0.4, lakeY + 30, lakeW, lakeY);
+            ctx.lineTo(lakeW, h);
+            ctx.lineTo(0, h);
+            ctx.closePath();
+            ctx.fill();
+
+            // Lake ripples
+            drawLakeRipples(lakeW, lakeY);
+
+            // Draw dynamic fill for Depression Storage pockets
+            drawDepressionWater(roughStartX, centerBaseY, numPeaks, segmentW);
+
+            // Render Trees / Canopy
+            drawVegetationCanopy(h);
+
+            // Render Falling Rain Particles
+            updateAndDrawRain(w, h);
+
+            // Draw flux vector conceptual neon arrows
+            drawFluxVectors(w, h);
+        }
+
+        function drawLakeRipples(lakeW, lakeY) {
+            state.time += 0.02;
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.4)';
+            ctx.lineWidth = 1.5;
+            for (let i = 1; i < 4; i++) {
+                const shift = Math.sin(state.time + i) * 6;
+                ctx.beginPath();
+                ctx.arc(lakeW * 0.45 + shift, lakeY + (i * 5), 25 * i, Math.PI, 2 * Math.PI);
+                ctx.stroke();
+            }
+        }
+
+        function drawDepressionWater(roughStartX, centerBaseY, numPeaks, segmentW) {
+            if (state.depressionStorage <= 0) return;
+
+            // Fill valleys based on current accumulated volume fraction
+            const fillPct = state.depressionStorage / state.depressionCap;
+            const roughnessAmplitude = (state.roughness / 100.0) * 35;
+            const maxWaterY = centerBaseY + roughnessAmplitude; // fill level ceiling
+
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.45)';
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.8)';
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i < numPeaks; i++) {
+                const x1 = roughStartX + i * segmentW;
+                const x2 = roughStartX + (i + 1) * segmentW;
+                const valleyY = centerBaseY + ((i % 2 !== 0) ? roughnessAmplitude : -roughnessAmplitude);
+                const nextValleyY = centerBaseY + (((i + 1) % 2 !== 0) ? roughnessAmplitude : -roughnessAmplitude);
+
+                if (valleyY > centerBaseY || nextValleyY > centerBaseY) {
+                    // This is a pocket valley basin floor, fill it up!
+                    const waterLevelY = Math.max(valleyY, nextValleyY) - (fillPct * roughnessAmplitude);
+
+                    ctx.beginPath();
+                    ctx.moveTo(x1, valleyY);
+                    ctx.lineTo(x2, nextValleyY);
+                    ctx.lineTo(x2, waterLevelY);
+                    ctx.lineTo(x1, waterLevelY);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawVegetationCanopy(canvasH) {
+            state.trees.forEach(tree => {
+                const realX = tree.x * canvas.clientWidth;
+                const realY = canvasH * 0.65; // On top of flat base terrain
+
+                // Draw Canopy (glowing neon circles)
+                const grad = ctx.createRadialGradient(realX, realY - tree.size, 5, realX, realY - tree.size, tree.size);
+                grad.addColorStop(0, 'rgba(57, 255, 20, 0.85)');
+                grad.addColorStop(0.5, 'rgba(10, 150, 40, 0.7)');
+                grad.addColorStop(1, 'rgba(5, 50, 10, 0.25)');
+                
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(realX, realY - tree.size, tree.size, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Glowing outline indicating canopy interception activity
+                if (state.interceptionCurrent > 0) {
+                    ctx.strokeStyle = '#00f3ff';
+                    ctx.lineWidth = 2 * (state.interceptionCurrent / state.interceptionCap);
+                    ctx.shadowColor = '#00f3ff';
+                    ctx.shadowBlur = 10;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0; // reset
+                }
+
+                // Trunk
+                ctx.fillStyle = '#4a2c11';
+                ctx.fillRect(realX - 6, realY - tree.size + 15, 12, tree.size - 15);
+            });
+        }
+
+        function updateAndDrawRain(w, h) {
+            // Generate rain drops proportional to intensity
+            const intensityLimit = state.precipitation / 3.0;
+            if (state.particles.length < intensityLimit && Math.random() < 0.8) {
+                state.particles.push({
+                    x: Math.random() * w,
+                    y: -10,
+                    vy: 8 + Math.random() * 6 + (state.precipitation / 20),
+                    vx: -1 - Math.random() * 2,
+                    length: 10 + Math.random() * 10
+                });
+            }
+
+            ctx.strokeStyle = 'rgba(0, 243, 255, 0.65)';
+            ctx.lineWidth = 1.5;
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Simple collision handling with ground and canopy
+                const localTerrainY = h * 0.65;
+
+                // Canopy Interception detection
+                let intercepted = false;
+                state.trees.forEach(tree => {
+                    const treeRealX = tree.x * w;
+                    const treeRealY = h * 0.65;
+                    const dx = p.x - treeRealX;
+                    const dy = p.y - (treeRealY - tree.size);
+                    const distance = Math.sqrt(dx*dx + dy*dy);
+                    if (distance < tree.size) {
+                        intercepted = true;
+                    }
+                });
+
+                if (intercepted || p.y > localTerrainY + 30) {
+                    // Trigger sound/impact splash blips under extreme settings
+                    if (Math.random() < 0.02 && state.precipitation > 60 && !isMuted) {
+                        playSynthBeep(220, 'sine', 0.03); // Splash sound representation
+                    }
+                    state.particles.splice(i, 1);
+                } else if (p.y > h) {
+                    state.particles.splice(i, 1);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x + (p.vx * 0.5), p.y + p.length);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function updateAndDrawVapor(w, h) {
+            // Vapor rise from lake (Evaporation) & Vegetation (Transpiration)
+            const totalVaporTarget = (state.evaporation + state.transpiration) * 15;
+            if (state.vaporParticles.length < totalVaporTarget && Math.random() < 0.4) {
+                // Determine source: lake or forest zone
+                const isLake = Math.random() < (state.evaporation / (state.evaporation + state.transpiration));
+                const startX = isLake ? (Math.random() * w * 0.23) : (w * 0.3 + Math.random() * w * 0.35);
+                const startY = h * 0.65;
+                state.vaporParticles.push({
+                    x: startX,
+                    y: startY,
+                    vy: -0.5 - Math.random() * 0.8,
+                    vx: (Math.random() * 0.6) - 0.3,
+                    alpha: 1.0,
+                    size: 3 + Math.random() * 5
+                });
+            }
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+            for (let i = state.vaporParticles.length - 1; i >= 0; i--) {
+                const vp = state.vaporParticles[i];
+                vp.y += vp.vy;
+                vp.x += vp.vx;
+                vp.alpha -= 0.005; // Fade out as it rises
+
+                if (vp.alpha <= 0 || vp.y < h * 0.15) {
+                    state.vaporParticles.splice(i, 1);
+                } else {
+                    ctx.fillStyle = `rgba(200, 245, 255, ${vp.alpha * 0.25})`;
+                    ctx.beginPath();
+                    ctx.arc(vp.x, vp.y, vp.size, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+        }
+
+        function drawFluxVectors(w, h) {
+            // High-contrast conceptual arrow vector rendering
+            // Arrows scale with their physical parameter rate
+
+            // 1. Evaporation Arrow (Rising from Lake)
+            if (state.evaporation > 0) {
+                drawGlowArrow(w * 0.12, h * 0.62, w * 0.12, h * 0.62 - (state.evaporation * 30), 'rgba(255, 170, 0, 0.85)', `Evap: ${state.evaporation.toFixed(2)} mm/hr`);
+            }
+
+            // 2. Transpiration Arrow (Rising from Canopy)
+            if (state.transpiration > 0) {
+                drawGlowArrow(w * 0.5, h * 0.52 - 30, w * 0.5, h * 0.52 - 30 - (state.transpiration * 30), 'rgba(57, 255, 20, 0.85)', `Transp: ${state.transpiration.toFixed(2)} mm/hr`);
+            }
+
+            // 3. Infiltration Downward Arrow
+            if (state.infiltrationRate > 0) {
+                drawGlowArrow(w * 0.72, h * 0.72, w * 0.72, h * 0.72 + 35 + (state.infiltrationRate * 12), 'rgba(0, 243, 255, 0.85)', `Infiltration: ${state.infiltrationRate.toFixed(2)} mm/hr`, true);
+            }
+        }
+
+        function drawGlowArrow(x1, y1, x2, y2, color, label, isDown = false) {
+            ctx.strokeStyle = color;
+            ctx.fillStyle = color;
+            ctx.lineWidth = 4;
+            
+            // Draw shaft
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            // Draw arrow head
+            const arrowLength = 10;
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.beginPath();
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - arrowLength * Math.cos(angle - Math.PI / 6), y2 - arrowLength * Math.sin(angle - Math.PI / 6));
+            ctx.lineTo(x2 - arrowLength * Math.cos(angle + Math.PI / 6), y2 - arrowLength * Math.sin(angle + Math.PI / 6));
+            ctx.closePath();
+            ctx.fill();
+
+            // Label text
+            ctx.fillStyle = '#f0f4f8';
+            ctx.font = 'bold 10px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, x1, isDown ? y2 + 15 : y2 - 12);
+        }
+
+        // Live Custom Canvas Plot Graphics (Self-contained high-performance chart engine)
+        function updateChartHistory() {
+            // Append data sample
+            const timestamp = state.time;
+            const abstractions = state.interception + state.infiltrationRate + (state.evaporation + state.transpiration);
+            
+            state.history.push({
+                precip: state.precipitation,
+                losses: abstractions,
+                infiltration: state.infiltrationRate
+            });
+
+            // Restrict window size
+            if (state.history.length > 250) {
+                state.history.shift();
+            }
+        }
+
+        function drawChart() {
+            const w = chartCanvas.clientWidth;
+            const h = chartCanvas.clientHeight;
+            
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Draw light background grid lines
+            chartCtx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+            chartCtx.lineWidth = 1;
+            const gridCount = 5;
+            for (let i = 1; i < gridCount; i++) {
+                const yLine = (h / gridCount) * i;
+                chartCtx.beginPath();
+                chartCtx.moveTo(0, yLine);
+                chartCtx.lineTo(w, yLine);
+                chartCtx.stroke();
+            }
+
+            if (state.history.length === 0) return;
+
+            const maxVal = 100; // max Y axis range scale (mm/hr matching max precip slider)
+            
+            // Render line series paths
+            const drawSeries = (key, color) => {
+                chartCtx.strokeStyle = color;
+                chartCtx.lineWidth = 2.5;
+                chartCtx.beginPath();
+
+                for (let i = 0; i < state.history.length; i++) {
+                    const sample = state.history[i];
+                    const x = (i / 250) * w;
+                    const y = h - ((sample[key] / maxVal) * h);
+                    if (i === 0) {
+                        chartCtx.moveTo(x, y);
+                    } else {
+                        chartCtx.lineTo(x, y);
+                    }
+                }
+                chartCtx.stroke();
+            };
+
+            drawSeries('precip', '#00f3ff');
+            drawSeries('losses', '#ffaa00');
+            drawSeries('infiltration', '#39ff14');
+        }
+
+        // Handle Interactive Parameter inputs
+        function syncUIValues() {
+            state.precipitation = parseFloat(slidePrecip.value);
+            state.vegetation = parseFloat(slideVeg.value);
+            state.roughness = parseFloat(slideRough.value);
+            state.temperature = parseFloat(slideTemp.value);
+
+            valPrecip.innerText = `${state.precipitation} mm/hr`;
+            valVeg.innerText = `${state.vegetation}%`;
+            valRough.innerText = `${state.roughness}%`;
+            valTemp.innerText = `${state.temperature}°C`;
+
+            // Trigger equations updates & MathJax typesetting refresh (throttled)
+            updateLatexEquations();
+        }
+
+        function updateLatexEquations() {
+            clearTimeout(updateMathTimeout);
+            updateMathTimeout = setTimeout(() => {
+                // Change math equations content dynamic text value directly
+                const eqBox1 = document.getElementById('latex-eq1');
+                const eqBox2 = document.getElementById('latex-eq2');
+
+                const etVal = (state.evaporation + state.transpiration).toFixed(2);
+                const absVal = (state.interception + state.infiltrationRate + state.depressionStorage).toFixed(2);
+                
+                eqBox1.innerHTML = `$$ET_{total} = E_L + T_V = ${(state.evaporation).toFixed(1)} + ${(state.transpiration).toFixed(1)} = ${etVal} \\text{ mm/hr}$$`;
+                eqBox2.innerHTML = `$$Abstractions = I_a + D_s + F = ${state.interception.toFixed(1)} + ${state.depressionStorage.toFixed(1)} + ${state.infiltrationRate.toFixed(1)} = ${absVal} \\text{ mm/hr}$$`;
+
+                // Signal MathJax typesetting reload
+                if (window.MathJax) {
+                    window.MathJax.typesetPromise([eqBox1, eqBox2]);
+                }
+            }, 300);
+        }
+
+        [slidePrecip, slideVeg, slideRough, slideTemp].forEach(slider => {
+            slider.addEventListener('input', () => {
+                initAudio();
+                syncUIValues();
+                playSynthBeep(330, 'sine', 0.05); // low frequency click feedback
+            });
+        });
+
+        // Drag and Drop plant-a-tree mechanism implementation
+        let draggedTreeType = null;
+        const dragAvatar = document.getElementById('dragAvatar');
+
+        const evergreenCard = document.getElementById('tree-evergreen');
+        const deciduousCard = document.getElementById('tree-deciduous');
+
+        [evergreenCard, deciduousCard].forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                draggedTreeType = card.id === 'tree-evergreen' ? 'evergreen' : 'deciduous';
+                dragAvatar.innerText = draggedTreeType === 'evergreen' ? '🌲' : '🌳';
+                dragAvatar.style.display = 'block';
+                // Transparent pixel hack to hide default browser dragging clone preview
+                const img = new Image();
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                e.dataTransfer.setDragImage(img, 0, 0);
+            });
+
+            card.addEventListener('drag', (e) => {
+                if(e.clientX === 0) return; // ignore final end-drag jump coordinate
+                dragAvatar.style.left = `${e.clientX}px`;
+                dragAvatar.style.top = `${e.clientY}px`;
+            });
+
+            card.addEventListener('dragend', () => {
+                dragAvatar.style.display = 'none';
+            });
+        });
+
+        // Drop Zone setup
+        const canvasFrame = document.getElementById('canvasFrame');
+        canvasFrame.addEventListener('dragover', (e) => {
+            e.preventDefault(); // allow drops
+        });
+
+        canvasFrame.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const relativeX = (e.clientX - rect.left) / rect.width;
+
+            // Ensure tree drops in vegetative zone (Middle landscape)
+            if (relativeX > 0.25 && relativeX < 0.65) {
+                // Sound blip
+                initAudio();
+                playSynthBeep(493.88, 'triangle', 0.15); // B4 plant synth note
+                
+                // Add new landscape tree
+                state.trees.push({
+                    x: relativeX,
+                    type: draggedTreeType,
+                    size: 35 + Math.random() * 20,
+                    health: 1.0
+                });
+
+                // Dynamically update vegetation slider value representing physical scaling
+                state.vegetation = Math.min(100, state.vegetation + 10);
+                slideVeg.value = state.vegetation;
+                syncUIValues();
+            } else {
+                // Out of range warning audio beep
+                playSynthBeep(150, 'sawtooth', 0.2);
+            }
+        });
+
+        // Click landscape zones interactive TTS narrator
+        canvas.addEventListener('click', (e) => {
+            initAudio();
+            const rect = canvas.getBoundingClientRect();
+            const clickX = (e.clientX - rect.left) / rect.width;
+            
+            if (synth.speaking) {
+                synth.cancel();
+            }
+
+            let msg = "";
+            if (clickX <= 0.25) {
+                msg = "You clicked the reservoir water surface. In hydrologic systems, direct surface evaporation is continuous, heavily depending on water surface temperature and ambient wind profiles.";
+            } else if (clickX > 0.25 && clickX < 0.65) {
+                msg = "This is the vegetative zone. Vegetation intercepts rain drops, temporarily storing them on tree canopies. Stomata cells in plants also transpire subsurface aquifer water.";
+            } else {
+                msg = "This represents land depressions and surface pockets. High roughness structures dynamically store precipitation, providing a crucial water sink before runoffs occur.";
+            }
+
+            const utt = new SpeechSynthesisUtterance(msg);
+            utt.rate = 1.05;
+            synth.speak(utt);
+
+            const box = document.getElementById('narratorBox');
+            box.innerHTML = `<strong>Landscape System</strong><br>${msg}`;
+            box.style.display = 'block';
+            setTimeout(() => { box.style.display = 'none'; }, 6000);
+        });
+
+        // Reset Engine Conditions
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            initAudio();
+            playSynthBeep(330, 'sine', 0.3);
+
+            slidePrecip.value = 45;
+            slideVeg.value = 50;
+            slideRough.value = 30;
+            slideTemp.value = 24;
+
+            state.trees = [
+                {x: 0.35, type: 'evergreen', size: 45, health: 1.0},
+                {x: 0.48, type: 'deciduous', size: 55, health: 1.0},
+                {x: 0.58, type: 'evergreen', size: 40, health: 1.0}
+            ];
+            state.depressionStorage = 0;
+            state.interceptionCurrent = 0;
+            state.history = [];
+
+            syncUIValues();
+        });
+
+        // Core Physics loop
+        function mainLoop() {
+            // 1. Calculate equations
+            calculateHydrologicEquations();
+
+            // 2. Render primary simulation state
+            drawTerrain();
+
+            // 3. Render real-time chart logging data
+            if (Math.floor(state.time * 60) % 5 === 0) { // log 12 times a second
+                updateChartHistory();
+            }
+            drawChart();
+
+            requestAnimationFrame(mainLoop);
+        }
+
+        // Initialization
+        resizeCanvases();
+        syncUIValues();
+        requestAnimationFrame(mainLoop);
+    </script>
+</body>
+</html>

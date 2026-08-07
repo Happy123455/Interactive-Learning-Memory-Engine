@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kostiakov's Empirical Infiltration Curve Simulator - Hydrology Lab</title>
+  <style>
+    /* Premium Styling - Deep Dark Theme with Hydrology Blue / Cyan Glows */
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 50%, #0a1128 0%, #040814 100%);
+      --panel-bg: rgba(10, 25, 47, 0.7);
+      --glass-border: rgba(0, 210, 255, 0.15);
+      --glass-glow: rgba(0, 210, 255, 0.05);
+      --accent-blue: #00d2ff;
+      --accent-green: #00ffaa;
+      --accent-coral: #ff5e7e;
+      --text-main: #f0f4f8;
+      --text-muted: #8fa0dd;
+      --sidebar-width: 380px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+
+    /* Top Bar Header */
+    header {
+      background: rgba(4, 8, 20, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--glass-border);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: radial-gradient(circle, var(--accent-blue) 30%, transparent 70%);
+      border: 2px solid var(--accent-blue);
+      border-radius: 50%;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+      position: relative;
+    }
+
+    .brand-logo::after {
+      content: '';
+      position: absolute;
+      top: 25%;
+      left: 25%;
+      width: 50%;
+      height: 50%;
+      background: var(--accent-green);
+      border-radius: 50%;
+    }
+
+    .brand-title {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      background: linear-gradient(120deg, var(--accent-blue), var(--accent-green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-subtitle {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: block;
+    }
+
+    .audio-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn-audio {
+      background: rgba(0, 210, 255, 0.1);
+      border: 1px solid var(--accent-blue);
+      color: var(--accent-blue);
+      padding: 6px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 4px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-audio:hover {
+      background: var(--accent-blue);
+      color: #040814;
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+    }
+
+    /* Main Grid Setup */
+    .dashboard {
+      flex: 1;
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr var(--sidebar-width);
+      gap: 16px;
+      padding: 16px;
+      height: calc(100vh - 65px);
+      max-height: calc(100vh - 65px);
+    }
+
+    /* Card Panels Styling (Glassmorphism) */
+    .glass-panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .glass-panel::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-blue), transparent);
+    }
+
+    .panel-header {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--glass-border);
+      background: rgba(4, 8, 20, 0.4);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .panel-badge {
+      font-size: 0.65rem;
+      background: rgba(0, 255, 170, 0.15);
+      color: var(--accent-green);
+      padding: 2px 6px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 255, 170, 0.3);
+      font-weight: 600;
+    }
+
+    .panel-body {
+      padding: 16px;
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Form Elements & Inputs */
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .input-label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .input-label-row span.val-highlight {
+      color: var(--accent-blue);
+      font-family: monospace;
+      font-size: 0.9rem;
+    }
+
+    .slider-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.8);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .number-input-box {
+      background: rgba(4, 8, 20, 0.5);
+      border: 1px solid var(--glass-border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .number-input-box input {
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-family: monospace;
+      font-size: 1rem;
+      width: 80px;
+      text-align: right;
+    }
+
+    /* Visualizer (Middle Column) */
+    .visualizer-col {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .plot-container {
+      flex: 1;
+      position: relative;
+      min-height: 250px;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      background: rgba(4, 8, 20, 0.3);
+      border-radius: 8px;
+    }
+
+    /* Math and Theory Panel (Exam Simulation Sheet) */
+    .exam-sheet {
+      background: #fafafa !important;
+      color: #1a2238 !important;
+      border: 1px solid #dcdfe6 !important;
+      font-family: Georgia, serif;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.06);
+    }
+
+    .exam-sheet::before {
+      background: linear-gradient(90deg, transparent, #b0c4de, transparent) !important;
+    }
+
+    .exam-sheet .panel-header {
+      background: #f0f2f5;
+      border-bottom: 1px solid #dcdfe6;
+    }
+
+    .exam-sheet .panel-title {
+      color: #1a2238;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .exam-sheet .panel-body {
+      color: #2b354a;
+      line-height: 1.5;
+    }
+
+    .exam-step {
+      border-left: 3px solid #0056b3;
+      padding-left: 12px;
+      margin-bottom: 16px;
+    }
+
+    .exam-step h4 {
+      font-size: 0.95rem;
+      font-weight: bold;
+      color: #0056b3;
+      margin-bottom: 4px;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .math-block {
+      background: #fdfdfd;
+      border: 1px solid #e4e7ed;
+      border-radius: 4px;
+      padding: 10px;
+      margin: 8px 0;
+      font-family: "Courier New", Courier, monospace;
+      font-size: 0.85rem;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      position: relative;
+    }
+
+    .math-block::before {
+      content: "FORMULA MATRIX";
+      position: absolute;
+      top: 2px; right: 6px;
+      font-size: 0.6rem;
+      color: #909399;
+      font-family: 'Segoe UI', sans-serif;
+    }
+
+    .notation-hint {
+      background: #fff3cd;
+      border: 1px solid #ffeeba;
+      color: #856404;
+      padding: 8px 12px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      margin-top: 8px;
+      line-height: 1.4;
+    }
+
+    /* Result Export Panel */
+    .export-box {
+      background: rgba(0, 210, 255, 0.03);
+      border: 1px dashed var(--accent-blue);
+      border-radius: 8px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .export-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.75rem;
+      color: var(--accent-blue);
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .export-data {
+      font-family: monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      background: rgba(4, 8, 20, 0.6);
+      padding: 8px;
+      border-radius: 4px;
+      max-height: 90px;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .btn-action {
+      background: linear-gradient(135deg, #0072ff 0%, #00d2ff 100%);
+      color: #040814;
+      border: none;
+      border-radius: 6px;
+      padding: 10px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.1s, box-shadow 0.2s;
+    }
+
+    .btn-action:hover {
+      box-shadow: 0 0 15px rgba(0, 210, 255, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .btn-action:active {
+      transform: translateY(1px);
+    }
+
+    /* Interactive Status Indicators */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    .status-dot.active {
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 0.4; transform: scale(0.95); }
+      50% { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 0.4; transform: scale(0.95); }
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(4, 8, 20, 0.5);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--glass-border);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--accent-blue);
+    }
+
+    /* Singularity Alert Box */
+    .singularity-alert {
+      background: rgba(255, 94, 126, 0.1);
+      border: 1px solid rgba(255, 94, 126, 0.3);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 0.75rem;
+      color: var(--accent-coral);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    /* Tooltip styling for Canvas dynamic cursor tracking */
+    .plot-tooltip {
+      position: absolute;
+      background: rgba(4, 8, 20, 0.95);
+      border: 1px solid var(--accent-blue);
+      border-radius: 4px;
+      padding: 8px;
+      font-size: 0.7rem;
+      pointer-events: none;
+      display: none;
+      z-index: 100;
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 1200px) {
+      .dashboard {
+        grid-template-columns: 320px 1fr;
+        height: auto;
+        max-height: none;
+        overflow-y: auto;
+      }
+      .exam-sheet {
+        grid-column: 1 / -1;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .dashboard {
+        grid-template-columns: 1fr;
+      }
+      .exam-sheet {
+        grid-column: span 1;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Bar Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo"></div>
+      <div>
+        <h1 class="brand-title">Kostiakov-Empirical Infiltration</h1>
+        <span class="brand-subtitle">Step 3 Calculation & Convergence Simulator</span>
+      </div>
+    </div>
+    <div class="audio-controls">
+      <div class="status-badge">
+        <div class="status-dot active"></div>
+        <span style="color: var(--text-muted); font-size: 0.7rem;">SYSTEM SYNCED</span>
+      </div>
+      <button class="btn-audio" id="btn-narrate" onclick="narrateProfessor()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path></svg>
+        NARRATE EXAM STEP
+      </button>
+    </div>
+  </header>
+
+  <!-- Dashboard Container -->
+  <main class="dashboard">
+
+    <!-- Column 1: Variable Input Panel -->
+    <section class="glass-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Incoming from Step 1/2</h2>
+        <span class="panel-badge">COEFFICIENTS</span>
+      </div>
+      <div class="panel-body">
+        
+        <p style="font-size: 0.75rem; color: var(--text-muted); line-height: 1.4;">
+          Adjust physical constants optimized from field measurements. Parameter <em>a</em> governs global scaling, while <em>b</em> determines decay dynamics.
+        </p>
+
+        <!-- Slider A -->
+        <div class="input-group">
+          <div class="input-label-row">
+            <span>Soil Factor (a) [mm/hr<sup>b</sup>]</span>
+            <span class="val-highlight" id="lbl-a">22.50</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slider-a" min="1.0" max="60.0" step="0.5" value="22.5" oninput="updateSimulation()">
+          </div>
+        </div>
+
+        <!-- Slider B -->
+        <div class="input-group">
+          <div class="input-label-row">
+            <span>Decay Constant (b) [0 &lt; b &lt; 1]</span>
+            <span class="val-highlight" id="lbl-b">0.45</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slider-b" min="0.05" max="0.95" step="0.01" value="0.45" oninput="updateSimulation()">
+          </div>
+        </div>
+
+        <!-- Time Range Selection -->
+        <div class="input-group">
+          <div class="input-label-row">
+            <span>Simulate Time Duration (t_max)</span>
+            <span class="val-highlight" id="lbl-tmax">5.0 hrs</span>
+          </div>
+          <div class="slider-container">
+            <input type="range" id="slider-tmax" min="1.0" max="24.0" step="0.5" value="6.0" oninput="updateSimulation()">
+          </div>
+        </div>
+
+        <!-- Manual Value Lock / Direct Edit -->
+        <div class="number-input-box">
+          <span style="font-size:0.75rem; color: var(--text-muted); font-weight: 600;">COEFFICIENT a VERIFICATION</span>
+          <input type="number" id="num-a" value="22.5" min="0.1" max="100.0" step="0.1" onchange="syncFromNumInput()">
+        </div>
+
+        <div class="number-input-box">
+          <span style="font-size:0.75rem; color: var(--text-muted); font-weight: 600;">COEFFICIENT b VERIFICATION</span>
+          <input type="number" id="num-b" value="0.45" min="0.01" max="0.99" step="0.01" onchange="syncFromNumInput()">
+        </div>
+
+        <!-- Singularity Alert Container -->
+        <div class="singularity-alert">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          <div>
+            <strong>t &rarr; 0 Singularity Active:</strong> At t=0, the infiltration rate f(t) is infinite. The simulation resolves this by evaluating f(t) starting at t=0.01 hr to avoid division-by-zero.
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- Column 2: Live Plot & Export -->
+    <section class="visualizer-col">
+      <div class="glass-panel" style="flex: 1;">
+        <div class="panel-header">
+          <h2 class="panel-title">Infiltration Curves Plot</h2>
+          <span class="panel-badge" style="background:rgba(0, 210, 255, 0.15); color:var(--accent-blue); border-color:var(--accent-blue)">LIVE RESOLUTION</span>
+        </div>
+        <div class="panel-body plot-container" id="canvas-wrapper">
+          <div id="plot-tooltip" class="plot-tooltip"></div>
+          <canvas id="infiltrationCanvas"></canvas>
+        </div>
+      </div>
+
+      <!-- Export Panel -->
+      <div class="glass-panel" style="flex: 0 0 auto;">
+        <div class="panel-header">
+          <h2 class="panel-title">Vector Result Export</h2>
+          <span class="panel-badge" style="background: rgba(0, 255, 170, 0.15);">STEP 3 OUTPUT</span>
+        </div>
+        <div class="panel-body" style="padding: 12px; gap: 8px;">
+          <div class="export-box">
+            <div class="export-header">
+              <span>Selected Simulation State</span>
+              <span id="export-status">SYNCED</span>
+            </div>
+            <div class="export-data" id="export-json">
+              // Outputs for next analytical step...
+            </div>
+          </div>
+          <button class="btn-action" onclick="copyDataForNextStep()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>
+            COPY VECTOR FOR STEP 4 PROCESSING
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Academic Exam Writing Sheet -->
+    <section class="glass-panel exam-sheet">
+      <div class="panel-header">
+        <h2 class="panel-title">University Exam Template</h2>
+        <span class="panel-badge" style="background:#0056b3; color:#fff; border-color:#0056b3">STEP 3 GRADING GUIDE</span>
+      </div>
+      <div class="panel-body">
+        
+        <p style="font-size: 0.8rem; margin-bottom: 12px;">
+          <em>Follow this standard representation to secure full marks during the Hydraulic Engineering exam:</em>
+        </p>
+
+        <div class="exam-step">
+          <h4>1. Formula Declaration</h4>
+          <p style="font-size: 0.8rem;">Write down Kostiakov's cumulative and instantaneous equations, clarifying unit consistency:</p>
+          <div class="math-block">F(t) = a · t<sup>b</sup>  [mm]
+f(t) = dF/dt = a · b · t<sup>b-1</sup>  [mm/hr]</div>
+        </div>
+
+        <div class="exam-step">
+          <h4>2. Input Values Substitution</h4>
+          <p style="font-size: 0.8rem;">Substitute the field parameter values computed during the linear regression in Step 2:</p>
+          <div class="math-block" id="exam-substitution">
+a = 22.50
+b = 0.45
+F(t) = 22.50 · t^0.45
+f(t) = 10.13 · t^-0.55
+          </div>
+        </div>
+
+        <div class="exam-step">
+          <h4>3. Singularity Statement (Crucial)</h4>
+          <p style="font-size: 0.8rem;">Points are routinely deducted if you don't explicitly document the behavior at time zero:</p>
+          <div class="notation-hint">
+            <strong>Exam Tip:</strong> State: <em>"At t=0, the term t<sup>b-1</sup> drives the instantaneous infiltration rate f(t) to positive infinity. Physically, this represents instantaneous capacity at dry initial conditions, which quickly converges as saturation initiates."</em>
+          </div>
+        </div>
+
+        <div class="exam-step">
+          <h4>4. Sample Calculation Output</h4>
+          <p style="font-size: 0.8rem;">Provide proof of calculation evaluated at the final time index (t_max):</p>
+          <div class="math-block" id="exam-results">
+t_end = 5.00 hrs
+F(t_end) = 46.41 mm
+f(t_end) = 4.18 mm/hr
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Logic, Audio & Graphics Implementation -->
+  <script>
+    // System-wide application state
+    const state = {
+      a: 22.5,
+      b: 0.45,
+      tMax: 6.0,
+      soundOn: true,
+      audioCtx: null
+    };
+
+    // Canvas Configuration
+    const canvas = document.getElementById('infiltrationCanvas');
+    const ctx = canvas.getContext('2d');
+    const tooltip = document.getElementById('plot-tooltip');
+    let plottedPoints = []; // To easily check hover values
+
+    // Setup Web Audio API Context
+    function getAudioContext() {
+      if (!state.audioCtx) {
+        state.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (state.audioCtx.state === 'suspended') {
+        state.audioCtx.resume();
+      }
+      return state.audioCtx;
+    }
+
+    // Play synthesized subtle feedback sound
+    function playClickSound(freq, type = 'sine', duration = 0.08) {
+      if (!state.soundOn) return;
+      try {
+        const audioCtx = getAudioContext();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        
+        gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch (err) {
+        console.warn("Audio Context blocked or not supported by browser", err);
+      }
+    }
+
+    // Dynamic scale setup for Retina displays
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      updateSimulation();
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Dynamic simulation evaluation
+    function updateSimulation() {
+      // Pull and validate variables
+      const a = parseFloat(document.getElementById('slider-a').value);
+      const b = parseFloat(document.getElementById('slider-b').value);
+      const tMax = parseFloat(document.getElementById('slider-tmax').value);
+
+      state.a = a;
+      state.b = b;
+      state.tMax = tMax;
+
+      // Update Slider Visual text
+      document.getElementById('lbl-a').textContent = a.toFixed(2);
+      document.getElementById('lbl-b').textContent = b.toFixed(2);
+      document.getElementById('lbl-tmax').textContent = tMax.toFixed(1) + " hrs";
+
+      // Sync Number Fields
+      document.getElementById('num-a').value = a;
+      document.getElementById('num-b').value = b;
+
+      // Draw Plot
+      drawInfiltrationPlot();
+
+      // Recalculate Exam substitution outputs
+      updateExamSheetText();
+
+      // Dynamic JSON generation
+      updateJsonDataBlock();
+
+      // Trigger standard slider sound feedback (slight pitch adjustments for interaction)
+      playClickSound(180 + (b * 400), 'triangle', 0.04);
+    }
+
+    // Direct user-entered values handling
+    function syncFromNumInput() {
+      const aVal = parseFloat(document.getElementById('num-a').value);
+      const bVal = parseFloat(document.getElementById('num-b').value);
+
+      if (!isNaN(aVal) && aVal > 0 && aVal <= 100) {
+        document.getElementById('slider-a').value = aVal;
+      }
+      if (!isNaN(bVal) && bVal > 0 && bVal < 1.0) {
+        document.getElementById('slider-b').value = bVal;
+      }
+      updateSimulation();
+    }
+
+    // Core Draw Engine for both Cumulative Infiltration & Infiltration Rate Curves
+    function drawInfiltrationPlot() {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+
+      // Clean Slate
+      ctx.clearRect(0, 0, width, height);
+
+      const paddingLeft = 55;
+      const paddingRight = 55;
+      const paddingTop = 40;
+      const paddingBottom = 40;
+
+      const graphWidth = width - paddingLeft - paddingRight;
+      const graphHeight = height - paddingTop - paddingBottom;
+
+      // Pre-calculate variables
+      const tMax = state.tMax;
+      const a = state.a;
+      const b = state.b;
+
+      // Max values estimation for visual range mapping
+      const maxF = a * Math.pow(tMax, b);
+      // Singularity handling at t = 0.01 for dynamic rate scale calculation
+      const rateAtStart = a * b * Math.pow(0.01, b - 1);
+      // Make the plot scale max value visually reasonable (ceiling cap rate)
+      const maxf = Math.min(rateAtStart, 50.0); 
+
+      // Draw Grid Lines
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 1;
+      const numGridLines = 6;
+      for (let i = 0; i <= numGridLines; i++) {
+        const x = paddingLeft + (i / numGridLines) * graphWidth;
+        const y = paddingTop + (i / numGridLines) * graphHeight;
+
+        // Vertical lines
+        ctx.beginPath();
+        ctx.moveTo(x, paddingTop);
+        ctx.lineTo(x, height - paddingBottom);
+        ctx.stroke();
+
+        // Horizontal lines
+        ctx.beginPath();
+        ctx.moveTo(paddingLeft, y);
+        ctx.lineTo(width - paddingRight, y);
+        ctx.stroke();
+      }
+
+      // Draw Axis Lines
+      ctx.strokeStyle = 'rgba(0, 210, 255, 0.3)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      // Y-Left (Cumulative)
+      ctx.moveTo(paddingLeft, paddingTop);
+      ctx.lineTo(paddingLeft, height - paddingBottom);
+      // X-Axis (Time)
+      ctx.lineTo(width - paddingRight, height - paddingBottom);
+      // Y-Right (Rate)
+      ctx.lineTo(width - paddingRight, paddingTop);
+      ctx.stroke();
+
+      // Graph Coordinates Helper Functions
+      const getXPixel = (t) => paddingLeft + (t / tMax) * graphWidth;
+      const getYPixelF = (F) => (height - paddingBottom) - (F / maxF) * graphHeight;
+      const getYPixelf = (f) => (height - paddingBottom) - (f / maxf) * graphHeight;
+
+      // Calculate data arrays
+      const segments = 150;
+      plottedPoints = [];
+
+      for (let i = 0; i <= segments; i++) {
+        // Logarithmic time step spacing to render higher definition near t = 0
+        const progress = i / segments;
+        const t = Math.pow(progress, 1.5) * tMax;
+
+        const F = a * Math.pow(t, b);
+        let f = 0;
+        if (t > 0) {
+          f = a * b * Math.pow(t, b - 1);
+        } else {
+          f = Infinity; // Pure mathematical limit representation
+        }
+
+        plottedPoints.push({ t, F, f });
+      }
+
+      // 1. Draw Curve F(t) - Cumulative Infiltration [Bright Cyan]
+      ctx.beginPath();
+      ctx.strokeStyle = '#00d2ff';
+      ctx.lineWidth = 2.5;
+      for (let i = 0; i < plottedPoints.length; i++) {
+        const pt = plottedPoints[i];
+        const px = getXPixel(pt.t);
+        const py = getYPixelF(pt.F);
+        if (i === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+
+      // Add soft bottom gradient glow below Cumulative Curve
+      ctx.lineTo(width - paddingRight, height - paddingBottom);
+      ctx.lineTo(paddingLeft, height - paddingBottom);
+      ctx.closePath();
+      const cumulativeGrad = ctx.createLinearGradient(0, paddingTop, 0, height - paddingBottom);
+      cumulativeGrad.addColorStop(0, 'rgba(0, 210, 255, 0.08)');
+      cumulativeGrad.addColorStop(1, 'rgba(0, 210, 255, 0.0)');
+      ctx.fillStyle = cumulativeGrad;
+      ctx.fill();
+
+      // 2. Draw Curve f(t) - Infiltration Rate [Bright Emerald/Green]
+      ctx.beginPath();
+      ctx.strokeStyle = '#00ffaa';
+      ctx.lineWidth = 2.5;
+      
+      // Start rate plot from 0.01 hr to bypass rendering infinity visually
+      let fCurveStarted = false;
+      for (let i = 0; i < plottedPoints.length; i++) {
+        const pt = plottedPoints[i];
+        if (pt.t < 0.01) continue; // Singularity bypass limit
+        const px = getXPixel(pt.t);
+        // Cap the rate line height inside visual borders
+        const rateVal = Math.min(pt.f, maxf);
+        const py = getYPixelf(rateVal);
+
+        if (!fCurveStarted) {
+          ctx.moveTo(px, py);
+          fCurveStarted = true;
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+
+      // 3. Highlight mathematical singularity near t -> 0
+      ctx.setLineDash([4, 4]);
+      ctx.strokeStyle = 'rgba(255, 94, 126, 0.4)';
+      ctx.beginPath();
+      ctx.moveTo(paddingLeft, paddingTop);
+      ctx.lineTo(paddingLeft, height - paddingBottom);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line pattern
+
+      // 4. Draw Axis Labels, Legends & Titles
+      ctx.fillStyle = '#f0f4f8';
+      ctx.font = '10px sans-serif';
+
+      // X-Axis Marks & Label
+      ctx.textAlign = 'center';
+      for (let i = 0; i <= 4; i++) {
+        const tVal = (i / 4) * tMax;
+        const x = getXPixel(tVal);
+        ctx.fillText(tVal.toFixed(1) + "h", x, height - paddingBottom + 16);
+      }
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillText("Time Elapsed t [hours]", width / 2, height - paddingBottom + 32);
+
+      // Left Y-Axis Marks (F(t)) - Cyan
+      ctx.fillStyle = '#00d2ff';
+      ctx.textAlign = 'right';
+      for (let i = 0; i <= 4; i++) {
+        const FVal = (i / 4) * maxF;
+        const y = getYPixelF(FVal);
+        ctx.fillText(FVal.toFixed(1), paddingLeft - 8, y + 4);
+      }
+      ctx.save();
+      ctx.translate(15, height / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText("Cumulative Infiltration F(t) [mm]", 0, 0);
+      ctx.restore();
+
+      // Right Y-Axis Marks (f(t)) - Emerald
+      ctx.fillStyle = '#00ffaa';
+      ctx.textAlign = 'left';
+      for (let i = 0; i <= 4; i++) {
+        const fVal = (i / 4) * maxf;
+        const y = getYPixelf(fVal);
+        ctx.fillText(fVal.toFixed(1) + (i === 4 ? "+" : ""), width - paddingRight + 8, y + 4);
+      }
+      ctx.save();
+      ctx.translate(width - 15, height / 2);
+      ctx.rotate(Math.PI / 2);
+      ctx.textAlign = 'center';
+      ctx.fillText("Infiltration Rate f(t) [mm/hr]", 0, 0);
+      ctx.restore();
+
+      // Visual Legend Overlay
+      ctx.fillStyle = 'rgba(4, 8, 20, 0.7)';
+      ctx.fillRect(paddingLeft + 15, paddingTop + 10, 200, 38);
+      ctx.strokeStyle = 'rgba(0, 210, 255, 0.2)';
+      ctx.strokeRect(paddingLeft + 15, paddingTop + 10, 200, 38);
+
+      ctx.fillStyle = '#00d2ff';
+      ctx.fillRect(paddingLeft + 25, paddingTop + 18, 12, 4);
+      ctx.font = '10px monospace';
+      ctx.fillText("F(t) Cumulative (mm)", paddingLeft + 45, paddingTop + 22);
+
+      ctx.fillStyle = '#00ffaa';
+      ctx.fillRect(paddingLeft + 25, paddingTop + 30, 12, 4);
+      ctx.fillText("f(t) Rate (mm/hr)", paddingLeft + 45, paddingTop + 34);
+    }
+
+    // Dynamic LaTeX substitute solver for Exam Output Rendering
+    function updateExamSheetText() {
+      const a = state.a;
+      const b = state.b;
+      const tMax = state.tMax;
+
+      const rateCoefficient = (a * b).toFixed(2);
+      const bMinusOne = (b - 1).toFixed(2);
+
+      const f_end = (a * b * Math.pow(tMax, b - 1)).toFixed(2);
+      const F_end = (a * Math.pow(tMax, b)).toFixed(2);
+
+      document.getElementById('exam-substitution').innerHTML = `Parameter a = ${a.toFixed(2)} [mm/hr^b]\nParameter b = ${b.toFixed(2)}\n\nF(t) = ${a.toFixed(2)} · t^${b.toFixed(2)} [mm]\nf(t) = ${rateCoefficient} · t^${bMinusOne} [mm/hr]`;
+      document.getElementById('exam-results').innerHTML = `t_end = ${tMax.toFixed(2)} hrs\nF(t_end) = ${F_end} mm\nf(t_end) = ${f_end} mm/hr`;
+    }
+
+    // JSON Dynamic Output Stream
+    function updateJsonDataBlock() {
+      const a = state.a;
+      const b = state.b;
+      const tMax = state.tMax;
+      const midVal = (tMax / 2);
+
+      const exportStruct = {
+        equation_reference: "Kostiakov-Empirical",
+        coefficients: { a, b },
+        domain_hrs: [0.01, tMax],
+        evaluated_midpoint: {
+          t_hr: midVal,
+          F_mm: (a * Math.pow(midVal, b)).toFixed(3),
+          f_mmhr: (a * b * Math.pow(midVal, b - 1)).toFixed(3)
+        },
+        evaluated_endpoint: {
+          t_hr: tMax,
+          F_mm: (a * Math.pow(tMax, b)).toFixed(3),
+          f_mmhr: (a * b * Math.pow(tMax, b - 1)).toFixed(3)
+        }
+      };
+
+      document.getElementById('export-json').textContent = JSON.stringify(exportStruct, null, 2);
+    }
+
+    // Speech synthesis narration (the interactive Professor's explanation)
+    function narrateProfessor() {
+      // Setup browser speech engines
+      if (!('speechSynthesis' in window)) {
+        alert("Your web browser does not support the Web Speech API. Please use Google Chrome or Safari.");
+        return;
+      }
+
+      window.speechSynthesis.cancel(); // Stop active voices
+
+      const scriptText = `Let us analyze the engineering Step 3 calculation process using Kostiakov's Empirical formulation. We have simulated the parameters computed earlier. Soil infiltration scale constant a equals ${state.a.toFixed(1)}, and decay constant b equals ${state.b.toFixed(2)}. Notice how the cumulative infiltration represented in cyan rises steadily, while the green rate curve decays rapidly. Pay close attention to the time zero singularity: at initial time step zero, the infiltration rate mathematically approaches positive infinity, which models instantaneous filling of dry capillary spaces. Ensure this limitation is explicitly defined in your exam submission.`;
+
+      const speech = new SpeechSynthesisUtterance(scriptText);
+      
+      // Select appropriate voice (preferably a professional English speaker)
+      const voices = window.speechSynthesis.getVoices();
+      const preferredVoice = voices.find(v => v.name.includes("Google US English") || v.name.includes("Natural") || v.lang.startsWith("en-US"));
+      if (preferredVoice) speech.voice = preferredVoice;
+
+      speech.pitch = 0.95; // Lower pitch for a more professional, authoritative tone
+      speech.rate = 0.95;  // Slightly slower rate to ease learning consumption
+
+      // Play start sound chord
+      playClickSound(330, 'sine', 0.2);
+      setTimeout(() => playClickSound(440, 'sine', 0.2), 100);
+      setTimeout(() => playClickSound(660, 'sine', 0.4), 200);
+
+      window.speechSynthesis.speak(speech);
+    }
+
+    // Clipboard Export Actions
+    function copyDataForNextStep() {
+      const dataText = document.getElementById('export-json').textContent;
+      navigator.clipboard.writeText(dataText).then(() => {
+        // Visual indicator trigger
+        const statusBox = document.getElementById('export-status');
+        statusBox.textContent = "COPIED TO CLIPBOARD!";
+        statusBox.style.color = '#00ffaa';
+
+        // Play high-fidelity synthesized major success chime (triad chord)
+        playClickSound(523.25, 'sine', 0.15); // C5
+        setTimeout(() => playClickSound(659.25, 'sine', 0.15), 100); // E5
+        setTimeout(() => playClickSound(783.99, 'sine', 0.3), 200); // G5
+
+        console.log("Kostiakov Parameters Exported to Next Phase:", dataText);
+
+        setTimeout(() => {
+          statusBox.textContent = "SYNCED";
+          statusBox.style.color = 'var(--accent-blue)';
+        }, 2000);
+      });
+    }
+
+    // Dynamic Hover Overlay coordinates locator
+    canvas.addEventListener('mousemove', function(evt) {
+      const rect = canvas.getBoundingClientRect();
+      const x = evt.clientX - rect.left;
+      const y = evt.clientY - rect.top;
+
+      const paddingLeft = 55;
+      const paddingRight = 55;
+      const paddingTop = 40;
+      const paddingBottom = 40;
+
+      const graphWidth = rect.width - paddingLeft - paddingRight;
+
+      // Ensure mouse coordinate sits bounded inside graph boundaries
+      if (x >= paddingLeft && x <= rect.width - paddingRight) {
+        const ratio = (x - paddingLeft) / graphWidth;
+        const currentT = ratio * state.tMax;
+
+        // Find nearest pre-calculated evaluation
+        let bestPoint = plottedPoints[0];
+        let minDiff = Infinity;
+        for (let i = 0; i < plottedPoints.length; i++) {
+          const diff = Math.abs(plottedPoints[i].t - currentT);
+          if (diff < minDiff) {
+            minDiff = diff;
+            bestPoint = plottedPoints[i];
+          }
+        }
+
+        // Draw dynamic tooltip next to crosshair
+        tooltip.style.display = 'block';
+        tooltip.style.left = (x + 15) + 'px';
+        tooltip.style.top = (y - 20) + 'px';
+        tooltip.innerHTML = `
+          <strong>t:</strong> ${bestPoint.t.toFixed(2)} hrs<br/>
+          <span style="color:#00d2ff"><strong>F(t):</strong> ${bestPoint.F.toFixed(2)} mm</span><br/>
+          <span style="color:#00ffaa"><strong>f(t):</strong> ${bestPoint.f === Infinity ? 'Infinity' : bestPoint.f.toFixed(2) + ' mm/hr'}</span>
+        `;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    // Force initialization and draw call sequence
+    window.onload = () => {
+      resizeCanvas();
+      // Required initial sweep to capture speech assets properly in major engines
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.getVoices();
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Hydrology: Evaporation Dynamics Simulator</title>
+    <!-- Google Fonts: Inter & Fira Code -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js for High-Performance Graphical Analysis -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <style>
+        :root {
+            --bg-primary: #090d16;
+            --bg-card: rgba(15, 23, 42, 0.6);
+            --border-glow: rgba(14, 165, 233, 0.3);
+            --neon-cyan: #0ea5e9;
+            --neon-amber: #f59e0b;
+            --neon-emerald: #10b981;
+            --neon-rose: #f43f5e;
+            --text-primary: #f8fafc;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            overflow-x: hidden;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background-image: 
+                radial-gradient(circle at 10% 20%, rgba(14, 165, 233, 0.05) 0%, transparent 40%),
+                radial-gradient(circle at 90% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 40%);
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(14, 165, 233, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(14, 165, 233, 0.6);
+        }
+
+        /* Header Architecture */
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            background: rgba(9, 13, 22, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 50;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .logo-icon {
+            font-size: 2rem;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-amber));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.5));
+        }
+
+        .logo-text h1 {
+            font-size: 1.25rem;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+            text-transform: uppercase;
+        }
+
+        .logo-text p {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            font-family: 'Fira Code', monospace;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 1.5rem;
+        }
+
+        .status-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 9999px;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            color: var(--neon-emerald);
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status-badge .ping {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: var(--neon-emerald);
+            box-shadow: 0 0 8px var(--neon-emerald);
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Layout Grid */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: 420px 1fr;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+            max-width: 1800px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: var(--bg-card);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 1rem;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .glass-panel:hover {
+            border-color: rgba(14, 165, 233, 0.15);
+        }
+
+        .panel-title {
+            font-size: 1rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            padding-bottom: 0.75rem;
+        }
+
+        .panel-title i {
+            color: var(--neon-cyan);
+            filter: drop-shadow(0 0 5px rgba(14, 165, 233, 0.5));
+        }
+
+        /* Control Sliders System */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.75rem;
+            border-radius: 0.75rem;
+            background: rgba(255, 255, 255, 0.01);
+            border: 1px solid rgba(255, 255, 255, 0.02);
+            transition: background 0.2s, border-color 0.2s;
+        }
+
+        .control-group:hover, .control-group.active-highlight {
+            background: rgba(14, 165, 233, 0.03);
+            border-color: rgba(14, 165, 233, 0.2);
+        }
+
+        /* Active highlight for TTS guide */
+        .control-group.active-highlight {
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.2);
+            animation: pulse-border 1.5s infinite alternate;
+        }
+
+        .control-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-label i {
+            width: 16px;
+        }
+
+        .control-value {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--neon-cyan);
+        }
+
+        .slider-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            transition: background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            border: 2px solid var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--neon-cyan);
+            transition: transform 0.1s, background 0.3s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: var(--neon-cyan);
+        }
+
+        /* Draggable / Toggleable Barrier Area */
+        .barrier-toggle-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(244, 63, 94, 0.05);
+            border: 1px dashed rgba(244, 63, 94, 0.3);
+            border-radius: 0.75rem;
+            cursor: pointer;
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        .barrier-toggle-container:hover {
+            background: rgba(244, 63, 94, 0.1);
+            border-color: var(--neon-rose);
+        }
+
+        .barrier-info {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .barrier-info i {
+            font-size: 1.25rem;
+            color: var(--neon-rose);
+            filter: drop-shadow(0 0 4px rgba(244, 63, 94, 0.5));
+        }
+
+        .barrier-text h4 {
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .barrier-text p {
+            font-size: 0.7rem;
+            color: var(--text-secondary);
+        }
+
+        /* Toggle Switch styling */
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 44px;
+            height: 22px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider-switch {
+            position: absolute;
+            cursor: pointer;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: rgba(255, 255, 255, 0.1);
+            transition: .3s;
+            border-radius: 22px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .slider-switch:before {
+            position: absolute;
+            content: "";
+            height: 14px;
+            width: 14px;
+            left: 3px;
+            bottom: 3px;
+            background-color: var(--text-primary);
+            transition: .3s;
+            border-radius: 50%;
+        }
+
+        input:checked + .slider-switch {
+            background-color: var(--neon-rose);
+        }
+
+        input:checked + .slider-switch:before {
+            transform: translateX(22px);
+        }
+
+        /* Dynamic Equation Box */
+        .formula-box {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .formula-box::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; width: 4px; height: 100%;
+            background: var(--neon-cyan);
+        }
+
+        .formula-title {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .formula-display {
+            font-size: 0.95rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            align-items: center;
+        }
+
+        .formula-term {
+            padding: 2px 4px;
+            border-radius: 4px;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        .formula-term.highlight-temp { background: rgba(245, 158, 11, 0.2); color: var(--neon-amber); }
+        .formula-term.highlight-wind { background: rgba(56, 189, 248, 0.2); color: var(--neon-cyan); }
+        .formula-term.highlight-humidity { background: rgba(16, 185, 129, 0.2); color: var(--neon-emerald); }
+        .formula-term.highlight-impurity { background: rgba(168, 85, 247, 0.2); color: #c084fc; }
+
+        .formula-values {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            padding-top: 0.5rem;
+            margin-top: 0.5rem;
+        }
+
+        /* Right Hand Content Panel */
+        .right-column {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        /* Simulation Canvas Arena */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 480px;
+            border-radius: 1rem;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            background: #020617;
+            box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.8);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Floating Interactive Cover Handle (Canvas Overlay) */
+        .cover-drag-overlay {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(244, 63, 94, 0.3);
+            border-radius: 0.5rem;
+            padding: 0.5rem 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            cursor: grab;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+            transition: border-color 0.3s;
+        }
+
+        .cover-drag-overlay:hover {
+            border-color: var(--neon-rose);
+        }
+
+        /* Analytics and Assistant Row */
+        .bottom-row {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 1.5rem;
+        }
+
+        @media (max-width: 900px) {
+            .bottom-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Smart Assistant Interface */
+        .assistant-panel {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .assistant-controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-primary);
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.75rem;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+
+        .btn:hover {
+            background: rgba(14, 165, 233, 0.1);
+            border-color: var(--neon-cyan);
+            color: var(--neon-cyan);
+            transform: translateY(-1px);
+        }
+
+        .btn-primary {
+            background: var(--neon-cyan);
+            color: var(--bg-primary);
+            border: none;
+        }
+
+        .btn-primary:hover {
+            background: #38bdf8;
+            color: var(--bg-primary);
+            box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
+        }
+
+        .btn-rose {
+            background: rgba(244, 63, 94, 0.1);
+            border-color: rgba(244, 63, 94, 0.2);
+            color: var(--neon-rose);
+        }
+
+        .btn-rose:hover {
+            background: var(--neon-rose);
+            color: var(--text-primary);
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.4);
+        }
+
+        .speech-bubble {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: var(--text-secondary);
+            position: relative;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+        }
+
+        .speech-bubble::before {
+            content: '';
+            position: absolute;
+            left: 20px;
+            top: -8px;
+            border-width: 0 8px 8px;
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.05) transparent;
+            display: block;
+            width: 0;
+        }
+
+        /* Micro-Metrics Display Overlay on Canvas */
+        .canvas-metrics {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        .metric-pill {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .metric-pill .lbl {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .metric-pill .val {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            font-weight: 700;
+        }
+
+        /* Vector Force Indicator Overlay */
+        .vector-overlay {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            width: 140px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.25rem;
+            pointer-events: none;
+        }
+
+        .vector-arrow-container {
+            height: 60px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+        }
+
+        .vector-arrow-line {
+            width: 4px;
+            background: linear-gradient(to top, var(--neon-cyan), var(--neon-amber));
+            position: relative;
+            border-radius: 2px;
+            transition: height 0.3s ease;
+        }
+
+        .vector-arrow-line::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translate(-50%, -100%);
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-bottom: 8px solid var(--neon-amber);
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.5; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        @keyframes pulse-border {
+            0% { border-color: rgba(14, 165, 233, 0.2); }
+            100% { border-color: rgba(14, 165, 233, 0.6); }
+        }
+
+        /* Audio Indicator Badge */
+        .audio-status {
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+        .audio-status.off {
+            color: var(--text-muted);
+        }
+        .audio-status.on {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 8px var(--neon-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header System -->
+    <header>
+        <div class="logo-container">
+            <i class="fa-solid fa-droplet logo-icon"></i>
+            <div class="logo-text">
+                <h1>Evaporation Dynamics</h1>
+                <p>Engineering Hydrology Simulator &bull; v2.0</p>
+            </div>
+        </div>
+        <div class="system-status">
+            <i id="audio-toggle" class="fa-solid fa-volume-high audio-status on" title="Toggle Sound Engine"></i>
+            <div class="status-badge">
+                <span class="ping"></span>
+                <span>PHYSICS ENGINE ACTIVE</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Dashboard Body -->
+    <main class="dashboard-grid">
+        
+        <!-- Left Side Control Console -->
+        <section class="glass-panel">
+            <div class="panel-title">
+                <i class="fa-solid fa-sliders"></i>
+                <span>Environmental Controls</span>
+            </div>
+
+            <!-- Temperature Slider -->
+            <div class="control-group" id="group-temp">
+                <div class="control-header">
+                    <span class="control-label">
+                        <i class="fa-solid fa-temperature-three-quarters" style="color: var(--neon-amber)"></i>
+                        Temperature
+                    </span>
+                    <span class="control-value" id="val-temp">25.0 °C</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slide-temp" min="5" max="60" step="0.5" value="25">
+                </div>
+            </div>
+
+            <!-- Wind Speed Slider -->
+            <div class="control-group" id="group-wind">
+                <div class="control-header">
+                    <span class="control-label">
+                        <i class="fa-solid fa-wind" style="color: var(--neon-cyan)"></i>
+                        Wind Velocity
+                    </span>
+                    <span class="control-value" id="val-wind">12.0 km/h</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slide-wind" min="0" max="50" step="0.5" value="12">
+                </div>
+            </div>
+
+            <!-- Relative Humidity Slider -->
+            <div class="control-group" id="group-humidity">
+                <div class="control-header">
+                    <span class="control-label">
+                        <i class="fa-solid fa-cloud-sun-rain" style="color: var(--neon-emerald)"></i>
+                        Relative Humidity
+                    </span>
+                    <span class="control-value" id="val-humidity">45 %</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slide-humidity" min="0" max="100" step="1" value="45">
+                </div>
+            </div>
+
+            <!-- Impurity Level Slider -->
+            <div class="control-group" id="group-impurities">
+                <div class="control-header">
+                    <span class="control-label">
+                        <i class="fa-solid fa-cubes-solid" style="color: #a855f7"></i>
+                        Water Impurities (Salinity)
+                    </span>
+                    <span class="control-value" id="val-impurities">0.0 %</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slide-impurities" min="0" max="100" step="1" value="0">
+                </div>
+            </div>
+
+            <!-- Surface Area Slider -->
+            <div class="control-group" id="group-area">
+                <div class="control-header">
+                    <span class="control-label">
+                        <i class="fa-solid fa-ruler-combined" style="color: #f43f5e"></i>
+                        Exposed Surface Area
+                    </span>
+                    <span class="control-value" id="val-area">500 m²</span>
+                </div>
+                <div class="slider-wrapper">
+                    <input type="range" id="slide-area" min="100" max="1000" step="10" value="500">
+                </div>
+            </div>
+
+            <!-- Artificial Barrier / Draggable Cover Panel -->
+            <div class="barrier-toggle-container" id="barrier-trigger">
+                <div class="barrier-info">
+                    <i class="fa-solid fa-shield-halved"></i>
+                    <div class="barrier-text">
+                        <h4>Polyethylene Cover Field</h4>
+                        <p>Simulate Evaporation Reduction</p>
+                    </div>
+                </div>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-barrier">
+                    <span class="slider-switch"></span>
+                </label>
+            </div>
+
+            <!-- Live Mathematical Formula System -->
+            <div class="formula-box">
+                <div class="formula-title">Dalton's Law of Evaporation Model</div>
+                <div class="formula-display">
+                    <span>E = K<sub>L</sub> · (e<sub>s</sub> - e<sub>a</sub>) · (1 - β)</span>
+                </div>
+                <div class="formula-values" id="formula-calculated">
+                    E = 0.36 · (23.76 - 10.69) &times; 1.0 = 4.71 mm/day
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Side Visual & Data Arena -->
+        <section class="right-column">
+            
+            <!-- Canvas Simulation Viewport -->
+            <div class="canvas-container">
+                <!-- Metrics Overlay -->
+                <div class="canvas-metrics">
+                    <div class="metric-pill">
+                        <span class="lbl">Evaporation Rate</span>
+                        <span class="val" id="metric-evap-rate" style="color: var(--neon-amber)">0.00 mm/day</span>
+                    </div>
+                    <div class="metric-pill">
+                        <span class="lbl">Volumetric Loss</span>
+                        <span class="val" id="metric-vol-loss" style="color: var(--neon-cyan)">0.00 m³/day</span>
+                    </div>
+                </div>
+
+                <!-- Hover Cover Handle Indicator -->
+                <div class="cover-drag-overlay" id="drag-cover-indicator">
+                    <i class="fa-solid fa-grip-lines-vertical"></i>
+                    <span>Drag/Tap Cover Field</span>
+                </div>
+
+                <!-- Dynamic Directional Vector Overlay -->
+                <div class="vector-overlay">
+                    <span style="font-size: 0.65rem; color: var(--text-muted); font-weight:700; text-transform:uppercase;">Vapor Vector</span>
+                    <div class="vector-arrow-container">
+                        <div class="vector-arrow-line" id="vector-arrow"></div>
+                    </div>
+                    <span style="font-size: 0.75rem; font-weight: 600;" id="vector-label">Normal</span>
+                </div>
+
+                <canvas id="physics-canvas"></canvas>
+            </div>
+
+            <!-- Dashboard Bottom Grid containing Chart and Speech System -->
+            <div class="bottom-row">
+                
+                <!-- Graphical Realtime Chart -->
+                <div class="glass-panel" style="padding: 1.25rem;">
+                    <div class="panel-title" style="margin-bottom: 0.5rem;">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Transient Analysis (E over Time)</span>
+                    </div>
+                    <div style="position: relative; height: 160px; width: 100%;">
+                        <canvas id="realtime-chart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Smart Conversational AI Assistant Panel -->
+                <div class="glass-panel assistant-panel">
+                    <div class="panel-title">
+                        <i class="fa-solid fa-robot"></i>
+                        <span>AI Assistant & Audio Lab</span>
+                    </div>
+                    
+                    <div class="speech-bubble" id="assistant-bubble">
+                        Welcome to the Engineering Hydrology Lab. Adjust environmental parameters to observe how they govern water molecule escape velocity. Click "Explain Concept" for an automated lecture.
+                    </div>
+
+                    <div class="assistant-controls">
+                        <button class="btn btn-primary" id="btn-narrate">
+                            <i class="fa-solid fa-volume-high"></i> Narrate State
+                        </button>
+                        <button class="btn" id="btn-explain-mode">
+                            <i class="fa-solid fa-graduation-cap"></i> Explain Concept
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Interactive Simulator Application Scripts -->
+    <script>
+        // --- Web Audio Synthesizer Interface ---
+        class HydrologySynth {
+            constructor() {
+                this.ctx = null;
+                this.osc = null;
+                this.windOsc = null;
+                this.lfo = null;
+                this.gainNode = null;
+                this.windGainNode = null;
+                this.initialized = false;
+                this.muted = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                try {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContextClass();
+                    
+                    // Low hum frequency modulated by evaporation rate
+                    this.osc = this.ctx.createOscillator();
+                    this.osc.type = 'sine';
+                    this.osc.frequency.setValueAtTime(65, this.ctx.currentTime); // C2 chord fundamental
+                    
+                    this.gainNode = this.ctx.createGain();
+                    this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+                    
+                    this.osc.connect(this.gainNode);
+                    this.gainNode.connect(this.ctx.destination);
+                    this.osc.start();
+
+                    // Wind generator synth (filtered drone with frequency modulation)
+                    this.windOsc = this.ctx.createOscillator();
+                    this.windOsc.type = 'triangle';
+                    this.windOsc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                    
+                    this.lfo = this.ctx.createOscillator();
+                    this.lfo.frequency.setValueAtTime(0.2, this.ctx.currentTime); // Very slow swell
+                    this.lfoGain = this.ctx.createGain();
+                    this.lfoGain.gain.setValueAtTime(45, this.ctx.currentTime);
+                    
+                    this.lfo.connect(this.lfoGain);
+                    this.lfoGain.connect(this.windOsc.frequency);
+                    
+                    this.windGainNode = this.ctx.createGain();
+                    this.windGainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+                    
+                    this.windOsc.connect(this.windGainNode);
+                    this.windGainNode.connect(this.ctx.destination);
+                    
+                    this.lfo.start();
+                    this.windOsc.start();
+                    
+                    this.initialized = true;
+                } catch (e) {
+                    console.error("Failed to initialize sound engine: ", e);
+                }
+            }
+
+            setEvaporation(rate) {
+                if (!this.initialized || this.muted) return;
+                const targetVolume = Math.min((rate / 15) * 0.12, 0.2); // Limit overall amplitude
+                this.gainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.1);
+                this.osc.frequency.setTargetAtTime(65 + (rate * 3.5), this.ctx.currentTime, 0.15);
+            }
+
+            setWind(speed) {
+                if (!this.initialized || this.muted) return;
+                const targetVolume = Math.min((speed / 50) * 0.08, 0.15);
+                this.windGainNode.gain.setTargetAtTime(targetVolume, this.ctx.currentTime, 0.2);
+                this.lfo.frequency.setTargetAtTime(0.2 + (speed / 100), this.ctx.currentTime, 0.5);
+            }
+
+            playClick() {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.06);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.06);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.07);
+            }
+
+            playToggle(up) {
+                if (!this.initialized || this.muted) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                const startFreq = up ? 150 : 380;
+                const endFreq = up ? 380 : 150;
+                osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, this.ctx.currentTime + 0.15);
+                gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.16);
+            }
+
+            toggleMute() {
+                this.muted = !this.muted;
+                if (this.muted && this.initialized) {
+                    this.gainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+                    this.windGainNode.gain.setValueAtTime(0, this.ctx.currentTime);
+                }
+                return this.muted;
+            }
+        }
+
+        const audio = new HydrologySynth();
+
+        // --- Core Application State & Constants ---
+        const state = {
+            temp: 25.0,
+            wind: 12.0,
+            humidity: 45,
+            impurities: 0,
+            area: 500,
+            barrierActive: false,
+            evaporationRate: 0.0,
+            volumetricLoss: 0.0
+        };
+
+        const canvas = document.getElementById('physics-canvas');
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        // Custom Particle System setup
+        const vaporParticles = [];
+        const impurityParticles = [];
+
+        // Dynamic Wave Config
+        let waveOffset = 0;
+
+        // Cover draggable/slide parameters on canvas
+        const coverYTarget = { open: 30, closed: 290 };
+        let coverYCurrent = coverYTarget.open;
+
+        // Chart Data Queue
+        const chartHistory = Array(30).fill(0);
+        let liveChart;
+
+        // Initialize Speech Synthesizer API
+        const speech = window.speechSynthesis;
+        let speakTimeout;
+
+        // Explainer Mode State Machine
+        let explainerActive = false;
+        let explainerStep = 0;
+        const explanationSteps = [
+            {
+                elementId: 'group-temp',
+                title: "Water and Ambient Temperature",
+                text: "As we increase the water and air temperature, individual water molecules obtain more kinetic energy. This elevates the saturation vapor pressure, drastically escalating the rate of evaporation.",
+                action: () => {
+                    document.getElementById('slide-temp').value = 52;
+                    triggerSliderInput('slide-temp');
+                }
+            },
+            {
+                elementId: 'group-wind',
+                title: "Wind Speed Mechanics",
+                text: "Moving air sweepingly clears out the humid boundary layer just above the water surface, replacing it with dry atmospheric air. This process maintains a strong vapor pressure gradient, fueling continuous, rapid escape of vapor molecules.",
+                action: () => {
+                    document.getElementById('slide-wind').value = 38;
+                    triggerSliderInput('slide-wind');
+                }
+            },
+            {
+                elementId: 'group-humidity',
+                title: "Atmospheric Saturation (Humidity)",
+                text: "High Relative Humidity means the surrounding atmosphere is already near its full carrying capacity. This diminishes the vapor pressure gradient between the water surface and air, causing a substantial drop in net evaporation.",
+                action: () => {
+                    document.getElementById('slide-humidity').value = 85;
+                    triggerSliderInput('slide-humidity');
+                }
+            },
+            {
+                elementId: 'group-impurities',
+                title: "Dissolved Solids & Impurities",
+                text: "Dissolved salts and impurities lower the chemical potential of the liquid phase. The solute molecules block the air-water interface, reducing the physical area available for dynamic phase transitions.",
+                action: () => {
+                    document.getElementById('slide-impurities').value = 70;
+                    triggerSliderInput('slide-impurities');
+                }
+            },
+            {
+                elementId: 'group-area',
+                title: "Exposed Surface Area Scale",
+                text: "While depth-based evaporation rate is uniform, total volumetric loss is directly proportional to exposed surface area. Scaling up the reservoir yields a massive increase in lost water volume.",
+                action: () => {
+                    document.getElementById('slide-area').value = 900;
+                    triggerSliderInput('slide-area');
+                }
+            },
+            {
+                elementId: 'barrier-trigger',
+                title: "Engineering Intervention: Surface Cover",
+                text: "Deploying synthetic polyethylene blankets immediately blocks phase transitions, completely trapping humidity underneath and eliminating evaporation losses.",
+                action: () => {
+                    document.getElementById('toggle-barrier').checked = true;
+                    triggerBarrierInput(true);
+                }
+            }
+        ];
+
+        // --- Core Hydrology Mathematics ---
+        function calculateHydrology() {
+            if (state.barrierActive) {
+                state.evaporationRate = 0.0;
+                state.volumetricLoss = 0.0;
+                return;
+            }
+
+            // 1. Saturation vapor pressure (e_s) in mm of Hg using Tetens formula variant mapped for precision
+            const e_s = 4.584 * Math.exp((17.27 * state.temp) / (state.temp + 237.3));
+
+            // 2. Actual vapor pressure (e_a) considering Relative Humidity
+            const e_a = e_s * (state.humidity / 100);
+
+            // 3. Wind speed conversion factor (Meyer's formula based coefficient)
+            const windFactor = 1.0 + (state.wind / 16.0);
+
+            // 4. Impurity degradation factor (salinity blocks phase shift)
+            const impurityFactor = 1.0 - (state.impurities / 100 * 0.22); // Max 22% rate reduction at full salinity
+
+            // 5. Meyer's evaporation rate coefficient (Constant adjusted for dashboard presentation scale)
+            const MeyerC = 0.38;
+
+            // Compute rate (mm/day)
+            let rate = MeyerC * (e_s - e_a) * windFactor * impurityFactor;
+            state.evaporationRate = Math.max(0.0, rate);
+
+            // Calculate overall volume loss (m³/day) based on Surface Area
+            // E (mm/day) * Area (m²) * (1 m / 1000 mm) = m³/day
+            state.volumetricLoss = (state.evaporationRate * state.area) / 1000.0;
+        }
+
+        // --- Realtime Particle Class definitions ---
+        class VaporParticle {
+            constructor(startX, startY) {
+                this.x = startX;
+                this.y = startY;
+                // Vertical speed increases with temperature
+                this.vy = -(0.5 + (state.temp / 15.0) + Math.random() * 0.8);
+                // Horizontal drift matches wind speed
+                this.vx = (state.wind / 10.0) + (Math.random() - 0.5) * 0.5;
+                this.alpha = 1.0;
+                this.size = 2 + Math.random() * 3;
+                this.fadeRate = 0.005 + (state.humidity / 100.0) * 0.012; // Humidity accelerates condensation (fading)
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.alpha -= this.fadeRate;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                const glowGradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.size * 2);
+                glowGradient.addColorStop(0, 'rgba(14, 165, 233, 0.8)');
+                glowGradient.addColorStop(0.5, 'rgba(56, 189, 248, 0.3)');
+                glowGradient.addColorStop(1, 'rgba(56, 189, 248, 0)');
+                ctx.fillStyle = glowGradient;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size * 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        class ImpurityParticle {
+            constructor(areaWidth, waterY) {
+                this.reset(areaWidth, waterY);
+            }
+
+            reset(areaWidth, waterY) {
+                const margin = (canvas.width - areaWidth) / 2;
+                this.x = margin + Math.random() * areaWidth;
+                this.y = waterY + 5 + Math.random() * 35;
+                this.vx = (Math.random() - 0.5) * 0.2;
+                this.vy = (Math.random() - 0.5) * 0.1;
+                this.size = 1.5 + Math.random() * 2;
+                this.color = Math.random() > 0.5 ? '#b45309' : '#78350f'; // Salty brown amber specs
+            }
+
+            update(areaWidth, waterY) {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Restrict movement boundaries
+                const margin = (canvas.width - areaWidth) / 2;
+                if (this.x < margin || this.x > margin + areaWidth) this.vx *= -1;
+                if (this.y < waterY + 2 || this.y > waterY + 45) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Initialize Background Impurities
+        function syncImpurities() {
+            const targetCount = Math.floor(state.impurities * 1.5);
+            const waterWidth = 250 + (state.area / 1000) * 450;
+            const waterY = 290;
+
+            if (impurityParticles.length < targetCount) {
+                for (let i = impurityParticles.length; i < targetCount; i++) {
+                    impurityParticles.push(new ImpurityParticle(waterWidth, waterY));
+                }
+            } else if (impurityParticles.length > targetCount) {
+                impurityParticles.splice(targetCount);
+            }
+        }
+
+        // --- Render Loop (Canvas Architecture) ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+
+        function drawSimulation() {
+            const width = canvas.width / window.devicePixelRatio;
+            const height = canvas.height / window.devicePixelRatio;
+            
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Temperature-Driven Dynamic Atmospheric Glow (Gradient Shift)
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            const rTemp = Math.floor(2 + (state.temp / 60) * 140);
+            const gTemp = Math.floor(6 + (state.temp / 60) * 40);
+            const bTemp = Math.floor(22 - (state.temp / 60) * 10);
+            skyGrad.addColorStop(0, `rgb(${rTemp}, ${gTemp}, ${bTemp})`);
+            skyGrad.addColorStop(1, '#020617');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // 2. High Relative Humidity Fog Overlay
+            if (state.humidity > 20) {
+                ctx.save();
+                ctx.globalAlpha = (state.humidity - 20) / 160.0;
+                const fogGrad = ctx.createLinearGradient(0, 0, 0, height);
+                fogGrad.addColorStop(0, 'rgba(148, 163, 184, 0.25)');
+                fogGrad.addColorStop(1, 'rgba(148, 163, 184, 0)');
+                ctx.fillStyle = fogGrad;
+                ctx.fillRect(0, 0, width, height);
+                ctx.restore();
+            }
+
+            // 3. Dynamic Air-Current Vector Lines (Wind Overlay)
+            if (state.wind > 0) {
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+                ctx.lineWidth = 1.5;
+                const windLinesCount = Math.floor(state.wind / 6) + 2;
+                for (let i = 0; i < windLinesCount; i++) {
+                    const lineY = 50 + (i * 35);
+                    const windSpeedFactor = state.wind * 0.4;
+                    const xOffset = (Date.now() * windSpeedFactor / 30) % width;
+                    ctx.beginPath();
+                    ctx.moveTo(xOffset - 120, lineY);
+                    ctx.lineTo(xOffset + 120, lineY);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // 4. Reservoir Metrics & Dimensional Scaling
+            const waterY = 290;
+            const waterWidth = 250 + (state.area / 1000) * 450; // Dynamic scale width
+            const margin = (width - waterWidth) / 2;
+
+            // Draw Steel Reservoir Walls
+            ctx.save();
+            ctx.strokeStyle = 'rgba(71, 85, 105, 0.6)';
+            ctx.lineWidth = 8;
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(margin - 4, waterY - 5);
+            ctx.lineTo(margin - 4, waterY + 110);
+            ctx.lineTo(margin + waterWidth + 4, waterY + 110);
+            ctx.lineTo(margin + waterWidth + 4, waterY - 5);
+            ctx.stroke();
+            ctx.restore();
+
+            // 5. Dynamic Wave and Water Body Rendering
+            ctx.save();
+            const waterGrad = ctx.createLinearGradient(0, waterY, 0, waterY + 110);
+            waterGrad.addColorStop(0, '#0284c7');
+            waterGrad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = waterGrad;
+
+            ctx.beginPath();
+            ctx.moveTo(margin, waterY + 106);
+            ctx.lineTo(margin, waterY);
+
+            // Plot Wave Pattern based on wind velocity
+            waveOffset += 0.03 + (state.wind * 0.003);
+            const numPoints = 80;
+            const waveAmp = 2 + (state.wind / 12.0); // High wind = high wave crests
+            const waveFreq = 0.02 + (state.wind * 0.001);
+
+            for (let i = 0; i <= numPoints; i++) {
+                const px = margin + (i / numPoints) * waterWidth;
+                const py = waterY + Math.sin(i * waveFreq * 10 + waveOffset) * waveAmp;
+                ctx.lineTo(px, py);
+            }
+
+            ctx.lineTo(margin + waterWidth, waterY + 106);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // Draw impurity elements sitting in water phase
+            syncImpurities();
+            impurityParticles.forEach(p => {
+                p.update(waterWidth, waterY);
+                p.draw();
+            });
+
+            // 6. Dynamic Vapor Particle Emitter
+            if (!state.barrierActive && state.evaporationRate > 0) {
+                // Determine emission volume relative to dynamic physics variables
+                const targetEmissionRate = state.evaporationRate * 2.5; 
+                if (Math.random() * 100 < targetEmissionRate * 12) {
+                    const spawnX = margin + Math.random() * waterWidth;
+                    // Position wave crest coordinate dynamically
+                    const waveIndex = Math.floor(((spawnX - margin) / waterWidth) * numPoints);
+                    const spawnY = waterY + Math.sin(waveIndex * waveFreq * 10 + waveOffset) * waveAmp;
+                    vaporParticles.push(new VaporParticle(spawnX, spawnY));
+                }
+            }
+
+            // Update & Render vapor molecules
+            for (let i = vaporParticles.length - 1; i >= 0; i--) {
+                const p = vaporParticles[i];
+                p.update();
+
+                // If cover is active, block upward particles
+                if (state.barrierActive && p.y <= coverYCurrent + 8 && p.x > margin && p.x < margin + waterWidth) {
+                    // Vapor molecule collides and re-condenses
+                    vaporParticles.splice(i, 1);
+                    continue;
+                }
+
+                if (p.alpha <= 0 || p.x < 0 || p.x > width || p.y < 0) {
+                    vaporParticles.splice(i, 1);
+                } else {
+                    p.draw();
+                }
+            }
+
+            // 7. Interactive Cover / Containment Barrier Rendering
+            const targetY = state.barrierActive ? coverYTarget.closed : coverYTarget.open;
+            coverYCurrent += (targetY - coverYCurrent) * 0.12; // Smooth dynamic sweep transition
+
+            if (coverYCurrent < 280) {
+                ctx.save();
+                // Render polyethylene horizontal shield
+                const neonColor = state.barrierActive ? '244, 63, 94' : '14, 165, 233';
+                ctx.strokeStyle = `rgba(${neonColor}, 0.85)`;
+                ctx.lineWidth = 5;
+                ctx.shadowColor = `rgb(${neonColor})`;
+                ctx.shadowBlur = 10;
+                
+                ctx.beginPath();
+                ctx.moveTo(margin - 10, coverYCurrent);
+                ctx.lineTo(margin + waterWidth + 10, coverYCurrent);
+                ctx.stroke();
+
+                // Draw protective containment field grid beneath the barrier if active
+                if (state.barrierActive) {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(244, 63, 94, 0.15)';
+                    ctx.lineWidth = 1;
+                    ctx.shadowBlur = 0;
+                    const gridSpacing = 15;
+                    for (let lx = margin; lx <= margin + waterWidth; lx += gridSpacing) {
+                        ctx.beginPath();
+                        ctx.moveTo(lx, coverYCurrent);
+                        ctx.lineTo(lx, waterY);
+                        ctx.stroke();
+                    }
+                    ctx.restore();
+                }
+
+                // Drag/interactive Handle Graphics on the cover right side
+                ctx.fillStyle = `rgba(${neonColor}, 0.95)`;
+                ctx.beginPath();
+                ctx.arc(margin + waterWidth + 10, coverYCurrent, 8, 0, Math.PI*2);
+                ctx.fill();
+
+                ctx.restore();
+            }
+
+            requestAnimationFrame(drawSimulation);
+        }
+
+        // --- Live Calculations & Math Interface Sync ---
+        function updateSimulationValues() {
+            calculateHydrology();
+
+            // Render Metrics overlays
+            document.getElementById('metric-evap-rate').innerText = `${state.evaporationRate.toFixed(2)} mm/day`;
+            document.getElementById('metric-vol-loss').innerText = `${state.volumetricLoss.toFixed(2)} m³/day`;
+
+            // Adjust live Audio hum and wind pitch matching physics values
+            audio.setEvaporation(state.evaporationRate);
+            audio.setWind(state.wind);
+
+            // Draw dynamic vector arrow showing force magnitude
+            const arrowElement = document.getElementById('vector-arrow');
+            const arrowLabel = document.getElementById('vector-label');
+            const vectorHeight = Math.min((state.evaporationRate / 15) * 60, 60);
+            arrowElement.style.height = `${Math.max(4, vectorHeight)}px`;
+
+            if (state.barrierActive) {
+                arrowLabel.innerText = "Halted";
+                arrowLabel.style.color = "var(--neon-rose)";
+            } else if (state.evaporationRate > 10.0) {
+                arrowLabel.innerText = "Extreme";
+                arrowLabel.style.color = "var(--neon-rose)";
+            } else if (state.evaporationRate > 5.0) {
+                arrowLabel.innerText = "High";
+                arrowLabel.style.color = "var(--neon-amber)";
+            } else if (state.evaporationRate > 2.0) {
+                arrowLabel.innerText = "Moderate";
+                arrowLabel.style.color = "var(--neon-cyan)";
+            } else {
+                arrowLabel.innerText = "Low";
+                arrowLabel.style.color = "var(--neon-emerald)";
+            }
+
+            // Sync structural LaTeX Formula Box Display values
+            const e_s_calculated = 4.584 * Math.exp((17.27 * state.temp) / (state.temp + 237.3));
+            const e_a_calculated = e_s_calculated * (state.humidity / 100);
+            const impurity_calculated = (state.impurities / 100 * 0.22);
+
+            const displayEl = document.getElementById('formula-calculated');
+            if (state.barrierActive) {
+                displayEl.innerHTML = `E = 0.00 mm/day <span style="color:var(--neon-rose)">(Polyethylene Barrier Active)</span>`;
+            } else {
+                displayEl.innerHTML = `
+                    E = 0.38 &times; 
+                    (<span class="formula-term highlight-temp" title="Sat. Vapor Pressure">${e_s_calculated.toFixed(2)}</span> - 
+                    <span class="formula-term highlight-humidity" title="Act. Vapor Pressure">${e_a_calculated.toFixed(2)}</span>) &times; 
+                    <span class="formula-term highlight-wind" title="Wind Factor">${(1.0 + (state.wind / 16.0)).toFixed(2)}</span> &times;
+                    <span class="formula-term highlight-impurity" title="Impurity Factor">${(1.0 - impurity_calculated).toFixed(2)}</span> = 
+                    <b style="color:var(--neon-amber);">${state.evaporationRate.toFixed(2)} mm/day</b>
+                `;
+            }
+        }
+
+        // --- Realtime Plot / Graph System ---
+        function initChart() {
+            const ctxChart = document.getElementById('realtime-chart').getContext('2d');
+            
+            // Build custom gradient
+            const chartGlow = ctxChart.createLinearGradient(0, 0, 0, 160);
+            chartGlow.addColorStop(0, 'rgba(14, 165, 233, 0.4)');
+            chartGlow.addColorStop(1, 'rgba(14, 165, 233, 0)');
+
+            liveChart = new Chart(ctxChart, {
+                type: 'line',
+                data: {
+                    labels: Array(30).fill(''),
+                    datasets: [{
+                        label: 'Evaporation Rate (mm/day)',
+                        data: chartHistory,
+                        borderColor: '#0ea5e9',
+                        borderWidth: 2,
+                        pointRadius: 0,
+                        backgroundColor: chartGlow,
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: { display: false },
+                        y: {
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: {
+                                color: '#64748b',
+                                font: { size: 9, family: 'Fira Code' },
+                                maxTicksLimit: 5
+                            },
+                            suggestedMax: 15,
+                            suggestedMin: 0
+                        }
+                    }
+                }
+            });
+
+            // Queue update interval (5 Hz)
+            setInterval(() => {
+                chartHistory.shift();
+                chartHistory.push(state.evaporationRate);
+                liveChart.update('none'); // Update without full layout animation frames for high performance
+            }, 200);
+        }
+
+        // --- Text-to-Speech Explainer Module ---
+        function getDynamicStateSpeech() {
+            if (state.barrierActive) {
+                return "The polyethylene cover is currently deployed across the reservoir. This blocks all water vapor escape path, halting evaporation completely, regardless of surrounding environmental parameters.";
+            }
+
+            let text = `With the temperature at ${state.temp.toFixed(1)} degrees Celsius and wind speed at ${state.wind.toFixed(1)} kilometers per hour, `;
+            
+            if (state.evaporationRate > 10.0) {
+                text += `the evaporation rate is exceptionally high at ${state.evaporationRate.toFixed(2)} millimeters per day. This is fueled by high heat and severe wind sweep.`;
+            } else if (state.evaporationRate > 5.0) {
+                text += `the evaporation rate is robust, calculating at ${state.evaporationRate.toFixed(2)} millimeters per day.`;
+            } else if (state.evaporationRate > 1.5) {
+                text += `the system shows normal moderate evaporation of ${state.evaporationRate.toFixed(2)} millimeters per day.`;
+            } else {
+                text += `evaporation is minimal at ${state.evaporationRate.toFixed(2)} millimeters per day, largely restricted by either cold air temperatures or high atmospheric relative humidity.`;
+            }
+
+            if (state.impurities > 40) {
+                text += ` Note that dissolved salinity at ${state.impurities} percent restricts molecule transitions at the surface area interface.`;
+            }
+
+            return text;
+        }
+
+        function speakText(text) {
+      if (!('speechSynthesis' in window)) return;
+      try {
+        window.speechSynthesis.resume();
+        window.speechSynthesis.cancel();
+        setTimeout(function() {
+          try {
+            var utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 1.0;
+            var voices = window.speechSynthesis.getVoices();
+            if (voices && voices.length > 0) {
+              var eng = voices.find(function(v) { return v.lang && v.lang.startsWith('en'); });
+              if (eng) utterance.voice = eng;
+            }
+            window.speechSynthesis.speak(utterance);
+          } catch (err) {
+            console.error('TTS Speak Error:', err);
+          }
+        }, 60);
+      } catch (e) {
+        console.error('TTS Error:', e);
+      }
+    };
+
+            speech.speak(utterance);
+        }
+
+        function handleAutoNarration() {
+            audio.init();
+            const text = getDynamicStateSpeech();
+            document.getElementById('assistant-bubble').innerText = text;
+            speakText(text);
+        }
+
+        // Interactive Tour and Dynamic Concept Explainer loop
+        function runExplainerStep() {
+            if (!explainerActive) return;
+
+            if (explainerStep >= explanationSteps.length) {
+                // Tour concluded reset
+                explainerActive = false;
+                document.getElementById('btn-explain-mode').innerHTML = `<i class="fa-solid fa-graduation-cap"></i> Explain Concept`;
+                document.getElementById('assistant-bubble').innerText = "Dynamic concept lecture concluded. Feel free to adjust controls manually to test hydrology limits.";
+                speakText("Dynamic concept lecture concluded. Feel free to adjust controls manually to test hydrology limits.");
+                clearHighlights();
+                return;
+            }
+
+            const step = explanationSteps[explainerStep];
+            clearHighlights();
+            
+            // Highlight target element
+            const element = document.getElementById(step.elementId);
+            if (element) element.classList.add('active-highlight');
+
+            // Apply specific parameters to demonstrate phenomena
+            step.action();
+
+            document.getElementById('assistant-bubble').innerHTML = `<b>Step ${explainerStep + 1}: ${step.title}</b><br>${step.text}`;
+            
+            speakText(`${step.title}. ${step.text}`, () => {
+                // Auto-advance with visual cue delay
+                setTimeout(() => {
+                    if (explainerActive) {
+                        explainerStep++;
+                        runExplainerStep();
+                    }
+                }, 2000);
+            });
+        }
+
+        function clearHighlights() {
+            document.querySelectorAll('.control-group').forEach(el => {
+                el.classList.remove('active-highlight');
+            });
+            document.getElementById('barrier-trigger').classList.remove('active-highlight');
+        }
+
+        function toggleExplainerMode() {
+            audio.init();
+            if (explainerActive) {
+                explainerActive = false;
+                speech.cancel();
+                document.getElementById('btn-explain-mode').innerHTML = `<i class="fa-solid fa-graduation-cap"></i> Explain Concept`;
+                document.getElementById('assistant-bubble').innerText = "Explainer tour paused.";
+                clearHighlights();
+            } else {
+                explainerActive = true;
+                explainerStep = 0;
+                document.getElementById('btn-explain-mode').innerHTML = `<i class="fa-solid fa-circle-pause"></i> Pause Lecture`;
+                runExplainerStep();
+            }
+        }
+
+        // --- Control Interaction Routing ---
+        function triggerSliderInput(id) {
+            audio.init();
+            const val = parseFloat(document.getElementById(id).value);
+            audio.playClick();
+
+            if (id === 'slide-temp') {
+                state.temp = val;
+                document.getElementById('val-temp').innerText = `${val.toFixed(1)} °C`;
+                highlightFormulaTerm('highlight-temp');
+            } else if (id === 'slide-wind') {
+                state.wind = val;
+                document.getElementById('val-wind').innerText = `${val.toFixed(1)} km/h`;
+                highlightFormulaTerm('highlight-wind');
+            } else if (id === 'slide-humidity') {
+                state.humidity = val;
+                document.getElementById('val-humidity').innerText = `${val} %`;
+                highlightFormulaTerm('highlight-humidity');
+            } else if (id === 'slide-impurities') {
+                state.impurities = val;
+                document.getElementById('val-impurities').innerText = `${val.toFixed(1)} %`;
+                highlightFormulaTerm('highlight-impurity');
+            } else if (id === 'slide-area') {
+                state.area = val;
+                document.getElementById('val-area').innerText = `${val} m²`;
+            }
+
+            updateSimulationValues();
+
+            // Trigger debounced automated narration of the action if no active full lecture tour
+            if (!explainerActive) {
+                clearTimeout(speakTimeout);
+                speakTimeout = setTimeout(() => {
+                    const dynamicText = getDynamicStateSpeech();
+                    document.getElementById('assistant-bubble').innerText = dynamicText;
+                }, 800);
+            }
+        }
+
+        function triggerBarrierInput(isActive) {
+            audio.init();
+            audio.playToggle(isActive);
+            state.barrierActive = isActive;
+            document.getElementById('toggle-barrier').checked = isActive;
+            updateSimulationValues();
+
+            if (!explainerActive) {
+                const text = isActive ? 
+                    "Polyethylene barrier deployed. Note that water molecule emission has completely ceased." : 
+                    "Polyethylene barrier withdrawn. Evaporation kinetics resumed.";
+                document.getElementById('assistant-bubble').innerText = text;
+                speakText(text);
+            }
+        }
+
+        function highlightFormulaTerm(className) {
+            const term = document.querySelector(`.${className}`);
+            if (term) {
+                term.style.transform = 'scale(1.1)';
+                term.style.fontWeight = 'bold';
+                setTimeout(() => {
+                    term.style.transform = 'scale(1)';
+                    term.style.fontWeight = 'normal';
+                }, 300);
+            }
+        }
+
+        // --- Event Listeners Integration ---
+        function initEvents() {
+            // Slider Listeners
+            const sliders = ['slide-temp', 'slide-wind', 'slide-humidity', 'slide-impurities', 'slide-area'];
+            sliders.forEach(id => {
+                document.getElementById(id).addEventListener('input', () => triggerSliderInput(id));
+            });
+
+            // Toggle Barrier click routing
+            document.getElementById('toggle-barrier').addEventListener('change', (e) => {
+                triggerBarrierInput(e.target.checked);
+            });
+
+            // Tap gesture on Canvas draggable floating handle
+            document.getElementById('drag-cover-indicator').addEventListener('click', () => {
+                const current = document.getElementById('toggle-barrier').checked;
+                triggerBarrierInput(!current);
+            });
+
+            // Audio Activation toggler
+            document.getElementById('audio-toggle').addEventListener('click', function() {
+                audio.init();
+                const isMuted = audio.toggleMute();
+                if (isMuted) {
+                    this.className = "fa-solid fa-volume-xmark audio-status off";
+                } else {
+                    this.className = "fa-solid fa-volume-high audio-status on";
+                }
+            });
+
+            // AI Narrator Buttons
+            document.getElementById('btn-narrate').addEventListener('click', handleAutoNarration);
+            document.getElementById('btn-explain-mode').addEventListener('click', toggleExplainerMode);
+
+            // Re-render canvas dynamic dimensions on viewport update
+            window.addEventListener('resize', resizeCanvas);
+        }
+
+        // --- Initialization ---
+        window.addEventListener('DOMContentLoaded', () => {
+            resizeCanvas();
+            initChart();
+            updateSimulationValues();
+            initEvents();
+            
+            // Kickstart 60 FPS visual environment
+            requestAnimationFrame(drawSimulation);
+        });
+    </script>
+</body>
+</html>

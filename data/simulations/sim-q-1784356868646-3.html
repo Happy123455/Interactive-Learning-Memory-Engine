@@ -1,0 +1,1436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Traffic Volume Sandbox: AADT, ADT & PHF</title>
+  <!-- Google Fonts for playful/premium cyber look -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #0a0b10;
+      --panel-bg: rgba(18, 20, 32, 0.75);
+      --card-bg: rgba(28, 30, 48, 0.6);
+      --border-color: rgba(255, 255, 255, 0.1);
+      
+      /* Neon Accent Palette */
+      --cyan: #00f0ff;
+      --pink: #ff007f;
+      --yellow: #39ff14; /* Neon Green-Yellow */
+      --amber: #ffaa00;
+      --text-main: #f0f2f5;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Lexend', sans-serif;
+      overflow: hidden; /* Strict viewport containment */
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Premium Cyber Neon Header */
+    header {
+      background: linear-gradient(180deg, rgba(10,11,16,1) 0%, rgba(10,11,16,0.5) 100%);
+      border-bottom: 1px solid var(--border-color);
+      padding: 12px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+      flex-shrink: 0;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-glow {
+      width: 16px;
+      height: 16px;
+      background: var(--pink);
+      border-radius: 50%;
+      box-shadow: 0 0 15px var(--pink), 0 0 30px var(--pink);
+      animation: pulse 2s infinite ease-in-out;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(90deg, #fff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-tagline {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.85rem;
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+      color: var(--cyan);
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.15);
+    }
+
+    .audio-speech-controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-cyber {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      color: var(--text-main);
+      padding: 8px 14px;
+      border-radius: 8px;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 0.8rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-cyber:hover {
+      border-color: var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.2);
+      transform: translateY(-2px);
+    }
+
+    .btn-cyber.active {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    /* Dashboard Layout Grid */
+    .dashboard-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 20px;
+      padding: 20px;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Left Panel: Simulation View & Interactive Scruber */
+    .simulation-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .canvas-container {
+      flex: 1;
+      background: radial-gradient(circle at center, #16192b 0%, #0d0f19 100%);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 40px rgba(0,0,0,0.6);
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Scrub Gesture Area Overlaid/Bottom of Canvas Container */
+    .scrub-overlay {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      right: 20px;
+      background: rgba(10, 11, 16, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: auto;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    .scrub-info {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+    }
+
+    .scrub-title {
+      font-weight: 600;
+      color: var(--cyan);
+    }
+
+    .scrub-time {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 700;
+      color: var(--pink);
+    }
+
+    .scrub-slider-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .scrub-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      background: rgba(255, 255, 255, 0.1);
+      height: 8px;
+      border-radius: 4px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .scrub-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 10px var(--cyan);
+      transition: transform 0.1s ease;
+    }
+
+    .scrub-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.3);
+    }
+
+    /* Right Panel: Playful Control Deck */
+    .control-deck {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      padding-right: 6px;
+      height: 100%;
+    }
+
+    /* Style scrollbar for Control Deck */
+    .control-deck::-webkit-scrollbar {
+      width: 6px;
+    }
+    .control-deck::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .control-deck::-webkit-scrollbar-thumb {
+      background: var(--border-color);
+      border-radius: 3px;
+    }
+
+    .glass-card {
+      background: var(--panel-bg);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .deck-title {
+      font-size: 0.95rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .deck-title-dot {
+      width: 6px;
+      height: 6px;
+      background: var(--cyan);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--cyan);
+    }
+
+    /* ELI5 Analogies Banner Grid */
+    .analogies-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .analogy-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      padding: 10px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .analogy-item:hover {
+      border-color: var(--yellow);
+      transform: translateY(-3px) scale(1.02);
+      box-shadow: 0 8px 20px rgba(57, 255, 20, 0.1);
+    }
+
+    .analogy-icon {
+      font-size: 1.6rem;
+      margin-bottom: 6px;
+    }
+
+    .analogy-name {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .analogy-subtitle {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    /* Live Gauges Container */
+    .gauges-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .gauge-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .gauge-value {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fff;
+      margin: 4px 0;
+    }
+
+    .gauge-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .gauge-trend {
+      font-size: 0.6rem;
+      padding: 2px 6px;
+      border-radius: 10px;
+      margin-top: 4px;
+    }
+
+    /* Drag and Drop Playground Area */
+    .drag-drop-zone {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .blocks-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .traffic-block {
+      background: linear-gradient(135deg, rgba(255,0,127,0.1) 0%, rgba(28,30,48,0.8) 100%);
+      border: 1px dashed var(--pink);
+      border-radius: 10px;
+      padding: 12px;
+      cursor: grab;
+      text-align: center;
+      position: relative;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .traffic-block:hover {
+      box-shadow: 0 4px 12px rgba(255, 0, 127, 0.2);
+      transform: scale(1.02);
+    }
+
+    .traffic-block:active {
+      cursor: grabbing;
+    }
+
+    .traffic-block[data-type="annual"] {
+      border-color: var(--yellow);
+      background: linear-gradient(135deg, rgba(57, 255, 20, 0.08) 0%, rgba(28,30,48,0.8) 100%);
+    }
+
+    .traffic-block[data-type="uniform"] {
+      border-color: var(--cyan);
+      background: linear-gradient(135deg, rgba(0, 240, 255, 0.08) 0%, rgba(28,30,48,0.8) 100%);
+    }
+
+    .block-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .block-desc {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+    }
+
+    .dropzones-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 6px;
+    }
+
+    .dropzone {
+      background: rgba(28, 30, 48, 0.4);
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      position: relative;
+      transition: all 0.2s ease;
+    }
+
+    .dropzone.hovered {
+      border-color: var(--cyan);
+      background: rgba(0, 240, 255, 0.05);
+      color: var(--cyan);
+    }
+
+    .dropzone-label {
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    /* Live PHF Straw Visualizer */
+    .straw-visualizer {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 12px;
+    }
+
+    .straw-meta {
+      flex: 1;
+    }
+
+    .straw-canvas-container {
+      width: 130px;
+      height: 44px;
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--border-color);
+    }
+
+    /* Info Trigger Modals & Screenshakes */
+    @keyframes pulse {
+      0%, 100% { opacity: 0.8; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.1); }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translate(0, 0); }
+      10%, 30%, 50%, 70%, 90% { transform: translate(-4px, 2px); }
+      20%, 40%, 60%, 80% { transform: translate(4px, -2px); }
+    }
+
+    .shake-anim {
+      animation: shake 0.4s ease-out;
+    }
+
+    /* Overlay modal for Explanations */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(10, 11, 16, 0.7);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal-overlay.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-card {
+      background: #16192c;
+      border: 2px solid var(--cyan);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.25);
+      border-radius: 20px;
+      width: 90%;
+      max-width: 500px;
+      padding: 24px;
+      position: relative;
+    }
+
+    .modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.2rem;
+      cursor: pointer;
+    }
+
+    .modal-title {
+      font-size: 1.25rem;
+      font-weight: 800;
+      color: var(--cyan);
+      margin-bottom: 12px;
+    }
+
+    .modal-body {
+      font-size: 0.9rem;
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+
+    /* Live Histogram Card styling */
+    .histogram-panel {
+      height: 120px;
+      position: relative;
+    }
+
+    /* Small layout optimization for mobile or tight heights */
+    @media (max-height: 700px) {
+      .analogies-grid {
+        display: none;
+      }
+      .gauges-row {
+        gap: 6px;
+      }
+      .dropzone {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Cybernetic Header with interactive Controls -->
+  <header>
+    <div class="brand">
+      <div class="logo-glow"></div>
+      <h1>Traffic Sandbox</h1>
+      <div class="header-tagline">ELI5 Interactive Highway</div>
+    </div>
+    <div class="audio-speech-controls">
+      <button class="btn-cyber" id="btn-audio-toggle">
+        <span id="audio-icon">🔊</span> Synthesizer On
+      </button>
+      <button class="btn-cyber" id="btn-speech-explain">
+        🗣️ Read Explanation
+      </button>
+    </div>
+  </header>
+
+  <!-- Dashboard Grid -->
+  <div class="dashboard-container" id="dashboard">
+    
+    <!-- Left Column: Primary Simulator Space -->
+    <section class="simulation-panel">
+      <div class="canvas-container" id="canvas-wrapper">
+        <canvas id="highway-canvas"></canvas>
+        
+        <!-- Live Horizontal Time Gesture Overlay -->
+        <div class="scrub-overlay">
+          <div class="scrub-info">
+            <span class="scrub-title">⚡ Interactive Gesture Controller (Drag to Shift Time)</span>
+            <span class="scrub-time" id="time-display">12:00 PM</span>
+          </div>
+          <div class="scrub-slider-container">
+            <span>🌙</span>
+            <input type="range" min="0" max="23.9" step="0.1" value="12" class="scrub-slider" id="time-scrubber">
+            <span>☀️</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Column: Control Deck & Gamified Math -->
+    <section class="control-deck">
+      
+      <!-- Section 1: ELI5 Analogy Cards (Interactive speech targets) -->
+      <div class="glass-card">
+        <div class="deck-title">
+          <div class="deck-title-dot"></div>
+          ELI5 Analogies (Click to Listen)
+        </div>
+        <div class="analogies-grid">
+          <div class="analogy-item" data-topic="aadt">
+            <div class="analogy-icon">🌊</div>
+            <div class="analogy-name">AADT</div>
+            <div class="analogy-subtitle">"The Big River"</div>
+          </div>
+          <div class="analogy-item" data-topic="adt">
+            <div class="analogy-icon">🏖️</div>
+            <div class="analogy-name">ADT</div>
+            <div class="analogy-subtitle">"Weekend Splash"</div>
+          </div>
+          <div class="analogy-item" data-topic="phf">
+            <div class="analogy-icon">🥤</div>
+            <div class="analogy-name">PHF</div>
+            <div class="analogy-subtitle">"The Straw Sip"</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Real-time Metric Gauges -->
+      <div class="glass-card">
+        <div class="deck-title">
+          <div class="deck-title-dot"></div>
+          Live Traffic Gauges
+        </div>
+        <div class="gauges-row">
+          <div class="gauge-card">
+            <div class="gauge-label">AADT (Annual)</div>
+            <div class="gauge-value" id="gauge-aadt">45,000</div>
+            <div class="gauge-trend" style="background: rgba(57, 255, 20, 0.15); color: var(--yellow);">Steady</div>
+          </div>
+          <div class="gauge-card">
+            <div class="gauge-label">ADT (Short Term)</div>
+            <div class="gauge-value" id="gauge-adt">32,400</div>
+            <div class="gauge-trend" style="background: rgba(0, 240, 255, 0.15); color: var(--cyan);">Daily Vary</div>
+          </div>
+          <div class="gauge-card">
+            <div class="gauge-label">PHF (Flow Quality)</div>
+            <div class="gauge-value" id="gauge-phf">0.85</div>
+            <div class="gauge-trend" id="phf-trend-badge" style="background: rgba(255, 0, 127, 0.15); color: var(--pink);">Smooth</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Straw-Sip Rush Visualizer (Peak Hour Factor) -->
+      <div class="glass-card">
+        <div class="deck-title">
+          <div class="deck-title-dot"></div>
+          Straw-Sip visualizer (PHF Mechanic)
+        </div>
+        <div class="straw-visualizer">
+          <div class="straw-meta">
+            <h3 style="font-size: 0.85rem; font-weight: 700; margin-bottom: 2px;">The Peak Straw Capacity</h3>
+            <p style="font-size: 0.65rem; color: var(--text-muted); line-height: 1.3;">
+              Low PHF squeezes the straw! High PHF allows an even, steady liquid sip without bottlenecks.
+            </p>
+          </div>
+          <div class="straw-canvas-container">
+            <canvas id="straw-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Drag & Drop Physics Playground -->
+      <div class="glass-card">
+        <div class="deck-title">
+          <div class="deck-title-dot" style="background-color: var(--pink);"></div>
+          Simulation Scenario Deck
+        </div>
+        <div class="drag-drop-zone">
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 6px;">
+            Drag a scenario block into the active simulator dropzone below to instantaneously warp traffic physical states.
+          </p>
+          
+          <div class="blocks-container">
+            <div class="traffic-block" draggable="true" data-type="annual" data-flow="80000" data-rush="uniform">
+              <div class="block-title">🌊 80K River Flow</div>
+              <div class="block-desc">High AADT, Steady Grid</div>
+            </div>
+            <div class="traffic-block" draggable="true" data-type="weekend" data-flow="12000" data-rush="clogged">
+              <div class="block-title">🏖️ 12K Weekend Splash</div>
+              <div class="block-desc">Low ADT, Sparse Road</div>
+            </div>
+            <div class="traffic-block" draggable="true" data-type="uniform" data-flow="42000" data-rush="perfect">
+              <div class="block-title">🥤 Smooth Sip (PHF 0.95)</div>
+              <div class="block-desc">Even 15-min Intervals</div>
+            </div>
+            <div class="traffic-block" draggable="true" data-type="clogged" data-flow="55000" data-rush="clogged">
+              <div class="block-title">🥤 Choked Straw (PHF 0.45)</div>
+              <div class="block-desc">All Cars Rush at 8:15!</div>
+            </div>
+          </div>
+
+          <div class="dropzones-container">
+            <div class="dropzone" id="drop-target-flow">
+              <div class="dropzone-label">🎯 Drop Area: Warp Active Scenario</div>
+              Drag and drop any scenario block here to live-inject parameters!
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Real-time traffic flow chart -->
+      <div class="glass-card histogram-panel">
+        <div class="deck-title" style="margin-bottom: 4px;">
+          <div class="deck-title-dot" style="background-color: var(--yellow);"></div>
+          Hourly Distribution (Real-Time V vs V15)
+        </div>
+        <canvas id="flow-graph"></canvas>
+      </div>
+
+    </section>
+  </div>
+
+  <!-- Educational Explanatory Modal popup -->
+  <div class="modal-overlay" id="info-modal">
+    <div class="modal-card">
+      <button class="modal-close" id="modal-close-btn">&times;</button>
+      <div class="modal-title" id="modal-title-field">Concept Explained</div>
+      <div class="modal-body" id="modal-body-field">Loading...</div>
+    </div>
+  </div>
+
+  <script>
+    // --- STATE MANAGEMENT ---
+    const state = {
+      currentTime: 12.0,      // Range: 0 to 24 (hours)
+      baseAADT: 45000,        // Year-Round Average
+      currentADT: 32400,      // Short term actual simulation day
+      activeFlowPattern: 'standard', // 'standard', 'clogged', 'perfect'
+      audioEnabled: false,
+      speechEnabled: true,
+      lastParticleExplosion: 0,
+      trafficDensity: 0.5,    // derived from active time/scenario block
+      phfValue: 0.85,
+      canvasShake: 0
+    };
+
+    // ELI5 Text Audio Data
+    const explanations = {
+      aadt: {
+        title: "🌊 AADT (Average Annual Daily Traffic) - The Big Year-Round River",
+        text: "Imagine a giant, ever-flowing river of cars running through the year. If we caught every single car that passed by for all 365 days, built a giant parking lot to hold them, and then divided them evenly into 365 days—that uniform daily slice is your AADT. It tells engineers how massive the traffic 'river' is on average!"
+      },
+      adt: {
+        title: "🏖️ ADT (Average Daily Traffic) - The Weekend Splash",
+        text: "Unlike the big annual river, ADT is just a short snapshot. Think of it like looking at the river for only 2 or 3 days, like a busy sunny weekend! ADT helps planners look at specific, short-term trends without counting cars for a whole year."
+      },
+      phf: {
+        title: "🥤 PHF (Peak Hour Factor) - The Straw-Sip Rush",
+        text: "Imagine drinking bubble tea. If you sip steadily over a whole hour, your straw handles it easily (High PHF close to 1). But if you try to gulp down all your drink in one tiny, frantic 15-minute rush, you choke the straw! PHF measures how 'bursty' your traffic is. A low PHF means a heavy, clogged straw during peak rush hour."
+      }
+    };
+
+    // --- DOM REFERENCES ---
+    const canvas = document.getElementById('highway-canvas');
+    const ctx = canvas.getContext('2d');
+    const strawCanvas = document.getElementById('straw-canvas');
+    const strawCtx = strawCanvas.getContext('2d');
+    const flowGraph = document.getElementById('flow-graph');
+    const flowCtx = flowGraph.getContext('2d');
+    
+    const dashboard = document.getElementById('dashboard');
+    const timeScrubber = document.getElementById('time-scrubber');
+    const timeDisplay = document.getElementById('time-display');
+    const btnAudioToggle = document.getElementById('btn-audio-toggle');
+    const btnSpeechExplain = document.getElementById('btn-speech-explain');
+    
+    const gaugeAadt = document.getElementById('gauge-aadt');
+    const gaugeAdt = document.getElementById('gauge-adt');
+    const gaugePhf = document.getElementById('gauge-phf');
+    const phfTrendBadge = document.getElementById('phf-trend-badge');
+    
+    const infoModal = document.getElementById('info-modal');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const modalTitleField = document.getElementById('modal-title-field');
+    const modalBodyField = document.getElementById('modal-body-field');
+    
+    const dropTargetFlow = document.getElementById('drop-target-flow');
+
+    // --- SOUND SYNTH SYSTEM (Web Audio API) ---
+    let audioCtx = null;
+    let oscillator = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+        
+        oscillator.type = 'sawtooth';
+        oscillator.frequency.setValueAtTime(100, audioCtx.currentTime); // default deep hum
+        
+        // Dynamic filter to make it sound like highway white-noise-ish
+        const filter = audioCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.value = 400;
+
+        oscillator.connect(filter);
+        filter.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        oscillator.start();
+      }
+    }
+
+    function updateSynthVolumePitch() {
+      if (!audioCtx || !state.audioEnabled) return;
+      // Map density to pitch and volume
+      const density = state.trafficDensity;
+      const targetFreq = 60 + (density * 180); // 60Hz to 240Hz playfulness
+      const targetGain = 0.01 + (density * 0.05); // low volume
+      
+      oscillator.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+      gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.15);
+    }
+
+    btnAudioToggle.addEventListener('click', () => {
+      try {
+        initAudio();
+        state.audioEnabled = !state.audioEnabled;
+        if (state.audioEnabled) {
+          if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+          }
+          btnAudioToggle.classList.add('active');
+          btnAudioToggle.innerHTML = "🔊 Synth On";
+          updateSynthVolumePitch();
+        } else {
+          gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+          btnAudioToggle.classList.remove('active');
+          btnAudioToggle.innerHTML = "🔇 Synth Off";
+        }
+      } catch (e) {
+        console.error("Audio Web API initialization blocked or unsupported", e);
+      }
+    });
+
+    // Speech synthesis helper
+    function speakELI5(topicKey) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      const textToSpeak = explanations[topicKey]?.text || "";
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.pitch = 1.1; // Make it sound a bit more playful
+      utterance.rate = 1.05;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    btnSpeechExplain.addEventListener('click', () => {
+      speakELI5('phf'); // Default read of PHF
+      showModal('phf');
+    });
+
+    // --- HIGH-DPI CANVAS SETUP ---
+    function setupCanvas(canvasElement) {
+      const rect = canvasElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvasElement.width = rect.width * dpr;
+      canvasElement.height = rect.height * dpr;
+      const ctx2d = canvasElement.getContext('2d');
+      ctx2d.scale(dpr, dpr);
+      return { width: rect.width, height: rect.height };
+    }
+
+    // --- HIGHWAY PARTICLE & PHYSICS SIMULATION ---
+    let highwayRect = { width: 800, height: 400 };
+    const cars = [];
+    const particles = [];
+
+    class ToyCar {
+      constructor(lane) {
+        this.lane = lane; // 0, 1, or 2
+        this.x = -50 - Math.random() * 200;
+        this.y = 80 + lane * 45;
+        this.width = 32 + Math.random() * 12;
+        this.height = 18;
+        this.speed = 1.5 + Math.random() * 3.5;
+        this.color = this.getRandomNeonColor();
+        this.bouncePhase = Math.random() * Math.PI * 2;
+        this.bounceSpeed = 0.1 + Math.random() * 0.1;
+      }
+
+      getRandomNeonColor() {
+        const colors = [
+          '#ff007f', // pink
+          '#00f0ff', // cyan
+          '#39ff14', // green
+          '#ffaa00'  // orange
+        ];
+        return colors[Math.floor(Math.random() * colors.length)];
+      }
+
+      update() {
+        this.x += this.speed * (1 + state.trafficDensity);
+        this.bouncePhase += this.bounceSpeed;
+        if (this.x > highwayRect.width + 50) {
+          this.x = -100;
+          this.speed = 1.5 + Math.random() * 3.5;
+        }
+      }
+
+      draw(c) {
+        c.save();
+        const yOffset = Math.sin(this.bouncePhase) * 3; // Fun bouncy motion
+        c.translate(this.x, this.y + yOffset);
+        
+        // Neon Glow drop-shadow
+        c.shadowBlur = 10;
+        c.shadowColor = this.color;
+        
+        // Bouncy Toy Car base
+        c.fillStyle = this.color;
+        c.beginPath();
+        c.roundRect(0, 0, this.width, this.height, 6);
+        c.fill();
+        
+        // Glass canopy
+        c.shadowBlur = 0;
+        c.fillStyle = 'rgba(255, 255, 255, 0.4)';
+        c.beginPath();
+        c.roundRect(this.width * 0.4, 3, this.width * 0.4, this.height - 6, 3);
+        c.fill();
+
+        // Toy wheels
+        c.fillStyle = '#0e111a';
+        c.beginPath();
+        c.arc(this.width * 0.25, this.height, 4, 0, Math.PI * 2);
+        c.arc(this.width * 0.75, this.height, 4, 0, Math.PI * 2);
+        c.fill();
+
+        c.restore();
+      }
+    }
+
+    class Particle {
+      constructor(x, y, color) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * 8;
+        this.vy = (Math.random() - 0.5) * 8;
+        this.radius = Math.random() * 4 + 2;
+        this.color = color;
+        this.alpha = 1;
+        this.decay = 0.02 + Math.random() * 0.03;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.alpha -= this.decay;
+      }
+
+      draw(c) {
+        c.save();
+        c.globalAlpha = this.alpha;
+        c.fillStyle = this.color;
+        c.beginPath();
+        c.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        c.fill();
+        c.restore();
+      }
+    }
+
+    function createExplosion(x, y, color) {
+      for (let i = 0; i < 35; i++) {
+        particles.push(new Particle(x, y, color));
+      }
+      state.canvasShake = 15; // Trigger screenshake
+    }
+
+    // Initialize 15 cars on the highway
+    for (let i = 0; i < 15; i++) {
+      cars.push(new ToyCar(i % 3));
+    }
+
+    // --- RESPONSIVE ADJUSTMENTS ---
+    function handleResize() {
+      highwayRect = setupCanvas(canvas);
+      setupCanvas(strawCanvas);
+      setupCanvas(flowGraph);
+    }
+    window.addEventListener('resize', handleResize);
+    handleResize();
+
+    // --- TIME CONTROLLER SLIDER ---
+    function formatTime(val) {
+      const hours = Math.floor(val);
+      const minutes = Math.floor((val % 1) * 60);
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours % 12 === 0 ? 12 : hours % 12;
+      const displayMinutes = minutes < 10 ? '0' + minutes : minutes;
+      return `${displayHours}:${displayMinutes} ${ampm}`;
+    }
+
+    timeScrubber.addEventListener('input', (e) => {
+      state.currentTime = parseFloat(e.target.value);
+      timeDisplay.innerText = formatTime(state.currentTime);
+      recalculateSimulationParameters();
+    });
+
+    // --- RECALCULATE DYNAMIC TRAFFIC VALUES (AADT, ADT, PHF) ---
+    function recalculateSimulationParameters() {
+      // 1. Density depends heavily on time of day (Rush hours at 8AM and 5PM)
+      const hour = state.currentTime;
+      let densityFactor = 0.15; // constant base
+      
+      // Multi-peak flow distribution (8 AM Peak, 5 PM Peak)
+      const peak1 = Math.exp(-Math.pow(hour - 8, 2) / 2);
+      const peak2 = Math.exp(-Math.pow(hour - 17, 2) / 3);
+      
+      densityFactor += peak1 * 0.65;
+      densityFactor += peak2 * 0.75;
+      
+      // Inject flow pattern multipliers
+      if (state.activeFlowPattern === 'clogged') {
+        densityFactor *= 1.4;
+      } else if (state.activeFlowPattern === 'perfect') {
+        densityFactor *= 0.85;
+      }
+
+      state.trafficDensity = Math.min(Math.max(densityFactor, 0.05), 1.3);
+
+      // 2. PHF Calculation: In our sandbox model, the PHF varies with hour. 
+      // During extreme burst rush hour (8AM, 5PM), flows can get congested if flow pattern is uneven.
+      if (state.activeFlowPattern === 'clogged') {
+        state.phfValue = 0.45;
+      } else if (state.activeFlowPattern === 'perfect') {
+        state.phfValue = 0.96;
+      } else {
+        // dynamic normal curve: peak congestion drops PHF
+        state.phfValue = parseFloat((0.95 - (peak1 * 0.2) - (peak2 * 0.15)).toFixed(2));
+      }
+
+      // Live metrics calculations
+      state.currentADT = Math.floor(state.baseAADT * (0.6 + (densityFactor * 0.6)));
+      
+      // Update displays
+      gaugeAadt.innerText = state.baseAADT.toLocaleString();
+      gaugeAdt.innerText = state.currentADT.toLocaleString();
+      gaugePhf.innerText = state.phfValue.toFixed(2);
+
+      // Style badge based on PHF
+      if (state.phfValue >= 0.85) {
+        phfTrendBadge.innerText = "🥤 High (Steady Sip)";
+        phfTrendBadge.style.background = "rgba(57, 255, 20, 0.15)";
+        phfTrendBadge.style.color = "var(--yellow)";
+      } else if (state.phfValue >= 0.70) {
+        phfTrendBadge.innerText = "🥤 Moderate (Normal)";
+        phfTrendBadge.style.background = "rgba(0, 240, 255, 0.15)";
+        phfTrendBadge.style.color = "var(--cyan)";
+      } else {
+        phfTrendBadge.innerText = "🥤 Choked (Peak Rush)";
+        phfTrendBadge.style.background = "rgba(255, 0, 127, 0.15)";
+        phfTrendBadge.style.color = "var(--pink)";
+      }
+
+      updateSynthVolumePitch();
+    }
+
+    // --- DRAG AND DROP SCENARIOS ---
+    const draggableBlocks = document.querySelectorAll('.traffic-block');
+    draggableBlocks.forEach(block => {
+      block.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', JSON.stringify({
+          type: block.getAttribute('data-type'),
+          flow: block.getAttribute('data-flow'),
+          rush: block.getAttribute('data-rush')
+        }));
+        block.style.opacity = '0.5';
+      });
+
+      block.addEventListener('dragend', () => {
+        block.style.opacity = '1';
+      });
+    });
+
+    dropTargetFlow.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropTargetFlow.classList.add('hovered');
+    });
+
+    dropTargetFlow.addEventListener('dragleave', () => {
+      dropTargetFlow.classList.remove('hovered');
+    });
+
+    dropTargetFlow.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropTargetFlow.classList.remove('hovered');
+      
+      try {
+        const rawData = e.dataTransfer.getData('text/plain');
+        if (!rawData) return;
+        const data = JSON.parse(rawData);
+        
+        // Trigger explosion at drop zone center
+        const rect = dropTargetFlow.getBoundingClientRect();
+        createExplosion(highwayRect.width / 2, highwayRect.height / 2, 'var(--cyan)');
+        
+        // Apply Scenario warp logic
+        state.baseAADT = parseInt(data.flow);
+        state.activeFlowPattern = data.rush;
+        
+        recalculateSimulationParameters();
+        
+        // Sound confirmation
+        if (audioCtx && state.audioEnabled) {
+          const osc = audioCtx.createOscillator();
+          const gNode = audioCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15);
+          gNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+          gNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+          osc.connect(gNode);
+          gNode.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + 0.2);
+        }
+
+        // Voice explain active state shift
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+          let narration = `Simulating active scenario. `;
+          if (data.type === 'annual') narration += "Heavy high capacity year-round river activated.";
+          if (data.type === 'weekend') narration += "Calm weekend splash sequence active. ADT drops.";
+          if (data.type === 'uniform') narration += "Even distribution flow is high. PHF rises to maximum capacity.";
+          if (data.type === 'clogged') narration += "Low PHF detected. Straw is bottlenecked by dynamic spikes.";
+          const ut = new SpeechSynthesisUtterance(narration);
+          window.speechSynthesis.speak(ut);
+        }
+
+      } catch (err) {
+        console.error("Drop Parse Failure", err);
+      }
+    });
+
+    // --- INTERACTIVE ANALOGY MODAL & SPEECH TRIGGERS ---
+    const analogyItems = document.querySelectorAll('.analogy-item');
+    analogyItems.forEach(item => {
+      item.addEventListener('click', () => {
+        const topic = item.getAttribute('data-topic');
+        showModal(topic);
+        speakELI5(topic);
+      });
+    });
+
+    function showModal(topicKey) {
+      const data = explanations[topicKey];
+      if (!data) return;
+      modalTitleField.innerText = data.title;
+      modalBodyField.innerText = data.text;
+      infoModal.classList.add('active');
+    }
+
+    modalCloseBtn.addEventListener('click', () => {
+      infoModal.classList.remove('active');
+      window.speechSynthesis.cancel();
+    });
+
+    infoModal.addEventListener('click', (e) => {
+      if (e.target === infoModal) {
+        infoModal.classList.remove('active');
+        window.speechSynthesis.cancel();
+      }
+    });
+
+    // --- LIVE RENDER & GRAPHICS LOOP ---
+    let frameCount = 0;
+
+    function mainLoop() {
+      requestAnimationFrame(mainLoop);
+      frameCount++;
+
+      // Clear main screen canvas
+      ctx.fillStyle = '#0e111a';
+      ctx.fillRect(0, 0, highwayRect.width, highwayRect.height);
+
+      // Render Screen Shake offset if active
+      ctx.save();
+      if (state.canvasShake > 0) {
+        const dx = (Math.random() - 0.5) * state.canvasShake;
+        const dy = (Math.random() - 0.5) * state.canvasShake;
+        ctx.translate(dx, dy);
+        state.canvasShake *= 0.9; // dampening
+        if (state.canvasShake < 0.2) state.canvasShake = 0;
+      }
+
+      // Draw Highway lanes, grids, backgrounds
+      drawHighwayInfrastructure();
+
+      // Render & Update bouncy toy cars
+      const activeCarLimit = Math.floor(3 + (state.trafficDensity * 12));
+      for (let i = 0; i < activeCarLimit; i++) {
+        if (!cars[i]) cars[i] = new ToyCar(i % 3);
+        cars[i].update();
+        cars[i].draw(ctx);
+      }
+
+      // Particles explosion engine
+      for (let i = particles.length - 1; i >= 0; i--) {
+        particles[i].update();
+        particles[i].draw(ctx);
+        if (particles[i].alpha <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+
+      ctx.restore();
+
+      // Draw secondary visualization canvas systems (Straw & flow histogram)
+      drawStrawVisualizer();
+      drawFlowDistributionGraph();
+    }
+
+    function drawHighwayInfrastructure() {
+      const { width, height } = highwayRect;
+      
+      // Horizon gradient glow based on time of day
+      const colorGlow = getSkyColor(state.currentTime);
+      const skyGradient = ctx.createLinearGradient(0, 0, 0, height * 0.45);
+      skyGradient.addColorStop(0, colorGlow.top);
+      skyGradient.addColorStop(1, '#0e111a');
+      ctx.fillStyle = skyGradient;
+      ctx.fillRect(0, 0, width, height * 0.4);
+
+      // Mountains/Horizon elements in neon outline
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, height * 0.4);
+      ctx.lineTo(width * 0.2, height * 0.3);
+      ctx.lineTo(width * 0.4, height * 0.38);
+      ctx.lineTo(width * 0.7, height * 0.25);
+      ctx.lineTo(width * 0.9, height * 0.39);
+      ctx.lineTo(width, height * 0.3);
+      ctx.stroke();
+
+      // Highway floor deck bounds
+      const deckY = height * 0.45;
+      const deckHeight = height * 0.45;
+      ctx.fillStyle = '#121420';
+      ctx.fillRect(0, deckY, width, deckHeight);
+
+      // Neon Lane separators
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i < 4; i++) {
+        const y = deckY + (deckHeight * 0.25) * i;
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Center glowing neon divider line
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([20, 15]);
+      ctx.beginPath();
+      ctx.moveTo(0, deckY + deckHeight * 0.5);
+      ctx.lineTo(width, deckY + deckHeight * 0.5);
+      ctx.stroke();
+      ctx.setLineDash([]); // clear dash
+
+      // Road shoulder safety markings
+      ctx.strokeStyle = 'rgba(255, 0, 127, 0.4)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, deckY);
+      ctx.lineTo(width, deckY);
+      ctx.moveTo(0, deckY + deckHeight);
+      ctx.lineTo(width, deckY + deckHeight);
+      ctx.stroke();
+
+      // UI Indicator overlays inside Canvas (Clean solid/transparent contrast backings)
+      ctx.fillStyle = 'rgba(10, 11, 16, 0.85)';
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.lineWidth = 1;
+      
+      // Top overlay stats
+      ctx.beginPath();
+      ctx.roundRect(16, 16, 170, 48, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = '#fff';
+      ctx.font = '10px Space Grotesk';
+      ctx.fillText("SIMULATION STATE", 24, 28);
+      ctx.fillStyle = 'var(--cyan)';
+      ctx.font = '12px Lexend';
+      const activeStateText = state.activeFlowPattern.toUpperCase() + " FLOW";
+      ctx.fillText(activeStateText, 24, 44);
+    }
+
+    function getSkyColor(hour) {
+      // Return neon sky gradient based on 24-hour cycle
+      if (hour < 5 || hour > 21) {
+        return { top: '#05051a', bottom: '#0d0f19' }; // Midnight deep cyber
+      } else if (hour >= 5 && hour < 8) {
+        return { top: '#ff007f', bottom: '#2a0845' }; // Neon sunrise pink
+      } else if (hour >= 8 && hour < 16) {
+        return { top: '#0052d4', bottom: '#121420' }; // Cyber cyan blue
+      } else {
+        return { top: '#ff512f', bottom: '#121420' }; // Sunset warm gold
+      }
+    }
+
+    // --- DRAW STRAW VISUALIZER ---
+    function drawStrawVisualizer() {
+      const w = strawCanvas.width / (window.devicePixelRatio || 1);
+      const h = strawCanvas.height / (window.devicePixelRatio || 1);
+      
+      strawCtx.fillStyle = '#0a0b10';
+      strawCtx.fillRect(0, 0, w, h);
+
+      // Straw outline structure
+      strawCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      strawCtx.lineWidth = 2;
+      
+      // Draw top and bottom boundaries of the "Straw"
+      const maxConstriction = (1 - state.phfValue) * 12; // lower phf squeezes straw more
+      
+      strawCtx.beginPath();
+      // upper contour
+      strawCtx.moveTo(10, h * 0.3);
+      strawCtx.bezierCurveTo(w * 0.3, h * 0.3 + maxConstriction, w * 0.7, h * 0.3 + maxConstriction, w - 10, h * 0.3);
+      // lower contour
+      strawCtx.moveTo(10, h * 0.7);
+      strawCtx.bezierCurveTo(w * 0.3, h * 0.7 - maxConstriction, w * 0.7, h * 0.7 - maxConstriction, w - 10, h * 0.7);
+      strawCtx.stroke();
+
+      // Dynamic liquid flow dots moving through straw
+      const dotCount = 6;
+      strawCtx.fillStyle = 'var(--pink)';
+      strawCtx.shadowBlur = 8;
+      strawCtx.shadowColor = 'var(--pink)';
+
+      for (let i = 0; i < dotCount; i++) {
+        const fraction = ((frameCount * 0.03 + (i / dotCount)) % 1);
+        const dotX = 15 + fraction * (w - 30);
+        
+        // Bezier formula to trace the midplane of constricted straw
+        const t = fraction;
+        const midY = h * 0.5; // symmetrical horizontal midline
+        
+        // draw glowing ball
+        strawCtx.beginPath();
+        strawCtx.arc(dotX, midY, 4 - (maxConstriction * 0.15), 0, Math.PI * 2);
+        strawCtx.fill();
+      }
+      strawCtx.shadowBlur = 0; // reset
+    }
+
+    // --- DRAW REAL-TIME FLOW DISTRIBUTION GRAPH ---
+    function drawFlowDistributionGraph() {
+      const w = flowGraph.width / (window.devicePixelRatio || 1);
+      const h = flowGraph.height / (window.devicePixelRatio || 1);
+      
+      flowCtx.fillStyle = 'rgba(18, 20, 32, 0.4)';
+      flowCtx.fillRect(0, 0, w, h);
+
+      // 4 quarters representing 15-minute segments of the peak hours
+      const padding = 15;
+      const barCount = 4;
+      const colWidth = (w - (padding * 2)) / barCount;
+      
+      // Calculate dynamic V15 bar spikes based on PHF value
+      // V = q1 + q2 + q3 + q4
+      // Max quarter is V15. High PHF means all quarters equal. Low PHF means one quarter massive.
+      let quarters = [0.25, 0.25, 0.25, 0.25];
+      if (state.phfValue < 0.6) {
+        quarters = [0.05, 0.75, 0.12, 0.08]; // Big cluster spike in Q2
+      } else if (state.phfValue < 0.8) {
+        quarters = [0.15, 0.45, 0.25, 0.15]; // Moderate cluster
+      } else {
+        quarters = [0.23, 0.27, 0.25, 0.25]; // Evenly smoothed sip
+      }
+
+      // Find Max V15 index
+      const maxVal = Math.max(...quarters);
+
+      // Draw quarters representation
+      for (let i = 0; i < barCount; i++) {
+        const qHeight = quarters[i] * (h - 40);
+        const bx = padding + i * colWidth + 5;
+        const by = h - padding - qHeight;
+        const bw = colWidth - 10;
+
+        // Peak V15 highlighted in neon magenta, others in clean cyan
+        const isMax = (quarters[i] === maxVal);
+        flowCtx.fillStyle = isMax ? 'var(--pink)' : 'rgba(0, 240, 255, 0.3)';
+        
+        flowCtx.beginPath();
+        flowCtx.roundRect(bx, by, bw, qHeight, 4);
+        flowCtx.fill();
+
+        // Labels underneath
+        flowCtx.fillStyle = varColor(isMax ? '--pink' : '--text-muted');
+        flowCtx.font = '7px Space Grotesk';
+        flowCtx.fillText(`Q${i+1} (${Math.round(quarters[i]*100)}%)`, bx + 2, h - 4);
+      }
+
+      // Draw top threshold indicator line representing V15 capping limit
+      const limitY = h - padding - (maxVal * (h - 40));
+      flowCtx.strokeStyle = 'var(--yellow)';
+      flowCtx.lineWidth = 1;
+      flowCtx.setLineDash([4, 4]);
+      flowCtx.beginPath();
+      flowCtx.moveTo(padding, limitY);
+      flowCtx.lineTo(w - padding, limitY);
+      flowCtx.stroke();
+      flowCtx.setLineDash([]); // clear
+    }
+
+    function varColor(cssVarName) {
+      return getComputedStyle(document.documentElement).getPropertyValue(cssVarName).trim();
+    }
+
+    // Initialize first parameter update & launch game loop
+    recalculateSimulationParameters();
+    mainLoop();
+  </script>
+</body>
+</html>

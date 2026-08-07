@@ -1,0 +1,1458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Road Medic: ELI5 Highway Sandbox</title>
+  <style>
+    :root {
+      --bg-color: #0c0f12;
+      --card-bg: rgba(20, 26, 33, 0.75);
+      --border-glow: rgba(0, 240, 255, 0.3);
+      --neon-cyan: #00f0ff;
+      --neon-pink: #ff007f;
+      --neon-lime: #39ff14;
+      --neon-yellow: #fffb00;
+      --text-main: #e2e8f0;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header Styling */
+    header {
+      background: linear-gradient(180deg, rgba(12, 15, 18, 0.95) 0%, rgba(12, 15, 18, 0.8) 100%);
+      border-bottom: 2px solid var(--neon-cyan);
+      box-shadow: 0 4px 20px rgba(0, 240, 255, 0.15);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      font-size: 1.8rem;
+      animation: pulse-glow 2s infinite alternate;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    .badge {
+      background: rgba(57, 255, 20, 0.1);
+      border: 1px solid var(--neon-lime);
+      color: var(--neon-lime);
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+    }
+
+    .global-stats {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 6px 14px;
+      border-radius: 30px;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .stat-pill strong {
+      color: var(--neon-cyan);
+    }
+
+    /* Main Container */
+    .dashboard-container {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1.4fr 1fr;
+      gap: 16px;
+      padding: 16px;
+      height: calc(100vh - 65px);
+      overflow: hidden;
+    }
+
+    /* Left Column - Viewport / Canvas */
+    .viewport-panel {
+      display: flex;
+      flex-direction: column;
+      background: var(--card-bg);
+      border: 1px solid var(--border-glow);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+    }
+
+    .viewport-header {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.3);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .layer-legend {
+      display: flex;
+      gap: 12px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+    }
+
+    .legend-color {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+    }
+
+    #canvas-container {
+      flex: 1;
+      position: relative;
+      cursor: crosshair;
+    }
+
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Right Column - Controls & Tools */
+    .control-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    /* Glassmorphism Cards */
+    .glass-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border-glow);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      padding: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+    }
+
+    .glass-card:hover {
+      border-color: rgba(0, 240, 255, 0.5);
+      box-shadow: 0 12px 40px rgba(0, 240, 255, 0.1);
+    }
+
+    .card-title {
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--neon-cyan);
+    }
+
+    /* Sandbox Sliders */
+    .slider-group {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .slider-item {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      padding: 10px;
+      border-radius: 10px;
+    }
+
+    .slider-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      margin-bottom: 6px;
+    }
+
+    .slider-labels span:first-child {
+      font-weight: bold;
+    }
+
+    .slider-labels span:last-child {
+      color: var(--neon-cyan);
+      font-family: monospace;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--neon-cyan);
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--neon-cyan);
+      transition: transform 0.1s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Tool Chest Grid */
+    .tool-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .tool-card {
+      background: rgba(255, 255, 255, 0.03);
+      border: 2px dashed rgba(255, 255, 255, 0.15);
+      border-radius: 12px;
+      padding: 12px 6px;
+      text-align: center;
+      cursor: grab;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .tool-card:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0, 240, 255, 0.05);
+      transform: translateY(-2px);
+    }
+
+    .tool-card:active {
+      cursor: grabbing;
+    }
+
+    .tool-icon {
+      font-size: 1.8rem;
+      margin-bottom: 6px;
+      display: block;
+    }
+
+    .tool-name {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tool-target {
+      font-size: 0.6rem;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* Voiceover Assistant Card */
+    .assistant-body {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .assistant-avatar {
+      font-size: 2rem;
+      animation: bounce 2s infinite alternate;
+      cursor: pointer;
+    }
+
+    .speech-bubble {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      padding: 10px;
+      font-size: 0.75rem;
+      line-height: 1.4;
+      position: relative;
+      border-left: 3px solid var(--neon-pink);
+    }
+
+    .speech-bubble::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border-width: 4px 8px 4px 0;
+      border-style: solid;
+      border-color: transparent rgba(255, 255, 255, 0.05) transparent transparent;
+    }
+
+    .audio-controls {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 6px;
+    }
+
+    .audio-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.65rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .audio-btn:hover {
+      background: var(--neon-pink);
+      color: white;
+    }
+
+    /* Road Health / Monitor Graphics */
+    .metrics-container {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 12px;
+    }
+
+    .gauge-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .health-value {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--neon-lime);
+      text-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+    }
+
+    .health-label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    .sickness-graph-container {
+      height: 80px;
+      position: relative;
+    }
+
+    /* Feedback/Floating overlay alerts */
+    .instruction-overlay {
+      position: absolute;
+      top: 60px;
+      left: 16px;
+      background: rgba(12, 15, 18, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid var(--neon-cyan);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 0.75rem;
+      max-width: 280px;
+      pointer-events: none;
+      z-index: 5;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      animation: fade-in 0.5s ease;
+    }
+
+    /* Interactive Sweep HUD */
+    .sweep-hud {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 240, 255, 0.1);
+      border: 1px solid var(--neon-cyan);
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      color: var(--neon-cyan);
+      pointer-events: none;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.2);
+    }
+
+    /* Animations */
+    @keyframes pulse-glow {
+      0% { text-shadow: 0 0 8px rgba(0, 240, 255, 0.4); }
+      100% { text-shadow: 0 0 18px rgba(0, 240, 255, 0.8); }
+    }
+
+    @keyframes bounce {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-4px); }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; transform: translateY(-5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 900px) {
+      .dashboard-container {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        height: auto;
+      }
+      body {
+        overflow-y: auto;
+        height: auto;
+      }
+      .viewport-panel {
+        height: 400px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Dynamic Dashboard Header -->
+  <header>
+    <div class="logo-container">
+      <span class="logo-icon">🚧</span>
+      <div>
+        <h1>Road Medic</h1>
+        <span class="badge">ELI5 Highway Sandbox</span>
+      </div>
+    </div>
+    <div class="global-stats">
+      <div class="stat-pill">
+        <span>Repairs Made:</span>
+        <strong id="repair-count">0</strong>
+      </div>
+      <div class="stat-pill">
+        <span>Road Status:</span>
+        <strong id="status-text" style="color: var(--neon-lime);">PERFECT</strong>
+      </div>
+    </div>
+  </header>
+
+  <!-- Interactive Sandbox Workspace -->
+  <div class="dashboard-container">
+    
+    <!-- Left: Simulator & Cross-section Canvas -->
+    <div class="viewport-panel">
+      <div class="viewport-header">
+        <div style="font-size: 0.8rem; font-weight: bold; letter-spacing: 0.5px;">PAVEMENT CROSS-SECTION (LIVE SIMULATOR)</div>
+        <div class="layer-legend">
+          <div class="legend-item">
+            <div class="legend-color" style="background: #252830; border: 1px solid #4a4e5a;"></div>
+            <span>Asphalt</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #4e4438; border: 1px solid #7c6d59;"></div>
+            <span>Gravel Base</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #80684d; border: 1px solid #bc9c78;"></div>
+            <span>Subgrade Soil</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Overlay Guides -->
+      <div class="instruction-overlay" id="instruction-hud">
+        👉 Drag repair tools from the chest & drop directly onto damaged parts! <br>
+        👉 Sweep cursor horizontally near puddles to dry them!
+      </div>
+
+      <div class="sweep-hud" id="sweep-alert" style="display: none;">
+        💧 Standing Water Detected! Sweep mouse horizontally to dry the puddles!
+      </div>
+
+      <!-- Canvas container handles mouse operations -->
+      <div id="canvas-container">
+        <canvas id="pavement-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Right: Gamified Controls, Diagnostics & Tool Chest -->
+    <div class="control-panel">
+      
+      <!-- Gamified Sandbox Sliders -->
+      <div class="glass-card">
+        <div class="card-title">⚙️ Environmental Triggers</div>
+        <div class="slider-group">
+          
+          <div class="slider-item">
+            <div class="slider-labels">
+              <span>🚚 Heavy Traffic Load</span>
+              <span id="traffic-weight-val">Light Cars</span>
+            </div>
+            <input type="range" id="traffic-weight" min="1" max="10" value="2">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-labels">
+              <span>⚡ Vehicle Speed</span>
+              <span id="traffic-speed-val">Cruising (50 mph)</span>
+            </div>
+            <input type="range" id="traffic-speed" min="1" max="10" value="5">
+          </div>
+
+          <div class="slider-item">
+            <div class="slider-labels">
+              <span>🌧️ Rainfall Level</span>
+              <span id="rainfall-val">Dry Skies</span>
+            </div>
+            <input type="range" id="rainfall" min="0" max="10" value="0">
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Tool Chest for Interactive Drag & Drop -->
+      <div class="glass-card">
+        <div class="card-title">🎒 Maintenance Tool Chest</div>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.3;">
+          Drag these helpers to the damaged highway layer below to heal failures!
+        </p>
+        <div class="tool-grid">
+          
+          <!-- Sticky Patch Band-Aid -->
+          <div class="tool-card" draggable="true" id="tool-bandaid" data-tool="bandaid">
+            <span class="tool-icon">🩹</span>
+            <span class="tool-name">Band-Aid</span>
+            <div class="tool-target">Fixes Asphalt Cracks</div>
+          </div>
+
+          <!-- Stone Filler -->
+          <div class="tool-card" draggable="true" id="tool-stone" data-tool="stone">
+            <span class="tool-icon">🪨</span>
+            <span class="tool-name">Stone Filler</span>
+            <div class="tool-target">Heals Deep Potholes</div>
+          </div>
+
+          <!-- Drainage Straw -->
+          <div class="tool-card" draggable="true" id="tool-straw" data-tool="straw">
+            <span class="tool-icon">🥤</span>
+            <span class="tool-name">Drainage Straw</span>
+            <div class="tool-target">Sucks Water Out</div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Diagnostics / Realtime Sickness Graph -->
+      <div class="glass-card">
+        <div class="card-title">📊 Highway Health Diagnostic</div>
+        <div class="metrics-container">
+          <div class="gauge-wrapper">
+            <span class="health-value" id="health-percentage">100%</span>
+            <span class="health-label">Highway Integrity</span>
+          </div>
+          <div class="sickness-graph-container">
+            <canvas id="graph-canvas"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- ELI5 Speech Assistant Bubble -->
+      <div class="glass-card">
+        <div class="card-title">🤖 Assistant "Pave-y"</div>
+        <div class="assistant-body">
+          <div class="assistant-avatar" id="assistant-btn">🤖</div>
+          <div class="speech-bubble">
+            <p id="assistant-dialogue">Hello Sandbox Engineer! Use environmental sliders to test simulated wear, then use tools to restore the road integrity!</p>
+            <div class="audio-controls">
+              <button class="audio-btn" id="mute-btn">🔊 Sound: On</button>
+              <button class="audio-btn" id="tts-btn">🗣️ Speak Analogy</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    // System Variables
+    const canvas = document.getElementById('pavement-canvas');
+    const ctx = canvas.getContext('2d');
+    const graphCanvas = document.getElementById('graph-canvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    // UI elements
+    const trafficWeightSlider = document.getElementById('traffic-weight');
+    const trafficSpeedSlider = document.getElementById('traffic-speed');
+    const rainfallSlider = document.getElementById('rainfall');
+    const trafficWeightVal = document.getElementById('traffic-weight-val');
+    const trafficSpeedVal = document.getElementById('traffic-speed-val');
+    const rainfallVal = document.getElementById('rainfall-val');
+    const repairCountEl = document.getElementById('repair-count');
+    const statusTextEl = document.getElementById('status-text');
+    const healthPercentageEl = document.getElementById('health-percentage');
+    const assistantDialogue = document.getElementById('assistant-dialogue');
+    const assistantBtn = document.getElementById('assistant-btn');
+    const muteBtn = document.getElementById('mute-btn');
+    const ttsBtn = document.getElementById('tts-btn');
+    const sweepAlert = document.getElementById('sweep-alert');
+
+    // Simulation Config & Variables
+    let repairsCount = 0;
+    let muted = false;
+    let trafficWeight = parseInt(trafficWeightSlider.value); // 1-10
+    let trafficSpeed = parseInt(trafficSpeedSlider.value); // 1-10
+    let rainfall = parseInt(rainfallSlider.value); // 0-10
+
+    // Disease/Sickness indices (0 to 100)
+    let moisture = 0; 
+    let alligatorCracks = 0;
+    let potholes = 0;
+    let rutting = 0;
+    let roadHealth = 100;
+
+    // Diagnostics History
+    let diagnosticHistory = Array(100).fill(100);
+
+    // Dynamic Objects
+    let vehicles = [];
+    let particles = [];
+    let clouds = [];
+
+    // Sweeping State (Surface Water Cleanup Gesture)
+    let sweepPoints = [];
+    let sweeping = false;
+
+    // Assistant Dialogue cooling down mechanism
+    let lastVoiceTrigger = 0;
+    let lastVoiceContext = "";
+
+    // Web Audio API Elements
+    let audioCtx = null;
+    let trafficRumble = null;
+    let rumbleGain = null;
+
+    // Canvas Layers bounds (will be relative on resize)
+    let layers = {
+      asphalt: { top: 0, bottom: 0 },
+      base: { top: 0, bottom: 0 },
+      subgrade: { top: 0, bottom: 0 }
+    };
+
+    // Tool Drag Operations
+    let activeDragTool = null;
+
+    // Setup interactive tool drag handlers
+    const tools = document.querySelectorAll('.tool-card');
+    tools.forEach(tool => {
+      tool.addEventListener('dragstart', (e) => {
+        activeDragTool = e.currentTarget.getAttribute('data-tool');
+        e.dataTransfer.setData('text/plain', activeDragTool);
+      });
+      tool.addEventListener('dragend', () => {
+        activeDragTool = null;
+      });
+    });
+
+    // Handle drops directly on Simulator viewport
+    const canvasContainer = document.getElementById('canvas-container');
+    canvasContainer.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    canvasContainer.addEventListener('drop', (e) => {
+      e.preventDefault();
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left) * scaleX;
+      const y = (e.clientY - rect.top) * scaleY;
+
+      // Handle drop repair action
+      applyTool(activeDragTool, x / devicePixelRatio, y / devicePixelRatio);
+    });
+
+    // Trigger Canvas/Pointer Interactive gestures
+    canvas.addEventListener('mousedown', (e) => {
+      sweeping = true;
+      sweepPoints = [];
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      if (!sweeping) return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const x = (e.clientX - rect.left);
+      const y = (e.clientY - rect.top);
+
+      // We only care about sweeping actions near asphalt layers (puddles)
+      if (y >= layers.asphalt.top - 30 && y <= layers.asphalt.bottom + 10) {
+        sweepPoints.push({ x, y });
+        if (sweepPoints.length > 5) {
+          cleanPuddleAt(x);
+        }
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      sweeping = false;
+      sweepPoints = [];
+    });
+
+    // Touch Event mapping for mobile
+    canvas.addEventListener('touchstart', (e) => {
+      sweeping = true;
+      sweepPoints = [];
+    }, {passive: true});
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (!sweeping || e.touches.length === 0) return;
+      const rect = canvas.getBoundingClientRect();
+      const touch = e.touches[0];
+      const x = touch.clientX - rect.left;
+      const y = touch.clientY - rect.top;
+
+      if (y >= layers.asphalt.top - 30 && y <= layers.asphalt.bottom + 10) {
+        sweepPoints.push({ x, y });
+        if (sweepPoints.length > 5) {
+          cleanPuddleAt(x);
+        }
+      }
+    }, {passive: true});
+
+    canvas.addEventListener('touchend', () => {
+      sweeping = false;
+    });
+
+    // Sound Manager
+    function initAudio() {
+      if (audioCtx) return;
+      try {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+        
+        // Continuous Engine Rumble
+        trafficRumble = audioCtx.createOscillator();
+        rumbleGain = audioCtx.createGain();
+        const lowpass = audioCtx.createBiquadFilter();
+        
+        trafficRumble.type = 'sawtooth';
+        lowpass.type = 'lowpass';
+        lowpass.frequency.setValueAtTime(60, audioCtx.currentTime);
+        
+        trafficRumble.connect(lowpass);
+        lowpass.connect(rumbleGain);
+        rumbleGain.connect(audioCtx.destination);
+        
+        rumbleGain.gain.setValueAtTime(0.005, audioCtx.currentTime);
+        trafficRumble.start();
+        updateSynthRumble();
+      } catch (e) {
+        console.warn('Web Audio Context not loaded properly', e);
+      }
+    }
+
+    function updateSynthRumble() {
+      if (!audioCtx || muted) return;
+      // Synthesized continuous motor sound mapped directly to Traffic Configs
+      const baseFreq = 20 + (trafficSpeed * 4) - (trafficWeight * 1.2);
+      const intensity = 0.002 + (trafficWeight * 0.003) * (trafficSpeed * 0.1);
+      
+      trafficRumble.frequency.setTargetAtTime(baseFreq, audioCtx.currentTime, 0.2);
+      rumbleGain.gain.setTargetAtTime(intensity, audioCtx.currentTime, 0.2);
+    }
+
+    // Sound FX generators
+    function triggerSoundFx(type) {
+      if (!audioCtx || muted) return;
+      const now = audioCtx.currentTime;
+      
+      if (type === 'boing') { // Straw absorption
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(120, now);
+        osc.frequency.exponentialRampToValueAtTime(450, now + 0.3);
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.start();
+        osc.stop(now + 0.3);
+      } else if (type === 'splash') { // Drying gesture splash
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'triangle';
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.15);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.start();
+        osc.stop(now + 0.15);
+      } else if (type === 'cheer') { // Repair Action Completed
+        const notes = [261.6, 329.6, 392.0, 523.3]; // Major Chord
+        notes.forEach((f, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.frequency.setValueAtTime(f, now + idx * 0.06);
+          gain.gain.setValueAtTime(0.08, now + idx * 0.06);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.25);
+          osc.start(now + idx * 0.06);
+          osc.stop(now + idx * 0.06 + 0.25);
+        });
+      }
+    }
+
+    // High DPI Canvas Auto-Scaler
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      
+      // Setup relative layer borders
+      const logicalHeight = rect.height;
+      layers.asphalt.top = logicalHeight * 0.35;
+      layers.asphalt.bottom = logicalHeight * 0.45;
+      layers.base.top = logicalHeight * 0.45;
+      layers.base.bottom = logicalHeight * 0.65;
+      layers.subgrade.top = logicalHeight * 0.65;
+      layers.subgrade.bottom = logicalHeight * 0.95;
+
+      // Sickness monitor sizing
+      const gRect = graphCanvas.getBoundingClientRect();
+      graphCanvas.width = gRect.width * dpr;
+      graphCanvas.height = gRect.height * dpr;
+      graphCtx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 50); // safety execution after DOM is settled
+
+    // Custom Particle Spawner
+    function spawnExplosion(x, y, colorHex, size) {
+      for (let i = 0; i < size; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 6,
+          vy: (Math.random() - 1.2) * 5,
+          color: colorHex,
+          size: Math.random() * 4 + 3,
+          alpha: 1,
+          decay: Math.random() * 0.03 + 0.02
+        });
+      }
+    }
+
+    // Core Interaction Tool Applicator
+    function applyTool(tool, x, y) {
+      initAudio(); // Initialize audio context on first interactive operation
+
+      if (tool === 'bandaid') {
+        // Band-aid resolves alligator cracking on asphalt layer
+        if (y >= layers.asphalt.top && y <= layers.asphalt.bottom) {
+          if (alligatorCracks > 10) {
+            alligatorCracks = Math.max(0, alligatorCracks - 35);
+            repairsCount++;
+            triggerSoundFx('cheer');
+            spawnExplosion(x, y, '#ff007f', 25);
+            narrateAssistant("Oh that bandaid felt good! You patched up those tiny spiderweb cracks perfectly!", "cracks");
+          } else {
+            narrateAssistant("No big cracks there to fix! Let's watch for areas of structural strain.", "alert");
+          }
+        } else {
+          narrateAssistant("The Band-aid works on the top Asphalt layer. Slip it onto those top spiderweb cracks!", "alert");
+        }
+      } 
+      
+      else if (tool === 'stone') {
+        // Stone Filler resolves Pothole damage on asphalt/base
+        if (y >= layers.asphalt.top && y <= layers.base.bottom) {
+          if (potholes > 10) {
+            potholes = Math.max(0, potholes - 40);
+            repairsCount++;
+            triggerSoundFx('cheer');
+            spawnExplosion(x, y, '#39ff14', 25);
+            narrateAssistant("Whoosh! You filled in that big chunk of asphalt cookie monster bit off!", "pothole");
+          } else {
+            narrateAssistant("The highway has no major potholes here. Check if heavy wheels cracked it first!", "alert");
+          }
+        } else {
+          narrateAssistant("Drop Stone Filler directly inside deep potholes to pack them solid!", "alert");
+        }
+      } 
+      
+      else if (tool === 'straw') {
+        // Drainage Straw sucks out subgrade and base moisture
+        if (y >= layers.base.top) {
+          if (moisture > 15) {
+            moisture = Math.max(0, moisture - 45);
+            repairsCount++;
+            triggerSoundFx('boing');
+            spawnExplosion(x, y, '#00f0ff', 25);
+            narrateAssistant("Slurp! Straws are sucking away the soggy moisture so our road's dirt base stays hard!", "dry");
+          } else {
+            narrateAssistant("No muddy water detected down here yet. Saturated soils will turn to pudding under heavy rain!", "alert");
+          }
+        } else {
+          narrateAssistant("Dip the Straw deeper down into the base layers to dry the wet, soft mud!", "alert");
+        }
+      }
+
+      // Sync Counters
+      repairCountEl.innerText = repairsCount;
+    }
+
+    // Horizontally sweep away surface puddles
+    function cleanPuddleAt(x) {
+      if (rainfall === 0 && moisture > 0) {
+        moisture = Math.max(0, moisture - 0.4);
+      }
+      if (Math.random() < 0.15) {
+        triggerSoundFx('splash');
+        spawnExplosion(x, layers.asphalt.top - 2, '#00f0ff', 2);
+      }
+    }
+
+    // ELI5 Speech Assistant Engine
+    function narrateAssistant(text, context) {
+      assistantDialogue.innerHTML = `<strong>Pave-y:</strong> "${text}"`;
+      
+      const now = Date.now();
+      // Block excessive repetitive vocalized statements
+      if ('speechSynthesis' in window && !muted && (now - lastVoiceTrigger > 3000 || lastVoiceContext !== context)) {
+        window.speechSynthesis.cancel();
+        const speech = new SpeechSynthesisUtterance(text);
+        speech.pitch = 1.3; // Make Pave-y sound young, cartoonish and friendly
+        speech.rate = 1.05;
+        window.speechSynthesis.speak(speech);
+        lastVoiceTrigger = now;
+        lastVoiceContext = context;
+      }
+    }
+
+    // Physics Dynamics Loop
+    function updatePhysics() {
+      // 1. Process environment input
+      trafficWeight = parseInt(trafficWeightSlider.value);
+      trafficSpeed = parseInt(trafficSpeedSlider.value);
+      rainfall = parseInt(rainfallSlider.value);
+
+      // Label outputs
+      trafficWeightVal.innerText = trafficWeight > 7 ? 'Heavy Semi Trucks (🚚)' : trafficWeight > 4 ? 'Box Trucks (🚛)' : 'Toy Cars (🚗)';
+      trafficSpeedVal.innerText = `${trafficSpeed * 12} mph`;
+      rainfallVal.innerText = rainfall > 7 ? 'Severe Storm (🌧️⛈️)' : rainfall > 3 ? 'Steady Rain (🌧️)' : rainfall > 0 ? 'Drizzle (🌦️)' : 'Sunny Days (☀️)';
+
+      updateSynthRumble();
+
+      // 2. Weather Engine
+      if (rainfall > 0) {
+        // Moisture level crawls up
+        moisture = Math.min(100, moisture + (rainfall * 0.015));
+      } else {
+        // Natural gradual sun drying
+        moisture = Math.max(0, moisture - 0.005);
+      }
+
+      // 3. Stress & Failure Damage Propagations
+      const weightFactor = trafficWeight / 5.0;
+      const speedFactor = trafficSpeed / 5.0;
+
+      // Alligator Crack evolution under vehicle stress
+      if (trafficWeight > 3) {
+        alligatorCracks = Math.min(100, alligatorCracks + (weightFactor * speedFactor * 0.006));
+      }
+
+      // Potholes propagate as a function of water + structural alligator crack breakdown
+      if (alligatorCracks > 15) {
+        const moistureCatalyst = 1.0 + (moisture / 25.0);
+        potholes = Math.min(100, potholes + (alligatorCracks * 0.00015 * moistureCatalyst));
+      }
+
+      // Rutting occurs when Subgrade is wet/muddy AND vehicle weight runs over it
+      if (moisture > 30 && trafficWeight > 5) {
+        rutting = Math.min(100, rutting + (weightFactor * (moisture / 100.0) * 0.01));
+      } else {
+        // Maintenance auto-smoothing occurs slowly if no extreme weight
+        rutting = Math.max(0, rutting - 0.001);
+      }
+
+      // 4. Overarching Road Health Evaluation
+      roadHealth = Math.round(100 - (alligatorCracks * 0.4 + potholes * 0.4 + rutting * 0.2));
+      roadHealth = Math.max(0, Math.min(100, roadHealth));
+
+      // Visual updates
+      healthPercentageEl.innerText = `${roadHealth}%`;
+      healthPercentageEl.style.color = roadHealth > 75 ? 'var(--neon-lime)' : roadHealth > 40 ? 'var(--neon-yellow)' : 'var(--neon-pink)';
+      
+      if (roadHealth > 75) {
+        statusTextEl.innerText = 'PERFECT';
+        statusTextEl.style.color = 'var(--neon-lime)';
+      } else if (roadHealth > 45) {
+        statusTextEl.innerText = 'WEAKENING';
+        statusTextEl.style.color = 'var(--neon-yellow)';
+      } else {
+        statusTextEl.innerText = 'HAZARDOUS';
+        statusTextEl.style.color = 'var(--neon-pink)';
+      }
+
+      // Realtime warning overlays
+      if (moisture > 40 && rainfall > 0) {
+        sweepAlert.style.display = 'flex';
+      } else {
+        sweepAlert.style.display = 'none';
+      }
+
+      // Auto Assistant Warning voice alerts
+      if (alligatorCracks > 50 && Math.random() < 0.002) {
+        narrateAssistant("Oh no! The asphalt is cracking like shattered glass under these heavy tires! Apply Sticky Patch Bandaids!", "cracks_alert");
+      }
+      if (potholes > 40 && Math.random() < 0.002) {
+        narrateAssistant("Ouch! Chunky cookie monster holes are tearing up the lane! We need Stone Fillers immediately!", "pothole_alert");
+      }
+      if (moisture > 60 && Math.random() < 0.002) {
+        narrateAssistant("The subgrade mud has turned into gooey chocolate pudding! Suck it dry with Drainage Straws!", "moisture_alert");
+      }
+
+      // 5. Update Diagnostic rolling graph
+      diagnosticHistory.push(100 - roadHealth); // scale graph as "sickness intensity"
+      diagnosticHistory.shift();
+
+      // 6. Spawn Toy Vehicles procedurally based on traffic configurations
+      const maxVehicles = Math.min(6, Math.floor(1 + (trafficWeight * 0.5)));
+      if (vehicles.length < maxVehicles && Math.random() < 0.02) {
+        vehicles.push({
+          x: -100,
+          color: ['#00f0ff', '#ff007f', '#39ff14', '#fffb00'][Math.floor(Math.random() * 4)],
+          speed: 1.5 + (trafficSpeed * 0.5) + Math.random(),
+          bounceOffset: 0,
+          bounceSpeed: 0.1 + Math.random() * 0.1,
+          size: 15 + (trafficWeight * 2)
+        });
+      }
+
+      // Particle decay updates
+      particles.forEach((p, idx) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= p.decay;
+        if (p.alpha <= 0) {
+          particles.splice(idx, 1);
+        }
+      });
+    }
+
+    // Draw Diagnostics Rolling Graph inside Dashboard
+    function drawDiagnosticGraph() {
+      const w = graphCanvas.width / devicePixelRatio;
+      const h = graphCanvas.height / devicePixelRatio;
+      graphCtx.clearRect(0, 0, w, h);
+
+      // Horizontal background lines
+      graphCtx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+      graphCtx.lineWidth = 1;
+      for (let i = 1; i <= 3; i++) {
+        const lineY = h * (i / 4);
+        graphCtx.beginPath();
+        graphCtx.moveTo(0, lineY);
+        graphCtx.lineTo(w, lineY);
+        graphCtx.stroke();
+      }
+
+      // Line Graph
+      graphCtx.beginPath();
+      graphCtx.strokeStyle = 'var(--neon-pink)';
+      graphCtx.lineWidth = 2;
+      const step = w / (diagnosticHistory.length - 1);
+      
+      for (let i = 0; i < diagnosticHistory.length; i++) {
+        const x = i * step;
+        const y = h - (diagnosticHistory[i] / 100 * (h - 10)) - 5;
+        if (i === 0) graphCtx.moveTo(x, y);
+        else graphCtx.lineTo(x, y);
+      }
+      graphCtx.stroke();
+
+      // Fill area under curve
+      graphCtx.lineTo(w, h);
+      graphCtx.lineTo(0, h);
+      graphCtx.closePath();
+      graphCtx.fillStyle = 'rgba(255, 0, 127, 0.08)';
+      graphCtx.fill();
+
+      // Label graph elements
+      graphCtx.fillStyle = 'var(--neon-pink)';
+      graphCtx.font = '8px monospace';
+      graphCtx.fillText("ROAD SICKNESS TREND", 10, 12);
+    }
+
+    // Primary Canvas Render Frame
+    function render() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+      ctx.clearRect(0, 0, w, h);
+
+      // Draw Subgrade Soil (Layer 3)
+      // Moisture darkens soil color dynamically
+      const soilR = Math.max(40, Math.floor(128 - moisture * 0.8));
+      const soilG = Math.max(30, Math.floor(104 - moisture * 0.7));
+      const soilB = Math.max(20, Math.floor(77 - moisture * 0.6));
+      ctx.fillStyle = `rgb(${soilR}, ${soilG}, ${soilB})`;
+      ctx.fillRect(0, layers.subgrade.top, w, layers.subgrade.bottom - layers.subgrade.top);
+
+      // Soil texture details
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      for (let i = 0; i < w; i += 40) {
+        ctx.fillRect(i + (moisture % 20), layers.subgrade.top + 15, 6, 6);
+        ctx.fillRect(i - (moisture % 20) + 20, layers.subgrade.top + 45, 4, 10);
+      }
+
+      // Draw Gravel Base (Layer 2)
+      ctx.fillStyle = "#4e4438";
+      ctx.fillRect(0, layers.base.top, w, layers.base.bottom - layers.base.top);
+      
+      // Procedural stones/gravel fragments in base
+      ctx.fillStyle = '#6e6252';
+      for (let i = 10; i < w; i += 30) {
+        ctx.beginPath();
+        ctx.arc(i, layers.base.top + 12, 3, 0, Math.PI * 2);
+        ctx.arc(i + 15, layers.base.top + 28, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Draw Rutted Deformation curves if rutting is active
+      const deformation = (rutting / 100) * 35;
+
+      // Draw Asphalt (Layer 1)
+      ctx.fillStyle = "#252830";
+      ctx.beginPath();
+      ctx.moveTo(0, layers.asphalt.top);
+      
+      // Introduce dynamic asphalt dip curve based on rutting failure
+      if (deformation > 0) {
+        ctx.lineTo(w * 0.25, layers.asphalt.top);
+        ctx.quadraticCurveTo(w * 0.5, layers.asphalt.top + deformation, w * 0.75, layers.asphalt.top);
+        ctx.lineTo(w, layers.asphalt.top);
+      } else {
+        ctx.lineTo(w, layers.asphalt.top);
+      }
+      ctx.lineTo(w, layers.asphalt.bottom);
+      ctx.lineTo(0, layers.asphalt.bottom);
+      ctx.closePath();
+      ctx.fill();
+
+      // Lane line markers on top of asphalt
+      ctx.strokeStyle = '#fffb00';
+      ctx.lineWidth = 3;
+      ctx.setLineDash([15, 15]);
+      ctx.beginPath();
+      ctx.moveTo(0, layers.asphalt.top + 10);
+      ctx.lineTo(w, layers.asphalt.top + 10);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+
+      // Render Moisture Flow lines (Penetration of rainwater downwards)
+      if (moisture > 5) {
+        ctx.strokeStyle = `rgba(0, 240, 255, ${moisture / 100})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([5, 15]);
+        const yOffset = (Date.now() / 30) % 20;
+        for (let x = 30; x < w; x += 60) {
+          ctx.beginPath();
+          ctx.moveTo(x, layers.base.top + yOffset);
+          ctx.lineTo(x, layers.subgrade.bottom);
+          ctx.stroke();
+        }
+        ctx.setLineDash([]);
+      }
+
+      // Render Alligator Cracks (Shattered glass overlay)
+      if (alligatorCracks > 5) {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.7)';
+        ctx.lineWidth = 1.5;
+        for (let c = 50; c < w; c += 120) {
+          ctx.beginPath();
+          ctx.moveTo(c, layers.asphalt.top);
+          ctx.lineTo(c + 15, layers.asphalt.top + 20);
+          ctx.lineTo(c - 10, layers.asphalt.bottom);
+          
+          // Secondary branch cracks
+          if (alligatorCracks > 35) {
+            ctx.moveTo(c + 15, layers.asphalt.top + 20);
+            ctx.lineTo(c + 35, layers.asphalt.top + 10);
+            ctx.lineTo(c + 40, layers.asphalt.bottom);
+          }
+          if (alligatorCracks > 60) {
+            ctx.moveTo(c + 15, layers.asphalt.top + 20);
+            ctx.lineTo(c - 20, layers.asphalt.top + 12);
+            ctx.moveTo(c - 10, layers.asphalt.bottom);
+            ctx.lineTo(c + 10, layers.asphalt.bottom);
+          }
+          ctx.stroke();
+        }
+      }
+
+      // Render Potholes (Missing chunks of asphalt/base)
+      if (potholes > 5) {
+        ctx.fillStyle = '#10131a';
+        ctx.beginPath();
+        const potholeWidth = Math.min(180, 40 + potholes * 1.5);
+        const potholeDepth = Math.min(35, 10 + potholes * 0.4);
+        const centerX = w * 0.5;
+
+        ctx.arc(centerX, layers.asphalt.top, potholeWidth / 2, 0, Math.PI, false);
+        ctx.closePath();
+        ctx.fill();
+
+        // Glowing red highlights indicating damage zone
+        ctx.strokeStyle = 'var(--neon-pink)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(centerX, layers.asphalt.top, potholeWidth / 2, 0, Math.PI, false);
+        ctx.stroke();
+
+        // Draw pooled rainwater inside pothole
+        if (moisture > 20) {
+          ctx.fillStyle = 'rgba(0, 240, 255, 0.45)';
+          ctx.beginPath();
+          ctx.arc(centerX, layers.asphalt.top + 5, potholeWidth / 3, 0, Math.PI, false);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+
+      // Render Rain Weather Effects
+      if (rainfall > 0) {
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.4)';
+        ctx.lineWidth = 1;
+        for (let r = 0; r < 25; r++) {
+          const rx = (Math.random() * w);
+          const ry = (Math.random() * layers.asphalt.top);
+          ctx.beginPath();
+          ctx.moveTo(rx, ry);
+          ctx.lineTo(rx - 5, ry + 15);
+          ctx.stroke();
+        }
+
+        // Standing Water puddle layer on clean asphalt segments
+        ctx.fillStyle = 'rgba(0, 240, 255, 0.15)';
+        ctx.fillRect(40, layers.asphalt.top - 4, 180, 4);
+        ctx.fillRect(w - 220, layers.asphalt.top - 4, 160, 4);
+      }
+
+      // Dynamic Toy Cars Physics & Interaction Drawing
+      vehicles.forEach((car, idx) => {
+        car.x += car.speed;
+        
+        // Dynamic vehicle bounce depending on road damage indices
+        const roadTrouble = (alligatorCracks + potholes + rutting) / 300.0;
+        car.bounceOffset += car.bounceSpeed;
+        const surfaceBounce = Math.sin(car.bounceOffset) * (1 + roadTrouble * 15);
+
+        // Reset car loop
+        if (car.x > w + 100) {
+          vehicles.splice(idx, 1);
+          return;
+        }
+
+        // Draw glowing neon stress vectors spreading downwards from wheels
+        const wheelX1 = car.x + car.size * 0.25;
+        const wheelX2 = car.x + car.size * 0.75;
+        const wheelY = layers.asphalt.top + (deformation > 0 && wheelX1 > w*0.35 && wheelX1 < w*0.65 ? deformation * 0.8 : 0);
+
+        // Wheels Stress Distribution cones (Trapezoid vector layout)
+        ctx.fillStyle = 'rgba(255, 0, 127, 0.08)';
+        ctx.beginPath();
+        ctx.moveTo(wheelX1, wheelY);
+        ctx.lineTo(wheelX1 - 35, layers.subgrade.bottom);
+        ctx.lineTo(wheelX1 + 35, layers.subgrade.bottom);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(wheelX2, wheelY);
+        ctx.lineTo(wheelX2 - 35, layers.subgrade.bottom);
+        ctx.lineTo(wheelX2 + 35, layers.subgrade.bottom);
+        ctx.closePath();
+        ctx.fill();
+
+        // Draw stress direction lines
+        ctx.strokeStyle = 'rgba(255, 0, 127, 0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(wheelX1, wheelY);
+        ctx.lineTo(wheelX1 - 15, layers.base.bottom);
+        ctx.moveTo(wheelX1, wheelY);
+        ctx.lineTo(wheelX1 + 15, layers.base.bottom);
+        ctx.stroke();
+
+        // Draw Toy Car Chassis
+        ctx.fillStyle = car.color;
+        // Body shape
+        ctx.fillRect(car.x, wheelY - 20 + surfaceBounce, car.size, 12);
+        ctx.fillRect(car.x + car.size*0.2, wheelY - 30 + surfaceBounce, car.size*0.6, 12); // roof
+        
+        // Wheels
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(wheelX1, wheelY + surfaceBounce, 6, 0, Math.PI * 2);
+        ctx.arc(wheelX2, wheelY + surfaceBounce, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(wheelX1, wheelY + surfaceBounce, 2, 0, Math.PI * 2);
+        ctx.arc(wheelX2, wheelY + surfaceBounce, 2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Render Interactive Sweep Pointer Trace
+      if (sweeping && sweepPoints.length > 1) {
+        ctx.strokeStyle = 'var(--neon-cyan)';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(sweepPoints[0].x, sweepPoints[0].y);
+        for (let i = 1; i < sweepPoints.length; i++) {
+          ctx.lineTo(sweepPoints[i].x, sweepPoints[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Draw Action Particles
+      particles.forEach((p) => {
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.alpha;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      });
+
+      // Canvas Label Boxes over diagrams for legibility
+      ctx.fillStyle = 'rgba(12, 15, 18, 0.7)';
+      ctx.fillRect(10, layers.asphalt.bottom - 22, 130, 18);
+      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.font = '9px monospace';
+      ctx.fillText(`ASPHALT SURFACE CRACKS: ${Math.round(alligatorCracks)}%`, 14, layers.asphalt.bottom - 10);
+
+      ctx.fillStyle = 'rgba(12, 15, 18, 0.7)';
+      ctx.fillRect(10, layers.base.bottom - 22, 115, 18);
+      ctx.fillStyle = 'var(--neon-lime)';
+      ctx.font = '9px monospace';
+      ctx.fillText(`BASE DEFORMATION: ${Math.round(rutting)}%`, 14, layers.base.bottom - 10);
+
+      ctx.fillStyle = 'rgba(12, 15, 18, 0.7)';
+      ctx.fillRect(10, layers.subgrade.bottom - 22, 115, 18);
+      ctx.fillStyle = 'var(--neon-yellow)';
+      ctx.font = '9px monospace';
+      ctx.fillText(`SOIL WATER INGRESS: ${Math.round(moisture)}%`, 14, layers.subgrade.bottom - 10);
+    }
+
+    // Master Simulation Game Loop
+    function loop() {
+      updatePhysics();
+      render();
+      drawDiagnosticGraph();
+      requestAnimationFrame(loop);
+    }
+
+    // Audio Mute System
+    muteBtn.addEventListener('click', () => {
+      muted = !muted;
+      if (muted) {
+        muteBtn.innerText = "🔇 Sound: Off";
+        muteBtn.style.background = 'rgba(255, 255, 255, 0.1)';
+        if (rumbleGain) rumbleGain.gain.setValueAtTime(0, audioCtx.currentTime);
+        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      } else {
+        muteBtn.innerText = "🔊 Sound: On";
+        muteBtn.style.background = 'var(--neon-pink)';
+        initAudio();
+        updateSynthRumble();
+      }
+    });
+
+    // TTS Analogy Speaker Event
+    ttsBtn.addEventListener('click', () => {
+      if (roadHealth > 80) {
+        narrateAssistant("Our highway is super solid like a giant frozen chocolate bar! Vehicles can glide over easily without breaking it!", "perfect_speech");
+      } else if (alligatorCracks > potholes) {
+        narrateAssistant("The heavy tires are cracking the road surface like hard candy. We need to slap sticky band-aids on top to hold it together!", "cracks_speech");
+      } else if (moisture > 50) {
+        narrateAssistant("Water has turned our dirt base into soft muddy pudding! The cars are sinking down. Suck it out with drainage straws!", "pudding_speech");
+      } else {
+        narrateAssistant("We have cookies crumbling here! Drop Stone Fillers straight in to cement up those potholes!", "general_speech");
+      }
+    });
+
+    assistantBtn.addEventListener('click', () => {
+      narrateAssistant("Greetings! I am Pave-y your assistant. I guide sandbox engineers on highway operations!", "greet");
+    });
+
+    // Fire off loop
+    loop();
+  </script>
+</body>
+</html>

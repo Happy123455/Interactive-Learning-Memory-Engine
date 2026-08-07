@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gauge Engineering Simulator</title>
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --panel: rgba(25, 30, 40, 0.8);
+            --accent: #00f2ff;
+            --error: #ff4757;
+            --success: #2ed573;
+            --text: #e0e0e0;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: 'Segoe UI', sans-serif;
+            height: 100vh; overflow: hidden;
+            display: grid; grid-template-columns: 1fr 350px;
+        }
+
+        #viewport { position: relative; width: 100%; height: 100vh; overflow: hidden; }
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+        .dashboard {
+            background: var(--panel);
+            backdrop-filter: blur(15px);
+            border-left: 1px solid rgba(255,255,255,0.1);
+            padding: 20px;
+            display: flex; flex-direction: column; gap: 20px;
+            z-index: 10;
+        }
+
+        .tile-container { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .tile {
+            background: #2f3542; padding: 8px 12px; border: 1px solid var(--accent);
+            cursor: grab; border-radius: 4px; user-select: none; font-size: 0.9em;
+        }
+
+        .slot {
+            height: 50px; border: 2px dashed #444; margin-top: 20px;
+            display: flex; align-items: center; justify-content: center;
+            padding: 10px; font-size: 0.8em; transition: 0.3s;
+        }
+
+        .controls { display: flex; gap: 10px; margin-top: auto; }
+        button { 
+            background: transparent; color: var(--accent); border: 1px solid var(--accent);
+            padding: 10px; cursor: pointer; flex: 1; transition: 0.3s;
+        }
+        button:hover { background: var(--accent); color: black; }
+
+        h2 { font-size: 1.2em; color: var(--accent); margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="viewport">
+    <canvas id="simCanvas"></canvas>
+</div>
+
+<div class="dashboard">
+    <h2>GAUGE CALIBRATOR</h2>
+    <p style="font-size: 0.8em; opacity: 0.7;">Drag measurement tool to inner faces.</p>
+    <div id="status" style="color: var(--accent); font-weight: bold;">STANDBY</div>
+    
+    <div id="definition-area">
+        <p style="font-size: 0.8em;">Define Gauge:</p>
+        <div id="slot" class="slot">Drag words here...</div>
+        <div class="tile-container" id="tiles"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="toggleXRay()">X-RAY MODE</button>
+        <button onclick="speakDefinition()">AUDIO ENGINE</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    let isXRay = false;
+    let gaugeWidth = 1435;
+    let toolPos = { x: 400, y: 300, dragging: false };
+    const railX = { left: 300, right: 700 };
+
+    function resize() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    function playSound(freq, duration) {
+        const osc = audioCtx.createOscillator();
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Rails
+        ctx.fillStyle = isXRay ? 'rgba(0, 242, 255, 0.2)' : '#333';
+        ctx.fillRect(railX.left, 200, 20, 200);
+        ctx.fillRect(railX.right, 200, 20, 200);
+
+        // Tool
+        ctx.strokeStyle = '#fff';
+        ctx.beginPath();
+        ctx.moveTo(toolPos.x, toolPos.y);
+        ctx.lineTo(toolPos.x + 400, toolPos.y);
+        ctx.stroke();
+
+        requestAnimationFrame(draw);
+    }
+
+    function toggleXRay() { isXRay = !isXRay; }
+
+    function speakDefinition() {
+        const msg = new SpeechSynthesisUtterance("The gauge is the clear minimum horizontal distance between the inner faces of the two parallel rails.");
+        window.speechSynthesis.speak(msg);
+    }
+
+    // Interaction Logic
+    canvas.addEventListener('mousedown', (e) => {
+        toolPos.dragging = true;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if(toolPos.dragging) {
+            toolPos.x = e.clientX - 100;
+            // Snapping Logic
+            if(Math.abs(toolPos.x - railX.left) < 10) {
+                toolPos.x = railX.left;
+                playSound(440, 0.1);
+                document.getElementById('status').innerText = "GAUGE DETECTED: 1435mm";
+            }
+        }
+    });
+
+    window.addEventListener('mouseup', () => toolPos.dragging = false);
+
+    // Gamified Tile Logic
+    const words = ["Clear", "Minimum", "Horizontal", "Inner faces", "Parallel rails"];
+    const container = document.getElementById('tiles');
+    words.forEach(w => {
+        const div = document.createElement('div');
+        div.className = 'tile';
+        div.innerText = w;
+        div.draggable = true;
+        div.ondragstart = (e) => e.dataTransfer.setData('text', w);
+        container.appendChild(div);
+    });
+
+    const slot = document.getElementById('slot');
+    slot.ondragover = (e) => e.preventDefault();
+    slot.ondrop = (e) => {
+        const word = e.dataTransfer.getData('text');
+        slot.innerText += " " + word;
+        playSound(660, 0.2);
+    };
+
+    draw();
+</script>
+</body>
+</html>

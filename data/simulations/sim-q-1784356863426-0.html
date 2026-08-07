@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flexible Pavement Architect</title>
+    <!-- Google Fonts for premium look: Roboto Mono for data, Orbitron for titles -->
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* CRITICAL: Define color palette and global styles using CSS variables for theme consistency */
+        :root {
+            --dark-bg: #0d1117;
+            --panel-bg: rgba(23, 27, 34, 0.4);
+            --text-color: #e0e6f1;
+            --neon-cyan: #0ff; /* Structural info, canvas border, success, primary accents */
+            --neon-purple: #f0f; /* Interaction zones, draggable elements */
+            --neon-green: #0f0; /* Success, X-Ray mode active */
+            --neon-red: #f00; /* Invalid placement, reset button */
+            --border-color: rgba(60, 68, 80, 0.5);
+            --glass-blur: 12px;
+            --glass-border: 1px solid var(--border-color);
+            --text-color-rgb: 224, 230, 241; /* RGB for rgba use */
+
+            /* Layer specific colors for visual distinction */
+            --layer-subgrade: #6B4226; /* Earthy brown */
+            --layer-subbase: #8B7A6A; /* Lighter aggregate brown */
+            --layer-base: #A09C96;   /* Grey aggregate */
+            --layer-binder: #5A5A5A; /* Darker asphalt */
+            --layer-surface: #3A3A3A; /* Darkest asphalt */
+        }
+
+        /* CRITICAL: Full viewport containment */
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden; /* Prevent body scrollbars */
+            font-family: 'Roboto Mono', monospace, sans-serif;
+            background-color: var(--dark-bg);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            -webkit-font-smoothing: antialiased; /* Smoother fonts */
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #dashboard {
+            display: grid;
+            grid-template-columns: 0.9fr 2fr 0.9fr; /* Left, Center (Canvas), Right pane */
+            gap: 15px;
+            padding: 15px;
+            width: 100%;
+            height: 100%;
+            max-width: 1920px; /* Max width for ultra-wide screens */
+            box-sizing: border-box;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            backdrop-filter: blur(var(--glass-blur)); /* Glassmorphism effect */
+            border: var(--glass-border);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            position: relative;
+            overflow: hidden; /* Ensure panel content does not overflow */
+        }
+
+        .panel-title {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.3em;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan); /* Neon glow effect */
+            margin-bottom: 10px;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        /* Left Pane Styling */
+        #left-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #project-brief {
+            flex: 0.4;
+            overflow-y: auto; /* Allow scrolling for project brief if content is long */
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-cyan) transparent;
+        }
+        #project-brief p {
+            font-size: 0.9em;
+            line-height: 1.6;
+            color: var(--text-color);
+        }
+
+        #layer-inventory {
+            flex: 0.6;
+            overflow-y: auto; /* Allow scrolling for layer inventory */
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-purple) transparent;
+        }
+
+        .draggable-layer {
+            background: rgba(40, 48, 60, 0.6);
+            border: 1px solid var(--neon-purple);
+            box-shadow: 0 0 8px var(--neon-purple), inset 0 0 8px var(--neon-purple);
+            border-radius: 8px;
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            cursor: grab;
+            transition: transform 0.2s ease-out, box-shadow 0.2s ease-out;
+            text-align: center;
+            font-weight: bold;
+            color: var(--neon-purple);
+            user-select: none; /* Prevent text selection during drag */
+        }
+
+        .draggable-layer:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 12px var(--neon-purple), inset 0 0 12px var(--neon-purple);
+        }
+
+        .draggable-layer:active {
+            cursor: grabbing;
+            box-shadow: 0 0 15px var(--neon-purple), inset 0 0 15px var(--neon-purple);
+        }
+        .draggable-layer.dragging {
+            opacity: 0.7;
+        }
+
+        /* Specific layer colors */
+        .draggable-layer.subgrade { background-color: var(--layer-subgrade); border-color: #f7931e; box-shadow: 0 0 8px #f7931e; color: #fff;}
+        .draggable-layer.sub-base { background-color: var(--layer-subbase); border-color: #a7d974; box-shadow: 0 0 8px #a7d974; color: #fff;}
+        .draggable-layer.base { background-color: var(--layer-base); border-color: #6fbefc; box-shadow: 0 0 8px #6fbefc; color: #fff;}
+        .draggable-layer.binder-course { background-color: var(--layer-binder); border-color: #b05cda; box-shadow: 0 0 8px #b05cda; color: #fff;}
+        .draggable-layer.surface-course { background-color: var(--layer-surface); border-color: #ff6e8a; box-shadow: 0 0 8px #ff6e8a; color: #fff;}
+
+        /* Center Pane - Canvas */
+        #construction-canvas-wrapper {
+            background: rgba(10, 15, 20, 0.6);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 15px var(--neon-cyan);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* CRITICAL: Canvas containment */
+            position: relative; /* For absolutely positioned overlays */
+        }
+
+        #construction-canvas {
+            width: 100%;
+            height: 100%;
+            display: block; /* Remove extra space below canvas */
+            cursor: crosshair;
+        }
+
+        /* Wheel Load Draggable */
+        #wheel-load-draggable {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            background: rgba(255, 255, 0, 0.2);
+            border: 2px solid yellow;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8em;
+            color: yellow;
+            font-weight: bold;
+            text-shadow: 0 0 5px yellow;
+            cursor: grab;
+            z-index: 10;
+            box-shadow: 0 0 10px yellow;
+            pointer-events: auto;
+            user-select: none;
+            /* Initial position is set by JS, but this hides it initially */
+            display: none;
+        }
+        #wheel-load-draggable.active {
+            display: flex;
+        }
+        #wheel-load-draggable svg {
+            stroke-width: 1.5; /* Thinner stroke for icon */
+        }
+
+        /* X-Ray Inspector Tooltip */
+        #xray-inspector-tooltip {
+            position: fixed; /* Use fixed to prevent overflow issues */
+            background: rgba(0, 0, 0, 0.8);
+            border: 1px solid var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green);
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            color: var(--text-color);
+            pointer-events: none; /* Allows interaction with canvas below */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.2s, visibility 0.2s;
+            z-index: 20;
+            white-space: nowrap; /* Prevent text wrapping */
+        }
+        #xray-inspector-tooltip.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        /* Right Pane Styling */
+        #right-pane {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        #layer-checklist {
+            flex: 0.4;
+            overflow-y: auto; /* Allow checklist to scroll if many items */
+            scrollbar-width: thin;
+            scrollbar-color: var(--neon-green) transparent;
+        }
+        #layer-checklist ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+        #layer-checklist li {
+            padding: 8px 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            font-size: 0.9em;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        #layer-checklist li::before {
+            content: '☐';
+            margin-right: 8px;
+            color: var(--neon-red);
+            font-size: 1.2em;
+            width: 1.2em; /* Ensure consistent checkbox width */
+        }
+        #layer-checklist li.completed::before {
+            content: '✅';
+            color: var(--neon-green);
+        }
+        #layer-checklist li.current::before {
+            content: '▶';
+            color: var(--neon-purple);
+        }
+        #layer-checklist li.completed {
+            background-color: rgba(0, 255, 0, 0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+        }
+        #layer-checklist li.current {
+            background-color: rgba(255, 0, 255, 0.1);
+            border: 1px solid var(--neon-purple);
+            color: var(--neon-purple);
+            box-shadow: 0 0 8px var(--neon-purple); /* Highlight current task */
+        }
+
+        #structural-analysis {
+            flex: 0.6;
+        }
+        #stress-distribution-chart {
+            width: 100%;
+            height: calc(100% - 40px); /* Adjust for title height */
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            position: relative;
+            padding: 10px;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around; /* Distribute bars evenly */
+            align-items: flex-start;
+            gap: 5px;
+            overflow: hidden;
+        }
+        .stress-bar-wrapper {
+            width: 100%;
+            display: flex;
+            align-items: center; /* Center text and bar */
+            gap: 5px;
+            height: 18%; /* Each layer takes up fixed height */
+        }
+        .stress-bar-label {
+            font-size: 0.75em;
+            color: var(--text-color);
+            width: 70px; /* Fixed width for labels */
+            text-align: right;
+            flex-shrink: 0;
+            line-height: 1;
+            font-weight: bold;
+        }
+        .stress-bar-container {
+            flex-grow: 1;
+            height: 80%; /* Visual height of the container */
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+        }
+        .stress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #f00, var(--neon-red)); /* Default for subgrade */
+            width: 0%;
+            border-radius: 3px;
+            transition: width 0.5s ease-out; /* Smooth bar animation */
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 5px;
+            box-sizing: border-box;
+        }
+        /* Specific stress bar colors, gradient for visual appeal */
+        .stress-bar.subgrade { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+        .stress-bar.sub-base { background: linear-gradient(90deg, #f39c12, #e67e22); }
+        .stress-bar.base { background: linear-gradient(90deg, #f1c40f, #f39c12); }
+        .stress-bar.binder-course { background: linear-gradient(90deg, #2ecc71, #27ae60); }
+        .stress-bar.surface-course { background: linear-gradient(90deg, #3498db, #2980b9); }
+
+        .stress-value {
+            font-size: 0.7em;
+            color: #fff;
+            text-shadow: 0 0 3px #000;
+            font-weight: bold;
+        }
+
+        /* Control Buttons */
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .action-button {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--neon-cyan);
+            box-shadow: 0 0 8px var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 10px 18px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.9em;
+            transition: background 0.3s, box-shadow 0.3s, transform 0.1s;
+            user-select: none;
+        }
+
+        .action-button:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 12px var(--neon-cyan), inset 0 0 12px var(--neon-cyan);
+            transform: translateY(-2px);
+        }
+
+        .action-button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 8px var(--neon-cyan);
+        }
+
+        .action-button.reset {
+            border-color: var(--neon-red);
+            color: var(--neon-red);
+            box-shadow: 0 0 8px var(--neon-red);
+        }
+        .action-button.reset:hover {
+            background: rgba(255, 0, 0, 0.1);
+            box-shadow: 0 0 12px var(--neon-red), inset 0 0 12px var(--neon-red);
+        }
+
+        .action-button.xray-mode.active, .action-button.active { /* Generic active state for buttons */
+            border-color: var(--neon-green);
+            color: var(--neon-green);
+            box-shadow: 0 0 12px var(--neon-green), inset 0 0 12px var(--neon-green);
+            background: rgba(0, 255, 0, 0.1);
+        }
+        
+        /* Scrollbar Styling for overflow-y:auto panels */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-cyan);
+            border-radius: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-purple);
+        }
+
+        /* Responsive Layouts */
+        @media (max-width: 1200px) {
+            #dashboard {
+                grid-template-columns: 1fr; /* Stack all panels vertically */
+                grid-template-rows: auto 2fr auto; /* Adjust row heights */
+                padding: 10px;
+                gap: 10px;
+            }
+            #left-pane, #right-pane {
+                flex-direction: row; /* Make sub-panels horizontal to save vertical space */
+                overflow-x: auto; /* Allow horizontal scroll for inventory/checklist */
+                min-height: 180px; /* Ensure sub-panels have enough height */
+            }
+            #project-brief, #layer-inventory, #layer-checklist, #structural-analysis {
+                flex: 1 0 280px; /* Allow items to shrink but have a minimum width */
+                min-width: 280px;
+                max-width: none; /* Remove max-width constraint for flexibility */
+            }
+            .panel {
+                padding: 15px;
+            }
+            .draggable-layer {
+                min-width: 120px;
+            }
+            #stress-distribution-chart {
+                height: 150px; /* Fixed height for small screen */
+            }
+            .stress-bar-wrapper {
+                height: auto;
+            }
+            .panel-title {
+                font-size: 1.1em;
+            }
+            .action-button {
+                font-size: 0.8em;
+                padding: 8px 15px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #dashboard {
+                padding: 5px;
+                gap: 5px;
+            }
+            #left-pane, #right-pane {
+                flex-direction: column; /* Stack sub-panels vertically again on very small screens */
+                overflow-x: hidden;
+                min-height: auto;
+            }
+            #project-brief, #layer-inventory, #layer-checklist, #structural-analysis {
+                min-width: auto; /* Remove min-width to allow full flexibility */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard">
+        <!-- Left Pane -->
+        <div id="left-pane">
+            <div id="project-brief" class="panel">
+                <h2 class="panel-title">Project Brief</h2>
+                <p>Welcome, Pavement Architect! Your mission is to construct a robust flexible pavement structure by correctly layering materials. Drag and drop layers from the inventory onto the construction canvas. Pay attention to load distribution and structural integrity!</p>
+                <div class="controls">
+                    <button id="reset-button" class="action-button reset">Reset Construction</button>
+                    <button id="xray-toggle-button" class="action-button xray-mode">Toggle X-Ray Mode</button>
+                    <button id="mute-audio-button" class="action-button">Mute Audio</button>
+                </div>
+            </div>
+            <div id="layer-inventory" class="panel">
+                <h2 class="panel-title">Layer Inventory</h2>
+                <!-- Layers are ordered for display, JS handles correct placement order -->
+                <div class="draggable-layer surface-course" draggable="true" data-layer-type="Surface Course">Surface Course</div>
+                <div class="draggable-layer binder-course" draggable="true" data-layer-type="Binder Course">Binder Course</div>
+                <div class="draggable-layer base" draggable="true" data-layer-type="Base Course">Base Course</div>
+                <div class="draggable-layer sub-base" draggable="true" data-layer-type="Sub-base">Sub-base</div>
+                <div class="draggable-layer subgrade" draggable="true" data-layer-type="Subgrade">Subgrade</div>
+            </div>
+        </div>
+
+        <!-- Center Pane - Construction Canvas -->
+        <div id="construction-canvas-wrapper">
+            <canvas id="construction-canvas"></canvas>
+            <!-- Wheel Load Draggable Icon (SVG for crisp visuals) -->
+            <div id="wheel-load-draggable" draggable="true" data-layer-type="Wheel Load">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="yellow" stroke-linecap="round" stroke-linejoin="round" class="feather feather-truck">
+                    <rect x="1" y="3" width="15" height="15"></rect>
+                    <polygon points="16 8 20 8 23 11 23 15 16 15 16 8"></polygon>
+                    <circle cx="5.5" cy="18.5" r="2.5"></circle>
+                    <circle cx="18.5" cy="18.5" r="2.5"></circle>
+                </svg>
+                Load
+            </div>
+            <!-- X-Ray Inspector Tooltip (positioned by JS) -->
+            <div id="xray-inspector-tooltip"></div>
+        </div>
+
+        <!-- Right Pane -->
+        <div id="right-pane">
+            <div id="layer-checklist" class="panel">
+                <h2 class="panel-title">Layer Checklist</h2>
+                <ul>
+                    <li data-layer-type="Subgrade">Subgrade</li>
+                    <li data-layer-type="Sub-base">Sub-base</li>
+                    <li data-layer-type="Base Course">Base Course</li>
+                    <li data-layer-type="Binder Course">Binder Course</li>
+                    <li data-layer-type="Surface Course">Surface Course</li>
+                </ul>
+            </div>
+            <div id="structural-analysis" class="panel">
+                <h2 class="panel-title">Stress Distribution Efficiency</h2>
+                <div id="stress-distribution-chart">
+                    <!-- Stress bars will be dynamically updated by JS -->
+                    <div class="stress-bar-wrapper">
+                        <span class="stress-bar-label">Subgrade:</span>
+                        <div class="stress-bar-container"><div class="stress-bar subgrade" id="stress-bar-subgrade"><span class="stress-value">100%</span></div></div>
+                    </div>
+                    <div class="stress-bar-wrapper">
+                        <span class="stress-bar-label">Sub-base:</span>
+                        <div class="stress-bar-container"><div class="stress-bar sub-base" id="stress-bar-sub-base"><span class="stress-value"></span></div></div>
+                    </div>
+                    <div class="stress-bar-wrapper">
+                        <span class="stress-bar-label">Base:</span>
+                        <div class="stress-bar-container"><div class="stress-bar base" id="stress-bar-base"><span class="stress-value"></span></div></div>
+                    </div>
+                    <div class="stress-bar-wrapper">
+                        <span class="stress-bar-label">Binder:</span>
+                        <div class="stress-bar-container"><div class="stress-bar binder-course" id="stress-bar-binder-course"><span class="stress-value"></span></div></div>
+                    </div>
+                    <div class="stress-bar-wrapper">
+                        <span class="stress-bar-label">Surface:</span>
+                        <div class="stress-bar-container"><div class="stress-bar surface-course" id="stress-bar-surface-course"><span class="stress-value"></span></div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Configuration Data: Define pavement layers and their properties ---
+        const LAYER_DATA = [
+            {
+                type: 'Subgrade',
+                color: 'var(--layer-subgrade)',
+                texture: 'dirt', // Visual texture hint
+                description: 'The natural ground providing the ultimate foundation for the pavement. Its stability is crucial for long-term performance.',
+                modulus: '10-50 MPa', // Modulus of Elasticity
+                typicalThickness: 'Varies', // Subgrade thickness is highly variable
+                stressReductionFactor: 0.0, // Subgrade is the base, absorbs 100% initial stress
+                order: 0 // Index for correct placement order
+            },
+            {
+                type: 'Sub-base',
+                color: 'var(--layer-subbase)',
+                texture: 'aggregate-light',
+                description: 'A granular layer above the subgrade. It provides drainage, minimizes frost action, and initially distributes traffic loads to the subgrade.',
+                modulus: '50-150 MPa',
+                typicalThickness: '150-300 mm',
+                stressReductionFactor: 0.15, // Reduces remaining stress by 15%
+                order: 1
+            },
+            {
+                type: 'Base Course',
+                color: 'var(--layer-base)',
+                texture: 'aggregate-dark',
+                description: 'The primary load-bearing granular layer, typically made of crushed stone or treated aggregates. It significantly contributes to the structural strength of the pavement by distributing stresses efficiently.',
+                modulus: '150-400 MPa',
+                typicalThickness: '100-250 mm',
+                stressReductionFactor: 0.30,
+                order: 2
+            },
+            {
+                type: 'Binder Course',
+                color: 'var(--layer-binder)',
+                texture: 'asphalt',
+                description: 'An intermediate asphalt layer that binds the base course to the surface course. It adds strength, helps distribute stresses, and provides a smooth transition layer.',
+                modulus: '500-1500 MPa',
+                typicalThickness: '50-100 mm',
+                stressReductionFactor: 0.20,
+                order: 3
+            },
+            {
+                type: 'Surface Course',
+                color: 'var(--layer-surface)',
+                texture: 'asphalt-smooth',
+                description: 'The top layer of asphalt concrete. It provides a smooth riding surface, resists skidding, protects underlying layers from weather, and directly handles traffic abrasion and initial load.',
+                modulus: '2000-4000 MPa',
+                typicalThickness: '40-80 mm',
+                stressReductionFactor: 0.35,
+                order: 4
+            }
+        ];
+
+        // --- DOM Elements Caching ---
+        const canvas = document.getElementById('construction-canvas');
+        const ctx = canvas.getContext('2d');
+        const canvasWrapper = document.getElementById('construction-canvas-wrapper');
+        const draggableLayers = document.querySelectorAll('.draggable-layer');
+        const layerChecklist = document.getElementById('layer-checklist');
+        const stressDistributionChart = document.getElementById('stress-distribution-chart');
+        const resetButton = document.getElementById('reset-button');
+        const xrayToggleButton = document.getElementById('xray-toggle-button');
+        const xrayTooltip = document.getElementById('xray-inspector-tooltip');
+        const wheelLoadDraggable = document.getElementById('wheel-load-draggable');
+        const muteAudioButton = document.getElementById('mute-audio-button');
+
+        // --- Global Simulation State Variables ---
+        let placedLayers = []; // Stores objects: { type, y, height, color, data, glowOpacity }
+        let currentDragLayerType = null; // Type of layer currently being dragged from inventory
+        let animationFrameId = null;
+        let isXRayMode = false;
+        let isWheelLoadDragging = false;
+        let wheelLoadPosition = { x: 0, y: 0 }; // Center coordinates of the wheel load visual
+        let wheelLoadActive = false; // Whether the load distribution effect should be drawn
+        let audioMuted = false;
+
+        // --- Canvas Dimensions (CSS pixels, not backing store pixels) ---
+        let CANVAS_WIDTH = 0;
+        let CANVAS_HEIGHT = 0;
+        const BASE_LAYER_HEIGHT_DP = 80; // Base height for non-subgrade layers in CSS pixels
+        const SUBGRADE_BASE_HEIGHT_FACTOR = 1.8; // Subgrade is visually taller
+
+        // --- Web Audio API Context (initialized on first user interaction) ---
+        let audioContext = null;
+        const startAudioContext = () => {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioContext.state === 'suspended') {
+                    audioContext.resume(); // Resume if suspended by browser policy
+                }
+            }
+        };
+
+        // --- Helper Functions ---
+
+        /**
+         * @function resizeCanvas
+         * CRITICAL: High-DPI (Retina) and responsive canvas scaling handler.
+         * Sets canvas backing store dimensions to CSS style size multiplied by devicePixelRatio,
+         * then scales the context to compensate, ensuring sharp visuals.
+         */
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            CANVAS_WIDTH = rect.width;
+            CANVAS_HEIGHT = rect.height;
+
+            drawPavement(); // Redraw everything after resize
+        }
+
+        /**
+         * Draws text on canvas with a contrasting background box for legibility.
+         */
+        function drawLegibleText(text, x, y, textColor = 'white', bgColor = 'rgba(0,0,0,0.6)', padding = 5, font = '14px Roboto Mono') {
+            ctx.font = font;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            // Estimate text height based on font size and line spacing
+            const textHeight = parseInt(font, 10) * 1.4;
+
+            const rectX = x - textWidth / 2 - padding;
+            const rectY = y - textHeight / 2 - padding;
+            const rectWidth = textWidth + padding * 2;
+            const rectHeight = textHeight + padding * 2;
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(rectX, rectY, rectWidth, rectHeight);
+
+            ctx.fillStyle = textColor;
+            ctx.fillText(text, x, y);
+        }
+
+        // --- Audio & Speech Synthesis Functions ---
+        const playSound = (type) => {
+            if (audioMuted) return;
+            startAudioContext();
+            if (!audioContext) return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            switch (type) {
+                case 'success': // High-pitched ascending arpeggio
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+                    oscillator.frequency.linearRampToValueAtTime(783.99, audioContext.currentTime + 0.15); // G5
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.3);
+                    break;
+                case 'invalid': // Low-frequency "thud"
+                    oscillator.type = 'sawtooth';
+                    oscillator.frequency.setValueAtTime(80, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.6, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.2);
+                    break;
+                case 'snap': // Sharp "click"
+                    oscillator.type = 'triangle';
+                    oscillator.frequency.setValueAtTime(2500, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.05);
+                    break;
+                case 'click': // General UI click feedback
+                    oscillator.type = 'sine';
+                    oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.03);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.03);
+                    break;
+            }
+        };
+
+        const speak = (text) => {
+            if (audioMuted) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        };
+
+        muteAudioButton.addEventListener('click', () => {
+            audioMuted = !audioMuted;
+            muteAudioButton.textContent = audioMuted ? 'Unmute Audio' : 'Mute Audio';
+            muteAudioButton.classList.toggle('active', !audioMuted);
+            playSound('click'); // Provide feedback for mute toggle
+            if (!audioMuted) {
+                speak("Audio unmuted.");
+            }
+        });
+
+        // --- Canvas Drawing Logic ---
+        function drawPavement() {
+            if (!ctx || CANVAS_WIDTH === 0 || CANVAS_HEIGHT === 0) return;
+
+            ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+            ctx.fillStyle = '#1a202c'; // Base background for the "foundation"
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+
+            // Calculate total relative height for all layers
+            const totalRelativeHeight = LAYER_DATA.reduce((sum, d) => sum + (d.type === 'Subgrade' ? SUBGRADE_BASE_HEIGHT_FACTOR : 1), 0);
+            const availableHeight = CANVAS_HEIGHT * 0.9; // Use 90% of canvas height for layers
+            const scaleFactor = availableHeight / totalRelativeHeight; // Factor to scale layer heights
+
+            let currentY = CANVAS_HEIGHT - (CANVAS_HEIGHT * 0.05); // Start drawing from 5% from bottom
+
+            // Draw layers from bottom up (Subgrade first)
+            for (let i = 0; i < LAYER_DATA.length; i++) {
+                const layerType = LAYER_DATA[i].type;
+                const layerInfo = LAYER_DATA[i];
+                const layerRelativeHeight = (layerType === 'Subgrade' ? SUBGRADE_BASE_HEIGHT_FACTOR : 1);
+                const layerHeight = layerRelativeHeight * scaleFactor;
+
+                currentY -= layerHeight; // Move upwards for the current layer's top edge
+
+                const placedLayer = placedLayers.find(pl => pl.type === layerType);
+                if (placedLayer) {
+                    // Update placed layer's drawing coordinates and dimensions on resize
+                    placedLayer.y = currentY;
+                    placedLayer.height = layerHeight;
+                    drawLayer(placedLayer);
+                    drawLegibleText(placedLayer.type, CANVAS_WIDTH / 2, placedLayer.y + placedLayer.height / 2, 'white', 'rgba(0,0,0,0.4)');
+                } else {
+                    drawEmptyLayerSlot(currentY, layerHeight, layerType);
+                }
+            }
+
+            // Draw wheel load and stress distribution if active and all layers are present
+            if (wheelLoadActive && placedLayers.length === LAYER_DATA.length) {
+                drawWheelLoadEffect();
+            }
+        }
+
+        function drawLayer(layer) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, layer.y, CANVAS_WIDTH, layer.height);
+
+            ctx.fillStyle = layer.color;
+            ctx.fill();
+
+            // Border
+            ctx.strokeStyle = `rgba(${getComputedStyle(document.documentElement).getPropertyValue('--text-color-rgb')}, 0.3)`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Neon glow for recently placed layers
+            if (layer.glowOpacity > 0) {
+                let glowColor;
+                // Green for correct final layers, purple for others
+                if (layer.order === placedLayers.length - 1) { // If it's the last correctly placed layer
+                    glowColor = 'var(--neon-green)';
+                } else {
+                    glowColor = 'var(--neon-purple)';
+                }
+                ctx.shadowColor = glowColor;
+                ctx.shadowBlur = 15 * layer.glowOpacity;
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = glowColor;
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawEmptyLayerSlot(y, height, type) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(0, y, CANVAS_WIDTH, height);
+            ctx.fillStyle = `rgba(40, 48, 60, 0.4)`;
+            ctx.fill();
+            ctx.strokeStyle = `rgba(${getComputedStyle(document.documentElement).getPropertyValue('--text-color-rgb')}, 0.2)`;
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]); // Dashed border for empty slots
+            ctx.stroke();
+            ctx.setLineDash([]); // Reset line dash
+
+            drawLegibleText(`Drag ${type} Here`, CANVAS_WIDTH / 2, y + height / 2, 'rgba(255,255,255,0.4)', 'rgba(0,0,0,0.3)');
+
+            ctx.restore();
+        }
+
+        function drawWheelLoadEffect() {
+            if (!wheelLoadActive || placedLayers.length !== LAYER_DATA.length) return;
+
+            ctx.save();
+
+            // Project wheel load position onto the surface course
+            const surfaceCourse = placedLayers.find(pl => pl.type === 'Surface Course');
+            if (!surfaceCourse) {
+                 ctx.restore();
+                 return;
+            }
+
+            // Ensure wheelLoadDraggable is visually positioned correctly
+            const wheelLoadCenterX = wheelLoadPosition.x;
+            const wheelLoadTopY = surfaceCourse.y - 10; // Slightly above surface course
+
+            // Draw the wheel visual on canvas
+            const initialLoadRadius = 15; // Represents tire contact patch
+            ctx.beginPath();
+            ctx.arc(wheelLoadCenterX, wheelLoadTopY, initialLoadRadius * 1.5, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(255,255,0,0.8)';
+            ctx.fill();
+            ctx.strokeStyle = 'yellow';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            drawLegibleText("W", wheelLoadCenterX, wheelLoadTopY, 'black', 'transparent', 0, 'bold 16px Orbitron');
+
+            let currentSpreadRadius = initialLoadRadius;
+
+            // Iterate through placed layers from top to bottom (Surface to Subgrade)
+            for (let i = placedLayers.length - 1; i >= 0; i--) {
+                const layer = placedLayers[i];
+                const layerTopY = layer.y;
+                const layerBottomY = layer.y + layer.height;
+
+                // Simplified load spread model: stress spreads and reduces with depth
+                // The spread factor from LAYER_DATA influences how wide the 'bulb' becomes
+                const layerData = LAYER_DATA.find(d => d.type === layer.type);
+                const effectiveSpreadFactor = layerData.stressReductionFactor * 2; // Arbitrary multiplier for visual spread
+                const nextSpreadRadius = currentSpreadRadius * (1 + effectiveSpreadFactor);
+
+                // Draw the 'stress bulb' shape
+                ctx.beginPath();
+                ctx.moveTo(wheelLoadCenterX - currentSpreadRadius, layerTopY);
+                ctx.lineTo(wheelLoadCenterX - nextSpreadRadius, layerBottomY);
+                ctx.lineTo(wheelLoadCenterX + nextSpreadRadius, layerBottomY);
+                ctx.lineTo(wheelLoadCenterX + currentSpreadRadius, layerTopY);
+                ctx.closePath();
+
+                // Gradient from red (high stress) to orange/yellow (lower stress)
+                const gradient = ctx.createLinearGradient(0, layerTopY, 0, layerBottomY);
+                // Adjust alpha and color stops to show decreasing stress with depth
+                const stressInfluence = (i + 1) / LAYER_DATA.length; // More red at top, less at bottom
+                gradient.addColorStop(0, `rgba(255, 0, 0, ${0.4 + stressInfluence * 0.3})`);
+                gradient.addColorStop(1, `rgba(255, 165, 0, ${0.2 + stressInfluence * 0.2})`);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+                ctx.strokeStyle = `rgba(255, 0, 0, ${0.8 - stressInfluence * 0.2})`;
+                ctx.lineWidth = 1;
+                ctx.stroke();
+
+                currentSpreadRadius = nextSpreadRadius; // Update for the next layer below
+            }
+            ctx.restore();
+        }
+
+        // --- UI Interaction Logic ---
+
+        // Dragging layers from inventory
+        draggableLayers.forEach(layerEl => {
+            layerEl.addEventListener('dragstart', (e) => {
+                currentDragLayerType = e.target.dataset.layerType;
+                e.dataTransfer.setData('text/plain', currentDragLayerType);
+                e.dataTransfer.effectAllowed = 'copy'; // Visual feedback for dragging
+                e.target.classList.add('dragging');
+            });
+            layerEl.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+                currentDragLayerType = null;
+            });
+        });
+
+        // Dropping layers onto canvas wrapper
+        canvasWrapper.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop operation
+            e.dataTransfer.dropEffect = 'copy';
+        });
+
+        canvasWrapper.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (!currentDragLayerType) return;
+
+            const droppedLayerData = LAYER_DATA.find(d => d.type === currentDragLayerType);
+            if (!droppedLayerData) return;
+
+            // Check if layer is already placed
+            if (placedLayers.some(layer => layer.type === droppedLayerData.type)) {
+                speak(`The ${droppedLayerData.type} layer is already in place. Please choose another.`);
+                playSound('invalid');
+                return;
+            }
+
+            // Check for correct sequential placement
+            // The `order` property in LAYER_DATA ensures correct sequence (Subgrade=0, Sub-base=1, etc.)
+            const expectedOrder = placedLayers.length;
+            if (droppedLayerData.order !== expectedOrder) {
+                const nextExpectedLayer = LAYER_DATA.find(d => d.order === expectedOrder);
+                speak(`Incorrect placement order. The next layer should be ${nextExpectedLayer ? nextExpectedLayer.type : 'N/A'}.`);
+                playSound('invalid');
+                return;
+            }
+
+            // Calculate layer's visual height and Y position on canvas
+            const totalRelativeHeight = LAYER_DATA.reduce((sum, d) => sum + (d.type === 'Subgrade' ? SUBGRADE_BASE_HEIGHT_FACTOR : 1), 0);
+            const availableHeight = CANVAS_HEIGHT * 0.9;
+            const scaleFactor = availableHeight / totalRelativeHeight;
+
+            let currentCalculatedY = CANVAS_HEIGHT - (CANVAS_HEIGHT * 0.05); // Match canvas drawing start Y
+            for (let i = 0; i < droppedLayerData.order; i++) {
+                const tempLayerData = LAYER_DATA.find(d => d.order === i);
+                const tempLayerRelativeHeight = (tempLayerData.type === 'Subgrade' ? SUBGRADE_BASE_HEIGHT_FACTOR : 1);
+                currentCalculatedY -= tempLayerRelativeHeight * scaleFactor;
+            }
+            // Now calculate for the dropped layer itself
+            const layerRelativeHeight = (droppedLayerData.type === 'Subgrade' ? SUBGRADE_BASE_HEIGHT_FACTOR : 1);
+            currentCalculatedY -= layerRelativeHeight * scaleFactor;
+
+            const newLayer = {
+                type: droppedLayerData.type,
+                y: currentCalculatedY, // Calculated top Y position
+                height: layerRelativeHeight * scaleFactor,
+                color: droppedLayerData.color,
+                data: droppedLayerData,
+                glowOpacity: 1, // Start glow animation
+                order: droppedLayerData.order
+            };
+            placedLayers.push(newLayer);
+            placedLayers.sort((a, b) => a.order - b.order); // Keep layers sorted
+
+            playSound('snap');
+            speak(`${droppedLayerData.type}: ${droppedLayerData.description}`);
+
+            // Animate layer glow fade-out
+            let glowAnimationStart = null;
+            const glowDuration = 1000;
+            const animateGlow = (timestamp) => {
+                if (!glowAnimationStart) glowAnimationStart = timestamp;
+                const progress = timestamp - glowAnimationStart;
+                const opacity = 1 - Math.min(progress / glowDuration, 1);
+                newLayer.glowOpacity = opacity;
+
+                drawPavement(); // Redraw canvas with updated glow
+
+                if (progress < glowDuration) {
+                    animationFrameId = requestAnimationFrame(animateGlow);
+                } else {
+                    newLayer.glowOpacity = 0;
+                    drawPavement(); // Final redraw without glow
+                    animationFrameId = null;
+                }
+            };
+            animationFrameId = requestAnimationFrame(animateGlow);
+
+            updateChecklist();
+            updateStressChart();
+
+            // Activate wheel load draggable when Surface Course is placed
+            if (droppedLayerData.type === 'Surface Course') {
+                wheelLoadDraggable.classList.add('active');
+                wheelLoadActive = true;
+                const surfaceCourse = placedLayers.find(pl => pl.type === 'Surface Course');
+                if (surfaceCourse) {
+                    // Position wheel load initially centered on surface course
+                    wheelLoadDraggable.style.left = `${CANVAS_WIDTH / 2}px`;
+                    wheelLoadDraggable.style.top = `${surfaceCourse.y - wheelLoadDraggable.offsetHeight / 2}px`;
+                    wheelLoadDraggable.style.transform = 'translate(-50%, -50%)'; // Center pivot
+                    wheelLoadPosition = { x: CANVAS_WIDTH / 2, y: surfaceCourse.y - wheelLoadDraggable.offsetHeight / 2 };
+                }
+            }
+        });
+
+        // Click on placed layer for narration
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Iterate from top-most placed layer downwards to find the clicked layer
+            for (let i = placedLayers.length - 1; i >= 0; i--) {
+                const layer = placedLayers[i];
+                if (mouseX >= 0 && mouseX <= CANVAS_WIDTH &&
+                    mouseY >= layer.y && mouseY <= layer.y + layer.height) {
+                    playSound('click');
+                    speak(`${layer.data.type}: ${layer.data.description}`);
+                    return;
+                }
+            }
+        });
+
+        // --- X-Ray Inspector Mode ---
+        xrayToggleButton.addEventListener('click', () => {
+            isXRayMode = !isXRayMode;
+            xrayToggleButton.classList.toggle('active', isXRayMode);
+            xrayTooltip.classList.remove('visible'); // Hide tooltip if toggling off
+            playSound('click');
+
+            // Disable wheel load interaction in X-Ray mode
+            wheelLoadDraggable.style.pointerEvents = isXRayMode ? 'none' : (placedLayers.some(pl => pl.type === 'Surface Course') ? 'auto' : 'none');
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (!isXRayMode) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            let hoveredLayer = null;
+            // Iterate from top to bottom
+            for (let i = placedLayers.length - 1; i >= 0; i--) {
+                const layer = placedLayers[i];
+                if (mouseX >= 0 && mouseX <= CANVAS_WIDTH &&
+                    mouseY >= layer.y && mouseY <= layer.y + layer.height) {
+                    hoveredLayer = layer;
+                    break;
+                }
+            }
+
+            if (hoveredLayer) {
+                const layerData = hoveredLayer.data;
+                xrayTooltip.innerHTML = `
+                    <strong>${layerData.type}</strong><br>
+                    Material: ${layerData.texture === 'asphalt' || layerData.texture === 'asphalt-smooth' ? 'Asphalt Concrete' : 'Granular'}<br>
+                    Modulus of Elasticity: ${layerData.modulus}<br>
+                    Typical Thickness: ${layerData.typicalThickness}
+                `;
+                // Position tooltip relative to pointer, adjusted to not go off screen
+                let tooltipX = e.clientX + 15;
+                let tooltipY = e.clientY + 15;
+
+                // Adjust if near right edge
+                if (tooltipX + xrayTooltip.offsetWidth > window.innerWidth) {
+                    tooltipX = e.clientX - xrayTooltip.offsetWidth - 15;
+                }
+                // Adjust if near bottom edge
+                if (tooltipY + xrayTooltip.offsetHeight > window.innerHeight) {
+                    tooltipY = e.clientY - xrayTooltip.offsetHeight - 15;
+                }
+
+                xrayTooltip.style.left = `${tooltipX}px`;
+                xrayTooltip.style.top = `${tooltipY}px`;
+                xrayTooltip.classList.add('visible');
+            } else {
+                xrayTooltip.classList.remove('visible');
+            }
+        });
+
+        canvas.addEventListener('pointerleave', () => {
+            if (isXRayMode) {
+                xrayTooltip.classList.remove('visible');
+            }
+        });
+
+        // --- Wheel Load Dragging Logic ---
+        let initialWheelLoadDragOffset = { x: 0, y: 0 }; // Offset from mouse to element's top-left
+
+        wheelLoadDraggable.addEventListener('pointerdown', (e) => {
+            if (isXRayMode) return;
+            isWheelLoadDragging = true;
+            wheelLoadDraggable.style.cursor = 'grabbing';
+            // Calculate offset from mouse pointer to the element's top-left corner
+            initialWheelLoadDragOffset = {
+                x: e.clientX - wheelLoadDraggable.getBoundingClientRect().left,
+                y: e.clientY - wheelLoadDraggable.getBoundingClientRect().top
+            };
+            e.preventDefault(); // Prevent default browser drag
+            wheelLoadDraggable.setPointerCapture(e.pointerId); // Capture pointer for smooth dragging
+        });
+
+        document.addEventListener('pointermove', (e) => {
+            if (!isWheelLoadDragging) return;
+
+            const wrapperRect = canvasWrapper.getBoundingClientRect();
+            const wheelRect = wheelLoadDraggable.getBoundingClientRect();
+
+            let newLeft = e.clientX - initialWheelLoadDragOffset.x - wrapperRect.left;
+            let newTop = e.clientY - initialWheelLoadDragOffset.y - wrapperRect.top;
+
+            // Constrain movement within canvas wrapper
+            newLeft = Math.max(0, Math.min(newLeft, wrapperRect.width - wheelRect.width));
+            newTop = Math.max(0, Math.min(newTop, wrapperRect.height - wheelRect.height));
+
+            wheelLoadDraggable.style.left = `${newLeft}px`;
+            wheelLoadDraggable.style.top = `${newTop}px`;
+            wheelLoadDraggable.style.transform = 'none'; // Clear transform for direct positioning
+
+            // Update wheel load's central position for canvas drawing
+            wheelLoadPosition = {
+                x: newLeft + wheelRect.width / 2,
+                y: newTop + wheelRect.height / 2
+            };
+
+            // Force redraw canvas to update load effect
+            drawPavement();
+        });
+
+        document.addEventListener('pointerup', () => {
+            if (isWheelLoadDragging) {
+                isWheelLoadDragging = false;
+                wheelLoadDraggable.style.cursor = 'grab';
+                wheelLoadDraggable.releasePointerCapture(event.pointerId);
+
+                // When released, if all layers are present, snap to surface course center X, and top Y
+                if (placedLayers.length === LAYER_DATA.length) {
+                    const surfaceCourse = placedLayers.find(pl => pl.type === 'Surface Course');
+                    if (surfaceCourse) {
+                        const wheelRect = wheelLoadDraggable.getBoundingClientRect();
+                        wheelLoadDraggable.style.left = `${CANVAS_WIDTH / 2}px`;
+                        wheelLoadDraggable.style.top = `${surfaceCourse.y - wheelRect.height / 2}px`;
+                        wheelLoadDraggable.style.transform = 'translate(-50%, -50%)';
+                        wheelLoadPosition = { x: CANVAS_WIDTH / 2, y: surfaceCourse.y - wheelRect.height / 2 };
+                    }
+                }
+                drawPavement(); // Ensure final state is drawn
+            }
+        });
+
+
+        // --- Checklist & Stress Chart Updates ---
+        function updateChecklist() {
+            const checklistItems = layerChecklist.querySelectorAll('li');
+            LAYER_DATA.forEach((layerData) => {
+                const item = Array.from(checklistItems).find(li => li.dataset.layerType === layerData.type);
+                if (!item) return;
+
+                item.classList.remove('completed', 'current');
+                if (placedLayers.some(pl => pl.type === layerData.type)) {
+                    item.classList.add('completed');
+                } else if (placedLayers.length === layerData.order) { // Mark the next expected layer
+                    item.classList.add('current');
+                }
+            });
+        }
+
+        function updateStressChart() {
+            const stressBars = {
+                'Subgrade': document.getElementById('stress-bar-subgrade'),
+                'Sub-base': document.getElementById('stress-bar-sub-base'),
+                'Base Course': document.getElementById('stress-bar-base'),
+                'Binder Course': document.getElementById('stress-bar-binder-course'),
+                'Surface Course': document.getElementById('stress-bar-surface-course'),
+            };
+
+            let remainingStressPercentage = 100; // Start with 100% stress at the very top of the system
+
+            // Iterate layers in placement order to simulate stress reduction
+            LAYER_DATA.forEach(layerData => {
+                const barEl = stressBars[layerData.type];
+                if (!barEl) return;
+                const valueSpan = barEl.querySelector('.stress-value');
+
+                if (placedLayers.some(pl => pl.type === layerData.type)) {
+                    // For the Subgrade bar, it represents the stress *reaching* the subgrade.
+                    // Other bars represent stress *after* that layer has dissipated some.
+                    if (layerData.type !== 'Subgrade') {
+                        // Apply reduction factor to the *remaining* stress
+                        remainingStressPercentage -= (remainingStressPercentage * layerData.stressReductionFactor);
+                    }
+                    barEl.style.width = `${Math.max(0, remainingStressPercentage)}%`; // Ensure width doesn't go negative
+                    valueSpan.textContent = `${Math.round(remainingStressPercentage)}%`;
+                } else {
+                    // If a layer isn't placed, the stress reduction it would provide isn't there.
+                    // The bar should reflect the stress if *it* were the lowest point.
+                    // For unplaced layers, it means no reduction from them, so bars below it get no benefit.
+                    if (layerData.type === 'Subgrade') {
+                        barEl.style.width = `100%`;
+                        valueSpan.textContent = `100%`;
+                    } else {
+                        barEl.style.width = `0%`; // Placeholder, or could show 'N/A'
+                        valueSpan.textContent = ``;
+                    }
+                    // Reset remainingStressPercentage for subsequent unplaced layers
+                    if (placedLayers.length <= layerData.order) {
+                        remainingStressPercentage = 100;
+                    }
+                }
+            });
+        }
+
+
+        // --- Reset Functionality ---
+        resetButton.addEventListener('click', () => {
+            playSound('invalid'); // Feedback sound for reset
+            speak("Construction reset. Start building your pavement structure from scratch.");
+            resetSimulation();
+        });
+
+        function resetSimulation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+            placedLayers = [];
+            currentDragLayerType = null;
+            isWheelLoadDragging = false;
+            wheelLoadActive = false;
+            wheelLoadDraggable.classList.remove('active');
+            xrayTooltip.classList.remove('visible');
+            isXRayMode = false;
+            xrayToggleButton.classList.remove('active');
+            
+            // Re-enable pointer events on wheel load draggable if it was disabled by X-Ray mode
+            wheelLoadDraggable.style.pointerEvents = 'none';
+
+            updateChecklist();
+            updateStressChart();
+            drawPavement(); // Clear and redraw empty canvas
+        }
+
+        // --- Initialization ---
+        const init = () => {
+            resizeCanvas(); // Initial canvas setup and drawing
+            window.addEventListener('resize', resizeCanvas); // CRITICAL: High-DPI and responsiveness
+
+            // Initialize UI elements
+            updateChecklist();
+            updateStressChart();
+            drawPavement(); // Initial drawing of the empty canvas
+        };
+
+        // Ensure DOM is fully loaded before initializing simulation
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>

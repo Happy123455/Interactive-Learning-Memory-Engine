@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Double Angle Discontinuous Strut Analyzer</title>
+    <style>
+        :root {
+            --bg-primary: #0a0f1d;
+            --bg-secondary: rgba(16, 22, 40, 0.7);
+            --border-neon: rgba(0, 240, 255, 0.2);
+            --border-neon-active: rgba(0, 240, 255, 0.8);
+            --neon-cyan: #00f0ff;
+            --neon-magenta: #ff007f;
+            --neon-green: #39ff14;
+            --text-main: #f0f4f8;
+            --text-muted: #8a99ad;
+            --glass-blur: blur(12px);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-main);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            min-height: 100vh;
+            overflow-x: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Glassmorphic Header */
+        header {
+            background: var(--bg-secondary);
+            backdrop-filter: var(--glass-blur);
+            border-bottom: 1px solid var(--border-neon);
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--neon-cyan), var(--neon-magenta));
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #000;
+            box-shadow: 0 0 15px var(--neon-cyan);
+        }
+
+        h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            background: linear-gradient(90deg, #fff, var(--text-muted));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .global-audio-controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-neon);
+            color: var(--text-main);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.85rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 10px rgba(0, 240, 255, 0.3);
+            transform: translateY(-1px);
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .btn-success {
+            border-color: var(--neon-green);
+        }
+        .btn-success:hover {
+            background: rgba(57, 255, 20, 0.15);
+            border-color: var(--neon-green);
+            box-shadow: 0 0 10px rgba(57, 255, 20, 0.3);
+        }
+
+        /* Dashboard Layout */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 350px 1fr 380px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            flex-grow: 1;
+            height: calc(100vh - 70px);
+            overflow: hidden;
+        }
+
+        @media (max-width: 1200px) {
+            .dashboard {
+                grid-template-columns: 1fr;
+                height: auto;
+                overflow: visible;
+            }
+        }
+
+        /* Glass Panel */
+        .panel {
+            background: var(--bg-secondary);
+            backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--border-neon);
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .panel-header {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            font-weight: 600;
+            font-size: 0.95rem;
+            letter-spacing: 0.5px;
+            color: var(--neon-cyan);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .panel-content {
+            padding: 1.25rem;
+            overflow-y: auto;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Input Controls styling */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        select, input[type="range"] {
+            background: rgba(0, 0, 0, 0.2);
+            border: 1px solid var(--border-neon);
+            border-radius: 6px;
+            color: var(--text-main);
+            padding: 8px 12px;
+            font-size: 0.9rem;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        select:focus {
+            border-color: var(--neon-cyan);
+            box-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+        }
+
+        /* Advanced range input styling */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            box-shadow: 0 0 10px var(--neon-cyan);
+            margin-top: -5px;
+            transition: transform 0.1s;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.25);
+        }
+
+        .slider-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.85rem;
+        }
+
+        .slider-val {
+            color: var(--neon-cyan);
+            font-weight: bold;
+        }
+
+        /* Visual Workspace (Center Panel) */
+        .workspace {
+            display: grid;
+            grid-template-rows: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        .canvas-card {
+            position: relative;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-neon);
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .canvas-title {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+            background: rgba(10, 15, 29, 0.8);
+            border: 1px solid var(--border-neon);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: var(--neon-cyan);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            pointer-events: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Formula/Math live panels */
+        .formula-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            transition: all 0.3s;
+        }
+
+        .formula-card.highlight {
+            border-color: var(--neon-magenta);
+            background: rgba(255, 0, 127, 0.03);
+        }
+
+        .math-expr {
+            color: var(--text-main);
+            font-size: 0.95rem;
+            margin-top: 4px;
+        }
+
+        .math-expr span.highlight {
+            color: var(--neon-magenta);
+            font-weight: bold;
+        }
+
+        /* Dynamic Parameter Stats */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-label {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+
+        .stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--neon-cyan);
+            margin-top: 2px;
+        }
+
+        /* Capacity Display State Indicator */
+        .capacity-bar-container {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .capacity-bar {
+            height: 100%;
+            width: 50%;
+            background: var(--neon-green);
+            box-shadow: 0 0 10px var(--neon-green);
+            transition: width 0.3s ease, background 0.3s ease;
+        }
+
+        .capacity-bar.failure {
+            background: var(--neon-magenta);
+            box-shadow: 0 0 10px var(--neon-magenta);
+        }
+
+        .safety-indicator {
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            text-align: center;
+            letter-spacing: 1px;
+        }
+
+        .safety-indicator.safe {
+            background: rgba(57, 255, 20, 0.1);
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+        }
+
+        .safety-indicator.failed {
+            background: rgba(255, 0, 127, 0.1);
+            border: 1px solid var(--neon-magenta);
+            color: var(--neon-magenta);
+            animation: pulse-border 1.5s infinite alternate;
+        }
+
+        @keyframes pulse-border {
+            0% { border-color: rgba(255, 0, 127, 0.3); box-shadow: 0 0 5px rgba(255, 0, 127, 0.1); }
+            100% { border-color: var(--neon-magenta); box-shadow: 0 0 15px rgba(255, 0, 127, 0.4); }
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.1);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 240, 255, 0.2);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--neon-cyan);
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo-container">
+            <div class="logo-icon">Δ</div>
+            <h1>Double Angle Strut Analyzer <span style="font-size: 0.8rem; color: var(--neon-cyan); font-weight: normal; margin-left: 8px;">IS 800:2007 Module</span></h1>
+        </div>
+        <div class="global-audio-controls">
+            <button class="btn" id="btn-sound" onclick="app.toggleAudio()">
+                <span id="sound-icon">🔊</span> Toggle Sound
+            </button>
+            <button class="btn btn-success" onclick="app.narrateOverview()">
+                📢 Guide Me
+            </button>
+        </div>
+    </header>
+
+    <main class="dashboard">
+        <!-- Panel 1: Design Controls -->
+        <section class="panel">
+            <div class="panel-header">Design Parameters</div>
+            <div class="panel-content">
+                <div class="control-group" onmouseover="app.speakContext('section')">
+                    <label for="select-section">ISA Angle Section (Back-to-Back)</label>
+                    <select id="select-section" onchange="app.updateSection()">
+                        <option value="ISA75x75x10">2x ISA 75x75x10</option>
+                        <option value="ISA90x90x10" selected>2x ISA 90x90x10</option>
+                        <option value="ISA100x100x10">2x ISA 100x100x10</option>
+                    </select>
+                </div>
+
+                <div class="control-group" onmouseover="app.speakContext('length')">
+                    <div class="slider-header">
+                        <label for="slider-length">Effective Length (L)</label>
+                        <span class="slider-val" id="val-length">3.00 m</span>
+                    </div>
+                    <input type="range" id="slider-length" min="1.5" max="4.5" step="0.1" value="3.0" oninput="app.updateParams()">
+                </div>
+
+                <div class="control-group" onmouseover="app.speakContext('fy')">
+                    <div class="slider-header">
+                        <label for="slider-fy">Steel Yield Strength (f<sub>y</sub>)</label>
+                        <span class="slider-val" id="val-fy">250 MPa</span>
+                    </div>
+                    <input type="range" id="slider-fy" min="210" max="410" step="10" value="250" oninput="app.updateParams()">
+                </div>
+
+                <div class="control-group" onmouseover="app.speakContext('gusset')">
+                    <div class="slider-header">
+                        <label for="slider-gusset">Gusset Plate Thickness</label>
+                        <span class="slider-val" id="val-gusset">12 mm</span>
+                    </div>
+                    <input type="range" id="slider-gusset" min="8" max="20" step="2" value="12" oninput="app.updateParams()">
+                </div>
+
+                <div class="control-group" onmouseover="app.speakContext('connection')">
+                    <label for="select-connection">End Connections</label>
+                    <select id="select-connection" onchange="app.updateParams()">
+                        <option value="0.85">Tack bolted / Double bolts (K = 0.85)</option>
+                        <option value="1.0">Single bolted (K = 1.0)</option>
+                    </select>
+                </div>
+
+                <div class="control-group" style="margin-top: auto;" onmouseover="app.speakContext('applied')">
+                    <div class="slider-header">
+                        <label style="color: var(--neon-magenta);">Applied Axial Load</label>
+                        <span class="slider-val" id="val-load" style="color: var(--neon-magenta);">150 kN</span>
+                    </div>
+                    <input type="range" id="slider-load" min="20" max="600" step="5" value="150" oninput="app.updateLoad()">
+                </div>
+            </div>
+        </section>
+
+        <!-- Panel 2: Visual Workspaces -->
+        <section class="workspace">
+            <!-- Canvas A: Double Angle Cross-Section View -->
+            <div class="canvas-card">
+                <div class="canvas-title">Cross Sectional Aspect</div>
+                <canvas id="canvas-section"></canvas>
+            </div>
+
+            <!-- Canvas B: Physical Buckling & Loading View -->
+            <div class="canvas-card">
+                <div class="canvas-title">Dynamic Loading &amp; Buckling Profile (Drag Arrowhead)</div>
+                <canvas id="canvas-profile"></canvas>
+            </div>
+        </section>
+
+        <!-- Panel 3: Calculations & Live Plot -->
+        <section class="panel">
+            <div class="panel-header">Structural Diagnostics</div>
+            <div class="panel-content">
+                <div class="safety-indicator safe" id="safety-tag">Safe Zone</div>
+
+                <!-- Live Capacity Bar -->
+                <div class="control-group">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem;">
+                        <span>Capacity Utilization</span>
+                        <span id="util-val">45%</span>
+                    </div>
+                    <div class="capacity-bar-container">
+                        <div class="capacity-bar" id="util-bar"></div>
+                    </div>
+                </div>
+
+                <!-- Computed Constants Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Area (A<sub>g</sub>)</div>
+                        <div class="stat-value" id="stat-area">3404 mm²</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">r<sub>min</sub></div>
+                        <div class="stat-value" id="stat-rmin">27.3 mm</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Slenderness (λ)</div>
+                        <div class="stat-value" id="stat-lambda">93.4</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Capacity (P<sub>d</sub>)</div>
+                        <div class="stat-value" id="stat-pd" style="color: var(--neon-green);">334.2 kN</div>
+                    </div>
+                </div>
+
+                <!-- Live Math Panels -->
+                <div class="formula-card">
+                    <div>Out-of-Plane Radius of Gyration:</div>
+                    <div class="math-expr">
+                        r<sub>yy</sub> = √[I<sub>yy</sub> / A] = <span id="math-ryy">34.5</span> mm
+                    </div>
+                </div>
+
+                <div class="formula-card">
+                    <div>Compressive Stress (f<sub>cd</sub>) Perry-Robertson:</div>
+                    <div class="math-expr">
+                        f<sub>cd</sub> = <span id="math-fcd">98.1</span> MPa
+                    </div>
+                </div>
+
+                <!-- Custom Embedded Graph Panel -->
+                <div class="canvas-card" style="height: 180px; margin-top: auto; border-color: rgba(255, 255, 255, 0.05);">
+                    <div class="canvas-title">P_d (kN) vs Effective Length (m)</div>
+                    <canvas id="canvas-graph"></canvas>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // --- SECTIONS DATABASE ---
+        const SECTIONS = {
+            ISA75x75x10: {
+                name: "ISA 75x75x10",
+                area: 1402, // single angle area in mm^2
+                ixx: 71.4 * 1e4, // mm^4
+                iyy: 71.4 * 1e4, // mm^4
+                cx: 22.2, // mm
+                cy: 22.2, // mm
+                size: 75,
+                thickness: 10
+            },
+            ISA90x90x10: {
+                name: "ISA 90x90x10",
+                area: 1702,
+                ixx: 126.7 * 1e4,
+                iyy: 126.7 * 1e4,
+                cx: 26.2,
+                cy: 26.2,
+                size: 90,
+                thickness: 10
+            },
+            ISA100x100x10: {
+                name: "ISA 100x100x10",
+                area: 1902,
+                ixx: 176.7 * 1e4,
+                iyy: 176.7 * 1e4,
+                cx: 28.7,
+                cy: 28.7,
+                size: 100,
+                thickness: 10
+            }
+        };
+
+        // --- WEB AUDIO API ENGINE ---
+        class SoundEngine {
+            constructor() {
+                this.ctx = null;
+                this.enabled = false;
+                this.alarmInterval = null;
+                this.isAlarming = false;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (this.ctx.state === 'suspended') {
+                    this.ctx.resume();
+                }
+            }
+
+            playTick(frequency = 150, duration = 0.05) {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(frequency, this.ctx.currentTime);
+                gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            }
+
+            playSuccess() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(600, this.ctx.currentTime + 0.3);
+                gain.gain.setValueAtTime(0.08, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.3);
+            }
+
+            startAlarm() {
+                if (!this.enabled || !this.ctx || this.isAlarming) return;
+                this.isAlarming = true;
+                this.alarmInterval = setInterval(() => {
+                    if (!this.enabled || !this.ctx) return;
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(180, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.06, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + 0.18);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                }, 250);
+            }
+
+            stopAlarm() {
+                if (this.alarmInterval) {
+                    clearInterval(this.alarmInterval);
+                    this.alarmInterval = null;
+                }
+                this.isAlarming = false;
+            }
+        }
+
+        // --- STRUCTURAL CALCULATION ENGINE ---
+        class StructuralEngine {
+            constructor() {
+                this.params = {
+                    sectionKey: 'ISA90x90x10',
+                    length: 3.0, // meters
+                    fy: 250, // MPa
+                    gusset: 12, // mm
+                    kFactor: 0.85, // connection property
+                    appliedLoad: 150 // kN
+                };
+                this.results = {};
+                this.recalculate();
+            }
+
+            recalculate() {
+                const sect = SECTIONS[this.params.sectionKey];
+                const L = this.params.length * 1000; // to mm
+                const K = this.params.kFactor;
+                const E = 200000; // Modulus of Elasticity in MPa
+
+                // Area properties (Double Angles back-to-back on both sides)
+                const Ag_double = sect.area * 2;
+
+                // Moment of Inertia properties
+                const Ixx_double = sect.ixx * 2;
+                // Parallel axis theorem for Iyy
+                const d = sect.cy + this.params.gusset / 2;
+                const Iyy_double = 2 * (sect.iyy + sect.area * Math.pow(d, 2));
+
+                // Radii of gyration
+                const rxx = Math.sqrt(Ixx_double / Ag_double);
+                const ryy = Math.sqrt(Iyy_double / Ag_double);
+                const rmin = Math.min(rxx, ryy);
+
+                // Effective Slenderness ratio (KL/r)
+                const effLength = K * L;
+                const lambda = effLength / rmin;
+
+                // Design Compressive Stress calculation per IS 800:2007 (Perry Robertson)
+                const fcc = (Math.PI * Math.PI * E) / Math.pow(lambda, 2); // Euler stress
+                const lambda_non_dimensional = Math.sqrt(this.params.fy / fcc);
+
+                // Imperfection factor (alpha) for buckling class c (typical for double angles)
+                const alpha = 0.49; 
+                const phi = 0.5 * (1 + alpha * (lambda_non_dimensional - 0.2) + Math.pow(lambda_non_dimensional, 2));
+
+                let fcd = (this.params.fy / 1.1) / (phi + Math.sqrt(Math.pow(phi, 2) - Math.pow(lambda_non_dimensional, 2)));
+                if (fcd > this.params.fy / 1.1) {
+                    fcd = this.params.fy / 1.1;
+                }
+
+                // Total capacity Pd (kN)
+                const pd = (fcd * Ag_double) / 1000;
+
+                this.results = {
+                    Ag: Ag_double,
+                    Ixx: Ixx_double,
+                    Iyy: Iyy_double,
+                    rxx: rxx,
+                    ryy: ryy,
+                    rmin: rmin,
+                    lambda: lambda,
+                    fcc: fcc,
+                    fcd: fcd,
+                    pd: pd,
+                    utilization: (this.params.appliedLoad / pd) * 100
+                };
+            }
+
+            // Get a range of structural capacities for various effective lengths
+            getCapacityCurve() {
+                const curve = [];
+                const savedLen = this.params.length;
+                for (let len = 1.5; len <= 4.5; len += 0.2) {
+                    this.params.length = len;
+                    this.recalculate();
+                    curve.push({ length: len, capacity: this.results.pd });
+                }
+                this.params.length = savedLen;
+                this.recalculate(); // Restore
+                return curve;
+            }
+        }
+
+        // --- GLOBAL APP ARCHITECTURE / CONTROLLER ---
+        class SimulationApp {
+            constructor() {
+                this.engine = new StructuralEngine();
+                this.sound = new SoundEngine();
+                this.speechSynthesizer = window.speechSynthesis;
+                this.speaking = false;
+
+                // Drag state for applied load arrow
+                this.isDraggingArrow = false;
+
+                // Canvas Contexts
+                this.canvases = {
+                    section: document.getElementById('canvas-section'),
+                    profile: document.getElementById('canvas-profile'),
+                    graph: document.getElementById('canvas-graph')
+                };
+                this.ctxs = {
+                    section: this.canvases.section.getContext('2d'),
+                    profile: this.canvases.profile.getContext('2d'),
+                    graph: this.canvases.graph.getContext('2d')
+                };
+
+                this.setupResize();
+                this.setupDragEvents();
+                this.updateUI();
+                this.animate();
+            }
+
+            toggleAudio() {
+                this.sound.enabled = !this.sound.enabled;
+                this.sound.init();
+                const icon = document.getElementById('sound-icon');
+                icon.textContent = this.sound.enabled ? "🔊" : "🔇";
+                document.getElementById('btn-sound').classList.toggle('btn-success', this.sound.enabled);
+                this.sound.playTick(400, 0.15);
+            }
+
+            setupResize() {
+                const resize = () => {
+                    Object.keys(this.canvases).forEach(key => {
+                        const canvas = this.canvases[key];
+                        const rect = canvas.parentElement.getBoundingClientRect();
+                        canvas.width = rect.width * window.devicePixelRatio;
+                        canvas.height = rect.height * window.devicePixelRatio;
+                    });
+                    this.draw();
+                };
+                window.addEventListener('resize', resize);
+                setTimeout(resize, 100);
+            }
+
+            setupDragEvents() {
+                const canvas = this.canvases.profile;
+
+                const getMousePos = (evt) => {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: (evt.clientX - rect.left) * (canvas.width / rect.width),
+                        y: (evt.clientY - rect.top) * (canvas.height / rect.height)
+                    };
+                };
+
+                const startDrag = (pos) => {
+                    const ch = canvas.height;
+                    const cw = canvas.width;
+                    // Define hotspot around arrow tip (at top)
+                    const arrowTipX = cw / 2;
+                    const arrowTipY = ch * 0.15;
+                    const dist = Math.hypot(pos.x - arrowTipX, pos.y - arrowTipY);
+                    
+                    if (dist < 40) {
+                        this.isDraggingArrow = true;
+                        this.sound.playTick(600, 0.05);
+                    }
+                };
+
+                const performDrag = (pos) => {
+                    if (!this.isDraggingArrow) return;
+                    const ch = canvas.height;
+                    // Calculate mapped load based on drag height
+                    const ratio = (pos.y - ch * 0.15) / (ch * 0.3);
+                    const minLoad = 20;
+                    const maxLoad = 600;
+                    let load = minLoad + (maxLoad - minLoad) * Math.max(0, Math.min(1, ratio));
+                    load = Math.round(load / 5) * 5; // step to 5
+
+                    this.engine.params.appliedLoad = load;
+                    document.getElementById('slider-load').value = load;
+                    this.engine.recalculate();
+                    this.updateUIValuesOnly();
+                    this.sound.playTick(100 + load, 0.02);
+                };
+
+                const endDrag = () => {
+                    if (this.isDraggingArrow) {
+                        this.isDraggingArrow = false;
+                        this.verifySafetyStateSound();
+                    }
+                };
+
+                canvas.addEventListener('mousedown', (e) => startDrag(getMousePos(e)));
+                canvas.addEventListener('mousemove', (e) => performDrag(getMousePos(e)));
+                window.addEventListener('mouseup', endDrag);
+
+                // Touch support
+                canvas.addEventListener('touchstart', (e) => {
+                    if (e.touches.length > 0) startDrag(getMousePos(e.touches[0]));
+                });
+                canvas.addEventListener('touchmove', (e) => {
+                    if (e.touches.length > 0) {
+                        e.preventDefault();
+                        performDrag(getMousePos(e.touches[0]));
+                    }
+                }, { passive: false });
+                window.addEventListener('touchend', endDrag);
+            }
+
+            updateSection() {
+                this.engine.params.sectionKey = document.getElementById('select-section').value;
+                this.engine.recalculate();
+                this.sound.playTick(300, 0.1);
+                this.verifySafetyStateSound();
+                this.updateUI();
+            }
+
+            updateParams() {
+                this.engine.params.length = parseFloat(document.getElementById('slider-length').value);
+                this.engine.params.fy = parseFloat(document.getElementById('slider-fy').value);
+                this.engine.params.gusset = parseFloat(document.getElementById('slider-gusset').value);
+                this.engine.params.kFactor = parseFloat(document.getElementById('select-connection').value);
+                
+                this.engine.recalculate();
+                this.sound.playTick(180, 0.05);
+                this.updateUI();
+            }
+
+            updateLoad() {
+                this.engine.params.appliedLoad = parseFloat(document.getElementById('slider-load').value);
+                this.engine.recalculate();
+                this.sound.playTick(220, 0.03);
+                this.updateUIValuesOnly();
+            }
+
+            verifySafetyStateSound() {
+                const util = this.engine.results.utilization;
+                if (util > 100) {
+                    this.sound.startAlarm();
+                } else {
+                    this.sound.stopAlarm();
+                }
+            }
+
+            updateUIValuesOnly() {
+                const results = this.engine.results;
+                const params = this.engine.params;
+
+                // Live sliders labels
+                document.getElementById('val-length').textContent = params.length.toFixed(2) + " m";
+                document.getElementById('val-fy').textContent = params.fy + " MPa";
+                document.getElementById('val-gusset').textContent = params.gusset + " mm";
+                document.getElementById('val-load').textContent = params.appliedLoad + " kN";
+
+                // Utilization UI
+                const utilBar = document.getElementById('util-bar');
+                const utilVal = document.getElementById('util-val');
+                const clampedUtil = Math.min(results.utilization, 100);
+                utilBar.style.width = clampedUtil + "%";
+                utilVal.textContent = results.utilization.toFixed(1) + "%";
+
+                const safetyTag = document.getElementById('safety-tag');
+                if (results.utilization > 100) {
+                    utilBar.classList.add('failure');
+                    safetyTag.className = "safety-indicator failed";
+                    safetyTag.textContent = "FAILURE STATE: EXCEEDED CAPACITY";
+                    this.sound.startAlarm();
+                } else {
+                    utilBar.classList.remove('failure');
+                    safetyTag.className = "safety-indicator safe";
+                    safetyTag.textContent = "SAFE STRUCTURAL DESIGN";
+                    this.sound.stopAlarm();
+                }
+
+                // Diagnostics panel values
+                document.getElementById('stat-area').textContent = Math.round(results.Ag) + " mm²";
+                document.getElementById('stat-rmin').textContent = results.rmin.toFixed(1) + " mm";
+                document.getElementById('stat-lambda').textContent = results.lambda.toFixed(1);
+                
+                const pdStat = document.getElementById('stat-pd');
+                pdStat.textContent = results.pd.toFixed(1) + " kN";
+                pdStat.style.color = (results.utilization > 100) ? "var(--neon-magenta)" : "var(--neon-green)";
+
+                // Formula updates
+                document.getElementById('math-ryy').textContent = results.ryy.toFixed(1);
+                document.getElementById('math-fcd').textContent = results.fcd.toFixed(1);
+            }
+
+            updateUI() {
+                this.updateUIValuesOnly();
+                this.verifySafetyStateSound();
+            }
+
+            // TEXT-TO-SPEECH CONTROLLER
+            speakContext(paramName) {
+                if (!this.sound.enabled) return;
+                let text = "";
+                switch (paramName) {
+                    case 'section':
+                        text = "Double Angle sections sharing a gusset plate have custom moments of inertia, shifting the weak axis.";
+                        break;
+                    case 'length':
+                        text = "The physical strut length increases structural slenderness, drastically reducing compressive load capability.";
+                        break;
+                    case 'fy':
+                        text = "Yield strength alters the plastic performance of steel, dominant at lower slenderness values.";
+                        break;
+                    case 'gusset':
+                        text = "Gusset thickness repositions each angle's centroid. A wider spacing elevates out-of-plane inertia.";
+                        break;
+                    case 'connection':
+                        text = "Two bolts or a weld reduce rotational freedom at endpoints, dropping effective length to 85 percent.";
+                        break;
+                    case 'applied':
+                        text = "Drag or adjust applied force to compare external load directly with allowable Euler-Perry strength.";
+                        break;
+                }
+                
+                if (text) {
+                    this.speechSynthesizer.cancel();
+                    const utterance = new SpeechSynthesisUtterance(text);
+                    utterance.rate = 1.05;
+                    utterance.pitch = 0.95;
+                    this.speechSynthesizer.speak(utterance);
+                }
+            }
+
+            narrateOverview() {
+                this.sound.init();
+                const intro = "Welcome to the Double Angle Discontinuous Strut Analyzer. Adjust structural properties on the left-hand console. Drag the loading vector on the profile canvas to visually scale mechanical load. See your parameters mapped interactively against the Perry-Robertson Compressive strength curve on the diagnostics plot. Ensure the design utilization ratio remains below 100 percent to avoid mechanical buckling failures.";
+                this.speechSynthesizer.cancel();
+                const utterance = new SpeechSynthesisUtterance(intro);
+                utterance.rate = 1.0;
+                this.speechSynthesizer.speak(utterance);
+            }
+
+            // --- ANIMATE / DRAW LOOP ---
+            animate() {
+                this.draw();
+                requestAnimationFrame(() => this.animate());
+            }
+
+            draw() {
+                this.drawSection();
+                this.drawProfile();
+                this.drawGraph();
+            }
+
+            // Drawing Cross-Section Visualizer
+            drawSection() {
+                const canvas = this.canvases.section;
+                const ctx = this.ctxs.section;
+                if (!canvas) return;
+
+                const cw = canvas.width;
+                const ch = canvas.height;
+                ctx.clearRect(0, 0, cw, ch);
+
+                const sect = SECTIONS[this.engine.params.sectionKey];
+                const scale = Math.min(cw, ch) / (sect.size * 2.5);
+
+                const midX = cw / 2;
+                const midY = ch / 2 + (sect.cy * scale) / 3;
+
+                const gt = this.engine.params.gusset * scale; // Gusset thickness scaled
+                const s = sect.size * scale; // Angle Leg scaled
+                const t = sect.thickness * scale; // Leg thickness scaled
+
+                // Draw Grid
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < cw; i += 40) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, ch); ctx.stroke();
+                }
+                for (let j = 0; j < ch; j += 40) {
+                    ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(cw, j); ctx.stroke();
+                }
+
+                // Draw Gusset Plate (centered, vertical)
+                ctx.fillStyle = 'rgba(100, 110, 130, 0.35)';
+                ctx.fillRect(midX - gt / 2, midY - s * 1.2, gt, s * 2.4);
+
+                // Draw Angles (Left & Right back-to-back)
+                ctx.lineWidth = 2.5;
+
+                // Left Angle
+                ctx.fillStyle = 'rgba(0, 240, 255, 0.12)';
+                ctx.strokeStyle = 'var(--neon-cyan)';
+                ctx.beginPath();
+                ctx.moveTo(midX - gt / 2, midY - s);
+                ctx.lineTo(midX - gt / 2, midY);
+                ctx.lineTo(midX - gt / 2 - s, midY);
+                ctx.lineTo(midX - gt / 2 - s, midY - t);
+                ctx.lineTo(midX - gt / 2 - t, midY - t);
+                ctx.lineTo(midX - gt / 2 - t, midY - s);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Right Angle
+                ctx.fillStyle = 'rgba(255, 0, 127, 0.12)';
+                ctx.strokeStyle = 'var(--neon-magenta)';
+                ctx.beginPath();
+                ctx.moveTo(midX + gt / 2, midY - s);
+                ctx.lineTo(midX + gt / 2, midY);
+                ctx.lineTo(midX + gt / 2 + s, midY);
+                ctx.lineTo(midX + gt / 2 + s, midY - t);
+                ctx.lineTo(midX + gt / 2 + t, midY - t);
+                ctx.lineTo(midX + gt / 2 + t, midY - s);
+                ctx.closePath();
+                ctx.fill(); ctx.stroke();
+
+                // Centroid Line representation
+                ctx.setLineDash([4, 6]);
+                ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+                // Principal horizontal axis through structural CG
+                ctx.beginPath();
+                ctx.moveTo(midX - s * 1.5, midY - sect.cy * scale);
+                ctx.lineTo(midX + s * 1.5, midY - sect.cy * scale);
+                ctx.stroke();
+
+                // Vertical symmetry axis
+                ctx.beginPath();
+                ctx.moveTo(midX, midY - s * 1.3);
+                ctx.lineTo(midX, midY + s * 0.8);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Visual Bolts representing "Tack Bolting"
+                ctx.fillStyle = '#fff';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 1;
+                const boltY = [midY - s * 0.7, midY - s * 0.2];
+                boltY.forEach(by => {
+                    ctx.beginPath();
+                    ctx.arc(midX, by, 5, 0, Math.PI * 2);
+                    ctx.fill(); ctx.stroke();
+                    // cross inside bolt head
+                    ctx.beginPath();
+                    ctx.moveTo(midX - 3, by); ctx.lineTo(midX + 3, by);
+                    ctx.moveTo(midX, by - 3); ctx.lineTo(midX, by + 3);
+                    ctx.stroke();
+                });
+
+                // Labels
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+                ctx.font = '11px sans-serif';
+                ctx.fillText(`c_y = ${sect.cy}mm`, midX - s * 1.4, midY - sect.cy * scale - 4);
+                ctx.fillText(`t_gusset = ${this.engine.params.gusset}mm`, midX + gt / 2 + 10, midY + s * 1.1);
+            }
+
+            // Drawing column profile, interactive loading arrow & dynamic buckling
+            drawProfile() {
+                const canvas = this.canvases.profile;
+                const ctx = this.ctxs.profile;
+                if (!canvas) return;
+
+                const cw = canvas.width;
+                const ch = canvas.height;
+                ctx.clearRect(0, 0, cw, ch);
+
+                const marginY = ch * 0.15;
+                const topY = marginY;
+                const botY = ch * 0.85;
+                const colHeight = botY - topY;
+                const midX = cw / 2;
+
+                // Load calculations for distortion/vibration
+                const load = this.engine.params.appliedLoad;
+                const pd = this.engine.results.pd;
+                const utilRatio = load / pd;
+
+                // Simple Buckling Shape (sine wave perturbation)
+                let amp = 0;
+                if (utilRatio > 0.3) {
+                    amp = Math.pow(utilRatio, 2.5) * 45; // Deflection intensity
+                }
+                
+                // Exaggerated vibration/collapse if failed
+                if (utilRatio > 1.0) {
+                    amp += Math.sin(Date.now() * 0.08) * 4;
+                }
+
+                // Draw Grid
+                ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+                ctx.lineWidth = 1;
+                for (let i = 0; i < cw; i += 30) {
+                    ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, ch); ctx.stroke();
+                }
+
+                // Draw Support foundations
+                const drawPinSupport = (x, y, rotated) => {
+                    ctx.strokeStyle = 'var(--text-muted)';
+                    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    const size = 15;
+                    if (!rotated) { // Top support
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x - size, y - size);
+                        ctx.lineTo(x + size, y - size);
+                        ctx.closePath();
+                    } else { // Bottom support
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x - size, y + size);
+                        ctx.lineTo(x + size, y + size);
+                        ctx.closePath();
+                    }
+                    ctx.fill(); ctx.stroke();
+                };
+
+                drawPinSupport(midX, topY, false);
+                drawPinSupport(midX, botY, true);
+
+                // Draw physical buckling strut profile
+                ctx.lineWidth = 6;
+                ctx.strokeStyle = utilRatio > 1.0 ? 'var(--neon-magenta)' : (utilRatio > 0.85 ? '#ffaa00' : 'var(--neon-green)');
+                ctx.beginPath();
+                for (let y = topY; y <= botY; y++) {
+                    const normalizedY = (y - topY) / colHeight;
+                    // Sine curve offset
+                    const dx = amp * Math.sin(normalizedY * Math.PI);
+                    if (y === topY) {
+                        ctx.moveTo(midX + dx, y);
+                    } else {
+                        ctx.lineTo(midX + dx, y);
+                    }
+                }
+                ctx.stroke();
+
+                // Draw central tack bolts dynamically sliding with curve
+                ctx.fillStyle = '#fff';
+                const boltsCount = 5;
+                for (let j = 1; j < boltsCount; j++) {
+                    const normalizedY = j / boltsCount;
+                    const by = topY + normalizedY * colHeight;
+                    const bx = midX + amp * Math.sin(normalizedY * Math.PI);
+                    ctx.beginPath();
+                    ctx.arc(bx, by, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Draw Interactive Load Arrow (pulsing, user can drag it)
+                const arrowLength = 50 + Math.min(load / 600, 1.0) * 100;
+                const arrowTopY = topY - arrowLength;
+
+                // Draw Arrow Area Indicator Glow if hover/dragging
+                if (this.isDraggingArrow) {
+                    ctx.fillStyle = 'rgba(0, 240, 255, 0.08)';
+                    ctx.beginPath();
+                    ctx.arc(midX, topY, 40, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                // Arrow body
+                ctx.strokeStyle = 'var(--neon-magenta)';
+                ctx.lineWidth = 4 + (load / 200);
+                ctx.beginPath();
+                ctx.moveTo(midX, arrowTopY);
+                ctx.lineTo(midX, topY - 5);
+                ctx.stroke();
+
+                // Arrow head
+                ctx.fillStyle = 'var(--neon-magenta)';
+                ctx.beginPath();
+                ctx.moveTo(midX - 10, topY - 15);
+                ctx.lineTo(midX + 10, topY - 15);
+                ctx.lineTo(midX, topY - 3);
+                ctx.closePath();
+                ctx.fill();
+
+                // Load indicators tags
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Applied: ${load} kN`, midX, arrowTopY - 10);
+                ctx.font = '10px sans-serif';
+                ctx.fillStyle = 'var(--text-muted)';
+                ctx.fillText(`L = ${this.engine.params.length.toFixed(2)}m`, midX - 60, topY + colHeight / 2);
+            }
+
+            // Real-Time Diagnostic Curve Chart Drawing
+            drawGraph() {
+                const canvas = this.canvases.graph;
+                const ctx = this.ctxs.graph;
+                if (!canvas) return;
+
+                const cw = canvas.width;
+                const ch = canvas.height;
+                ctx.clearRect(0, 0, cw, ch);
+
+                const data = this.engine.getCapacityCurve();
+                
+                // Margins
+                const padLeft = 45;
+                const padRight = 20;
+                const padTop = 15;
+                const padBottom = 25;
+                const graphW = cw - padLeft - padRight;
+                const graphH = ch - padTop - padBottom;
+
+                // Max limits
+                const minL = 1.5, maxL = 4.5;
+                const maxCap = 700; // kN limit on chart
+
+                const mapX = (l) => padLeft + ((l - minL) / (maxL - minL)) * graphW;
+                const mapY = (cap) => padBottom + ((maxCap - cap) / maxCap) * graphH;
+
+                // Draw simple axis lines
+                ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(padLeft, padTop);
+                ctx.lineTo(padLeft, ch - padBottom);
+                ctx.lineTo(cw - padRight, ch - padBottom);
+                ctx.stroke();
+
+                // Graph grids & labels
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.font = '9px monospace';
+                ctx.textAlign = 'right';
+                // Vertical grid lines and values
+                for (let capVal = 100; capVal <= maxCap; capVal += 150) {
+                    const gy = mapY(capVal);
+                    ctx.fillText(capVal, padLeft - 6, gy + 3);
+                    ctx.beginPath();
+                    ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+                    ctx.moveTo(padLeft, gy);
+                    ctx.lineTo(cw - padRight, gy);
+                    ctx.stroke();
+                }
+
+                // Horizontal axis labels
+                ctx.textAlign = 'center';
+                for (let lVal = minL; lVal <= maxL; lVal += 1.0) {
+                    const gx = mapX(lVal);
+                    ctx.fillText(lVal.toFixed(1) + "m", gx, ch - padBottom + 14);
+                }
+
+                // Shaded Safe vs failure boundaries zones
+                ctx.fillStyle = 'rgba(57, 255, 20, 0.02)';
+                ctx.fillRect(padLeft, padTop, graphW, graphH);
+
+                // Plot Design Curve
+                ctx.strokeStyle = 'var(--neon-cyan)';
+                ctx.lineWidth = 2.5;
+                ctx.shadowColor = 'var(--neon-cyan)';
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                data.forEach((pt, idx) => {
+                    const gx = mapX(pt.length);
+                    const gy = mapY(pt.capacity);
+                    if (idx === 0) ctx.moveTo(gx, gy);
+                    else ctx.lineTo(gx, gy);
+                });
+                ctx.stroke();
+                ctx.shadowBlur = 0; // reset
+
+                // Draw Current operational point indicator
+                const currentL = this.engine.params.length;
+                const currentCap = this.engine.results.pd;
+                const currentLoad = this.engine.params.appliedLoad;
+
+                const curX = mapX(currentL);
+                const curY = mapY(currentCap);
+                const loadY = mapY(currentLoad);
+
+                // Shading unsafe area below current load
+                ctx.fillStyle = 'rgba(255, 0, 127, 0.05)';
+                ctx.beginPath();
+                ctx.moveTo(padLeft, ch - padBottom);
+                data.forEach(pt => {
+                    if(pt.length <= currentL) {
+                        ctx.lineTo(mapX(pt.length), mapY(pt.capacity));
+                    }
+                });
+                ctx.lineTo(curX, ch - padBottom);
+                ctx.closePath();
+                ctx.fill();
+
+                // Target intersection indicator (glowing pulsing dot for capacity)
+                const pulseScale = 1 + 0.3 * Math.sin(Date.now() * 0.01);
+                ctx.fillStyle = 'var(--neon-cyan)';
+                ctx.beginPath();
+                ctx.arc(curX, curY, 5 * pulseScale, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Draw Load level pointer (horizontal dashed indicator)
+                ctx.strokeStyle = 'var(--neon-magenta)';
+                ctx.lineWidth = 1;
+                ctx.setLineDash([3, 4]);
+                ctx.beginPath();
+                ctx.moveTo(padLeft, loadY);
+                ctx.lineTo(cw - padRight, loadY);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Current system status bubble
+                ctx.fillStyle = (currentLoad > currentCap) ? 'var(--neon-magenta)' : 'var(--neon-green)';
+                ctx.beginPath();
+                ctx.arc(curX, loadY, 4, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        // Initialize application once page loads
+        let app;
+        window.addEventListener('DOMContentLoaded', () => {
+            app = new SimulationApp();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1972 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Structural Design Philosophies: WSM vs. LSM</title>
+  
+  <!-- Inter & Rubik Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg-dark: #080a10;
+      --panel-bg: rgba(20, 25, 40, 0.7);
+      --border-glow: rgba(255, 255, 255, 0.1);
+      
+      /* Neon Theme Colors */
+      --color-wsm: #ff7aa2;      /* Neon Pastel Pink */
+      --color-wsm-glow: rgba(255, 122, 162, 0.3);
+      
+      --color-lsm: #a3ff7a;      /* Electric Lime */
+      --color-lsm-glow: rgba(163, 255, 122, 0.3);
+      
+      --color-cyan: #7ae3ff;     /* Cyber Cyan */
+      --color-cyan-glow: rgba(122, 227, 255, 0.3);
+      
+      --color-gold: #ffd17a;     /* Golden Glow */
+      --color-gold-glow: rgba(255, 209, 122, 0.3);
+      
+      --text-main: #f0f3f8;
+      --text-muted: #8a9fc2;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      width: 100vw;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* Ambient Background Glows */
+    body::before {
+      content: '';
+      position: absolute;
+      top: -10%;
+      left: -10%;
+      width: 40%;
+      height: 40%;
+      background: radial-gradient(circle, var(--color-wsm-glow) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::after {
+      content: '';
+      position: absolute;
+      bottom: -10%;
+      right: -10%;
+      width: 45%;
+      height: 45%;
+      background: radial-gradient(circle, var(--color-lsm-glow) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Application Header */
+    header {
+      z-index: 10;
+      background: rgba(11, 13, 20, 0.8);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-glow);
+      padding: 10px 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 64px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--color-wsm), var(--color-lsm));
+      border-radius: 8px;
+      box-shadow: 0 0 12px rgba(163, 255, 122, 0.5);
+    }
+
+    .brand h1 {
+      font-family: 'Rubik', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      background: linear-gradient(to right, #ffffff, var(--text-muted));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand h1 span {
+      background: linear-gradient(to right, var(--color-wsm), var(--color-lsm));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .global-controls {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glow);
+      color: var(--text-main);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    }
+
+    .btn-audio {
+      border-color: var(--color-cyan);
+      color: var(--color-cyan);
+    }
+
+    .btn-audio.muted {
+      border-color: var(--border-glow);
+      color: var(--text-muted);
+    }
+
+    /* Core Layout Workspace */
+    .workspace {
+      display: grid;
+      grid-template-columns: 360px 1fr 340px;
+      flex: 1;
+      height: calc(100vh - 64px);
+      z-index: 5;
+      overflow: hidden;
+    }
+
+    /* Glass Panels */
+    .panel {
+      background: var(--panel-bg);
+      backdrop-filter: blur(12px);
+      border-right: 1px solid var(--border-glow);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 20px;
+    }
+
+    .panel::-webkit-scrollbar {
+      width: 6px;
+    }
+    .panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px;
+    }
+
+    #telemetry-core {
+      border-right: none;
+      border-left: 1px solid var(--border-glow);
+    }
+
+    /* Panel Titles */
+    .panel-header {
+      margin-bottom: 20px;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+      padding-bottom: 12px;
+    }
+
+    .panel-header h2 {
+      font-family: 'Rubik', sans-serif;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--color-cyan);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    /* Column 1: Mind Lab (DND and Parameters) */
+    .challenge-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    .challenge-instructions {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    /* Drag & Drop Equations */
+    .equation-container {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .equation-card {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 10px 12px;
+      border-left: 3px solid var(--border-glow);
+      font-size: 0.85rem;
+    }
+
+    .equation-card.wsm-eq {
+      border-left-color: var(--color-wsm);
+    }
+
+    .equation-card.lsm-eq {
+      border-left-color: var(--color-lsm);
+    }
+
+    .eq-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    .math-flex {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Rubik', monospace;
+      font-size: 0.95rem;
+    }
+
+    .slot {
+      width: 64px;
+      height: 32px;
+      border: 2px dashed rgba(255, 209, 122, 0.4);
+      border-radius: 6px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 209, 122, 0.05);
+      font-weight: bold;
+      transition: all 0.3s ease;
+      color: var(--color-gold);
+    }
+
+    .slot.correct {
+      border-style: solid;
+      border-color: var(--color-lsm);
+      background: rgba(163, 255, 122, 0.1);
+      color: var(--color-lsm);
+      box-shadow: 0 0 10px var(--color-lsm-glow);
+    }
+
+    .slot.correct-wsm {
+      border-style: solid;
+      border-color: var(--color-wsm);
+      background: rgba(255, 122, 162, 0.1);
+      color: var(--color-wsm);
+      box-shadow: 0 0 10px var(--color-wsm-glow);
+    }
+
+    .slot.hovered {
+      background: rgba(255, 209, 122, 0.2);
+      border-color: var(--color-cyan);
+    }
+
+    /* Shields Drawer */
+    .shields-drawer {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      padding: 10px 0;
+      border-top: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+
+    .shield {
+      width: 58px;
+      height: 36px;
+      background: linear-gradient(135deg, rgba(30, 40, 60, 0.9), rgba(15, 20, 30, 0.9));
+      border: 1px solid var(--color-gold);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3), inset 0 0 8px rgba(255, 209, 122, 0.1);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-family: 'Rubik', sans-serif;
+      font-size: 0.95rem;
+      color: var(--color-gold);
+      cursor: grab;
+      transition: all 0.2s ease;
+    }
+
+    .shield:hover {
+      transform: scale(1.1) rotate(2deg);
+      box-shadow: 0 0 12px var(--color-gold-glow);
+    }
+
+    .shield.dragging {
+      opacity: 0.5;
+      cursor: grabbing;
+    }
+
+    /* Control Sliders */
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .slider-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .slider-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 0.85rem;
+    }
+
+    .slider-label {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .slider-value {
+      color: var(--color-cyan);
+      font-family: 'Rubik', monospace;
+      font-weight: bold;
+    }
+
+    .input-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+      transition: background 0.3s;
+    }
+
+    .input-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-cyan);
+      box-shadow: 0 0 8px var(--color-cyan-glow);
+      cursor: pointer;
+      transition: transform 0.1s;
+    }
+
+    .input-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* Column 2: Stress Sandbox (Dual Canvas Bays) */
+    .sandbox-container {
+      display: grid;
+      grid-template-rows: 1fr auto;
+      padding: 16px;
+      gap: 16px;
+      background: rgba(5, 7, 10, 0.5);
+    }
+
+    .bays-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      height: 100%;
+    }
+
+    .bay-frame {
+      background: rgba(20, 25, 40, 0.45);
+      border: 1px solid var(--border-glow);
+      border-radius: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+      transition: border-color 0.3s ease;
+    }
+
+    .bay-frame.wsm-theme {
+      border-top: 4px solid var(--color-wsm);
+    }
+    .bay-frame.wsm-theme:hover {
+      border-color: rgba(255, 122, 162, 0.4);
+    }
+
+    .bay-frame.lsm-theme {
+      border-top: 4px solid var(--color-lsm);
+    }
+    .bay-frame.lsm-theme:hover {
+      border-color: rgba(163, 255, 122, 0.4);
+    }
+
+    .bay-header {
+      padding: 12px 16px;
+      background: rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-glow);
+    }
+
+    .bay-title-flex {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .bay-name {
+      font-family: 'Rubik', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .bay-frame.wsm-theme .bay-name { color: var(--color-wsm); }
+    .bay-frame.lsm-theme .bay-name { color: var(--color-lsm); }
+
+    .bay-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .bay-badge {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.08);
+    }
+
+    .bay-frame.wsm-theme .bay-badge {
+      color: var(--color-wsm);
+      border: 1px solid rgba(255, 122, 162, 0.3);
+    }
+
+    .bay-frame.lsm-theme .bay-badge {
+      color: var(--color-lsm);
+      border: 1px solid rgba(163, 255, 122, 0.3);
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background: radial-gradient(circle at center, rgba(30,45,70,0.15) 0%, transparent 80%);
+    }
+
+    .sandbox-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      cursor: crosshair;
+    }
+
+    /* Sandbox Interactive Control Strip */
+    .sandbox-controls {
+      background: rgba(15, 20, 30, 0.85);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      padding: 12px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .toybox-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--color-gold);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .elephants-shelf {
+      display: flex;
+      gap: 10px;
+    }
+
+    .toybox-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-glow);
+      border-radius: 8px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      color: var(--text-main);
+    }
+
+    .toybox-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .toybox-btn.active-ws-toy {
+      border-color: var(--color-wsm);
+      box-shadow: 0 0 6px var(--color-wsm-glow);
+    }
+
+    .toybox-btn.active-ls-toy {
+      border-color: var(--color-lsm);
+      box-shadow: 0 0 6px var(--color-lsm-glow);
+    }
+
+    /* Column 3: Telemetry Core (Dynamic Math & Atomic Scope) */
+    .telemetry-card {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .card-header-sm {
+      font-size: 0.75rem;
+      font-weight: 800;
+      color: var(--color-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Atomic Scope Canvas Box */
+    .scope-container {
+      position: relative;
+      width: 100%;
+      height: 180px;
+      background: #040508;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .scope-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .scope-legend {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .telemetry-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      text-align: left;
+    }
+
+    .telemetry-table th, .telemetry-table td {
+      padding: 6px 4px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .telemetry-table th {
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .telemetry-table td.val {
+      font-family: 'Rubik', monospace;
+      font-weight: bold;
+      text-align: right;
+    }
+
+    /* Overlay Help modal styles */
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(5, 7, 10, 0.85);
+      backdrop-filter: blur(16px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.3s ease;
+    }
+
+    .modal {
+      background: rgba(25, 30, 45, 0.9);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 20px;
+      width: 580px;
+      max-width: 90%;
+      padding: 32px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      position: relative;
+    }
+
+    .modal-title {
+      font-family: 'Rubik', sans-serif;
+      font-size: 1.5rem;
+      font-weight: 900;
+      color: var(--color-cyan);
+      margin-bottom: 14px;
+    }
+
+    .modal-body {
+      font-size: 0.9rem;
+      line-height: 1.6;
+      color: var(--text-main);
+      margin-bottom: 24px;
+    }
+
+    .modal-body strong {
+      color: var(--color-gold);
+    }
+
+    .modal-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--color-wsm), var(--color-lsm));
+      border: none;
+      color: #0b0d10;
+      padding: 12px;
+      border-radius: 10px;
+      font-family: 'Rubik', sans-serif;
+      font-weight: 800;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .modal-btn:hover {
+      transform: translateY(-2px);
+    }
+
+    .audio-indicator {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background-color: var(--color-lsm);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--color-lsm-glow);
+    }
+
+    .audio-indicator.muted {
+      background-color: var(--color-wsm);
+      box-shadow: 0 0 6px var(--color-wsm-glow);
+    }
+
+    .character-bubble {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: 10px;
+      border-left: 3px solid var(--color-cyan);
+    }
+
+    .char-avatar {
+      font-size: 1.5rem;
+    }
+
+    .char-text {
+      font-size: 0.75rem;
+      line-height: 1.4;
+      color: var(--text-main);
+    }
+
+    /* Helper utility classes */
+    .hidden { display: none !important; }
+    .neon-text-pink { text-shadow: 0 0 6px var(--color-wsm-glow); color: var(--color-wsm); }
+    .neon-text-green { text-shadow: 0 0 6px var(--color-lsm-glow); color: var(--color-lsm); }
+
+  </style>
+</head>
+<body>
+
+  <!-- App Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-logo"></div>
+      <h1>CANDY <span>vs.</span> GUMMY</h1>
+    </div>
+    <div class="global-controls">
+      <div class="character-bubble" style="margin-top:0; padding:4px 10px; align-items:center;">
+        <span class="char-avatar" id="avatar">🤖</span>
+        <span class="char-text" id="status-speech" style="font-size:0.75rem; font-weight:600; color:var(--color-cyan)">Unlock standard factors to start load testing!</span>
+      </div>
+      <button class="btn btn-audio" id="btn-audio-toggle">
+        <span id="speaker-icon">🔊</span> Cyber-Synth
+        <span class="audio-indicator" id="audio-ind"></span>
+      </button>
+      <button class="btn" id="btn-help-trigger">📖 Philosophy Guide</button>
+    </div>
+  </header>
+
+  <!-- Workspace Container -->
+  <main class="workspace">
+
+    <!-- Column 1: Mind Lab -->
+    <section class="panel" id="mind-lab">
+      <div class="panel-header">
+        <h2>🧠 Mind Lab</h2>
+      </div>
+
+      <!-- Drag & Drop Challenge -->
+      <div class="challenge-box">
+        <div class="card-header-sm">🔑 Factor Matcher</div>
+        <p class="challenge-instructions">
+          Drag the safety factor shields onto the proper equations to unlock full capacity load testing!
+        </p>
+
+        <div class="equation-container">
+          <!-- WSM Equation -->
+          <div class="equation-card wsm-eq">
+            <div class="eq-label">WSM Concrete Stress Limit</div>
+            <div class="math-flex">
+              <span>σ<sub>cbc</sub></span>
+              <span>=</span>
+              <span>f<sub>ck</sub></span>
+              <span>/</span>
+              <div class="slot" data-target="wsm-concrete" id="slot-wsm-concrete">?</div>
+            </div>
+          </div>
+
+          <!-- LSM Concrete Equation -->
+          <div class="equation-card lsm-eq">
+            <div class="eq-label">LSM Concrete Design Strength</div>
+            <div class="math-flex">
+              <span>f'<sub>c</sub></span>
+              <span>=</span>
+              <span>0.67·f<sub>ck</sub></span>
+              <span>/</span>
+              <div class="slot" data-target="lsm-concrete" id="slot-lsm-concrete">?</div>
+            </div>
+          </div>
+
+          <!-- LSM Steel Equation -->
+          <div class="equation-card lsm-eq">
+            <div class="eq-label">LSM Steel Design Strength</div>
+            <div class="math-flex">
+              <span>f'<sub>y</sub></span>
+              <span>=</span>
+              <span>f<sub>y</sub></span>
+              <span>/</span>
+              <div class="slot" data-target="lsm-steel" id="slot-lsm-steel">?</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Draggable Shields Drawer -->
+        <div class="shields-drawer" id="shields-drawer">
+          <div class="shield" draggable="true" data-value="3.0" id="shield-3">3.0</div>
+          <div class="shield" draggable="true" data-value="1.50" id="shield-15">1.50</div>
+          <div class="shield" draggable="true" data-value="1.15" id="shield-115">1.15</div>
+        </div>
+      </div>
+
+      <!-- Live Parameter Controls -->
+      <div class="control-group">
+        <div class="panel-header" style="margin-bottom: 0;">
+          <h2 style="color: var(--color-gold);">⚙️ Parameters</h2>
+        </div>
+
+        <!-- Concrete Slider -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="slider-label">Concrete Grade (f<sub>ck</sub>)</span>
+            <span class="slider-value" id="val-fck">25 MPa</span>
+          </div>
+          <input type="range" class="input-slider" id="slider-fck" min="20" max="40" step="5" value="25">
+        </div>
+
+        <!-- Steel Slider -->
+        <div class="slider-card">
+          <div class="slider-header">
+            <span class="slider-label">Steel Grade (f<sub>y</sub>)</span>
+            <span class="slider-value" id="val-fy">415 MPa</span>
+          </div>
+          <input type="range" class="input-slider" id="slider-fy" min="250" max="500" step="10" value="415">
+        </div>
+
+        <!-- System Reset Buttons -->
+        <button class="btn" style="border-color: var(--color-wsm); color: var(--color-wsm); justify-content: center;" id="btn-reset-phys">
+          💥 Reset Simulation
+        </button>
+      </div>
+    </section>
+
+    <!-- Column 2: Stress Sandbox -->
+    <section class="sandbox-container">
+      <div class="bays-grid">
+        <!-- WSM Bay -->
+        <div class="bay-frame wsm-theme" id="bay-wsm">
+          <div class="bay-header">
+            <div class="bay-title-flex">
+              <span class="bay-name">Mr. Stiff Candy (WSM)</span>
+              <span class="bay-desc">Elastic, Conservative & Crack-Phobic</span>
+            </div>
+            <span class="bay-badge">Working Stress</span>
+          </div>
+          <div class="canvas-container">
+            <canvas class="sandbox-canvas" id="canvas-wsm"></canvas>
+          </div>
+        </div>
+
+        <!-- LSM Bay -->
+        <div class="bay-frame lsm-theme" id="bay-lsm">
+          <div class="bay-header">
+            <div class="bay-title-flex">
+              <span class="bay-name">Mr. Bouncy Gummy (LSM)</span>
+              <span class="bay-desc">Plastic, Optimized & Ductile</span>
+            </div>
+            <span class="bay-badge">Limit State</span>
+          </div>
+          <div class="canvas-container">
+            <canvas class="sandbox-canvas" id="canvas-lsm"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading Tool Strip -->
+      <div class="sandbox-controls">
+        <div class="toybox-label">
+          🐘 Load Tester: <span style="font-weight: normal; font-size: 0.75rem; color: var(--text-muted);">Drop point loads onto the beams above!</span>
+        </div>
+        <div class="elephants-shelf">
+          <button class="toybox-btn active-ws-toy" id="btn-load-10">
+            <span>🐘</span> Add Elephant (10 kN)
+          </button>
+          <button class="toybox-btn active-ls-toy" id="btn-load-30">
+            <span>🐘🐘</span> Add Jumbo Elephant (30 kN)
+          </button>
+          <button class="toybox-btn" style="border-color: var(--color-cyan); color: var(--color-cyan);" id="btn-clear-loads">
+            🗑️ Remove Loads
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Column 3: Telemetry Core -->
+    <section class="panel" id="telemetry-core">
+      <div class="panel-header">
+        <h2>📊 Telemetry Core</h2>
+      </div>
+
+      <!-- Scope Section -->
+      <div class="telemetry-card">
+        <div class="card-header-sm">
+          <span>🔬 Atomic Stress Scope</span>
+          <span style="color: var(--color-gold);" id="scope-target-label">WSM Candy Cross-Section</span>
+        </div>
+        
+        <div class="scope-container">
+          <canvas class="scope-canvas" id="canvas-scope"></canvas>
+        </div>
+        
+        <div class="scope-legend">
+          <span class="neon-text-pink">● Compression (Top)</span>
+          <span class="neon-text-green">● Tension (Bottom Rebar)</span>
+        </div>
+      </div>
+
+      <!-- Dynamic Calculations Telemetry Table -->
+      <div class="telemetry-card">
+        <div class="card-header-sm">🧮 Live Computations</div>
+        <table class="telemetry-table">
+          <thead>
+            <tr>
+              <th>Parameter</th>
+              <th>WSM Value</th>
+              <th>LSM Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Concrete Design Cap</td>
+              <td class="val neon-text-pink" id="tel-wsm-cap">8.33 MPa</td>
+              <td class="val neon-text-green" id="tel-lsm-cap">11.17 MPa</td>
+            </tr>
+            <tr>
+              <td>Modular Ratio (m)</td>
+              <td class="val neon-text-pink" id="tel-wsm-m">11.2</td>
+              <td class="val" style="color: var(--text-muted)">N/A</td>
+            </tr>
+            <tr>
+              <td>Steel Allowable Stress</td>
+              <td class="val neon-text-pink" id="tel-wsm-steel">230 MPa</td>
+              <td class="val neon-text-green" id="tel-lsm-steel">360.8 MPa</td>
+            </tr>
+            <tr>
+              <td>Max Moment M<sub>u,lim</sub></td>
+              <td class="val" style="color: var(--text-muted)">N/A</td>
+              <td class="val neon-text-green" id="tel-lsm-mu">34.5 kNm</td>
+            </tr>
+            <tr>
+              <td>Live Deflection</td>
+              <td class="val neon-text-pink" id="tel-wsm-defl">0.0 mm</td>
+              <td class="val neon-text-green" id="tel-lsm-defl">0.0 mm</td>
+            </tr>
+            <tr>
+              <td>Safety Status</td>
+              <td class="val" id="tel-wsm-status" style="color: var(--color-lsm)">SAFE</td>
+              <td class="val" id="tel-lsm-status" style="color: var(--color-lsm)">SAFE</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Educational Insights -->
+      <div class="telemetry-card" style="flex: 1; min-height: 120px; overflow-y: auto;">
+        <div class="card-header-sm">💡 Quick Insight</div>
+        <p id="educational-insight-text" style="font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+          WSM treats materials purely elastically. It models stresses linearly up to low working loads, resulting in thick, heavy sections. LSM models ultimate limit states, harnessing concrete's natural plastic zone, creating lighter, optimized, and safer structures.
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Interactive Instruction Overlay (Guide) -->
+  <div class="overlay" id="help-overlay">
+    <div class="modal">
+      <div class="modal-title">🤖 Structural Sandbox Guide!</div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px;">
+          Welcome to the cyber-toybox structural physics engine! We will learn the difference between two critical philosophies:
+        </p>
+        <p style="margin-bottom: 10px; border-left: 3px solid var(--color-wsm); padding-left: 8px;">
+          <strong>1. Working Stress Method (WSM):</strong> Represented by <strong>Mr. Super-Stiff Hard Candy</strong>. He is conservative, behaves elastically, uses giant factor-of-safety margins, and refuses to bend. When pushed too far, he cracks catastrophically!
+        </p>
+        <p style="margin-bottom: 12px; border-left: 3px solid var(--color-lsm); padding-left: 8px;">
+          <strong>2. Limit State Method (LSM):</strong> Represented by <strong>Mr. Smart Gummy Bear</strong>. He is optimized, utilizes concrete's high performance plastic range, has balanced factors, and stretches safely under extreme tension before folding safely.
+        </p>
+        <p style="color: var(--color-cyan); font-weight: bold;">
+          Your Mission: Drag the puzzle shields into their formula slots to unlock the sandbox engines, drop anxious elephants as weight vectors, and bend the structures directly!
+        </p>
+      </div>
+      <button class="modal-btn" id="btn-close-modal">Enter Cyber Lab 🚀</button>
+    </div>
+  </div>
+
+  <!-- JavaScript logic -->
+  <script>
+    // --- Web Audio Synthesizer Controller ---
+    class AudioController {
+      constructor() {
+        this.ctx = null;
+        this.isMuted = false;
+        this.synthVolume = 0.25;
+      }
+
+      init() {
+        if (this.ctx) return;
+        this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+        this.gainNode = this.ctx.createGain();
+        this.gainNode.gain.setValueAtTime(this.synthVolume, this.ctx.currentTime);
+        this.gainNode.connect(this.ctx.destination);
+      }
+
+      toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.gainNode) {
+          this.gainNode.gain.setValueAtTime(this.isMuted ? 0 : this.synthVolume, this.ctx.currentTime);
+        }
+        return this.isMuted;
+      }
+
+      playTone(freq, type = 'sine', duration = 0.1, delay = 0) {
+        if (this.isMuted || !this.ctx) return;
+        
+        try {
+          const osc = this.ctx.createOscillator();
+          const amp = this.ctx.createGain();
+          
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, this.ctx.currentTime + delay);
+          
+          amp.gain.setValueAtTime(0.3, this.ctx.currentTime + delay);
+          amp.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + delay + duration - 0.01);
+          
+          osc.connect(amp);
+          amp.connect(this.gainNode);
+          
+          osc.start(this.ctx.currentTime + delay);
+          osc.stop(this.ctx.currentTime + delay + duration);
+        } catch (e) {
+          console.warn("Audio Context blocked or interrupted.", e);
+        }
+      }
+
+      playTick() {
+        this.playTone(600, 'triangle', 0.05);
+      }
+
+      playSuccess() {
+        // Play triad
+        const now = 0;
+        this.playTone(261.63, 'sine', 0.2, now); // C4
+        this.playTone(329.63, 'sine', 0.2, now + 0.1); // E4
+        this.playTone(392.00, 'sine', 0.2, now + 0.2); // G4
+        this.playTone(523.25, 'sine', 0.4, now + 0.3); // C5
+      }
+
+      playCrack() {
+        if (this.isMuted || !this.ctx) return;
+        try {
+          // Synthesize crunch/shattering noise
+          const bufferSize = this.ctx.sampleRate * 0.4;
+          const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = this.ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = this.ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(800, this.ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.3);
+
+          const gain = this.ctx.createGain();
+          gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.35);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(this.gainNode);
+
+          noise.start();
+          this.playTone(85, 'triangle', 0.3, 0);
+        } catch (e) {
+          console.warn(e);
+        }
+      }
+
+      playSqueak(pitchVal) {
+        if (this.isMuted || !this.ctx) return;
+        // Continuous bending dynamic response synth sound
+        this.playTone(200 + pitchVal * 300, 'sine', 0.08);
+      }
+
+      speak(text) {
+        if ('speechSynthesis' in window) {
+          // Cancel active speech
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          utterance.rate = 1.15;
+          utterance.pitch = 1.35;
+          window.speechSynthesis.speak(utterance);
+        }
+      }
+    }
+
+    // --- Core Application State Management ---
+    const State = {
+      unlocked: {
+        wsmConcrete: false,
+        lsmConcrete: false,
+        lsmSteel: false
+      },
+      fck: 25, // MPa
+      fy: 415,  // MPa
+      wsmLoad: 0, // kN
+      lsmLoad: 0, // kN
+      activeVisualBeam: 'wsm', // current selected view for microscope
+      isWsmBroken: false,
+      isLsmBroken: false,
+      isLsmYielding: false
+    };
+
+    // Instantiate Audio Controller
+    const synth = new AudioController();
+
+    // Elements Caching
+    const elFckSlider = document.getElementById('slider-fck');
+    const elFySlider = document.getElementById('slider-fy');
+    const elFckVal = document.getElementById('val-fck');
+    const elFyVal = document.getElementById('val-fy');
+    const elWsmStatus = document.getElementById('tel-wsm-status');
+    const elLsmStatus = document.getElementById('tel-lsm-status');
+    const elWsmCap = document.getElementById('tel-wsm-cap');
+    const elLsmCap = document.getElementById('tel-lsm-cap');
+    const elWsmM = document.getElementById('tel-wsm-m');
+    const elLsmSteel = document.getElementById('tel-lsm-steel');
+    const elWsmSteel = document.getElementById('tel-wsm-steel');
+    const elLsmMu = document.getElementById('tel-lsm-mu');
+    const elWsmDefl = document.getElementById('tel-wsm-defl');
+    const elLsmDefl = document.getElementById('tel-lsm-defl');
+    const elScopeTargetLabel = document.getElementById('scope-target-label');
+    const elInsightText = document.getElementById('educational-insight-text');
+    const elSpeechText = document.getElementById('status-speech');
+    const elSpeechAvatar = document.getElementById('avatar');
+
+    // Drag and Drop Variables
+    const dragShields = document.querySelectorAll('.shield');
+    const dropSlots = document.querySelectorAll('.slot');
+
+    // High DPI Canvas Setups
+    const canvasWsm = document.getElementById('canvas-wsm');
+    const canvasLsm = document.getElementById('canvas-lsm');
+    const canvasScope = document.getElementById('canvas-scope');
+
+    const ctxWsm = canvasWsm.getContext('2d');
+    const ctxLsm = canvasLsm.getContext('2d');
+    const ctxScope = canvasScope.getContext('2d');
+
+    // Dynamic scale helper
+    function resizeCanvas(canvas, ctx) {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      return { width: rect.width, height: rect.height };
+    }
+
+    let sizeWsm = { width: 400, height: 250 };
+    let sizeLsm = { width: 400, height: 250 };
+    let sizeScope = { width: 340, height: 180 };
+
+    function handleResize() {
+      sizeWsm = resizeCanvas(canvasWsm, ctxWsm);
+      sizeLsm = resizeCanvas(canvasLsm, ctxLsm);
+      sizeScope = resizeCanvas(canvasScope, ctxScope);
+    }
+    window.addEventListener('resize', handleResize);
+    setTimeout(handleResize, 100);
+
+    // Dynamic math evaluations
+    function computeDesignParameters() {
+      // WSM Formulas
+      // Allowable bending compression in concrete: fck / 3 (Typically FoS of 3 is used)
+      const wsmConcreteAllowable = State.fck / 3.0; 
+      // Modular ratio: m = 280 / (3 * sigma_cbc)
+      const wsmModRatio = 280 / (3 * wsmConcreteAllowable);
+      // Steel allowable stress (per code Fe415 is roughly 230 MPa, Fe250 is 140 MPa, Fe500 is 275 MPa)
+      let wsmSteelAllowable = 140;
+      if (State.fy >= 415) wsmSteelAllowable = 230;
+      if (State.fy >= 500) wsmSteelAllowable = 275;
+
+      // LSM Formulas
+      // Ultimate Design Concrete strength: 0.67 * fck / 1.5
+      const lsmConcreteDesign = (0.67 * State.fck) / 1.5;
+      // Ultimate Design Steel strength: fy / 1.15
+      const lsmSteelDesign = State.fy / 1.15;
+      
+      // Moment capacity representation relative factor (Fe415 factor is 0.138 * fck * b * d^2)
+      // Represented dynamically in kNm for structural visual reference
+      const b = 150; // mm
+      const d = 250; // mm
+      const lsmMuLim = (0.138 * State.fck * b * (d*d)) / 1e6;
+
+      // Update Telemetry Panel Numbers
+      elWsmCap.textContent = `${wsmConcreteAllowable.toFixed(2)} MPa`;
+      elWsmM.textContent = wsmModRatio.toFixed(1);
+      elWsmSteel.textContent = `${wsmSteelAllowable.toFixed(0)} MPa`;
+      
+      elLsmCap.textContent = `${lsmConcreteDesign.toFixed(2)} MPa`;
+      elLsmSteel.textContent = `${lsmSteelDesign.toFixed(1)} MPa`;
+      elLsmMu.textContent = `${lsmMuLim.toFixed(1)} kNm`;
+
+      return {
+        wsmCap: wsmConcreteAllowable,
+        wsmMod: wsmModRatio,
+        wsmSteel: wsmSteelAllowable,
+        lsmCap: lsmConcreteDesign,
+        lsmSteel: lsmSteelDesign,
+        lsmMu: lsmMuLim
+      };
+    }
+
+    // --- Interactive Drag and Drop Architecture ---
+    dragShields.forEach(shield => {
+      shield.addEventListener('dragstart', (e) => {
+        synth.init();
+        shield.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', shield.dataset.value);
+        e.dataTransfer.setData('element-id', shield.id);
+      });
+
+      shield.addEventListener('dragend', () => {
+        shield.classList.remove('dragging');
+      });
+    });
+
+    dropSlots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('hovered');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('hovered');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('hovered');
+        
+        const value = e.dataTransfer.getData('text/plain');
+        const shieldId = e.dataTransfer.getData('element-id');
+        const targetType = slot.dataset.target;
+
+        // Verify matches
+        let isCorrect = false;
+        if (targetType === 'wsm-concrete' && value === '3.0') {
+          State.unlocked.wsmConcrete = true;
+          slot.classList.add('correct-wsm');
+          isCorrect = true;
+        } else if (targetType === 'lsm-concrete' && value === '1.50') {
+          State.unlocked.lsmConcrete = true;
+          slot.classList.add('correct');
+          isCorrect = true;
+        } else if (targetType === 'lsm-steel' && value === '1.15') {
+          State.unlocked.lsmSteel = true;
+          slot.classList.add('correct');
+          isCorrect = true;
+        }
+
+        if (isCorrect) {
+          slot.innerHTML = value;
+          const shieldEl = document.getElementById(shieldId);
+          if (shieldEl) shieldEl.style.display = 'none';
+          
+          synth.playSuccess();
+          updateInteractiveNarrator();
+        } else {
+          synth.playTone(150, 'square', 0.25);
+          updateSpeechBubble("❌ Incorrect Shield Factor! Check the design codes guide.", "💥");
+        }
+      });
+    });
+
+    function updateInteractiveNarrator() {
+      const allDone = State.unlocked.wsmConcrete && State.unlocked.lsmConcrete && State.unlocked.lsmSteel;
+      if (allDone) {
+        updateSpeechBubble("Amazing! Formulas unlocked. You can now stress test using the Elephants!", "🐘");
+        synth.speak("Woohoo! You have correctly balanced the safety factors! Now, drop some heavy elephants on the beams to test their strengths!");
+      } else {
+        updateSpeechBubble("Good match! Keep going to unlock the loading systems.", "🌟");
+      }
+    }
+
+    function updateSpeechBubble(text, avatar = "🤖") {
+      elSpeechText.textContent = text;
+      elSpeechAvatar.textContent = avatar;
+    }
+
+    // --- Interactive Elephants (Loads) ---
+    let elephantsWsm = [];
+    let elephantsLsm = [];
+
+    class LoadElephant {
+      constructor(weight, initialX, initialY) {
+        this.weight = weight; // 10 or 30
+        this.x = initialX;
+        this.y = initialY;
+        this.width = weight === 30 ? 55 : 40;
+        this.height = weight === 30 ? 45 : 32;
+        this.isDragging = false;
+        this.glowPulse = 0;
+      }
+
+      draw(ctx) {
+        ctx.save();
+        // Dynamic pulsating neon aura around active load vectors
+        this.glowPulse += 0.05;
+        const glowRad = this.width * (0.85 + Math.sin(this.glowPulse) * 0.1);
+        const grad = ctx.createRadialGradient(this.x, this.y - this.height/2, 2, this.x, this.y - this.height/2, glowRad);
+        grad.addColorStop(0, 'rgba(122, 227, 255, 0.45)');
+        grad.addColorStop(1, 'transparent');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y - this.height/2, glowRad, 0, Math.PI*2);
+        ctx.fill();
+
+        // Draw Stylized Cute Anxious Elephant
+        ctx.translate(this.x - this.width/2, this.y - this.height);
+        
+        // Body Base
+        ctx.fillStyle = '#687b9c';
+        ctx.beginPath();
+        ctx.roundRect(0, 5, this.width, this.height - 10, 10);
+        ctx.fill();
+
+        // Dome back
+        ctx.beginPath();
+        ctx.arc(this.width/2, 10, this.width/2.5, Math.PI, 0);
+        ctx.fill();
+
+        // Legs (four dynamic pillars)
+        ctx.fillStyle = '#4f5e78';
+        ctx.fillRect(4, this.height - 10, this.width * 0.18, 10);
+        ctx.fillRect(this.width * 0.28, this.height - 10, this.width * 0.18, 10);
+        ctx.fillRect(this.width * 0.54, this.height - 10, this.width * 0.18, 10);
+        ctx.fillRect(this.width * 0.78, this.height - 10, this.width * 0.18, 10);
+
+        // Trunk (Curly front hose)
+        ctx.strokeStyle = '#687b9c';
+        ctx.lineWidth = 4;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(this.width - 2, this.height/2);
+        ctx.quadraticCurveTo(this.width + 6, this.height/2 + 8, this.width + 1, this.height - 2);
+        ctx.stroke();
+
+        // Ears (Big cute circles)
+        ctx.fillStyle = '#ff9ebb'; // Pink inner ear skin
+        ctx.beginPath();
+        ctx.arc(this.width * 0.35, this.height * 0.35, this.width * 0.18, 0, Math.PI*2);
+        ctx.fill();
+
+        // Anxious Eyes (Rotating)
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(this.width * 0.7, this.height * 0.3, 5, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        // Jittery pupils based on vibration
+        const jitterX = Math.sin(Date.now() * 0.1) * 1.5;
+        ctx.arc(this.width * 0.7 + jitterX, this.height * 0.3, 2, 0, Math.PI*2);
+        ctx.fill();
+
+        // Weight Tag label text
+        ctx.fillStyle = '#0b0d10';
+        ctx.font = 'bold 8px Courier';
+        ctx.fillText(`${this.weight}t`, this.width * 0.15, this.height * 0.55);
+
+        ctx.restore();
+      }
+    }
+
+    // Spawning controls
+    document.getElementById('btn-load-10').addEventListener('click', () => {
+      synth.init();
+      if (!isUnlocked()) {
+        warnLock();
+        return;
+      }
+      spawnElephant(10);
+    });
+
+    document.getElementById('btn-load-30').addEventListener('click', () => {
+      synth.init();
+      if (!isUnlocked()) {
+        warnLock();
+        return;
+      }
+      spawnElephant(30);
+    });
+
+    document.getElementById('btn-clear-loads').addEventListener('click', () => {
+      synth.init();
+      elephantsWsm = [];
+      elephantsLsm = [];
+      State.wsmLoad = 0;
+      State.lsmLoad = 0;
+      State.isWsmBroken = false;
+      State.isLsmBroken = false;
+      State.isLsmYielding = false;
+      synth.playTone(150, 'sine', 0.2);
+    });
+
+    function spawnElephant(weight) {
+      synth.playTone(300, 'square', 0.1);
+      // Spawn at centers of active beams
+      const randomOffset = (Math.random() - 0.5) * 60;
+      elephantsWsm.push(new LoadElephant(weight, sizeWsm.width / 2 + randomOffset, 100));
+      elephantsLsm.push(new LoadElephant(weight, sizeLsm.width / 2 + randomOffset, 100));
+      
+      calculateLoads();
+    }
+
+    function calculateLoads() {
+      State.wsmLoad = elephantsWsm.reduce((acc, el) => acc + el.weight, 0);
+      State.lsmLoad = elephantsLsm.reduce((acc, el) => acc + el.weight, 0);
+    }
+
+    function isUnlocked() {
+      return State.unlocked.wsmConcrete && State.unlocked.lsmConcrete && State.unlocked.lsmSteel;
+    }
+
+    function warnLock() {
+      synth.playTone(100, 'sawtooth', 0.3);
+      updateSpeechBubble("Access Denied! You must lock in all safety factors in the Mind Lab first!", "🔒");
+      synth.speak("Oops! The sandbox is locked. Complete the Factor Matcher matching task first!");
+    }
+
+
+    // --- Physics Simulation and Rendering ---
+
+    // Simple slider interaction updates
+    elFckSlider.addEventListener('input', (e) => {
+      synth.playTick();
+      State.fck = parseInt(e.target.value);
+      elFckVal.textContent = `${State.fck} MPa`;
+      computeDesignParameters();
+    });
+
+    elFySlider.addEventListener('input', (e) => {
+      synth.playTick();
+      State.fy = parseInt(e.target.value);
+      elFyVal.textContent = `${State.fy} MPa`;
+      computeDesignParameters();
+    });
+
+    document.getElementById('btn-reset-phys').addEventListener('click', () => {
+      synth.init();
+      location.reload();
+    });
+
+    // Handle Manual Bending Gestures
+    let activePointerBeam = null;
+    let manualForceY = 0;
+    let pointerX = 0;
+
+    function handlePointerDown(e, beamType) {
+      synth.init();
+      if (!isUnlocked()) {
+        warnLock();
+        return;
+      }
+      activePointerBeam = beamType;
+      State.activeVisualBeam = beamType;
+      elScopeTargetLabel.textContent = beamType === 'wsm' ? "WSM Candy Cross-Section" : "LSM Gummy Cross-Section";
+      updatePointerPos(e, beamType);
+    }
+
+    function updatePointerPos(e, beamType) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      pointerX = e.clientX - rect.left;
+      const pointerY = e.clientY - rect.top;
+      // Map vertical pointer position to simulated dynamic manual bending force vector
+      const verticalMargin = rect.height / 2;
+      manualForceY = Math.max(0, pointerY - verticalMargin) * 0.7; // scaled force limit
+    }
+
+    canvasWsm.addEventListener('mousedown', (e) => handlePointerDown(e, 'wsm'));
+    canvasLsm.addEventListener('mousedown', (e) => handlePointerDown(e, 'lsm'));
+
+    window.addEventListener('mousemove', (e) => {
+      if (activePointerBeam === 'wsm') {
+        updatePointerPos(e, 'wsm');
+      } else if (activePointerBeam === 'lsm') {
+        updatePointerPos(e, 'lsm');
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      if (activePointerBeam) {
+        activePointerBeam = null;
+        manualForceY = 0;
+      }
+    });
+
+    // Touch Support for gestures
+    canvasWsm.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handlePointerDown(e.touches[0], 'wsm');
+    });
+    canvasLsm.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      handlePointerDown(e.touches[0], 'lsm');
+    });
+    window.addEventListener('touchmove', (e) => {
+      if (activePointerBeam && e.touches.length > 0) {
+        updatePointerPos(e.touches[0], activePointerBeam);
+      }
+    });
+    window.addEventListener('touchend', () => {
+      if (activePointerBeam) {
+        activePointerBeam = null;
+        manualForceY = 0;
+      }
+    });
+
+    // Help Modal Open/Close Controls
+    const elHelpOverlay = document.getElementById('help-overlay');
+    document.getElementById('btn-help-trigger').addEventListener('click', () => {
+      synth.init();
+      elHelpOverlay.classList.remove('hidden');
+    });
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      synth.init();
+      elHelpOverlay.classList.add('hidden');
+      synth.speak("Great! Use the lab components on the dashboard to test concrete structural limits.");
+    });
+
+    // Audio Mute Trigger Control
+    const elAudioBtn = document.getElementById('btn-audio-toggle');
+    const elAudioInd = document.getElementById('audio-ind');
+    const elSpeakerIcon = document.getElementById('speaker-icon');
+    elAudioBtn.addEventListener('click', () => {
+      synth.init();
+      const muted = synth.toggleMute();
+      if (muted) {
+        elAudioBtn.classList.add('muted');
+        elAudioInd.classList.add('muted');
+        elSpeakerIcon.textContent = '🔇';
+      } else {
+        elAudioBtn.classList.remove('muted');
+        elAudioInd.classList.remove('muted');
+        elSpeakerIcon.textContent = '🔊';
+        synth.playTick();
+      }
+    });
+
+
+    // --- Engine Physics Execution Loop ---
+    let tickCount = 0;
+
+    function physicsLoop() {
+      tickCount++;
+      const maths = computeDesignParameters();
+
+      // -- 1. WSM CANDY BEAM SIMULATION --
+      ctxWsm.clearRect(0,0, sizeWsm.width, sizeWsm.height);
+      
+      const wsmTotalLoad = State.wsmLoad + (activePointerBeam === 'wsm' ? manualForceY : 0);
+      
+      // Calculate dynamic deflection (WSM Candy: chunky Gross Moment of Inertia, Minimal Deflection)
+      // Linear Elastic: defl = constant * Load / Ec * I
+      const ecWsm = 5000 * Math.sqrt(State.fck); 
+      const iWsm = (150 * Math.pow(250, 3)) / 12; // massive depth gross inertia
+      let deflectionWsm = (wsmTotalLoad * 1e6) / (ecWsm * (iWsm / 1e4));
+      if (State.isWsmBroken) deflectionWsm = 65; // broken collapse state
+
+      // Cracking validation
+      // WSM fails instantly and catastrophically when applied load exceeds working stress design capacity
+      const wsmMaxAllowableMoment = maths.wsmCap * (iWsm / 125); // simple tension capacity equivalent 
+      const currentWsmMoment = wsmTotalLoad * 1.5; // approximated
+      
+      if (currentWsmMoment > wsmMaxAllowableMoment && !State.isWsmBroken) {
+        State.isWsmBroken = true;
+        synth.playCrack();
+        updateSpeechBubble("CRACK! Mr. Candy Candy shattered! Catastrophic, unannounced brittle structural failure!", "❌");
+        synth.speak("Oh no! Mr. Hard Candy shattered instantly under extreme bending because he doesn't have any warning plastic zone!");
+      }
+
+      drawBeam(ctxWsm, sizeWsm, deflectionWsm, '#ff7aa2', State.isWsmBroken, 'wsm', wsmTotalLoad);
+
+      // Render loads onto WSM Beam
+      elephantsWsm.forEach(el => {
+        // Drop physics inside the simulation
+        const targetY = sizeWsm.height / 2 - 25 + getDeflectionAtX(el.x, sizeWsm.width, deflectionWsm);
+        if (el.y < targetY) {
+          el.y += 4;
+        } else {
+          el.y = targetY;
+        }
+        el.draw(ctxWsm);
+      });
+
+      // -- 2. LSM GUMMY BEAM SIMULATION --
+      ctxLsm.clearRect(0,0, sizeLsm.width, sizeLsm.height);
+      const lsmTotalLoad = State.lsmLoad + (activePointerBeam === 'lsm' ? manualForceY : 0);
+
+      // Dynamic Plastic Deflection calculation
+      // Slender Section, highly elastic/plastic
+      const ecLsm = 5000 * Math.sqrt(State.fck);
+      const iLsm = (150 * Math.pow(150, 3)) / 12; // slender, smaller moment of inertia
+      let baseDefl = (lsmTotalLoad * 3e6) / (ecLsm * (iLsm / 1e4));
+      
+      // Introduce plastic range yielding curve once capacity exceeds steel design limit
+      let deflectionLsm = baseDefl;
+      if (baseDefl > 8.0) {
+        // Plastic hinge formation yielding
+        deflectionLsm = 8.0 + (baseDefl - 8.0) * 2.8; 
+        if (!State.isLsmYielding && !State.isLsmBroken) {
+          State.isLsmYielding = true;
+          synth.playTone(350, 'sawtooth', 0.5);
+          updateSpeechBubble("WARNING: Steel reinforcement yielding! Dynamic safe plastic deformation warning!", "⚠️");
+          synth.speak("Look! Mr. Gummy Bear is warning us by bending gracefully. The steel is starting to stretch!");
+        }
+      } else {
+        State.isLsmYielding = false;
+      }
+
+      // Maximum limit state of collapse failure
+      const limitStateCap = maths.lsmMu * 1.5; // Ultimate Moment Cap
+      const currentLsmMoment = lsmTotalLoad * 1.3;
+      
+      if (currentLsmMoment > limitStateCap && !State.isLsmBroken) {
+        State.isLsmBroken = true;
+        synth.playCrack();
+        updateSpeechBubble("COLLAPSE! Mr. Gummy reached the ultimate limit state. Heavy deflection but controlled fold.", "♻️");
+        synth.speak("Mr. Gummy Bear reached his ultimate limit state of collapse! Notice how he bent heavily instead of shattering in pieces.");
+      }
+
+      if (State.isLsmBroken) {
+        deflectionLsm = 95; // highly folded physical state
+      }
+
+      drawBeam(ctxLsm, sizeLsm, deflectionLsm, '#a3ff7a', State.isLsmBroken, 'lsm', lsmTotalLoad);
+
+      // Render loads onto LSM Beam
+      elephantsLsm.forEach(el => {
+        const targetY = sizeLsm.height / 2 - 15 + getDeflectionAtX(el.x, sizeLsm.width, deflectionLsm);
+        if (el.y < targetY) {
+          el.y += 4;
+        } else {
+          el.y = targetY;
+        }
+        el.draw(ctxLsm);
+      });
+
+      // Live Telemetry Readouts Updates
+      elWsmDefl.textContent = `${deflectionWsm.toFixed(1)} mm`;
+      elLsmDefl.textContent = `${deflectionLsm.toFixed(1)} mm`;
+
+      if (State.isWsmBroken) {
+        elWsmStatus.textContent = "SHATTERED BRITTLE";
+        elWsmStatus.style.color = "var(--color-wsm)";
+      } else if (wsmTotalLoad > 0) {
+        elWsmStatus.textContent = "STRESSED";
+        elWsmStatus.style.color = "var(--color-gold)";
+      } else {
+        elWsmStatus.textContent = "SAFE & COZY";
+        elWsmStatus.style.color = "var(--color-lsm)";
+      }
+
+      if (State.isLsmBroken) {
+        elLsmStatus.textContent = "COLLAPSED PLASTIC";
+        elLsmStatus.style.color = "var(--color-wsm)";
+      } else if (State.isLsmYielding) {
+        elLsmStatus.textContent = "YIELDING (SAFE WARNING)";
+        elLsmStatus.style.color = "var(--color-gold)";
+      } else if (lsmTotalLoad > 0) {
+        elLsmStatus.textContent = "SAFE SERVICE";
+        elLsmStatus.style.color = "var(--color-lsm)";
+      } else {
+        elLsmStatus.textContent = "OPTIMIZED SAFE";
+        elLsmStatus.style.color = "var(--color-lsm)";
+      }
+
+      // -- 3. MICROSCOPIC ATOMIC STRESS SCOPE RENDER --
+      drawScope(ctxScope, sizeScope, maths, deflectionWsm, deflectionLsm);
+
+      // Loop continuous update frames
+      requestAnimationFrame(physicsLoop);
+    }
+
+    // Helper math to calculate catenary/parabolic bending offsets on dynamic beam points
+    function getDeflectionAtX(x, width, maxDeflection) {
+      const normalizedX = x / width;
+      // Parabolic curvature equation: deflection y = 16 * maxD * (x^2) * (1-x)^2 (clamped center deflection profile)
+      return 16 * maxDeflection * Math.pow(normalizedX, 2) * Math.pow(1 - normalizedX, 2);
+    }
+
+    function drawBeam(ctx, size, maxDeflection, primaryColor, isBroken, type, totalAppliedLoad) {
+      const width = size.width;
+      const height = size.height;
+      const centerY = height / 2;
+      const beamYOffset = type === 'wsm' ? 25 : 15; // thick vs slender structural thickness
+
+      // Dynamic grid guide lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+      ctx.lineWidth = 1;
+      for (let i = 20; i < width; i += 20) {
+        ctx.beginPath();
+        ctx.moveTo(i, 0);
+        ctx.lineTo(i, height);
+        ctx.stroke();
+      }
+
+      // Support Columns Drawing (Left and Right Simple Support Joints)
+      ctx.fillStyle = '#222d3d';
+      ctx.fillRect(35, centerY, 20, 50);
+      ctx.fillRect(width - 55, centerY, 20, 50);
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.strokeRect(35, centerY, 20, 50);
+      ctx.strokeRect(width - 55, centerY, 20, 50);
+
+      // Render stress distribution overlays on the side
+      if (totalAppliedLoad > 0) {
+        drawStressBlockOverlay(ctx, width, centerY, type, totalAppliedLoad);
+      }
+
+      // Draw active bending cursor vectors
+      if (activePointerBeam === type) {
+        ctx.strokeStyle = 'var(--color-cyan)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(pointerX, centerY - 60);
+        ctx.lineTo(pointerX, centerY - 10 + getDeflectionAtX(pointerX, width, maxDeflection));
+        ctx.stroke();
+        // Dynamic Force Arrow tip
+        ctx.fillStyle = 'var(--color-cyan)';
+        ctx.beginPath();
+        ctx.moveTo(pointerX - 6, centerY - 15 + getDeflectionAtX(pointerX, width, maxDeflection));
+        ctx.lineTo(pointerX, centerY - 5 + getDeflectionAtX(pointerX, width, maxDeflection));
+        ctx.lineTo(pointerX + 6, centerY - 15 + getDeflectionAtX(pointerX, width, maxDeflection));
+        ctx.fill();
+      }
+
+      // Generate beam curves (Top and Bottom profiles)
+      const segments = 40;
+      ctx.beginPath();
+      
+      if (isBroken && type === 'wsm') {
+        // Brittle candy fracture profile (Snap in center)
+        ctx.moveTo(40, centerY - beamYOffset);
+        ctx.lineTo(width/2 - 10, centerY - beamYOffset + 10);
+        ctx.lineTo(width/2 - 5, centerY + beamYOffset + 15);
+        ctx.lineTo(40, centerY + beamYOffset);
+        ctx.closePath();
+        ctx.fillStyle = primaryColor + '44';
+        ctx.strokeStyle = primaryColor;
+        ctx.lineWidth = 4;
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(width/2 + 10, centerY - beamYOffset + 10);
+        ctx.lineTo(width - 40, centerY - beamYOffset);
+        ctx.lineTo(width - 40, centerY + beamYOffset);
+        ctx.lineTo(width/2 + 5, centerY + beamYOffset + 15);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Exploded Candy Shards particles
+        ctx.fillStyle = '#ff7aa2';
+        ctx.fillRect(width/2 - 3, centerY - 5, 6, 6);
+        ctx.fillRect(width/2 + 4, centerY + 8, 4, 4);
+        return;
+      }
+
+      // Plastic folding or normal bending curves
+      for (let i = 0; i <= segments; i++) {
+        const x = 40 + ((width - 80) * (i / segments));
+        const dy = getDeflectionAtX(x, width, maxDeflection);
+        const y = centerY - beamYOffset + dy;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+
+      for (let i = segments; i >= 0; i--) {
+        const x = 40 + ((width - 80) * (i / segments));
+        const dy = getDeflectionAtX(x, width, maxDeflection);
+        const y = centerY + beamYOffset + dy;
+        ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+
+      // Beam Inner fill rendering (Glassmorphism neon vibe)
+      const gradient = ctx.createLinearGradient(0, centerY, 0, centerY + beamYOffset * 2);
+      if (type === 'wsm') {
+        gradient.addColorStop(0, 'rgba(255, 122, 162, 0.45)');
+        gradient.addColorStop(1, 'rgba(255, 122, 162, 0.15)');
+      } else {
+        gradient.addColorStop(0, 'rgba(163, 255, 122, 0.45)');
+        gradient.addColorStop(1, 'rgba(163, 255, 122, 0.15)');
+      }
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      ctx.strokeStyle = primaryColor;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Draw embedded steel reinforcements (LSM Bottom Zone)
+      if (type === 'lsm') {
+        ctx.beginPath();
+        for (let i = 0; i <= segments; i++) {
+          const x = 46 + ((width - 92) * (i / segments));
+          const dy = getDeflectionAtX(x, width, maxDeflection);
+          const y = centerY + beamYOffset - 5 + dy; // position bottom
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.strokeStyle = '#e3ff7a';
+        ctx.lineWidth = 2.5;
+        // Reinforcing rebar pattern dashes
+        ctx.setLineDash([4, 4]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+    }
+
+    function drawStressBlockOverlay(ctx, width, centerY, type, load) {
+      ctx.save();
+      const originX = type === 'wsm' ? 20 : width - 20;
+      const blockWidth = type === 'wsm' ? 25 : 35;
+      
+      // Dynamic Glowing stress block indicators on side margins
+      ctx.translate(originX, centerY);
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.lineTo(0, 30);
+      ctx.stroke();
+
+      ctx.fillStyle = type === 'wsm' ? 'var(--color-wsm)' : 'var(--color-lsm)';
+      ctx.beginPath();
+      if (type === 'wsm') {
+        // Linear triangular distribution (WSM)
+        ctx.moveTo(0, -30);
+        ctx.lineTo(-blockWidth, -30);
+        ctx.lineTo(0, 0); // compression zone
+        ctx.lineTo(blockWidth, 30); // tension zone
+        ctx.lineTo(0, 30);
+      } else {
+        // Parabolic rectangular distribution (LSM)
+        ctx.moveTo(0, -30);
+        ctx.lineTo(blockWidth, -30);
+        ctx.quadraticCurveTo(blockWidth * 0.9, -10, 0, 0); // classic concrete stress block
+        // Tension rebar arrow vector
+        ctx.moveTo(0, 20);
+        ctx.lineTo(-blockWidth, 20);
+      }
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = type === 'wsm' ? 'rgba(255, 122, 162, 0.25)' : 'rgba(163, 255, 122, 0.25)';
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    // --- Atomic Stress Scope Renderer ---
+    function drawScope(ctx, size, maths, deflWsm, deflLsm) {
+      const width = size.width;
+      const height = size.height;
+      
+      ctx.clearRect(0,0, width, height);
+
+      // Outer Scope Frame layout
+      ctx.strokeStyle = 'rgba(122, 227, 255, 0.15)';
+      ctx.strokeRect(0,0, width, height);
+      
+      // Horizontal neutral axis line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.beginPath();
+      ctx.moveTo(0, height/2);
+      ctx.lineTo(width, height/2);
+      ctx.stroke();
+
+      const activeType = State.activeVisualBeam;
+      const isBroken = activeType === 'wsm' ? State.isWsmBroken : State.isLsmBroken;
+      const deflectionVal = activeType === 'wsm' ? deflWsm : deflLsm;
+
+      // Microscope view title overlays
+      ctx.font = 'bold 9px Rubik';
+      ctx.fillStyle = 'var(--color-cyan)';
+      ctx.fillText("MICROSCOPIC ATOMIC ANALYSIS", 10, 18);
+
+      if (isBroken) {
+        ctx.fillStyle = 'rgba(255,100,100,0.15)';
+        ctx.fillRect(0,0, width, height);
+        ctx.fillStyle = '#ff7aa2';
+        ctx.font = 'bold 16px Rubik';
+        ctx.fillText("COLLAPSE BREAKOUT CRITICAL", width/2 - 110, height/2 + 5);
+        return;
+      }
+
+      // Draw top compression material molecules pushing together
+      const compressionIntensity = Math.min(10, deflectionVal * 0.85);
+      ctx.fillStyle = 'var(--color-wsm)';
+      
+      for (let x = 30; x < width - 30; x += 36) {
+        for (let y = 30; y < height/2 - 10; y += 22) {
+          // Molecules offset closer under high load
+          const shiftX = Math.sin(x + tickCount * 0.1) * compressionIntensity * 0.4;
+          const shiftY = compressionIntensity * 0.3;
+          
+          ctx.beginPath();
+          ctx.arc(x + shiftX, y + shiftY, 8, 0, Math.PI*2);
+          ctx.fill();
+          
+          // Connect spring molecules links
+          ctx.strokeStyle = 'rgba(255, 122, 162, 0.25)';
+          ctx.beginPath();
+          ctx.moveTo(x + shiftX, y + shiftY);
+          ctx.lineTo(x + shiftX + 20, y + shiftY);
+          ctx.stroke();
+        }
+      }
+
+      // Draw bottom tension material molecules pulling apart
+      const tensionIntensity = Math.min(15, deflectionVal * 1.2);
+      ctx.fillStyle = 'var(--color-lsm)';
+      
+      // Bottom Steel atoms (for LSM) or candy bottom molecules (for WSM)
+      for (let x = 30; x < width - 30; x += 36) {
+        const y = height/2 + 35;
+        const shiftX = (x < width/2 ? -1 : 1) * tensionIntensity * 0.8;
+        
+        ctx.beginPath();
+        ctx.arc(x + shiftX, y, 7, 0, Math.PI*2);
+        ctx.fill();
+
+        // Connect steel molecules with active warning spring linkages
+        ctx.strokeStyle = 'rgba(163, 255, 122, 0.3)';
+        ctx.beginPath();
+        ctx.moveTo(x + shiftX, y);
+        ctx.lineTo(x + shiftX + 22 + tensionIntensity * 0.5, y);
+        ctx.stroke();
+      }
+
+      // Text status overlay on Atomic scope
+      ctx.font = '8px monospace';
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(`Active strain profile = ${tensionIntensity.toFixed(2)}%`, 10, height - 12);
+    }
+
+    // Initialize application processes
+    computeDesignParameters();
+    requestAnimationFrame(physicsLoop);
+
+  </script>
+</body>
+</html>

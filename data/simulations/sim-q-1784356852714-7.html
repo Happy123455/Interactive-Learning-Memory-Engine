@@ -1,0 +1,1198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OSD Cyber-Simulator | Transportation Engineering</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts & FontAwesome -->
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #06090e;
+      color: #e2e8f0;
+      user-select: none;
+    }
+    .tech-font {
+      font-family: 'Share Tech Mono', monospace;
+    }
+    .glass-panel {
+      background: rgba(14, 22, 34, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 242, 255, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+    .neon-text-cyan {
+      text-shadow: 0 0 10px rgba(0, 242, 255, 0.6);
+    }
+    .neon-text-purple {
+      text-shadow: 0 0 10px rgba(188, 19, 254, 0.6);
+    }
+    .neon-border-cyan:focus {
+      border-color: #00f2ff;
+      box-shadow: 0 0 10px rgba(0, 242, 255, 0.3);
+    }
+    /* Hide scrollbars but allow scrolling within cards if necessary */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+    /* Draggable styling */
+    .draggable-chip {
+      cursor: grab;
+      transition: all 0.2s ease;
+    }
+    .draggable-chip:active {
+      cursor: grabbing;
+      transform: scale(0.95);
+    }
+    /* Drop Zone glowing effects */
+    .drop-zone-active {
+      border: 2px dashed #00f2ff !important;
+      background: rgba(0, 242, 255, 0.05) !important;
+    }
+    .drop-zone-success {
+      border: 2px solid #10b981 !important;
+      background: rgba(16, 185, 129, 0.1) !important;
+      color: #10b981 !important;
+    }
+    /* Glow highlights */
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+    }
+    .glow-purple {
+      box-shadow: 0 0 15px rgba(188, 19, 254, 0.4);
+    }
+  </style>
+</head>
+<body class="h-screen overflow-hidden flex flex-col">
+
+  <!-- TOP HEADER PANEL -->
+  <header class="h-16 border-b border-white/10 bg-[#080d14]/90 flex items-center justify-between px-6 z-20 shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded bg-gradient-to-tr from-[#bc13fe] to-[#00f2ff] flex items-center justify-center shadow-lg">
+        <i class="fa-solid fa-road text-white text-lg"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-extrabold tracking-wider tech-font text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">
+          OSD CYBER-SIMULATOR
+        </h1>
+        <p class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Overtaking Sight Distance Analysis</p>
+      </div>
+    </div>
+
+    <!-- Live Stats Ticker -->
+    <div class="hidden md:flex items-center gap-6 text-xs tech-font text-slate-300">
+      <div class="bg-[#0f172a] px-3 py-1.5 rounded border border-white/5">
+        <span class="text-slate-500">SPEED (V):</span> <span id="ticker-v" class="text-cyan-400 font-bold">80</span> <span class="text-[9px] text-slate-500">km/h</span>
+      </div>
+      <div class="bg-[#0f172a] px-3 py-1.5 rounded border border-white/5">
+        <span class="text-slate-500">OVERTAKEN (Vb):</span> <span id="ticker-vb" class="text-amber-400 font-bold">64</span> <span class="text-[9px] text-slate-500">km/h</span>
+      </div>
+      <div class="bg-[#0f172a] px-3 py-1.5 rounded border border-white/5">
+        <span class="text-slate-500">TOTAL OSD:</span> <span id="ticker-osd" class="text-purple-400 font-bold">--</span> <span class="text-[9px] text-purple-500">m</span>
+      </div>
+    </div>
+
+    <!-- Narrator & Audio Action Controls -->
+    <div class="flex items-center gap-3">
+      <button id="btn-narrate" class="px-4 py-2 bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 hover:border-purple-500/80 text-purple-300 rounded text-xs font-semibold flex items-center gap-2 transition duration-200">
+        <i class="fa-solid fa-volume-high text-sm"></i>
+        <span>Narrate Concept</span>
+      </button>
+      <button id="btn-reset" class="w-10 h-10 bg-slate-800/40 hover:bg-slate-700/60 border border-white/10 hover:border-white/20 text-slate-300 rounded flex items-center justify-center transition duration-150" title="Reset Simulation">
+        <i class="fa-solid fa-arrow-rotate-left"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN VIEWPORT CONTAINER -->
+  <main class="flex-1 flex overflow-hidden relative">
+    
+    <!-- LEFT PANEL: SIMULATION CANVAS + FORMULA BUILDER -->
+    <div class="flex-1 flex flex-col min-w-0 border-r border-white/10">
+      
+      <!-- Top Half: Kinetic Canvas -->
+      <div class="flex-1 relative bg-[#090d14] flex flex-col justify-between overflow-hidden">
+        <!-- Visual Horizon Vector Line Overlay -->
+        <div class="absolute inset-x-0 top-6 px-6 flex justify-between pointer-events-none z-10">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-cyan-400 animate-ping"></span>
+            <span class="text-xs tracking-wider font-semibold text-cyan-400 tech-font">LIVE VECTOR STREAM</span>
+          </div>
+          <div class="text-xs text-slate-500 tech-font uppercase">
+            TRAFFIC STATUS: <span id="simulation-status" class="text-amber-400 font-bold">STANDBY</span>
+          </div>
+        </div>
+
+        <!-- THE MAIN VECTOR ROADWAY CANVAS -->
+        <div class="flex-1 relative w-full" id="canvas-container">
+          <canvas id="roadCanvas" class="w-full h-full block cursor-ew-resize" title="Drag left-to-right to scrub simulated timeframe manually"></canvas>
+        </div>
+
+        <!-- Dynamic Time Scrub HUD Overlay -->
+        <div class="absolute bottom-4 left-6 right-6 bg-[#0a0f18]/90 border border-white/10 rounded-lg p-3 z-10 flex flex-col gap-2 shadow-2xl backdrop-blur">
+          <div class="flex justify-between items-center">
+            <span class="text-xs text-slate-400 font-semibold flex items-center gap-1.5">
+              <i class="fa-solid fa-clock text-cyan-400"></i> Manual Time Scrub Control
+            </span>
+            <span class="text-xs tech-font text-cyan-400 font-bold" id="scrub-time-label">T = 0.00s</span>
+          </div>
+          <div class="flex items-center gap-4">
+            <button id="btn-play-pause" class="w-9 h-9 bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-500/40 hover:border-cyan-400 rounded-full flex items-center justify-center text-cyan-400 transition">
+              <i class="fa-solid fa-play" id="play-icon"></i>
+            </button>
+            <input type="range" id="time-scrubber" min="0" max="12" step="0.05" value="0" class="flex-1 accent-cyan-400 h-1 bg-slate-800 rounded-lg cursor-pointer">
+            <span class="text-xs text-slate-500 tech-font" id="max-time-label">12.0s</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Half: Formula Builder Sandbox & Sandbox Drop Slots -->
+      <div class="h-64 glass-panel border-t border-white/10 p-5 flex flex-col shrink-0">
+        <div class="flex items-center justify-between mb-3 border-b border-white/5 pb-2">
+          <div class="flex items-center gap-2">
+            <span class="bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-[10px] px-2 py-0.5 rounded uppercase tracking-wider">CHALLENGE</span>
+            <h2 class="text-sm font-semibold tracking-wide text-slate-100">OSD Mathematical Assembly Terminal</h2>
+          </div>
+          <span class="text-xs text-slate-400 tech-font">Complete calculation nodes to overlay glowing safety intervals!</span>
+        </div>
+
+        <div class="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4 overflow-y-auto no-scrollbar">
+          
+          <!-- Node d1 Component -->
+          <div class="bg-[#0b1019] rounded border border-white/5 p-3 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-semibold text-cyan-400 tech-font">d1 (Reaction Stage)</span>
+                <span id="d1-status" class="text-[10px] text-red-400 uppercase font-bold"><i class="fa-solid fa-circle-xmark"></i> Locked</span>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-relaxed mb-3">Distance covered during reaction time. Formula: d1 = Vb × t</p>
+            </div>
+            
+            <div class="flex items-center justify-center gap-2 py-2 border border-dashed border-white/10 rounded bg-[#070b11]">
+              <span class="text-xs tech-font text-slate-500">d1 =</span>
+              <!-- Target Slot 1 -->
+              <div class="w-14 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-xs font-semibold drop-zone" data-target="vb" id="slot-d1-vb">?</div>
+              <span class="text-xs text-slate-500 font-bold">×</span>
+              <!-- Target Slot 2 -->
+              <div class="w-14 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-xs font-semibold drop-zone" data-target="t" id="slot-d1-t">?</div>
+            </div>
+          </div>
+
+          <!-- Node d2 Component -->
+          <div class="bg-[#0b1019] rounded border border-white/5 p-3 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-semibold text-purple-400 tech-font">d2 (Overtaking Stage)</span>
+                <span id="d2-status" class="text-[10px] text-red-400 uppercase font-bold"><i class="fa-solid fa-circle-xmark"></i> Locked</span>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-relaxed mb-3">Distance traveled during actual overtaking maneuvers. Formula: d2 = Vb × T + 2s</p>
+            </div>
+            
+            <div class="flex items-center justify-center gap-1 py-2 border border-dashed border-white/10 rounded bg-[#070b11]">
+              <span class="text-xs tech-font text-slate-500">d2 =</span>
+              <div class="w-12 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-[10px] font-semibold drop-zone" data-target="vb" id="slot-d2-vb">?</div>
+              <span class="text-[10px] text-slate-500 font-bold">×</span>
+              <div class="w-12 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-[10px] font-semibold drop-zone" data-target="T" id="slot-d2-T">?</div>
+              <span class="text-[10px] text-slate-500 font-bold">+ 2 ×</span>
+              <div class="w-12 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-[10px] font-semibold drop-zone" data-target="s" id="slot-d2-s">?</div>
+            </div>
+          </div>
+
+          <!-- Node d3 Component -->
+          <div class="bg-[#0b1019] rounded border border-white/5 p-3 flex flex-col justify-between">
+            <div>
+              <div class="flex justify-between items-center mb-1">
+                <span class="text-xs font-semibold text-amber-400 tech-font">d3 (Oncoming Stage)</span>
+                <span id="d3-status" class="text-[10px] text-red-400 uppercase font-bold"><i class="fa-solid fa-circle-xmark"></i> Locked</span>
+              </div>
+              <p class="text-[10px] text-slate-400 leading-relaxed mb-3">Distance covered by oncoming vehicle. Formula: d3 = V × T</p>
+            </div>
+            
+            <div class="flex items-center justify-center gap-2 py-2 border border-dashed border-white/10 rounded bg-[#070b11]">
+              <span class="text-xs tech-font text-slate-500">d3 =</span>
+              <div class="w-14 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-xs font-semibold drop-zone" data-target="v" id="slot-d3-v">?</div>
+              <span class="text-xs text-slate-500 font-bold">×</span>
+              <div class="w-14 h-8 rounded border border-white/10 bg-[#0f172a] flex items-center justify-center text-xs font-semibold drop-zone" data-target="T" id="slot-d3-T">?</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT PANEL: PARAMETERS DASHBOARD & GRAPHS -->
+    <div class="w-80 lg:w-96 glass-panel shrink-0 flex flex-col overflow-y-auto no-scrollbar relative z-10">
+      
+      <!-- Section 1: IRC Guidelines Challenge & Tool Tray -->
+      <div class="p-5 border-b border-white/10 bg-[#0e1622]/50 relative">
+        <div class="absolute top-2 right-2 flex gap-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+          <span class="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+        </div>
+        <h3 class="text-xs uppercase font-extrabold text-cyan-400 tech-font tracking-widest mb-2 flex items-center gap-1.5">
+          <i class="fa-solid fa-unlock-keyhole"></i> 1. Unlock Challenge
+        </h3>
+        <p class="text-[11px] text-slate-400 leading-relaxed mb-4">
+          Drag the <span class="font-semibold text-amber-300">IRC 38 Standard Guideline</span> book onto the system terminal to initialize engineering formulas!
+        </p>
+
+        <!-- Drop targets & source tray -->
+        <div class="flex items-center justify-between gap-4 p-3 rounded bg-[#080d14]/80 border border-white/10">
+          <!-- Draggable source book -->
+          <div id="irc-book" draggable="true" class="draggable-chip flex flex-col items-center justify-center w-16 h-20 bg-gradient-to-b from-amber-600 to-amber-900 border border-amber-400/40 rounded-lg p-1.5 text-center text-white relative shadow-lg hover:shadow-amber-500/10">
+            <div class="absolute top-1 left-1.5 w-1 h-1 rounded-full bg-amber-400"></div>
+            <i class="fa-solid fa-book-bookmark text-lg text-amber-200 mt-2 mb-1"></i>
+            <span class="text-[8px] font-bold uppercase tracking-tighter">IRC:38</span>
+          </div>
+
+          <i class="fa-solid fa-arrows-left-right text-slate-600 animate-pulse"></i>
+
+          <!-- Drop zone receptor -->
+          <div id="irc-terminal-receptor" class="flex-1 h-20 border-2 border-dashed border-slate-700 rounded-lg bg-slate-900/60 flex flex-col items-center justify-center p-2 text-center text-slate-500 relative">
+            <span class="text-[9px] uppercase tracking-widest font-bold">TERMINAL RECEIVER</span>
+            <i class="fa-solid fa-circle-nodes text-lg mt-1 mb-0.5"></i>
+            <span class="text-[8px] text-slate-400" id="terminal-receptor-status">READY FOR UPLOAD</span>
+          </div>
+        </div>
+
+        <!-- Draggable variable token vault (Unlocked after uploading the book) -->
+        <div class="mt-4 hidden" id="token-vault">
+          <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-2">Mathematical Value Vault</p>
+          <div class="flex flex-wrap gap-2">
+            <div draggable="true" class="draggable-chip bg-cyan-950/40 hover:bg-cyan-900/60 border border-cyan-500/30 text-cyan-300 rounded px-2.5 py-1 text-xs font-semibold tech-font" data-type="v">v (Design Speed)</div>
+            <div draggable="true" class="draggable-chip bg-amber-950/40 hover:bg-amber-900/60 border border-amber-500/30 text-amber-300 rounded px-2.5 py-1 text-xs font-semibold tech-font" data-type="vb">vb (Overtaken)</div>
+            <div draggable="true" class="draggable-chip bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/30 text-purple-300 rounded px-2.5 py-1 text-xs font-semibold tech-font" data-type="t">t (Reaction)</div>
+            <div draggable="true" class="draggable-chip bg-red-950/40 hover:bg-red-900/60 border border-red-500/30 text-red-300 rounded px-2.5 py-1 text-xs font-semibold tech-font" data-type="T">T (Action Time)</div>
+            <div draggable="true" class="draggable-chip bg-green-950/40 hover:bg-green-900/60 border border-green-500/30 text-green-300 rounded px-2.5 py-1 text-xs font-semibold tech-font" data-type="s">s (Min Spacing)</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Real-time Sliders Panel -->
+      <div class="p-5 border-b border-white/10 flex-1">
+        <h3 class="text-xs uppercase font-extrabold text-purple-400 tech-font tracking-widest mb-4 flex items-center gap-1.5">
+          <i class="fa-solid fa-sliders"></i> 2. Calibration Engine
+        </h3>
+
+        <div class="space-y-4">
+          <!-- Slider 1: Design Speed -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400 font-semibold">Design Speed (V)</span>
+              <span class="tech-font text-cyan-400 font-bold" id="label-v">80 km/h</span>
+            </div>
+            <input type="range" id="param-v" min="50" max="120" step="5" value="80" class="accent-cyan-400 h-1 bg-slate-800 rounded-lg">
+            <span class="text-[9px] text-slate-500">Specifies velocity limits for normal dynamic flow.</span>
+          </div>
+
+          <!-- Slider 2: Overtaken Speed -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400 font-semibold">Overtaken Speed (Vb)</span>
+              <span class="tech-font text-amber-400 font-bold" id="label-vb">64 km/h</span>
+            </div>
+            <input type="range" id="param-vb" min="30" max="100" step="5" value="64" class="accent-amber-400 h-1 bg-slate-800 rounded-lg">
+            <span class="text-[9px] text-slate-500">Auto-calculated or manually specified speed of vehicle B.</span>
+          </div>
+
+          <!-- Slider 3: Acceleration -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400 font-semibold">Overtaker Acceleration (a)</span>
+              <span class="tech-font text-purple-400 font-bold" id="label-a">0.99 m/s²</span>
+            </div>
+            <input type="range" id="param-a" min="0.4" max="2.0" step="0.05" value="0.99" class="accent-purple-400 h-1 bg-slate-800 rounded-lg">
+            <span class="text-[9px] text-slate-500">Acceleration capabilities of vehicle A while overtaking.</span>
+          </div>
+
+          <!-- Slider 4: Perception-Reaction Time -->
+          <div class="flex flex-col gap-1">
+            <div class="flex justify-between items-center text-xs">
+              <span class="text-slate-400 font-semibold">Perception-Reaction Time (t)</span>
+              <span class="tech-font text-emerald-400 font-bold" id="label-t">2.0 s</span>
+            </div>
+            <input type="range" id="param-t" min="1.0" max="4.0" step="0.1" value="2.0" class="accent-emerald-400 h-1 bg-slate-800 rounded-lg">
+            <span class="text-[9px] text-slate-500">IRC recommendation is typically 2.0 seconds.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Kinetic Real-time SVG Graph -->
+      <div class="p-5 border-t border-white/5 bg-[#080d14]/90 shrink-0">
+        <h3 class="text-xs uppercase font-extrabold text-emerald-400 tech-font tracking-widest mb-3 flex items-center gap-1.5">
+          <i class="fa-solid fa-chart-line"></i> Dynamic Time-Distance Trajectories
+        </h3>
+        
+        <div class="w-full h-32 relative bg-slate-950/60 rounded border border-white/5 p-1">
+          <!-- Position trajectory curves mapped visually -->
+          <svg id="trajectory-graph" class="w-full h-full text-white" viewBox="0 0 300 120" preserveAspectRatio="none">
+            <!-- Grid Lines -->
+            <line x1="0" y1="20" x2="300" y2="20" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+            <line x1="0" y1="60" x2="300" y2="60" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+            <line x1="0" y1="100" x2="300" y2="100" stroke="rgba(255,255,255,0.05)" stroke-width="0.5" />
+            
+            <!-- Graph Lines -->
+            <!-- Vehicle A (Overtaker) -->
+            <path id="graph-path-a" d="M 0 100 Q 150 90 300 20" fill="none" stroke="#00f2ff" stroke-width="1.5" />
+            <!-- Vehicle B (Overtaken) -->
+            <path id="graph-path-b" d="M 0 100 L 300 50" fill="none" stroke="#f59e0b" stroke-width="1.5" stroke-dasharray="2,2" />
+            <!-- Vehicle C (Oncoming) -->
+            <path id="graph-path-c" d="M 0 20 L 300 120" fill="none" stroke="#ef4444" stroke-width="1.5" />
+
+            <!-- Time Indicator Scrub Line -->
+            <line id="graph-scrub-line" x1="0" y1="0" x2="0" y2="120" stroke="#a855f7" stroke-width="1" />
+          </svg>
+          <div class="absolute bottom-1 left-2 text-[8px] text-slate-500 tech-font">t = 0s</div>
+          <div class="absolute bottom-1 right-2 text-[8px] text-slate-500 tech-font">t = T+t</div>
+          <div class="absolute top-1 left-2 text-[8px] text-slate-500 tech-font">Y = Distance (m)</div>
+        </div>
+        <div class="flex justify-around mt-2 text-[9px] tech-font text-slate-400">
+          <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-[#00f2ff] inline-block"></span> Car A</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-[#f59e0b] inline-block"></span> Car B</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-0.5 bg-[#ef4444] inline-block"></span> Car C</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- NARRATIVE CONCEPT MODAL -->
+  <div id="narrative-modal" class="fixed inset-0 bg-[#000]/80 backdrop-blur-sm z-50 flex items-center justify-center opacity-0 pointer-events-none transition-all duration-300">
+    <div class="glass-panel w-full max-w-xl rounded-xl overflow-hidden shadow-2xl border border-white/10 m-4">
+      <div class="bg-gradient-to-r from-purple-900 to-slate-900 px-6 py-4 border-b border-white/10 flex items-center justify-between">
+        <h4 class="font-bold text-base text-purple-300 tech-font flex items-center gap-2">
+          <i class="fa-solid fa-graduation-cap"></i> Concept Masterclass: Overtaking Sight Distance
+        </h4>
+        <button id="btn-modal-close" class="text-slate-400 hover:text-white transition duration-150">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+      <div class="p-6 space-y-4 text-xs text-slate-300 leading-relaxed max-h-[70vh] overflow-y-auto">
+        <p>
+          Overtaking Sight Distance (OSD) represents the minimum open roadway length visible to a driver required to safely complete an overtaking maneuver without risking collision with potential oncoming traffic traveling at design speeds.
+        </p>
+        <div class="border-l-2 border-cyan-500 pl-3 bg-cyan-950/20 py-2 rounded">
+          <strong class="text-cyan-400 block mb-1">Critical Phasing Components:</strong>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><strong class="text-white">d1 (Reaction Segment)</strong>: Distance traveled by overtaking vehicle during the initial perception-reaction period.</li>
+            <li><strong class="text-white">d2 (Overtaking Action)</strong>: Distance covered while completing path shifts around the slower target vehicle.</li>
+            <li><strong class="text-white">d3 (Oncoming Hazard Segment)</strong>: Safe distance buffer traversed by incoming oncoming vehicles during transaction phases.</li>
+          </ul>
+        </div>
+        <p>
+          IRC recommendations assume conservative spacing calculations and require precise alignment parameters for two-lane, standard continuous roadways. Dynamic sliders calibrate this cyber-physics model instantly.
+        </p>
+        <div class="bg-slate-950 p-4 rounded border border-white/5 flex items-center justify-between">
+          <div>
+            <span class="text-[10px] text-slate-500 block">MATH FORMULA</span>
+            <span class="text-sm font-bold tech-font text-purple-400">OSD = d1 + d2 + d3</span>
+          </div>
+          <button id="btn-start-reading-modal" class="px-4 py-2 bg-cyan-500 text-slate-950 hover:bg-cyan-400 font-bold rounded transition flex items-center gap-1.5">
+            <i class="fa-solid fa-volume-high"></i> Read Out Loud
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /*******************************************************
+     * STATE MANAGEMENT & INITIAL CONFIGURATION
+     *******************************************************/
+    const state = {
+      v: 80,             // Design speed in km/h
+      vb: 64,            // Overtaken speed in km/h
+      a: 0.99,           // Acceleration in m/s^2
+      t: 2.0,            // Reaction time in s
+      currentTime: 0,    // Current simulated timeline value (0 to t + T)
+      playing: false,    // Play state status
+      ircUnlocked: false,// Check if IRC Standards challenges are unlocked
+      unlockedSlots: {   // Tracks if equations are assembled successfully
+        d1: false,
+        d2: false,
+        d3: false
+      },
+      formulasCompleted: {
+        d1_vb: false, d1_t: false,
+        d2_vb: false, d2_T: false, d2_s: false,
+        d3_v: false, d3_T: false
+      }
+    };
+
+    // Calculate sub-variables based on physical models
+    function getPhysics() {
+      const v_mps = state.v / 3.6;
+      const vb_mps = state.vb / 3.6;
+      const t = state.t;
+      const a = state.a;
+      
+      // Safe minimum spacing calculation (IRC standard format)
+      const s = 0.2 * state.vb + 6.0;
+      
+      // Overtaking action time (T)
+      const T = Math.sqrt((4 * s) / a);
+      
+      // Overtaking sub-distances
+      const d1 = vb_mps * t;
+      const d2 = vb_mps * T + (2 * s);
+      const d3 = v_mps * T;
+      
+      const totalOSD = d1 + d2 + d3;
+      
+      return { v_mps, vb_mps, t, a, s, T, d1, d2, d3, totalOSD };
+    }
+
+    /*******************************************************
+     * WEB AUDIO ENGINE & INTERACTION EFFECTS
+     *******************************************************/
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playBeep(freq, type = 'sine', duration = 0.15, volume = 0.1) {
+      try {
+        initAudio();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gainNode.gain.setValueAtTime(volume, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+        
+        osc.start();
+        osc.stop(audioCtx.currentTime + duration);
+      } catch(e) { console.log(e); }
+    }
+
+    // Engine frequency tracking based on acceleration and actual speeds
+    let engineOsc = null;
+    let engineGain = null;
+
+    function updateEngineSound() {
+      if (!state.playing) {
+        stopEngineSound();
+        return;
+      }
+      try {
+        initAudio();
+        if (!engineOsc) {
+          engineOsc = audioCtx.createOscillator();
+          engineGain = audioCtx.createGain();
+          engineOsc.type = 'sawtooth';
+          
+          // Filter out sharp high-frequencies for realistic engine hums
+          const lowpass = audioCtx.createBiquadFilter();
+          lowpass.type = 'lowpass';
+          lowpass.frequency.setValueAtTime(350, audioCtx.currentTime);
+
+          engineOsc.connect(lowpass);
+          lowpass.connect(engineGain);
+          engineGain.connect(audioCtx.destination);
+          
+          engineGain.gain.setValueAtTime(0.0, audioCtx.currentTime);
+          engineOsc.start();
+        }
+
+        const physics = getPhysics();
+        const totalDuration = physics.t + physics.T;
+        const progress = state.currentTime / totalDuration;
+        
+        // Dynamically shift sound frequency from low to high during execution run
+        const baseFreq = 60;
+        const pitchShift = progress * 110 * state.a;
+        
+        engineOsc.frequency.setValueAtTime(baseFreq + pitchShift, audioCtx.currentTime);
+        engineGain.gain.setTargetAtTime(0.06, audioCtx.currentTime, 0.1);
+      } catch(e) {}
+    }
+
+    function stopEngineSound() {
+      if (engineGain) {
+        try {
+          engineGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+        } catch(e) {}
+      }
+    }
+
+    /*******************************************************
+     * TEXT-TO-SPEECH INTERACTIVE NARRATION
+     *******************************************************/
+    function narrateSimulation(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.1; // Futuristic tone shift
+        const voices = window.speechSynthesis.getVoices();
+        // Fallback or selection of English synthesizer voice
+        const engVoice = voices.find(v => v.lang.includes('en-') || v.lang.startsWith('en'));
+        if (engVoice) utterance.voice = engVoice;
+        window.speechSynthesis.speak(utterance);
+      }
+    }
+
+    /*******************************************************
+     * 2D VECTOR ROADWAY DRAWING ENGINE
+     *******************************************************/
+    const canvas = document.getElementById('roadCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // High-DPI (Retina) Canvas configuration helper
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      renderHighway();
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function renderHighway() {
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      // Clear Screen with grid-space styling background colors
+      ctx.fillStyle = '#06090e';
+      ctx.fillRect(0, 0, w, h);
+
+      // Draw Grid Matrix Background Lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.02)';
+      ctx.lineWidth = 1;
+      const gridSpacing = 40;
+      for (let x = 0; x < w; x += gridSpacing) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+      }
+      for (let y = 0; y < h; y += gridSpacing) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+      }
+
+      // Draw highway pavement lanes
+      const roadY = h / 2 - 35;
+      const roadH = 70;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, roadY, w, roadH);
+
+      // Top and bottom continuous highway line shoulders
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, roadY); ctx.lineTo(w, roadY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, roadY + roadH); ctx.lineTo(w, roadY + roadH); ctx.stroke();
+
+      // Middle dashed center-line marker striping
+      ctx.strokeStyle = '#ffd700';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([15, 15]);
+      ctx.beginPath();
+      ctx.moveTo(0, roadY + roadH / 2);
+      ctx.lineTo(w, roadY + roadH / 2);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line dash
+
+      const physics = getPhysics();
+      const totalDuration = physics.t + physics.T;
+      const currentTime = state.currentTime;
+
+      // Compute physical positioning offsets dynamically
+      // Road scales dynamically based on total calculated OSD length
+      const scaleX = (w - 120) / (physics.totalOSD + 40);
+      const startOffset = 60;
+
+      // VEHICLE B (Overtaken Target) Position
+      // Constant velocity over duration
+      const xB_meters = physics.d1 + (physics.vb_mps * currentTime);
+      const xB = startOffset + xB_meters * scaleX;
+      const yB = roadY + roadH * 0.75; // Lower Lane going right
+
+      // VEHICLE A (Overtaker Engine) Position
+      let xA_meters = 0;
+      let yA = roadY + roadH * 0.75; // Initialized in Lower Lane
+
+      if (currentTime <= physics.t) {
+        // Linear path tracking before decision-reaction completes
+        xA_meters = physics.vb_mps * currentTime;
+        yA = roadY + roadH * 0.75;
+      } else {
+        // Accelerative overtaking maneuvers shifting lanes
+        const activeT = currentTime - physics.t;
+        xA_meters = (physics.vb_mps * physics.t) + (physics.vb_mps * activeT) + (0.5 * physics.a * activeT * activeT);
+        
+        // Lane shifting visual interpolation logic (Sine interpolation curves)
+        const tRatio = activeT / physics.T;
+        if (tRatio <= 0.5) {
+          // Shifting left to overtaking lane
+          const lateralProgress = Math.sin((tRatio / 0.5) * Math.PI / 2);
+          yA = (roadY + roadH * 0.75) - (lateralProgress * (roadH * 0.5));
+        } else {
+          // Returning back safely to standard lane
+          const lateralProgress = Math.sin(((tRatio - 0.5) / 0.5) * Math.PI / 2);
+          yA = (roadY + roadH * 0.25) + (lateralProgress * (roadH * 0.5));
+        }
+      }
+      const xA = startOffset + xA_meters * scaleX;
+
+      // VEHICLE C (Oncoming Target in upper lane) Position
+      const xC_meters = physics.totalOSD - (physics.v_mps * currentTime);
+      const xC = startOffset + xC_meters * scaleX;
+      const yC = roadY + roadH * 0.25; // Upper Lane going left
+
+      // DRAW DYNAMIC OSD ZONE OVERLAYS (Glowing sectors mapped onto pavement surface)
+      if (state.unlockedSlots.d1) {
+        ctx.fillStyle = 'rgba(0, 242, 255, 0.15)';
+        ctx.fillRect(startOffset, roadY + 2, physics.d1 * scaleX, roadH - 4);
+        drawBackdropText(`d1 = ${physics.d1.toFixed(1)}m`, startOffset + (physics.d1 * scaleX)/2, roadY - 15, '#00f2ff', 10);
+      }
+
+      if (state.unlockedSlots.d2) {
+        ctx.fillStyle = 'rgba(188, 19, 254, 0.15)';
+        ctx.fillRect(startOffset + (physics.d1 * scaleX), roadY + 2, physics.d2 * scaleX, roadH - 4);
+        drawBackdropText(`d2 = ${physics.d2.toFixed(1)}m`, startOffset + (physics.d1 * scaleX) + (physics.d2 * scaleX)/2, roadY - 15, '#bc13fe', 10);
+      }
+
+      if (state.unlockedSlots.d3) {
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.15)';
+        ctx.fillRect(startOffset + (physics.d1 + physics.d2) * scaleX, roadY + 2, physics.d3 * scaleX, roadH - 4);
+        drawBackdropText(`d3 = ${physics.d3.toFixed(1)}m`, startOffset + (physics.d1 + physics.d2) * scaleX + (physics.d3 * scaleX)/2, roadY - 15, '#10b981', 10);
+      }
+
+      // RENDER SAFE SIGHT CONE PATHWAYS
+      ctx.save();
+      ctx.strokeStyle = 'rgba(0, 242, 255, 0.15)';
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      ctx.moveTo(xA, yA);
+      ctx.lineTo(xC, yC);
+      ctx.stroke();
+      ctx.restore();
+
+      // DRAW SIGHT DISTANCE VECTOR ARROWS
+      drawVectorArrow(startOffset, roadY + roadH + 18, startOffset + physics.totalOSD * scaleX, roadY + roadH + 18, '#ffd700', `OSD: ${physics.totalOSD.toFixed(1)} meters`);
+
+      // DRAW VEHICLE OBJECTS
+      drawCyberVehicle(xA, yA, '#00f2ff', 'A', state.a, true); // Overtaker
+      drawCyberVehicle(xB, yB, '#f59e0b', 'B', 0, false);     // Overtaken
+      drawCyberVehicle(xC, yC, '#ef4444', 'C', 0, false, true); // Oncoming (Faced left)
+    }
+
+    // Helper functions for graphics layout rendering
+    function drawCyberVehicle(x, y, color, label, accel = 0, hasForces = false, facedLeft = false) {
+      const carW = 26;
+      const carH = 14;
+
+      ctx.save();
+      ctx.translate(x, y);
+
+      // Chassis Body Glow Layer
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = color;
+      ctx.fillStyle = color;
+      
+      // Render clean modern dynamic vector shape
+      ctx.beginPath();
+      if (!facedLeft) {
+        ctx.roundRect(-carW/2, -carH/2, carW, carH, 3);
+      } else {
+        ctx.roundRect(-carW/2, -carH/2, carW, carH, 3);
+      }
+      ctx.fill();
+      ctx.shadowBlur = 0; // Reset shadow
+
+      // Cockpit Window Highlight
+      ctx.fillStyle = '#06090e';
+      ctx.beginPath();
+      if (!facedLeft) {
+        ctx.fillRect(2, -carH/2 + 2, 6, carH - 4);
+      } else {
+        ctx.fillRect(-8, -carH/2 + 2, 6, carH - 4);
+      }
+      ctx.fill();
+
+      // Vehicle Text Label ID
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8px "Share Tech Mono"';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, 0, 0);
+
+      // Draw Acceleration / Dynamic Vector Force Arrows on active cars
+      if (hasForces && accel > 0) {
+        ctx.strokeStyle = '#bc13fe';
+        ctx.lineWidth = 1.5;
+        // Directional force velocity vector pointing forward
+        ctx.beginPath();
+        ctx.moveTo(carW/2, 0);
+        ctx.lineTo(carW/2 + 20 * accel, 0);
+        ctx.stroke();
+        // Head arrow tip
+        ctx.beginPath();
+        ctx.moveTo(carW/2 + 20 * accel, 0);
+        ctx.lineTo(carW/2 + 20 * accel - 4, -3);
+        ctx.lineTo(carW/2 + 20 * accel - 4, 3);
+        ctx.closePath();
+        ctx.fillStyle = '#bc13fe';
+        ctx.fill();
+        
+        ctx.fillStyle = '#bc13fe';
+        ctx.font = '7px sans-serif';
+        ctx.fillText(`+a`, carW/2 + 10, -8);
+      }
+
+      ctx.restore();
+    }
+
+    function drawVectorArrow(x1, y1, x2, y2, color, labelText) {
+      ctx.save();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.5;
+      
+      // Draw primary horizontal vector length
+      ctx.beginPath();
+      ctx.moveTo(x1, y1);
+      ctx.lineTo(x2, y2);
+      ctx.stroke();
+
+      // Left bracket head hook
+      ctx.beginPath();
+      ctx.moveTo(x1, y1 - 4); ctx.lineTo(x1, y1 + 4);
+      ctx.moveTo(x1, y1); ctx.lineTo(x1 + 6, y1 - 3);
+      ctx.moveTo(x1, y1); ctx.lineTo(x1 + 6, y1 + 3);
+      // Right bracket head hook
+      ctx.moveTo(x2, y2 - 4); ctx.lineTo(x2, y2 + 4);
+      ctx.moveTo(x2, y2); ctx.lineTo(x2 - 6, y2 - 3);
+      ctx.moveTo(x2, y2); ctx.lineTo(x2 - 6, y2 + 3);
+      ctx.stroke();
+
+      // Draw standard text container label offset underneath
+      const midX = (x1 + x2) / 2;
+      drawBackdropText(labelText, midX, y1 - 10, color, 11);
+      ctx.restore();
+    }
+
+    function drawBackdropText(text, x, y, color, size = 11) {
+      ctx.save();
+      ctx.font = `bold ${size}px "Share Tech Mono"`;
+      ctx.textAlign = 'center';
+      
+      // Draw background bounding box to secure visual high-contrast overlays
+      const textWidth = ctx.measureText(text).width;
+      ctx.fillStyle = 'rgba(6,9,14,0.85)';
+      ctx.fillRect(x - textWidth/2 - 4, y - size, textWidth + 8, size + 4);
+
+      // Foreground visual dynamic text rendering
+      ctx.fillStyle = color;
+      ctx.fillText(text, x, y);
+      ctx.restore();
+    }
+
+    /*******************************************************
+     * REAL-TIME TRAJECTORY GRAPH (SVG PLOTS)
+     *******************************************************/
+    function updateTrajectoryGraph() {
+      const physics = getPhysics();
+      const totalTime = physics.t + physics.T;
+      const w = 300;
+      const h = 120;
+
+      // Construct points list for Vehicle A, B, and C
+      let pathA = "";
+      let pathB = "";
+      let pathC = "";
+
+      const resolution = 20;
+      for (let i = 0; i <= resolution; i++) {
+        const simTime = (i / resolution) * totalTime;
+        const ratio = i / resolution;
+        const graphX = ratio * w;
+
+        // Position A modeling
+        let xA_meters = 0;
+        if (simTime <= physics.t) {
+          xA_meters = physics.vb_mps * simTime;
+        } else {
+          const activeT = simTime - physics.t;
+          xA_meters = (physics.vb_mps * physics.t) + (physics.vb_mps * activeT) + (0.5 * physics.a * activeT * activeT);
+        }
+        // Coordinate mapping models
+        const graphYA = h - 10 - (xA_meters / (physics.totalOSD + 40)) * (h - 20);
+
+        // Position B modeling
+        const xB_meters = physics.d1 + (physics.vb_mps * simTime);
+        const graphYB = h - 10 - (xB_meters / (physics.totalOSD + 40)) * (h - 20);
+
+        // Position C modeling
+        const xC_meters = physics.totalOSD - (physics.v_mps * simTime);
+        const graphYC = h - 10 - (xC_meters / (physics.totalOSD + 40)) * (h - 20);
+
+        // SVG Path strings aggregation
+        if (i === 0) {
+          pathA = `M ${graphX} ${graphYA}`;
+          pathB = `M ${graphX} ${graphYB}`;
+          pathC = `M ${graphX} ${graphYC}`;
+        } else {
+          pathA += ` L ${graphX} ${graphYA}`;
+          pathB += ` L ${graphX} ${graphYB}`;
+          pathC += ` L ${graphX} ${graphYC}`;
+        }
+      }
+
+      document.getElementById('graph-path-a').setAttribute('d', pathA);
+      document.getElementById('graph-path-b').setAttribute('d', pathB);
+      document.getElementById('graph-path-c').setAttribute('d', pathC);
+
+      // Sync graph scrub lines indicator
+      const activeScrubX = (state.currentTime / totalTime) * w;
+      document.getElementById('graph-scrub-line').setAttribute('x1', activeScrubX);
+      document.getElementById('graph-scrub-line').setAttribute('x2', activeScrubX);
+    }
+
+    /*******************************************************
+     * CALIBRATION CONTROLLERS & DATA READOUT HANDLING
+     *******************************************************/
+    function updateDashboard() {
+      const physics = getPhysics();
+
+      // Handle speed limits validations
+      if (state.v <= state.vb) {
+        state.vb = state.v - 16; // Maintain IRC speed logic guidelines
+        document.getElementById('param-vb').value = state.vb;
+      }
+
+      // Update Slider value displays
+      document.getElementById('label-v').innerText = `${state.v} km/h`;
+      document.getElementById('label-vb').innerText = `${state.vb} km/h`;
+      document.getElementById('label-a').innerText = `${state.a.toFixed(2)} m/s²`;
+      document.getElementById('label-t').innerText = `${state.t.toFixed(1)} s`;
+
+      // Top Status Header Indicators Ticker Info
+      document.getElementById('ticker-v').innerText = state.v;
+      document.getElementById('ticker-vb').innerText = state.vb;
+      
+      // Display complete OSD sums only when formula challenge nodes are completely built
+      if (state.unlockedSlots.d1 && state.unlockedSlots.d2 && state.unlockedSlots.d3) {
+        document.getElementById('ticker-osd').innerText = physics.totalOSD.toFixed(1);
+        document.getElementById('simulation-status').innerText = "SAFE SYSTEM ACTIVE";
+        document.getElementById('simulation-status').className = "text-emerald-400 font-bold";
+      } else {
+        document.getElementById('ticker-osd').innerText = "LOCK";
+        document.getElementById('simulation-status').innerText = "EVALUATING SYSTEM GUIDELINES";
+        document.getElementById('simulation-status').className = "text-amber-500 font-bold";
+      }
+
+      // Adjust Dynamic Time Scrubber limits configuration
+      const totalTimeLimit = physics.t + physics.T;
+      document.getElementById('time-scrubber').max = totalTimeLimit;
+      document.getElementById('max-time-label').innerText = `${totalTimeLimit.toFixed(1)}s`;
+
+      if (state.currentTime > totalTimeLimit) {
+        state.currentTime = totalTimeLimit;
+        document.getElementById('time-scrubber').value = totalTimeLimit;
+      }
+
+      document.getElementById('scrub-time-label').innerText = `T = ${state.currentTime.toFixed(2)}s`;
+
+      renderHighway();
+      updateTrajectoryGraph();
+    }
+
+    /*******************************************************
+     * INTERACTIVE DRAG & DROP ASSEMBLY TERMINAL
+     *******************************************************/
+    function initializeDragAndDrop() {
+      const draggables = document.querySelectorAll('.draggable-chip');
+      const dropZones = document.querySelectorAll('.drop-zone');
+
+      // Draggable properties setup
+      draggables.forEach(chip => {
+        chip.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', chip.getAttribute('data-type'));
+          e.dataTransfer.effectAllowed = 'move';
+        });
+      });
+
+      // Target zones receptor callbacks configuration
+      dropZones.forEach(zone => {
+        zone.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          zone.classList.add('drop-zone-active');
+        });
+
+        zone.addEventListener('dragleave', () => {
+          zone.classList.remove('drop-zone-active');
+        });
+
+        zone.addEventListener('drop', (e) => {
+          e.preventDefault();
+          zone.classList.remove('drop-zone-active');
+          const draggedType = e.dataTransfer.getData('text/plain');
+          const targetType = zone.getAttribute('data-target');
+
+          if (draggedType === targetType) {
+            // Match successful! Snap element value physically inside target slots
+            zone.classList.add('drop-zone-success');
+            zone.innerText = draggedType;
+            playBeep(440, 'triangle', 0.25, 0.15); // Synthesized dynamic confirmation chime
+
+            // Track state assembly completions status
+            registerFormulaMatch(zone.id);
+          } else {
+            // Failed mismatch
+            playBeep(180, 'sawtooth', 0.3, 0.1); // Failed warning chime
+            zone.style.borderColor = '#ef4444';
+            setTimeout(() => {
+              zone.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+            }, 800);
+          }
+        });
+      });
+
+      // SPECIAL CHALLENGE: IRC Standards Guidelines Drag Drop target
+      const book = document.getElementById('irc-book');
+      const terminal = document.getElementById('irc-terminal-receptor');
+
+      book.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', 'irc-book');
+      });
+
+      terminal.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        terminal.classList.add('border-amber-400', 'bg-amber-950/20');
+      });
+
+      terminal.addEventListener('dragleave', () => {
+        terminal.classList.remove('border-amber-400', 'bg-amber-950/20');
+      });
+
+      terminal.addEventListener('drop', (e) => {
+        e.preventDefault();
+        terminal.classList.remove('border-amber-400', 'bg-amber-950/20');
+        const data = e.dataTransfer.getData('text/plain');
+
+        if (data === 'irc-book') {
+          // Unlocked book guidelines
+          state.ircUnlocked = true;
+          terminal.classList.remove('border-slate-700', 'text-slate-500');
+          terminal.classList.add('border-emerald-500', 'bg-emerald-950/20', 'text-emerald-400');
+          terminal.innerHTML = `
+            <span class="text-[9px] uppercase tracking-widest font-bold">IRC UPLOADED</span>
+            <i class="fa-solid fa-circle-check text-lg mt-1 mb-0.5"></i>
+            <span class="text-[8px] text-emerald-300">FORMULA VAULT REVEALED</span>
+          `;
+          
+          playBeep(880, 'sine', 0.4, 0.2); // Golden unlock synthesis confirmation chime
+          document.getElementById('token-vault').classList.remove('hidden');
+          book.classList.add('pointer-events-none', 'opacity-30');
+          
+          narrateSimulation("Excellent work! You have loaded the Indian Roads Congress Standard guidelines. The mathematical values inside the cyber terminal vault have been successfully unlocked. Solve the formula nodes below to plot dynamic highway safety barriers.");
+        }
+      });
+    }
+
+    function registerFormulaMatch(slotId) {
+      // Flag relative dynamic completions properties
+      if (slotId === 'slot-d1-vb') state.formulasCompleted.d1_vb = true;
+      if (slotId === 'slot-d1-t') state.formulasCompleted.d1_t = true;
+
+      if (slotId === 'slot-d2-vb') state.formulasCompleted.d2_vb = true;
+      if (slotId === 'slot-d2-T') state.formulasCompleted.d2_T = true;
+      if (slotId === 'slot-d2-s') state.formulasCompleted.d2_s = true;
+
+      if (slotId === 'slot-d3-v') state.formulasCompleted.d3_v = true;
+      if (slotId === 'slot-d3-T') state.formulasCompleted.d3_T = true;
+
+      // Check validation states for components d1, d2, d3 separately
+      if (state.formulasCompleted.d1_vb && state.formulasCompleted.d1_t) {
+        if (!state.unlockedSlots.d1) {
+          state.unlockedSlots.d1 = true;
+          document.getElementById('d1-status').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 animate-bounce"></i> Unlocked`;
+          document.getElementById('d1-status').className = "text-[10px] text-emerald-400 uppercase font-bold";
+          triggerSectionUnlockNotification('d1 (Reaction Stage)');
+        }
+      }
+
+      if (state.formulasCompleted.d2_vb && state.formulasCompleted.d2_T && state.formulasCompleted.d2_s) {
+        if (!state.unlockedSlots.d2) {
+          state.unlockedSlots.d2 = true;
+          document.getElementById('d2-status').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 animate-bounce"></i> Unlocked`;
+          document.getElementById('d2-status').className = "text-[10px] text-emerald-400 uppercase font-bold";
+          triggerSectionUnlockNotification('d2 (Action Phase)');
+        }
+      }
+
+      if (state.formulasCompleted.d3_v && state.formulasCompleted.d3_T) {
+        if (!state.unlockedSlots.d3) {
+          state.unlockedSlots.d3 = true;
+          document.getElementById('d3-status').innerHTML = `<i class="fa-solid fa-circle-check text-emerald-400 animate-bounce"></i> Unlocked`;
+          document.getElementById('d3-status').className = "text-[10px] text-emerald-400 uppercase font-bold";
+          triggerSectionUnlockNotification('d3 (Oncoming Hazard)');
+        }
+      }
+
+      updateDashboard();
+    }
+
+    function triggerSectionUnlockNotification(phaseName) {
+      // Visual feedback overlay
+      narrateSimulation(`Highway safety threshold indicator ${phaseName} successfully mapped!`);
+      
+      // Dynamic cascade sound pitch synth sweeps
+      setTimeout(() => playBeep(523.25, 'sine', 0.15, 0.1), 0);   // C5
+      setTimeout(() => playBeep(659.25, 'sine', 0.15, 0.1), 100); // E5
+      setTimeout(() => playBeep(783.99, 'sine', 0.15, 0.1), 200); // G5
+      setTimeout(() => playBeep(1046.5, 'sine', 0.30, 0.15), 300); // C6
+    }
+
+    /*******************************************************
+     * REAL-TIME KINETIC SIMULATOR PHYSICS ENGINE
+     *******************************************************/
+    let animationFrameId = null;
+    let lastTimestamp = 0;
+
+    function runEngineLoop(timestamp) {
+      if (!lastTimestamp) lastTimestamp = timestamp;
+      const deltaTime = (timestamp - lastTimestamp) / 1000; // delta conversion seconds
+      lastTimestamp = timestamp;
+
+      if (state.playing) {
+        const physics = getPhysics();
+        const totalDuration = physics.t + physics.T;
+        
+        state.currentTime += deltaTime; // Run real-time clock forward
+        
+        if (state.currentTime >= totalDuration) {
+          state.currentTime = 0; // Auto-loop timeline
+          playBeep(330, 'triangle', 0.1, 0.05); // Looping indicator beep
+        }
+
+        document.getElementById('time-scrubber').value = state.currentTime;
+        updateDashboard();
+        updateEngineSound();
+      }
+
+      animationFrameId = requestAnimationFrame(runEngineLoop);
+    }
+
+    function togglePlay() {
+      state.playing = !state.playing;
+      const playIcon = document.getElementById('play-icon');
+      
+      if (state.playing) {
+        playIcon.className = "fa-solid fa-pause";
+        lastTimestamp = 0;
+        // Trigger Engine Humming
+        updateEngineSound();
+      } else {
+        playIcon.className = "fa-solid fa-play";
+        stopEngineSound();
+      }
+    }
+
+    /*******************************************************
+     * BINDING INTERFACE EVENT HANDLERS
+     *******************************************************/
+    function initEventHandlers() {
+      // Sliders Integration inputs
+      document.getElementById('param-v').addEventListener('input', (e) => {
+        state.v = parseInt(e.target.value);
+        updateDashboard();
+      });
+
+      document.getElementById('param-vb').addEventListener('input', (e) => {
+        state.vb = parseInt(e.target.value);
+        updateDashboard();
+      });
+
+      document.getElementById('param-a').addEventListener('input', (e) => {
+        state.a = parseFloat(e.target.value);
+        updateDashboard();
+      });
+
+      document.getElementById('param-t').addEventListener('input', (e) => {
+        state.t = parseFloat(e.target.value);
+        updateDashboard();
+      });
+
+      // Manual Timeline Scrubber control handler
+      document.getElementById('time-scrubber').addEventListener('input', (e) => {
+        state.currentTime = parseFloat(e.target.value);
+        updateDashboard();
+        // Humming audio pitch scales dynamically with user's timeline scrub velocity
+        if (!state.playing) {
+          playBeep(120 + (state.currentTime * 30), 'triangle', 0.08, 0.06);
+        }
+      });
+
+      // Play/Pause button controller
+      document.getElementById('btn-play-pause').addEventListener('click', () => {
+        togglePlay();
+      });
+
+      // Global Reset simulator state values
+      document.getElementById('btn-reset').addEventListener('click', () => {
+        location.reload();
+      });
+
+      // Concept narrative window trigger closures
+      const modal = document.getElementById('narrative-modal');
+      
+      document.getElementById('btn-narrate').addEventListener('click', () => {
+        modal.classList.remove('opacity-0', 'pointer-events-none');
+      });
+
+      document.getElementById('btn-modal-close').addEventListener('click', () => {
+        modal.classList.add('opacity-0', 'pointer-events-none');
+        window.speechSynthesis.cancel();
+      });
+
+      document.getElementById('btn-start-reading-modal').addEventListener('click', () => {
+        const text = "Overtaking Sight Distance is the minimum open roadway length visible to a driver required to safely complete an overtaking maneuver without risking collision with potential oncoming traffic traveling at design speeds.";
+        narrateSimulation(text);
+      });
+
+      // Window clicks to dismiss modal backdrop
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.classList.add('opacity-0', 'pointer-events-none');
+          window.speechSynthesis.cancel();
+        }
+      });
+    }
+
+    /*******************************************************
+     * SYSTEM ENTRY INITIALIZATION CALLBACK
+     *******************************************************/
+    window.addEventListener('load', () => {
+      resizeCanvas();
+      initializeDragAndDrop();
+      initEventHandlers();
+      updateDashboard();
+
+      // Start core rendering cycle loop
+      requestAnimationFrame(runEngineLoop);
+
+      // Cyber greeting voice assistant cue
+      setTimeout(() => {
+        narrateSimulation("Welcome to OSD Cyber-Simulator. Calibrate design speed parameters on the sidebar, then upload the Indian Roads guidelines book onto the terminal.");
+      }, 1000);
+    });
+  </script>
+</body>
+</html>

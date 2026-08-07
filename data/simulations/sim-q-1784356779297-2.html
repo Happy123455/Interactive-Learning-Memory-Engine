@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Steel-Snap Workshop | Structural Simulator</title>
+    <style>
+        :root {
+            --bg: #0a0e14;
+            --panel: rgba(20, 26, 35, 0.8);
+            --accent-cyan: #00f2ff;
+            --accent-mag: #ff00ff;
+            --text: #e0e6ed;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            height: 100vh; width: 100vw; overflow: hidden; 
+            background: var(--bg); color: var(--text); font-family: 'Segoe UI', sans-serif;
+        }
+
+        .container { 
+            display: flex; height: 100vh; width: 100vw; padding: 10px; gap: 10px; 
+        }
+
+        #field { flex: 3; background: #161b22; border: 1px solid #30363d; position: relative; border-radius: 8px; overflow: hidden; }
+        .sidebar { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .card { background: var(--panel); backdrop-filter: blur(10px); border: 1px solid #30363d; border-radius: 8px; padding: 15px; }
+
+        canvas { display: block; width: 100%; height: 100%; cursor: crosshair; }
+
+        .btn { cursor: pointer; padding: 10px; background: #21262d; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); text-transform: uppercase; font-size: 10px; border-radius: 4px; transition: 0.3s; }
+        .btn:hover { background: var(--accent-cyan); color: #000; }
+
+        #overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="field">
+        <canvas id="simCanvas"></canvas>
+    </div>
+    <div class="sidebar">
+        <div class="card">
+            <h3>Toolbox</h3>
+            <div id="drag-items" style="display:flex; gap:10px; margin-top:10px;">
+                <div draggable="true" ondragstart="drag(event, 'BOLT')" class="btn">Add Bolt</div>
+                <div draggable="true" ondragstart="drag(event, 'WELD')" class="btn">Add Weld</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Physics Engine</h3>
+            <input type="range" id="loadSlider" min="0" max="100" value="0" style="width: 100%;">
+            <p id="stressDisplay" style="font-size: 12px; margin-top:5px;">Stress: 0 MPa</p>
+            <button class="btn" style="margin-top:10px;" onclick="toggleAudio()">Toggle Tension Sonic</button>
+        </div>
+    </div>
+</div>
+
+<div id="overlay">
+    <div class="card" style="width: 300px;">
+        <h2 id="modalTitle">Structural Analysis</h2>
+        <p id="modalBody"></p>
+        <button class="btn" onclick="document.getElementById('overlay').style.display='none'">Close</button>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    let osc = null;
+    let stress = 0;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Physics Simulation
+    let components = [];
+    
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Grid
+        ctx.strokeStyle = '#222';
+        for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+        for(let i=0; i<canvas.height; i+=40) { ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width,i); ctx.stroke(); }
+
+        // Render Joints
+        components.forEach(c => {
+            ctx.fillStyle = c.type === 'BOLT' ? '#00f2ff' : '#ff00ff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = ctx.fillStyle;
+            ctx.fillRect(c.x - 10, c.y - 10, 20, 20);
+            
+            // Text Label
+            ctx.fillStyle = "white";
+            ctx.shadowBlur = 0;
+            ctx.fillText(c.type, c.x - 15, c.y - 15);
+        });
+
+        requestAnimationFrame(draw);
+    }
+
+    // Interaction
+    canvas.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const rect = canvas.getBoundingClientRect();
+        const type = e.dataTransfer.getData("type");
+        components.push({ x: e.clientX - rect.left, y: e.clientY - rect.top, type });
+        
+        // Speech Synth
+        const utter = new SpeechSynthesisUtterance(`Added ${type} connection.`);
+        window.speechSynthesis.speak(utter);
+    });
+
+    canvas.addEventListener('dragover', (e) => e.preventDefault());
+
+    function drag(e, type) { e.dataTransfer.setData("type", type); }
+
+    document.getElementById('loadSlider').addEventListener('input', (e) => {
+        stress = e.value;
+        document.getElementById('stressDisplay').innerText = `Stress: ${stress} MPa`;
+        if(osc) osc.frequency.value = 100 + (stress * 5);
+    });
+
+    function toggleAudio() {
+        if (!osc) {
+            osc = audioCtx.createOscillator();
+            osc.connect(audioCtx.destination);
+            osc.start();
+        } else {
+            osc.stop();
+            osc = null;
+        }
+    }
+
+    draw();
+</script>
+</body>
+</html>

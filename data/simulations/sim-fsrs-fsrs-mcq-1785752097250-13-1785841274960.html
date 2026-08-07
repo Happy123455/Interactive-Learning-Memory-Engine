@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Associated Character - Interactive Semiotics Sandbox</title>
+  <style>
+    :root {
+      --bg-dark: #070913;
+      --panel-dark: #0F1322;
+      --panel-light: #182038;
+      --neon-cyan: #00F0FF;
+      --neon-pink: #FF2E93;
+      --neon-yellow: #FFDE43;
+      --neon-violet: #B537FF;
+      --grid-color: #172033;
+      --text-main: #E2E8F0;
+      --text-muted: #64748B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+      overflow-x: hidden;
+    }
+
+    /* Simulation Container */
+    #sim-container {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 24px;
+      width: 100%;
+      max-width: 1280px;
+      height: 720px;
+      background: var(--panel-dark);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8), 
+                  0 0 1px 2px rgba(0, 240, 255, 0.15);
+      border: 1px solid rgba(255, 46, 147, 0.1);
+      position: relative;
+    }
+
+    @media (max-width: 1024px) {
+      #sim-container {
+        grid-template-columns: 1fr;
+        height: auto;
+        max-height: none;
+      }
+    }
+
+    /* Left Side: Playground Canvas & Synth Controls */
+    #playground-panel {
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      height: 100%;
+    }
+
+    #canvas-wrapper {
+      position: relative;
+      flex-grow: 1;
+      width: 100%;
+      background: #05070F;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.9);
+    }
+
+    #toyCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .sandbox-controls {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 16px;
+      background: var(--panel-light);
+      padding: 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .slider-row label {
+      font-weight: 700;
+      color: var(--neon-cyan);
+      min-width: 160px;
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      text-shadow: 0 0 8px rgba(0, 240, 255, 0.3);
+    }
+
+    .slider-container {
+      position: relative;
+      flex-grow: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    input[type="range"] {
+      flex-grow: 1;
+      -webkit-appearance: none;
+      background: #090D1A;
+      height: 10px;
+      border-radius: 6px;
+      outline: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--neon-pink);
+      cursor: pointer;
+      box-shadow: 0 0 15px var(--neon-pink);
+      border: 2px solid #fff;
+      transition: transform 0.1s ease, background-color 0.2s;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.25);
+      background: var(--neon-cyan);
+      box-shadow: 0 0 15px var(--neon-cyan);
+    }
+
+    /* Sound indicator in bottom bar */
+    .sound-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 10px;
+    }
+
+    .sound-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .sound-active-dot {
+      width: 10px;
+      height: 10px;
+      background: #10B981;
+      border-radius: 50%;
+      box-shadow: 0 0 8px #10B981;
+      animation: blink 1.2s infinite alternate;
+    }
+
+    /* Right Side: Quiz & Narrative Frame */
+    #quiz-panel {
+      display: flex;
+      flex-direction: column;
+      background: rgba(255, 255, 255, 0.01);
+      border-radius: 16px;
+      padding: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      overflow-y: auto;
+      height: 100%;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 15px;
+    }
+
+    h1 {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+    }
+
+    h1 span {
+      color: var(--neon-cyan);
+      text-shadow: 0 0 12px rgba(0, 240, 255, 0.3);
+    }
+
+    .btn-narrate {
+      background: linear-gradient(135deg, var(--neon-pink), var(--neon-violet));
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      border-radius: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: 0 5px 15px rgba(255, 46, 147, 0.3);
+    }
+
+    .btn-narrate:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(255, 46, 147, 0.5);
+    }
+
+    .btn-narrate:active {
+      transform: translateY(0);
+    }
+
+    .story-bubble {
+      background: rgba(0, 240, 255, 0.03);
+      border-left: 4px solid var(--neon-cyan);
+      padding: 16px;
+      border-radius: 0 12px 12px 0;
+      font-size: 0.88rem;
+      line-height: 1.5;
+      margin-bottom: 24px;
+      color: #94A3B8;
+    }
+
+    .story-bubble strong {
+      color: #FFF;
+    }
+
+    .question-block {
+      margin-bottom: 24px;
+    }
+
+    .question-tag {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--neon-pink);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .question-text {
+      font-size: 1.1rem;
+      font-weight: 600;
+      line-height: 1.5;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 15px rgba(255, 222, 67, 0.1);
+    }
+
+    .options-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .option-btn {
+      background: var(--panel-light);
+      border: 2px solid transparent;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: left;
+      font-size: 0.92rem;
+      color: var(--text-main);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .option-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 4px;
+      height: 100%;
+      background: transparent;
+      transition: background 0.2s;
+    }
+
+    .option-btn:hover {
+      background: #202A4A;
+      border-color: rgba(0, 240, 255, 0.3);
+      transform: translateX(6px);
+    }
+
+    .option-btn:hover::before {
+      background: var(--neon-cyan);
+    }
+
+    .option-btn.selected {
+      background: rgba(255, 46, 147, 0.08);
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 20px rgba(255, 46, 147, 0.15);
+    }
+
+    .option-btn.selected::before {
+      background: var(--neon-pink);
+    }
+
+    .option-badge {
+      background: rgba(0, 240, 255, 0.1);
+      color: var(--neon-cyan);
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+      border: 1px solid rgba(0, 240, 255, 0.2);
+    }
+
+    .selected .option-badge {
+      background: var(--neon-pink);
+      color: white;
+      border-color: var(--neon-pink);
+      box-shadow: 0 0 10px var(--neon-pink);
+    }
+
+    @keyframes blink {
+      0% { opacity: 0.4; }
+      100% { opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="sim-container">
+    <!-- Left Hand Sandbox Panel -->
+    <div id="playground-panel">
+      <div id="canvas-wrapper">
+        <canvas id="toyCanvas"></canvas>
+      </div>
+      
+      <div class="sandbox-controls">
+        <div class="slider-row">
+          <label for="morphSlider">📐 Roof Morph-o-Matic</label>
+          <div class="slider-container">
+            <input type="range" id="morphSlider" min="0" max="2" step="0.01" value="0">
+          </div>
+        </div>
+        <div class="sound-status">
+          <div class="sound-indicator">
+            <div class="sound-active-dot"></div>
+            <span>Synthesizer Active: Drag or sweep cursor to shift spatial frequencies</span>
+          </div>
+          <span id="sound-info">Pitch: 220Hz | Pan: Center</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Hand MCQ Panel -->
+    <div id="quiz-panel">
+      <div class="header-row">
+        <h1>Theory: <span>Associated Character</span></h1>
+        <button class="btn-narrate" id="btnNarrate" onclick="triggerVoiceover()">🔊 Listen Story</button>
+      </div>
+
+      <div class="story-bubble">
+        <strong>🧙 The Wizard Hat Analogy:</strong> A basic building base gains context from its crown! Add a sharp spire, and you think *Church*. Stack tiered steps, and it conjures a *Gopuram Temple*. That's <strong>Associated Character</strong>—buildings utilizing shapes to trigger our mental database of experiences.
+      </div>
+
+      <div class="question-block">
+        <div class="question-tag">Architectural Theory Challenge</div>
+        <div class="question-text" id="questionText">
+          Under architectural character theory, how is "Associated Character" defined and exemplified?
+        </div>
+      </div>
+
+      <div class="options-grid" id="optionsContainer">
+        <!-- Generated Dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Canvas & Core Variables ---
+    const canvas = document.getElementById('toyCanvas');
+    const ctx = canvas.getContext('2d');
+    const morphSlider = document.getElementById('morphSlider');
+    const soundInfo = document.getElementById('sound-info');
+    
+    let mouseX = 0;
+    let mouseY = 0;
+    let isMouseOver = false;
+
+    // --- Audio Synthesis Setup (Web Audio API with Stereo Panning) ---
+    let audioCtx = null;
+    let osc = null;
+    let gainNode = null;
+    let pannerNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      
+      const AudioContext = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContext();
+      
+      osc = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      
+      osc.type = 'triangle'; // Complex, rich physical sound
+      osc.frequency.setValueAtTime(220, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start muted
+      
+      // Setup spatial panning node if supported
+      if (audioCtx.createStereoPanner) {
+        pannerNode = audioCtx.createStereoPanner();
+        osc.connect(pannerNode);
+        pannerNode.connect(gainNode);
+      } else {
+        osc.connect(gainNode);
+      }
+      
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+    }
+
+    function updateAudioParameters(morphValue, normX, normY) {
+      if (!audioCtx) return;
+      
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      // Calculate dynamic pitch shifting
+      // Morph base: 0 (Modern/Flat) = 220Hz, 1 (Spire) = 440Hz, 2 (Gopuram) = 330Hz (Rich physical fifth interval)
+      let baseFreq = 220;
+      if (morphValue <= 1.0) {
+        baseFreq = 220 + (morphValue * 220); // 220 -> 440
+      } else {
+        baseFreq = 440 - ((morphValue - 1.0) * 110); // 440 -> 330
+      }
+
+      // Add relative vertical position mapping (frequency modulator)
+      const verticalOffset = (1.0 - normY) * 150; 
+      const finalFreq = baseFreq + verticalOffset;
+
+      // Pan mapping from left to right speakers based on horizontal position
+      const panValue = (normX * 2.0) - 1.0; // [-1, 1]
+
+      osc.frequency.setTargetAtTime(finalFreq, audioCtx.currentTime, 0.05);
+      
+      if (pannerNode) {
+        pannerNode.pan.setTargetAtTime(panValue, audioCtx.currentTime, 0.05);
+      }
+
+      // Dynamic gain based on interaction
+      const targetGain = isMouseOver ? 0.08 : 0.04;
+      gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+
+      // Display Status Info
+      const panLabel = panValue < -0.1 ? 'Left' : panValue > 0.1 ? 'Right' : 'Center';
+      soundInfo.textContent = `Pitch: ${Math.round(finalFreq)}Hz | Pan: ${panLabel}`;
+    }
+
+    function muteSynth() {
+      if (gainNode) {
+        gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+      }
+    }
+
+    // --- MCQ Options Configuration ---
+    const defaultOptions = [
+      { text: "It is defined by how well structural loads are visibly distributed, as symbolized by massive exposed pillars.", originalIndex: 0 },
+      { text: "It is defined by the ergonomic optimization of interior layouts to reflect human movement.", originalIndex: 1 },
+      { text: "It develops from the influence of ideas and impressions related to past experiences, such as a spire indicating a church or a Gopuram indicating a temple.", originalIndex: 2 },
+      { text: "It is defined by pure mathematical ratios of void spaces to solids in a modern facade layout.", originalIndex: 3 }
+    ];
+
+    let currentOptions = [...defaultOptions];
+    let selectedOptionIndex = null;
+
+    // --- Canvas Resize / High-DPI Fix ---
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    
+    window.addEventListener('resize', () => {
+      resizeCanvas();
+    });
+    
+    // Trigger initial layout
+    setTimeout(resizeCanvas, 100);
+
+    // --- Interactive Roof Morpher & Animation Physics Loop ---
+    let currentMorphVal = 0;
+    let targetMorphVal = 0;
+
+    // Dynamic Trail Elements
+    let trail = [];
+
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+      
+      ctx.clearRect(0, 0, width, height);
+
+      // Interpolation logic for smooth physical transition
+      currentMorphVal += (targetMorphVal - currentMorphVal) * 0.12;
+
+      drawCyberGrid(width, height);
+      drawGestureTrail();
+      drawMemoryBubble(width, height, currentMorphVal);
+      drawBuilding(width, height, currentMorphVal);
+    }
+
+    // Canvas Draw Helpers
+    function drawCyberGrid(w, h) {
+      ctx.strokeStyle = 'var(--grid-color)';
+      ctx.lineWidth = 1;
+      const step = 40;
+      
+      // Vertical grid
+      for (let x = 0; x < w; x += step) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, h);
+        ctx.stroke();
+      }
+      // Horizontal grid
+      for (let y = 0; y < h; y += step) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(w, y);
+        ctx.stroke();
+      }
+
+      // Ground horizon line
+      ctx.strokeStyle = '#1E294B';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(0, h - 50);
+      ctx.lineTo(w, h - 50);
+      ctx.stroke();
+    }
+
+    function drawGestureTrail() {
+      if (trail.length < 2) return;
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.2)';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.moveTo(trail[0].x, trail[0].y);
+      for (let i = 1; i < trail.length; i++) {
+        ctx.lineTo(trail[i].x, trail[i].y);
+      }
+      ctx.stroke();
+    }
+
+    // Shape Morph Interpolation Points Definition
+    function drawBuilding(w, h, morph) {
+      const baseX = w / 2;
+      const baseY = h - 50;
+      const bWidth = 140;
+      const bHeight = 110;
+      const topY = baseY - bHeight;
+
+      // Base Structure (The "Wooden Block")
+      ctx.fillStyle = '#0C101F';
+      ctx.strokeStyle = 'var(--neon-cyan)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.rect(baseX - bWidth / 2, topY, bWidth, bHeight);
+      ctx.fill();
+      ctx.stroke();
+
+      // Door glowing chamber
+      ctx.fillStyle = 'rgba(255, 46, 147, 0.15)';
+      ctx.strokeStyle = 'var(--neon-pink)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(baseX, baseY, 25, Math.PI, 0, false);
+      ctx.lineTo(baseX + 25, baseY);
+      ctx.lineTo(baseX - 25, baseY);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Morphing Roof calculation matrix (8 anchor points)
+      // Flat (0) -> Gothic Spire (1) -> Gopuram Indian (2)
+      const shapes = {
+        0: [ // Modernist Flat Roof
+          {x: -70, y: 0},
+          {x: -55, y: -10},
+          {x: -30, y: -10},
+          {x: -10, y: -10},
+          {x: 10, y: -10},
+          {x: 30, y: -10},
+          {x: 55, y: -10},
+          {x: 70, y: 0}
+        ],
+        1: [ // Gothic Spire Point
+          {x: -70, y: 0},
+          {x: -25, y: -45},
+          {x: -5, y: -125},
+          {x: 0, y: -135},
+          {x: 0, y: -135},
+          {x: 5, y: -125},
+          {x: 25, y: -45},
+          {x: 70, y: 0}
+        ],
+        2: [ // Stepped Gopuram / Temple
+          {x: -70, y: 0},
+          {x: -60, y: -40},
+          {x: -40, y: -40},
+          {x: -30, y: -90},
+          {x: 30, y: -90},
+          {x: 40, y: -40},
+          {x: 60, y: -40},
+          {x: 70, y: 0}
+        ]
+      };
+
+      let blendedPoints = [];
+      const numPoints = 8;
+
+      if (morph <= 1.0) {
+        const t = morph;
+        for (let i = 0; i < numPoints; i++) {
+          const pt0 = shapes[0][i];
+          const pt1 = shapes[1][i];
+          blendedPoints.push({
+            x: pt0.x + (pt1.x - pt0.x) * t,
+            y: pt0.y + (pt1.y - pt0.y) * t
+          });
+        }
+      } else {
+        const t = morph - 1.0;
+        for (let i = 0; i < numPoints; i++) {
+          const pt1 = shapes[1][i];
+          const pt2 = shapes[2][i];
+          blendedPoints.push({
+            x: pt1.x + (pt2.x - pt1.x) * t,
+            y: pt1.y + (pt2.y - pt1.y) * t
+          });
+        }
+      }
+
+      // Drawing the morphed roof structure
+      ctx.fillStyle = '#1A112E';
+      ctx.strokeStyle = 'var(--neon-yellow)';
+      ctx.lineWidth = 4;
+      ctx.lineJoin = 'miter';
+      ctx.beginPath();
+      
+      // Start connection
+      ctx.moveTo(baseX + blendedPoints[0].x, topY + blendedPoints[0].y);
+      for (let i = 1; i < numPoints; i++) {
+        ctx.lineTo(baseX + blendedPoints[i].x, topY + blendedPoints[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+
+      // Tiny ornamental additions to boost the semiosis/theming visually
+      if (morph > 0.6 && morph < 1.4) {
+        // Church Cross indicator
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 2;
+        const peakY = topY + blendedPoints[3].y;
+        ctx.beginPath();
+        ctx.moveTo(baseX, peakY - 5);
+        ctx.lineTo(baseX, peakY - 22);
+        ctx.moveTo(baseX - 6, peakY - 16);
+        ctx.lineTo(baseX + 6, peakY - 16);
+        ctx.stroke();
+      } else if (morph >= 1.4) {
+        // Temple Kalasa top pin decoration
+        ctx.fillStyle = 'var(--neon-pink)';
+        const peakY = topY + blendedPoints[3].y;
+        ctx.beginPath();
+        ctx.arc(baseX, peakY - 8, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    function drawMemoryBubble(w, h, morph) {
+      const bubbleX = w / 2;
+      const bubbleY = 80;
+      const radX = 160;
+      const radY = 45;
+
+      // Projection connection ray lines
+      ctx.strokeStyle = 'rgba(255, 46, 147, 0.15)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath();
+      ctx.moveTo(bubbleX - 40, bubbleY + radY);
+      ctx.lineTo(bubbleX - 50, h - 220);
+      ctx.moveTo(bubbleX + 40, bubbleY + radY);
+      ctx.lineTo(bubbleX + 50, h - 220);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset line dashes
+
+      // Bubble Capsule
+      ctx.fillStyle = 'rgba(10, 13, 30, 0.95)';
+      ctx.strokeStyle = 'var(--neon-pink)';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(255, 46, 147, 0.4)';
+      ctx.shadowBlur = 15;
+      
+      ctx.beginPath();
+      ctx.ellipse(bubbleX, bubbleY, radX, radY, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Reset Shadow
+      ctx.shadowBlur = 0;
+
+      // Association Text
+      ctx.textAlign = 'center';
+      let title = "";
+      let association = "";
+
+      if (morph <= 0.4) {
+        title = "Modern Slab / Abstract Hat";
+        association = "Context: Offices / Commercial Space";
+      } else if (morph > 0.4 && morph <= 1.3) {
+        title = "Steep Vertical Spire";
+        association = "Association: Cathedral / Church";
+      } else {
+        title = "Multi-tiered Pyramid Tower";
+        association = "Association: Hindu Gopuram Temple";
+      }
+
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 13px system-ui';
+      ctx.fillText(`💭 Semiotic Stimulus: ${title}`, bubbleX, bubbleY - 6);
+
+      ctx.fillStyle = 'var(--neon-cyan)';
+      ctx.font = 'bold 12px system-ui';
+      ctx.fillText(association, bubbleX, bubbleY + 14);
+    }
+
+    // --- Interactive Handlers ---
+    canvas.addEventListener('mousemove', (e) => {
+      initAudio();
+      isMouseOver = true;
+      const rect = canvas.getBoundingClientRect();
+      mouseX = e.clientX - rect.left;
+      mouseY = e.clientY - rect.top;
+
+      // Add to dynamic trail array
+      trail.push({x: mouseX, y: mouseY});
+      if (trail.length > 20) {
+        trail.shift();
+      }
+
+      // Drive Morph Target instantly via horizontal movements
+      const normX = Math.max(0, Math.min(1, mouseX / rect.width));
+      const normY = Math.max(0, Math.min(1, mouseY / rect.height));
+
+      targetMorphVal = normX * 2.0;
+      morphSlider.value = targetMorphVal;
+
+      updateAudioParameters(targetMorphVal, normX, normY);
+    });
+
+    canvas.addEventListener('mouseleave', () => {
+      isMouseOver = false;
+      trail = [];
+      muteSynth();
+    });
+
+    morphSlider.addEventListener('input', (e) => {
+      initAudio();
+      isMouseOver = true;
+      const val = parseFloat(e.target.value);
+      targetMorphVal = val;
+      updateAudioParameters(val, val / 2.0, 0.5);
+    });
+
+    morphSlider.addEventListener('change', () => {
+      setTimeout(() => {
+        if (!isMouseOver) {
+          muteSynth();
+        }
+      }, 500);
+    });
+
+    // --- MCQ Options Renderer ---
+    function renderOptions() {
+      const container = document.getElementById('optionsContainer');
+      container.innerHTML = '';
+
+      currentOptions.forEach((option, idx) => {
+        const optionLetter = String.fromCharCode(65 + idx); 
+        
+        const btn = document.createElement('button');
+        btn.className = `option-btn ${selectedOptionIndex === option.originalIndex ? 'selected' : ''}`;
+        btn.innerHTML = `
+          <div class="option-badge">${optionLetter}</div>
+          <div>${option.text}</div>
+        `;
+        
+        btn.addEventListener('click', () => {
+          selectOption(option.originalIndex);
+        });
+        
+        container.appendChild(btn);
+      });
+    }
+
+    function selectOption(originalIdx) {
+      selectedOptionIndex = originalIdx;
+      renderOptions();
+
+      // Dispatch payload to host environment
+      window.parent.postMessage({
+        type: 'mcq-selected',
+        optionIndex: originalIdx
+      }, '*');
+
+      // Play structural sound feedback trigger
+      initAudio();
+      if (originalIdx === 2) { // correct theoretical answer
+        setToneBeep(880, 0.15);
+        setTimeout(() => setToneBeep(1320, 0.15), 100);
+      } else {
+        setToneBeep(180, 0.2);
+        setTimeout(() => setToneBeep(120, 0.2), 150);
+      }
+    }
+
+    function setToneBeep(freq, vol) {
+      if (!audioCtx) return;
+      const tOsc = audioCtx.createOscillator();
+      const tGain = audioCtx.createGain();
+      
+      tOsc.type = 'sine';
+      tOsc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      tGain.gain.setValueAtTime(vol, audioCtx.currentTime);
+      tGain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.35);
+      
+      tOsc.connect(tGain);
+      tGain.connect(audioCtx.destination);
+      tOsc.start();
+      tOsc.stop(audioCtx.currentTime + 0.4);
+    }
+
+    // Support option shuffling / setup initialization from parent
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'init-mcq-options') {
+        currentOptions = event.data.options; // Format: [{ text, originalIndex }]
+        selectedOptionIndex = null;
+        renderOptions();
+      }
+    });
+
+    // --- Storytelling Narration Engine ---
+    function triggerVoiceover() {
+      if (!('speechSynthesis' in window)) {
+        alert("This browser profile does not support speech synthesis.");
+        return;
+      }
+
+      window.speechSynthesis.cancel(); // Terminate existing speakers
+
+      const narrationText = "Under architectural character theory, Associated Character develops from the influence of ideas and impressions related to past experiences. For example, our minds match a towering spire with a church, and a highly stacked Gopuram with a Hindu temple.";
+
+      const utterance = new SpeechSynthesisUtterance(narrationText);
+      utterance.pitch = 1.1;
+      utterance.rate = 1.0;
+      
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // --- Init App ---
+    renderOptions();
+    animate();
+  </script>
+</body>
+</html>

@@ -1,0 +1,1751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Engineering Lab: Steel Column Base Sandbox</title>
+  <style>
+    /* VARIABLES & THEME */
+    :root {
+      --bg-dark: #080c14;
+      --bg-panel: rgba(13, 20, 35, 0.7);
+      --bg-glass: rgba(20, 30, 55, 0.45);
+      --border-glow: rgba(0, 242, 254, 0.25);
+      --cyan: #00f2fe;
+      --magenta: #d946ef;
+      --emerald: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --text-main: #e2e8f0;
+      --text-muted: #94a3b8;
+    }
+
+    /* GLOBAL RESET */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 50% 50%, rgba(13, 24, 48, 0.8) 0%, var(--bg-dark) 100%),
+        linear-gradient(rgba(18, 24, 38, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(18, 24, 38, 0.3) 1px, transparent 1px);
+      background-size: 100% 100%, 20px 20px, 20px 20px;
+      color: var(--text-main);
+      font-family: 'JetBrains Mono', 'Segoe UI', monospace;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* LAYOUT CONTAINMENT */
+    #dashboard {
+      display: grid;
+      grid-template-columns: 310px 1fr 340px;
+      grid-template-rows: 64px 1fr 180px;
+      height: 100vh;
+      width: 100vw;
+      padding: 12px;
+      gap: 12px;
+    }
+
+    /* GLASSMORPHISM PANELS */
+    .glass-panel {
+      background: var(--bg-panel);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border-glow);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+    }
+
+    /* HEADER */
+    header {
+      grid-column: 1 / -1;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--cyan);
+      box-shadow: 0 0 15px rgba(0, 242, 254, 0.15);
+    }
+
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: linear-gradient(135deg, var(--cyan), var(--magenta));
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #000;
+      box-shadow: 0 0 10px var(--cyan);
+    }
+
+    .logo-title h1 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      color: #fff;
+    }
+
+    .logo-title p {
+      font-size: 0.7rem;
+      color: var(--cyan);
+    }
+
+    .system-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .sys-btn {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .sys-btn:hover {
+      background: rgba(0, 242, 254, 0.1);
+      border-color: var(--cyan);
+      box-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+
+    .sys-btn.active {
+      border-color: var(--emerald);
+      color: var(--emerald);
+      box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+    }
+
+    /* LEFT SIDEBAR - TOOLBOX */
+    #left-panel {
+      grid-column: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .panel-title {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border-bottom: 1px solid rgba(0, 242, 254, 0.2);
+      padding-bottom: 6px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .card-scroller {
+      flex: 1;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .card-scroller::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .card-scroller::-webkit-scrollbar-thumb {
+      background: rgba(0, 242, 254, 0.2);
+      border-radius: 2px;
+    }
+
+    /* DRAG CHIPS */
+    .draggable-container {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 12px;
+      border: 1px dashed rgba(255, 255, 255, 0.1);
+    }
+
+    .chip-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .draggable-chip {
+      background: var(--bg-glass);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 10px;
+      border-radius: 6px;
+      text-align: center;
+      cursor: grab;
+      font-weight: bold;
+      transition: all 0.2s ease;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .draggable-chip:active {
+      cursor: grabbing;
+      transform: scale(0.95);
+      border-color: var(--magenta);
+    }
+
+    .draggable-chip:hover {
+      border-color: var(--cyan);
+      background: rgba(0, 242, 254, 0.05);
+      box-shadow: 0 0 8px rgba(0, 242, 254, 0.2);
+    }
+
+    /* CODEBOOK & EDUCATION TRIGGER CARD */
+    .edu-card {
+      background: radial-gradient(circle at top left, rgba(217, 70, 239, 0.15), transparent);
+      border: 1px solid rgba(217, 70, 239, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .edu-card::after {
+      content: 'IS 800:2007';
+      position: absolute;
+      right: -10px;
+      bottom: -10px;
+      font-size: 2rem;
+      opacity: 0.04;
+      font-weight: 900;
+      transform: rotate(-15deg);
+    }
+
+    .edu-card h3 {
+      font-size: 0.85rem;
+      color: var(--magenta);
+      margin-bottom: 4px;
+    }
+
+    .edu-card p {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      line-height: 1.3;
+    }
+
+    .pulse-status {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      background: var(--magenta);
+      border-radius: 50%;
+      margin-right: 6px;
+      animation: pulse 1.5s infinite alternate;
+    }
+
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(217, 70, 239, 0.7); }
+      100% { box-shadow: 0 0 0 8px rgba(217, 70, 239, 0); }
+    }
+
+    /* ELI5 ANALOGY HUD CARD */
+    .analogy-card {
+      background: rgba(245, 158, 11, 0.05);
+      border: 1px solid rgba(245, 158, 11, 0.2);
+      border-radius: 8px;
+      padding: 10px;
+      margin-top: auto;
+    }
+
+    .analogy-card h4 {
+      font-size: 0.75rem;
+      color: var(--amber);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .analogy-card p {
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* CENTER WORKSPACE */
+    #center-panel {
+      grid-column: 2;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+
+    .workspace-controls {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(13, 20, 35, 0.8);
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border-glow);
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .view-btn, .mode-btn {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      transition: all 0.2s ease;
+    }
+
+    .view-btn.active, .mode-btn.active {
+      background: rgba(0, 242, 254, 0.1);
+      border-color: var(--cyan);
+      color: var(--cyan);
+      font-weight: bold;
+    }
+
+    /* THE CANVAS WRAPPER */
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      background: #02050a;
+      border-radius: 8px;
+      border: 1px solid var(--border-glow);
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* CANVAS OVERLAY INTERACTIVE DECORATION */
+    .canvas-hud-overlay {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      pointer-events: none;
+      background: rgba(0,0,0,0.6);
+      padding: 8px 12px;
+      border-radius: 4px;
+      border-left: 3px solid var(--cyan);
+      font-size: 0.65rem;
+      letter-spacing: 0.5px;
+    }
+
+    .canvas-interaction-hint {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      pointer-events: none;
+      background: rgba(0,0,0,0.6);
+      padding: 6px 10px;
+      border-radius: 4px;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    /* RIGHT PANEL - EQUATION BUILDER & CHECKLIST */
+    #right-panel {
+      grid-column: 3;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    /* ACTIVE FORMULAS & DRAG TARGETS */
+    .formula-slot-card {
+      background: rgba(0,0,0,0.2);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+
+    .formula-title {
+      font-size: 0.7rem;
+      color: var(--cyan);
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .formula-display {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.9rem;
+      margin-top: 4px;
+    }
+
+    .drop-slot {
+      background: rgba(0,0,0,0.5);
+      border: 1px dashed var(--magenta);
+      color: var(--magenta);
+      padding: 4px 8px;
+      border-radius: 4px;
+      min-width: 65px;
+      text-align: center;
+      font-size: 0.7rem;
+      cursor: default;
+      transition: all 0.2s ease;
+    }
+
+    .drop-slot.dragover {
+      background: rgba(217, 70, 239, 0.15);
+      transform: scale(1.05);
+    }
+
+    .drop-slot.filled {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid var(--emerald);
+      color: var(--emerald);
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* CHECKLIST */
+    .checklist-container {
+      background: rgba(0,0,0,0.2);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.72rem;
+      margin-bottom: 8px;
+      color: var(--text-muted);
+    }
+
+    .check-item.complete {
+      color: var(--text-main);
+    }
+
+    .check-box {
+      width: 14px;
+      height: 14px;
+      border: 1.5px solid rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.55rem;
+      transition: all 0.2s ease;
+    }
+
+    .check-item.complete .check-box {
+      border-color: var(--emerald);
+      background: var(--emerald);
+      color: #000;
+    }
+
+    /* BOTTOM DASHBOARD - PARAMETER CONTROL */
+    #bottom-panel {
+      grid-column: 1 / -1;
+      grid-row: 3;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr) 280px;
+      gap: 16px;
+    }
+
+    .slider-control {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      margin-bottom: 6px;
+    }
+
+    .slider-label span:first-child {
+      color: var(--text-muted);
+    }
+
+    .slider-label span:last-child {
+      color: var(--cyan);
+      font-weight: bold;
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--cyan);
+      transition: all 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* SYSTEM STATUS HUD */
+    .hud-status-card {
+      border-left: 4px solid var(--emerald);
+      background: rgba(0,0,0,0.3);
+      border-radius: 0 8px 8px 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .hud-status-card.danger {
+      border-left-color: var(--red);
+    }
+
+    .hud-status-line {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.68rem;
+    }
+
+    .hud-status-line span:first-child {
+      color: var(--text-muted);
+    }
+
+    .hud-status-line span:last-child {
+      font-weight: bold;
+    }
+
+    /* IS 800 MODAL POPUP */
+    #codebook-modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+    }
+
+    #codebook-modal.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .modal-box {
+      background: #0f172a;
+      border: 2px solid var(--magenta);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 10px 40px rgba(217, 70, 239, 0.3);
+      overflow: hidden;
+    }
+
+    .modal-header {
+      background: rgba(217, 70, 239, 0.1);
+      padding: 16px;
+      border-bottom: 1px solid rgba(217, 70, 239, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-header h2 {
+      font-size: 1rem;
+      color: var(--magenta);
+      letter-spacing: 0.5px;
+    }
+
+    .close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 1.2rem;
+    }
+
+    .close-btn:hover {
+      color: var(--red);
+    }
+
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+
+    .code-clause-box {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .code-clause-box h4 {
+      color: var(--cyan);
+      margin-bottom: 6px;
+    }
+
+    .modal-footer {
+      padding: 16px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .auth-btn {
+      background: linear-gradient(135deg, var(--magenta), #a21caf);
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    .auth-btn:hover {
+      transform: scale(1.03);
+      box-shadow: 0 0 12px var(--magenta);
+    }
+
+    /* FORMULA LOCK OVERLAY */
+    .lock-overlay {
+      background: rgba(13, 20, 35, 0.9);
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 20px;
+      z-index: 10;
+    }
+
+    .lock-overlay p {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      max-width: 250px;
+    }
+
+    /* HELPER STYLES FOR REUSABILITY */
+    .text-cyan { color: var(--cyan); }
+    .text-magenta { color: var(--magenta); }
+    .text-emerald { color: var(--emerald); }
+    .text-red { color: var(--red); }
+    .bold { font-weight: bold; }
+    .shake {
+      animation: shake 0.4s ease;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      20%, 60% { transform: translateX(-8px); }
+      40%, 80% { transform: translateX(8px); }
+    }
+  </style>
+</head>
+<body>
+
+  <div id="dashboard">
+    <!-- TOP BAR -->
+    <header class="glass-panel">
+      <div class="logo-container">
+        <div class="logo-icon">B</div>
+        <div class="logo-title">
+          <h1>Steel Column Base Designer</h1>
+          <p>Structural Engineering Lab / IS 800:2007</p>
+        </div>
+      </div>
+      
+      <div class="system-controls">
+        <button id="btn-audio" class="sys-btn">
+          <span class="pulse-status" style="background-color: var(--text-muted); animation: none;" id="audio-status-dot"></span>
+          Audio Synth Engine
+        </button>
+        <button id="btn-eli5" class="sys-btn active">
+          <span class="pulse-status" style="background-color: var(--emerald);"></span>
+          ELI5 Voice Assistant
+        </button>
+      </div>
+    </header>
+
+    <!-- LEFT SIDEBAR -->
+    <aside id="left-panel" class="glass-panel">
+      <div class="panel-title">
+        <span>Component Toolbox</span>
+      </div>
+
+      <div class="card-scroller">
+        <!-- DRAGGABLE CHIPS FOR ACTIVE EQUATIONS -->
+        <div class="draggable-container">
+          <p style="font-size: 0.7rem; color: var(--text-muted);">DRAG COEFFICIENTS TO WORKSPACE EQUATIONS:</p>
+          <div class="chip-grid">
+            <div class="draggable-chip" draggable="true" id="chip-A">A</div>
+            <div class="draggable-chip" draggable="true" id="chip-fck">f<sub>ck</sub></div>
+            <div class="draggable-chip" draggable="true" id="chip-w">w</div>
+            <div class="draggable-chip" draggable="true" id="chip-fy">f<sub>y</sub></div>
+          </div>
+        </div>
+
+        <!-- CODEBOOK REFERENCE CARD -->
+        <div class="edu-card" id="btn-codebook">
+          <span class="pulse-status"></span>
+          <h3>IS 800:2007 Codebook</h3>
+          <p>Unlock Clause 7.4.3.1 to populate active steel calculations in the design space.</p>
+        </div>
+
+        <!-- INTUITIVE CONCEPT EXPLANATION -->
+        <div class="analogy-card">
+          <h4>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            How Base Plates Work
+          </h4>
+          <p id="analogy-text">Think of the steel column as a heavy giant stepping onto wet mud. If he wears high heels, he pokes straight through! A base plate is his flat snowshoe—spreading that massive weight over concrete so it doesn't crush!</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- CENTER VISUAL SANDBOX -->
+    <main id="center-panel">
+      <div class="workspace-controls">
+        <div class="btn-group">
+          <button id="btn-slab" class="mode-btn active">Slab Base</button>
+          <button id="btn-gusseted" class="mode-btn">Gusseted Base</button>
+        </div>
+        <div class="btn-group">
+          <button id="btn-view-plan" class="view-btn">Plan</button>
+          <button id="btn-view-elev" class="view-btn">Elevation</button>
+          <button id="btn-view-iso" class="view-btn active">3D Orbit</button>
+        </div>
+      </div>
+
+      <div class="canvas-container" id="canvas-wrap">
+        <div class="canvas-hud-overlay">
+          VIEWPORT STATE: <span id="hud-view-state" class="text-cyan">3D ORBIT MODE</span><br>
+          BASE MODULE: <span id="hud-base-module" class="text-magenta">SLAB BASE</span>
+        </div>
+        <div class="canvas-interaction-hint" id="hud-hint">
+          Drag on screen to orbit model
+        </div>
+        <canvas id="render-canvas"></canvas>
+      </div>
+    </main>
+
+    <!-- RIGHT PANEL - ACTIVE EQUATIONS & VALIDATION -->
+    <aside id="right-panel" class="glass-panel">
+      <div class="panel-title">
+        <span>Active Code Verification</span>
+      </div>
+
+      <div class="card-scroller" style="position: relative;">
+        <!-- UNLOCKED OVERLAY -->
+        <div class="lock-overlay" id="formula-lock">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--magenta);">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <p>Explore the <strong>IS 800:2007 Codebook</strong> card on the left panel to unlock the design formula workspace.</p>
+        </div>
+
+        <!-- FORMULA 1: BEARING STRESS -->
+        <div class="formula-slot-card">
+          <div class="formula-title">1. Concrete Bearing Pressure</div>
+          <div class="formula-display">
+            w = P / <div class="drop-slot" data-target="A" id="slot-A">Drop Slot</div>
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 6px;" id="eq1-val">w = --- N/mm²</p>
+        </div>
+
+        <!-- FORMULA 2: COMPRESSIVE STRENGTH -->
+        <div class="formula-slot-card">
+          <div class="formula-title">2. Max Bearing Limit</div>
+          <div class="formula-display">
+            w<sub>limit</sub> = 0.45 × <div class="drop-slot" data-target="fck" id="slot-fck">Drop Slot</div>
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 6px;" id="eq2-val">w<sub>limit</sub> = --- N/mm²</p>
+        </div>
+
+        <!-- FORMULA 3: MIN PLATE THICKNESS -->
+        <div class="formula-slot-card">
+          <div class="formula-title">3. Minimum Plate Thickness</div>
+          <div class="formula-display">
+            t<sub>min</sub> = √[ 2.5×<div class="drop-slot" data-target="w" id="slot-w">Drop Slot</div>(a²-0.3b²) × 1.1 / f<sub>y</sub> ]
+          </div>
+          <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 6px;" id="eq3-val">t<sub>min</sub> = --- mm</p>
+        </div>
+
+        <!-- STRUCTURAL MILESTONES CHECKLIST -->
+        <div class="checklist-container">
+          <div class="panel-title" style="border:none; margin-bottom:8px; font-size:0.75rem;">Design Checklist</div>
+          <div class="check-item" id="chk-codebook">
+            <div class="check-box">✓</div>
+            <span>Authorize IS 800 Cl. 7.4.3</span>
+          </div>
+          <div class="check-item" id="chk-slots">
+            <div class="check-box">✓</div>
+            <span>Resolve Variable Slots</span>
+          </div>
+          <div class="check-item" id="chk-bearing">
+            <div class="check-box">✓</div>
+            <span>Pressure Design Checks &lt; Limit</span>
+          </div>
+          <div class="check-item" id="chk-thickness">
+            <div class="check-box">✓</div>
+            <span>Steel Plate Thickness Validation</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- BOTTOM PANEL - HUD AND CONTROLS -->
+    <footer id="bottom-panel" class="glass-panel">
+      <!-- LOAD PARAMETER -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span>Axial Load (P)</span>
+          <span id="lbl-load">1200 kN</span>
+        </div>
+        <input type="range" id="slider-load" min="200" max="2800" step="50" value="1200">
+      </div>
+
+      <!-- PLATE DIMENSION -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span>Plate Dimensions (B × D)</span>
+          <span id="lbl-dim">500 mm</span>
+        </div>
+        <input type="range" id="slider-dim" min="350" max="800" step="10" value="500">
+      </div>
+
+      <!-- CONCRETE GRADE -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span>Concrete Grade (f<sub>ck</sub>)</span>
+          <span id="lbl-fck">M25</span>
+        </div>
+        <input type="range" id="slider-fck" min="15" max="40" step="5" value="25">
+      </div>
+
+      <!-- PLATE THICKNESS -->
+      <div class="slider-control">
+        <div class="slider-label">
+          <span>Plate Thickness (t<sub>s</sub>)</span>
+          <span id="lbl-ts">24 mm</span>
+        </div>
+        <input type="range" id="slider-ts" min="10" max="50" step="2" value="24">
+      </div>
+
+      <!-- HUD NUMERICAL SUMMARY -->
+      <div class="hud-status-card" id="hud-status">
+        <div class="hud-status-line">
+          <span>Actual Bearing w:</span>
+          <span id="status-w" class="text-cyan">-- N/mm²</span>
+        </div>
+        <div class="hud-status-line">
+          <span>Allowable Stress:</span>
+          <span id="status-limit" class="text-emerald">-- N/mm²</span>
+        </div>
+        <div class="hud-status-line">
+          <span>Min Thickness req'd:</span>
+          <span id="status-tmin" class="text-magenta">-- mm</span>
+        </div>
+        <div class="hud-status-line" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:4px;">
+          <span>Safety State:</span>
+          <span id="status-safety" class="text-emerald">SECURE</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <!-- MODAL CODEBOOK -->
+  <div id="codebook-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2>Indian Standard (IS 800:2007) Steel Code</h2>
+        <button class="close-btn" id="btn-close-modal">×</button>
+      </div>
+      <div class="modal-body">
+        <h3>Section 7: Column Bases & Pedestals</h3>
+        <p style="margin-top: 8px;">For structural stability of members transmitting heavy concentric load components from structural columns to foundations, bases must spread structural load distributions evenly.</p>
+        
+        <div class="code-clause-box">
+          <h4>Clause 7.4.3 Slab Base Plate Thickness Verification</h4>
+          <p>The minimum plate thickness, <strong>t<sub>s</sub></strong>, for a structural column base transmitting axial load, is calculated as follows:</p>
+          <p style="font-family: 'JetBrains Mono', monospace; color: var(--magenta); margin: 8px 0; font-size: 0.95rem;">
+            t<sub>s</sub> = √[ 2.5 × w × (a² - 0.3b²) × γ<sub>m0</sub> / f<sub>y</sub> ]
+          </p>
+          <p style="font-size: 0.72rem; color: var(--text-muted);">
+            Where:<br>
+            • <strong>w</strong>: Actual bearing pressure under structural plate (N/mm²).<br>
+            • <strong>a, b</strong>: Overhang projections beyond column flange edges (mm).<br>
+            • <strong>f<sub>y</sub></strong>: Yield strength of base plate material (N/mm²).<br>
+            • <strong>γ<sub>m0</sub></strong>: Partial safety factor (1.1).
+          </p>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="auth-btn" id="btn-auth-code">Activate Clause 7.4.3</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==========================================
+       SOUND SYNTH ENGINE (WEB AUDIO API)
+       ========================================== */
+    let audioCtx = null;
+    let mainOsc = null;
+    let mainGain = null;
+    let alarmInterval = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioCtx();
+
+      // Main safety pitch drone
+      mainOsc = audioCtx.createOscillator();
+      mainGain = audioCtx.createGain();
+
+      mainOsc.type = 'sine';
+      mainOsc.frequency.setValueAtTime(120, audioCtx.currentTime);
+      mainGain.gain.setValueAtTime(0.02, audioCtx.currentTime);
+
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.setValueAtTime(180, audioCtx.currentTime);
+
+      mainOsc.connect(filter);
+      filter.connect(mainGain);
+      mainGain.connect(audioCtx.destination);
+      mainOsc.start();
+
+      document.getElementById('audio-status-dot').style.backgroundColor = 'var(--emerald)';
+      document.getElementById('audio-status-dot').style.animation = 'pulse 1.5s infinite alternate';
+    }
+
+    function toggleAudio() {
+      if (!audioCtx) {
+        initAudio();
+        playTone(520, 0.1, 'sine');
+      } else {
+        if (audioCtx.state === 'running') {
+          audioCtx.suspend();
+          document.getElementById('audio-status-dot').style.backgroundColor = 'var(--text-muted)';
+          document.getElementById('audio-status-dot').style.animation = 'none';
+        } else {
+          audioCtx.resume();
+          document.getElementById('audio-status-dot').style.backgroundColor = 'var(--emerald)';
+          document.getElementById('audio-status-dot').style.animation = 'pulse 1.5s infinite alternate';
+          playTone(600, 0.1, 'sine');
+        }
+      }
+    }
+
+    function playTone(freq, duration, type = 'sine') {
+      if (!audioCtx) return;
+      if (audioCtx.state === 'suspended') return;
+
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+
+      osc.type = type;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.12, audioCtx.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+      osc.stop(audioCtx.currentTime + duration);
+    }
+
+    function playChime() {
+      playTone(440, 0.1, 'sine');
+      setTimeout(() => playTone(554.37, 0.1, 'sine'), 60);
+      setTimeout(() => playTone(659.25, 0.18, 'sine'), 120);
+    }
+
+    function playError() {
+      playTone(180, 0.15, 'sawtooth');
+      setTimeout(() => playTone(120, 0.25, 'sawtooth'), 80);
+    }
+
+    function updatePitchFromLoad(load, isFailing) {
+      if (!audioCtx || audioCtx.state === 'suspended') return;
+      // Map load from 200 - 2800 to 80Hz - 220Hz
+      const mappedFreq = 70 + (load / 2800) * 150;
+      mainOsc.frequency.setTargetAtTime(mappedFreq, audioCtx.currentTime, 0.1);
+
+      if (isFailing) {
+        mainGain.gain.setTargetAtTime(0.08, audioCtx.currentTime, 0.1);
+        if (!alarmInterval) {
+          alarmInterval = setInterval(() => {
+            if (audioCtx && audioCtx.state === 'running') {
+              playTone(400, 0.08, 'triangle');
+            }
+          }, 600);
+        }
+      } else {
+        mainGain.gain.setTargetAtTime(0.02, audioCtx.currentTime, 0.1);
+        if (alarmInterval) {
+          clearInterval(alarmInterval);
+          alarmInterval = null;
+        }
+      }
+    }
+
+    /* ==========================================
+       TEXT-TO-SPEECH (ELI5 VOICE SYSTEM)
+       ========================================== */
+    let ttsEnabled = true;
+    let lastSpokenText = "";
+    let lastSpokenTime = 0;
+
+    function speakText(text) {
+      if (!ttsEnabled) return;
+      const now = Date.now();
+      // Anti-spam filter
+      if (text === lastSpokenText && (now - lastSpokenTime) < 8000) return;
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel(); // kill active speech
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 1.05;
+        utterance.pitch = 1.0;
+        window.speechSynthesis.speak(utterance);
+        lastSpokenText = text;
+        lastSpokenTime = now;
+      }
+    }
+
+    /* ==========================================
+       ENGINEERING PHYSICS MODEL
+       ========================================== */
+    const state = {
+      baseType: 'slab',        // 'slab' or 'gusseted'
+      viewState: 'iso',        // 'plan', 'elev', 'iso'
+      codebookUnlocked: false,
+      slotsFilled: {
+        A: false,
+        fck: false,
+        w: false
+      },
+      // Design Input Variables
+      P: 1200,    // kN
+      B: 500,     // mm width (assume square base plate initially B = D)
+      fck: 25,    // M25 Concrete
+      fy: 250,    // N/mm² Yield Steel
+      ts: 24,     // mm Thickness
+      // Calculated outputs
+      w: 0,
+      wLimit: 0,
+      tMin: 0,
+      isPressureSafe: true,
+      isThicknessSafe: true
+    };
+
+    // Concrete Pedestal dimensions
+    const pedestalSize = 1.35; // 35% larger than plate
+
+    // Anchor Bolt arrangement
+    const bolts = [
+      {x: -0.4, z: -0.4},
+      {x:  0.4, z: -0.4},
+      {x:  0.4, z:  0.4},
+      {x: -0.4, z:  0.4}
+    ];
+
+    // Column geometry (ISHB 300 properties scaled)
+    const colHeight = 220;
+    const colDepth = 150; // Web to Flange
+    const colWidth = 140; // Flange width
+    const colFlangeT = 12;
+    const colWebT = 10;
+
+    function runCalculations() {
+      // Area of base plate (mm²)
+      const area = state.B * state.B;
+      
+      // Stress w = P / A (N/mm²)
+      state.w = (state.P * 1000) / area;
+      
+      // Limit Stress on concrete pedestal = 0.45 * fck
+      state.wLimit = 0.45 * state.fck;
+      
+      // Overhang computations (projections beyond Column boundary)
+      const a = (state.B - colDepth) / 2;
+      const b = (state.B - colWidth) / 2;
+      
+      // Clamped term inside minimum thickness formula
+      const projectionFactor = Math.max(0.1, (a*a) - 0.3 * (b*b));
+      
+      // Min Thickness (Slab Base Cl 7.4.3)
+      state.tMin = Math.sqrt((2.5 * state.w * projectionFactor * 1.1) / state.fy);
+
+      // Verify Safety States
+      state.isPressureSafe = state.w <= state.wLimit;
+      state.isThicknessSafe = state.ts >= state.tMin;
+
+      // Update Dashboard Indicators
+      document.getElementById('lbl-load').innerText = `${state.P} kN`;
+      document.getElementById('lbl-dim').innerText = `${state.B} × ${state.B} mm`;
+      document.getElementById('lbl-fck').innerText = `M${state.fck}`;
+      document.getElementById('lbl-ts').innerText = `${state.ts} mm`;
+
+      document.getElementById('status-w').innerText = `${state.w.toFixed(2)} N/mm²`;
+      document.getElementById('status-limit').innerText = `${state.wLimit.toFixed(2)} N/mm²`;
+      document.getElementById('status-tmin').innerText = `${state.tMin.toFixed(1)} mm`;
+
+      // Update Formula Values UI
+      if (state.slotsFilled.A) {
+        document.getElementById('eq1-val').innerHTML = `w = ${state.P} × 10³ / ${area} = <span class="text-cyan">${state.w.toFixed(2)} N/mm²</span>`;
+      }
+      if (state.slotsFilled.fck) {
+        document.getElementById('eq2-val').innerHTML = `w<sub>limit</sub> = 0.45 × ${state.fck} = <span class="text-emerald">${state.wLimit.toFixed(2)} N/mm²</span>`;
+      }
+      if (state.slotsFilled.w) {
+        document.getElementById('eq3-val').innerHTML = `t<sub>min</sub> = √[ 2.5 × ${state.w.toFixed(1)} × (${a.toFixed(0)}² - 0.3×${b.toFixed(0)}²) × 1.1 / ${state.fy} ] = <span class="text-magenta">${state.tMin.toFixed(1)} mm</span>`;
+      }
+
+      // Checklist Status Rendering
+      updateChecklists();
+      
+      // Audio continuous modulation
+      const failureDetected = !state.isPressureSafe || (!state.isThicknessSafe && state.codebookUnlocked && state.slotsFilled.w);
+      updatePitchFromLoad(state.P, failureDetected);
+
+      // ELI5 Speech triggering
+      handleAnalogySpeech();
+    }
+
+    function updateChecklists() {
+      // 1. Codebook
+      const chkCode = document.getElementById('chk-codebook');
+      if (state.codebookUnlocked) {
+        chkCode.classList.add('complete');
+      } else {
+        chkCode.classList.remove('complete');
+      }
+
+      // 2. Drag-Drop Slots
+      const chkSlots = document.getElementById('chk-slots');
+      if (state.slotsFilled.A && state.slotsFilled.fck && state.slotsFilled.w) {
+        chkSlots.classList.add('complete');
+      } else {
+        chkSlots.classList.remove('complete');
+      }
+
+      // 3. Pressure Checks
+      const chkBearing = document.getElementById('chk-bearing');
+      const statusSafety = document.getElementById('status-safety');
+      const hudStatus = document.getElementById('hud-status');
+
+      if (state.isPressureSafe) {
+        chkBearing.classList.add('complete');
+        statusSafety.innerText = "PRESSURE SECURE";
+        statusSafety.className = "text-emerald bold";
+        hudStatus.className = "hud-status-card";
+      } else {
+        chkBearing.classList.remove('complete');
+        statusSafety.innerText = "CONCRETE CRUSHING FAIL!";
+        statusSafety.className = "text-red bold";
+        hudStatus.className = "hud-status-card danger";
+      }
+
+      // 4. Thickness Checks
+      const chkThick = document.getElementById('chk-thickness');
+      if (state.codebookUnlocked && state.slotsFilled.w) {
+        if (state.isThicknessSafe) {
+          chkThick.classList.add('complete');
+        } else {
+          chkThick.classList.remove('complete');
+          statusSafety.innerText = "PLATE WARPING FAIL!";
+          statusSafety.className = "text-red bold";
+          hudStatus.className = "hud-status-card danger";
+        }
+      } else {
+        chkThick.classList.remove('complete');
+      }
+    }
+
+    function handleAnalogySpeech() {
+      if (!state.isPressureSafe) {
+        speakText("Oh no! The concrete under our giant is screaming! It's too heavy for this size boot! Slide up the Plate Dimensions or concrete grade to help.");
+        document.getElementById('analogy-text').innerHTML = "The pressure is exceeding limits! The concrete foundation cannot sustain the weight. It's like putting a sharp heel on soft timber—increase base plate width to protect it!";
+      } else if (state.codebookUnlocked && state.slotsFilled.w && !state.isThicknessSafe) {
+        speakText("Look at that! The base plate is too thin. It will warp like a warm potato chip! Let's increase the plate thickness slider immediately.");
+        document.getElementById('analogy-text').innerHTML = "Bending failure alert! The steel base is strong, but because it is too thin, the massive column weight will bend the outer edges upward. Make it thicker!";
+      } else {
+        if (state.baseType === 'slab') {
+          document.getElementById('analogy-text').innerHTML = "Structural stability achieved. The column base transfers weight smoothly down, behaving like a wide flat boot ensuring safe support over concrete pedestal.";
+        } else {
+          document.getElementById('analogy-text').innerHTML = "Excellent choice. Gusset plates added! These acts like rigid structural wings, strengthening the column connections so the base plate is completely immune to bending!";
+        }
+      }
+    }
+
+    /* ==========================================
+       CANVAS 3D ISOMETRIC /BLUEPRINT DRAWING ENGINE
+       ========================================== */
+    const canvas = document.getElementById('render-canvas');
+    const ctx = canvas.getContext('2d');
+
+    // Camera State
+    let rotationY = -0.7; // Radians Y orbit
+    let rotationX = 0.5;  // Radians X tilt
+    let targetX = 0.5;
+    let targetY = -0.7;
+
+    // View matrix coordinates
+    let centerX = 0;
+    let centerY = 0;
+    let baseScale = 1;
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+      centerX = rect.width / 2;
+      centerY = rect.height / 2;
+      // Fit to view
+      baseScale = Math.min(rect.width, rect.height) / 480;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    setTimeout(resizeCanvas, 100);
+
+    // Coordinate Projection
+    function project(x, y, z) {
+      const cosY = Math.cos(rotationY);
+      const sinY = Math.sin(rotationY);
+      const cosX = Math.cos(rotationX);
+      const sinX = Math.sin(rotationX);
+
+      // Rotate Y (orbit)
+      const x1 = x * cosY - z * sinY;
+      const z1 = x * sinY + z * cosY;
+
+      // Rotate X (tilt)
+      const y1 = y * cosX - z1 * sinX;
+      const z2 = y * sinX + z1 * cosX;
+
+      return {
+        x: centerX + x1 * baseScale,
+        y: centerY - y1 * baseScale
+      };
+    }
+
+    // Helper: Draw 3D Box Polygon Layer
+    function drawBox3D(cx, cy, cz, w, h, d, fillColor, strokeColor, lineWidth = 1) {
+      const halfW = w / 2;
+      const halfH = h / 2;
+      const halfD = d / 2;
+
+      // Box Vertices
+      const vertices = [
+        {x: cx - halfW, y: cy - halfH, z: cz - halfD}, // 0
+        {x: cx + halfW, y: cy - halfH, z: cz - halfD}, // 1
+        {x: cx + halfW, y: cy + halfH, z: cz - halfD}, // 2
+        {x: cx - halfW, y: cy + halfH, z: cz - halfD}, // 3
+        {x: cx - halfW, y: cy - halfH, z: cz + halfD}, // 4
+        {x: cx + halfW, y: cy - halfH, z: cz + halfD}, // 5
+        {x: cx + halfW, y: cy + halfH, z: cz + halfD}, // 6
+        {x: cx - halfW, y: cy + halfH, z: cz + halfD}  // 7
+      ];
+
+      const p = vertices.map(v => project(v.x, v.y, v.z));
+
+      // Faces mapping with indices and average depth sorting
+      const faces = [
+        { idx: [0, 1, 2, 3], color: fillColor, line: strokeColor }, // Back
+        { idx: [4, 5, 6, 7], color: fillColor, line: strokeColor }, // Front
+        { idx: [0, 3, 7, 4], color: fillColor, line: strokeColor }, // Left
+        { idx: [1, 2, 6, 5], color: fillColor, line: strokeColor }, // Right
+        { idx: [3, 2, 6, 7], color: fillColor, line: strokeColor }, // Top
+        { idx: [0, 1, 5, 4], color: fillColor, line: strokeColor }  // Bottom
+      ];
+
+      // Depth sort faces
+      faces.forEach(face => {
+        let avgZ = 0;
+        face.idx.forEach(i => {
+          const v = vertices[i];
+          avgZ += v.x * Math.sin(rotationY) + v.z * Math.cos(rotationY);
+        });
+        face.z = avgZ / 4;
+      });
+
+      faces.sort((a, b) => b.z - a.z);
+
+      faces.forEach(face => {
+        ctx.beginPath();
+        ctx.moveTo(p[face.idx[0]].x, p[face.idx[0]].y);
+        for (let i = 1; i < 4; i++) {
+          ctx.lineTo(p[face.idx[i]].x, p[face.idx[i]].y);
+        }
+        ctx.closePath();
+        ctx.fillStyle = face.color;
+        ctx.fill();
+        ctx.strokeStyle = face.line;
+        ctx.lineWidth = lineWidth;
+        ctx.stroke();
+      });
+    }
+
+    // Main Render Loop
+    function render() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Smooth camera interpolation
+      rotationX += (targetX - rotationX) * 0.1;
+      rotationY += (targetY - rotationY) * 0.1;
+
+      // Scale base plate dimensions to match screen range safely
+      const mappedPlateSize = 130 + (state.B / 800) * 80;
+      const mappedThickness = state.ts * 1.0;
+
+      // 1. DRAW CONCRETE PEDESTAL
+      const pedSize = mappedPlateSize * pedestalSize;
+      const pedHeight = 110;
+      const pedY = -90; // y-offset downward (3D model space)
+      drawBox3D(0, pedY, 0, pedSize, pedHeight, pedSize, 'rgba(40, 50, 75, 0.45)', 'rgba(255,255,255,0.2)');
+
+      // Concrete pattern details on faces if zoomed/isometric
+      if (state.viewState === 'iso') {
+        const p1 = project(-pedSize/3, pedY + 30, pedSize/2);
+        const p2 = project(pedSize/3, pedY - 30, pedSize/2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+        ctx.font = '10px monospace';
+        ctx.fillText("CONCRETE FOUNDATION", p1.x, p1.y);
+      }
+
+      // 2. STRESS VECTOR HEATMAP (Fills space under the base plate)
+      const stressPoints = 5;
+      const step = mappedPlateSize / (stressPoints - 1);
+      const plateBottomY = pedY + pedHeight / 2;
+      const actualW = state.w;
+      const isOverloaded = !state.isPressureSafe;
+      
+      // Interpolate Vector color
+      let vectorColor = 'rgba(0, 242, 254, 0.8)';
+      if (isOverloaded) {
+        vectorColor = 'rgba(239, 68, 68, 0.95)';
+      } else if (actualW > state.wLimit * 0.7) {
+        vectorColor = 'rgba(245, 158, 11, 0.85)';
+      }
+
+      for (let i = 0; i < stressPoints; i++) {
+        for (let j = 0; j < stressPoints; j++) {
+          const sx = -mappedPlateSize / 2 + i * step;
+          const sz = -mappedPlateSize / 2 + j * step;
+          
+          // Project arrow positions
+          const bottomPt = project(sx, plateBottomY - 15, sz);
+          const topPt = project(sx, plateBottomY + 12, sz);
+
+          ctx.beginPath();
+          ctx.moveTo(bottomPt.x, bottomPt.y);
+          ctx.lineTo(topPt.x, topPt.y);
+          ctx.strokeStyle = vectorColor;
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          // Arrow head pointing upward
+          ctx.beginPath();
+          ctx.moveTo(topPt.x - 3, topPt.y + 4);
+          ctx.lineTo(topPt.x, topPt.y);
+          ctx.lineTo(topPt.x + 3, topPt.y + 4);
+          ctx.stroke();
+        }
+      }
+
+      // 3. DRAW BASE PLATE
+      const plateY = plateBottomY + mappedThickness / 2;
+      let plateColor = 'rgba(13, 148, 136, 0.35)'; // Teal translucent
+      let plateOutline = 'rgba(45, 212, 191, 0.9)'; // Neon Teal
+
+      if (!state.isThicknessSafe && state.codebookUnlocked && state.slotsFilled.w) {
+        // Red flashing outline if warping failure detected
+        const pulse = Math.abs(Math.sin(Date.now() * 0.005));
+        plateColor = `rgba(239, 68, 68, ${0.2 + pulse * 0.15})`;
+        plateOutline = `rgba(239, 68, 68, ${0.7 + pulse * 0.3})`;
+      }
+
+      drawBox3D(0, plateY, 0, mappedPlateSize, mappedThickness, mappedPlateSize, plateColor, plateOutline, 1.5);
+
+      // Label overhang sizes
+      if (state.viewState === 'elev') {
+        const overhang_a = (state.B - colDepth) / 2;
+        const leftProjection = project(-mappedPlateSize / 2, plateY, 0);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.font = '10px monospace';
+        ctx.fillText(`a: ${overhang_a.toFixed(0)}mm`, leftProjection.x - 60, leftProjection.y);
+      }
+
+      // 4. DRAW COLUMN ASSEMBLY (Decomposed in Web and 2 Flanges)
+      const columnStartY = plateY + mappedThickness / 2 + colHeight / 2;
+
+      // Structural I-Section Rendering
+      const flangeCol = 'rgba(124, 58, 237, 0.4)';
+      const flangeStroke = 'rgba(167, 139, 250, 0.95)';
+
+      // Flange A (Back/Left depending on angle)
+      drawBox3D(0, columnStartY, -colDepth/2 + colFlangeT/2, colWidth, colHeight, colFlangeT, flangeCol, flangeStroke);
+      // Flange B
+      drawBox3D(0, columnStartY, colDepth/2 - colFlangeT/2, colWidth, colHeight, colFlangeT, flangeCol, flangeStroke);
+      // Web
+      drawBox3D(0, columnStartY, 0, colWebT, colHeight, colDepth - colFlangeT * 2, flangeCol, flangeStroke);
+
+      // 5. DRAW GUSSET ASSEMBLIES (If state.baseType is 'gusseted')
+      if (state.baseType === 'gusseted') {
+        const gussetThickness = 8;
+        const gussetHeight = 70;
+        const gussetY = plateY + mappedThickness / 2 + gussetHeight / 2;
+        
+        // Front Gusset Plate
+        drawBox3D(0, gussetY, colDepth/2 + 8, mappedPlateSize * 0.85, gussetHeight, gussetThickness, 'rgba(219, 39, 119, 0.4)', 'rgba(244, 114, 182, 0.9)');
+        // Rear Gusset Plate
+        drawBox3D(0, gussetY, -colDepth/2 - 8, mappedPlateSize * 0.85, gussetHeight, gussetThickness, 'rgba(219, 39, 119, 0.4)', 'rgba(244, 114, 182, 0.9)');
+      }
+
+      // 6. DRAW ANCHOR BOLTS
+      bolts.forEach(bolt => {
+        const bx = bolt.x * mappedPlateSize;
+        const bz = bolt.z * mappedPlateSize;
+        const boltH = 22;
+        const boltY = plateY + mappedThickness/2 + boltH / 2;
+        drawBox3D(bx, boltY, bz, 8, boltH, 8, 'rgba(245, 158, 11, 0.5)', 'rgba(245, 158, 11, 0.95)');
+      });
+
+      // Simple Coordinate Compass Indicator (Lower Left corner)
+      drawCompass();
+
+      requestAnimationFrame(render);
+    }
+
+    function drawCompass() {
+      const scale = 20;
+      const ox = 40;
+      const oy = canvas.height / devicePixelRatio - 40;
+
+      // Project axes coordinates
+      const px = project(scale, 0, 0);
+      const py = project(0, scale, 0);
+      const pz = project(0, 0, scale);
+
+      // Translate points to fit custom corner anchoring
+      const cxProj = project(0, 0, 0);
+      const dx = ox - cxProj.x;
+      const dy = oy - cxProj.y;
+
+      ctx.lineWidth = 1.5;
+      
+      // X Axis (Red)
+      ctx.strokeStyle = 'rgba(239, 68, 68, 0.8)';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(px.x + dx, px.y + dy);
+      ctx.stroke();
+
+      // Y Axis (Green)
+      ctx.strokeStyle = 'rgba(16, 185, 129, 0.8)';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(py.x + dx, py.y + dy);
+      ctx.stroke();
+
+      // Z Axis (Blue)
+      ctx.strokeStyle = 'rgba(59, 130, 246, 0.8)';
+      ctx.beginPath();
+      ctx.moveTo(ox, oy);
+      ctx.lineTo(pz.x + dx, pz.y + dy);
+      ctx.stroke();
+    }
+
+    // View State Click Listeners
+    document.getElementById('btn-view-plan').addEventListener('click', () => {
+      targetX = Math.PI / 2;
+      targetY = 0;
+      state.viewState = 'plan';
+      updateActiveBtn('view-btn', 'btn-view-plan');
+      document.getElementById('hud-view-state').innerText = "PLAN (TOP DOWN)";
+      document.getElementById('hud-hint').innerText = "Model locked to Plan projection";
+    });
+
+    document.getElementById('btn-view-elev').addEventListener('click', () => {
+      targetX = 0;
+      targetY = 0;
+      state.viewState = 'elev';
+      updateActiveBtn('view-btn', 'btn-view-elev');
+      document.getElementById('hud-view-state').innerText = "SIDE ELEVATION";
+      document.getElementById('hud-hint').innerText = "Model locked to Side projection";
+    });
+
+    document.getElementById('btn-view-iso').addEventListener('click', () => {
+      targetX = 0.5;
+      targetY = -0.7;
+      state.viewState = 'iso';
+      updateActiveBtn('view-btn', 'btn-view-iso');
+      document.getElementById('hud-view-state').innerText = "3D ORBIT MODE";
+      document.getElementById('hud-hint').innerText = "Drag on screen to orbit model";
+    });
+
+    function updateActiveBtn(className, activeId) {
+      document.querySelectorAll(`.${className}`).forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.getElementById(activeId).classList.add('active');
+    }
+
+    // Interactive orbiting dragging handler
+    let isOrbiting = false;
+    let prevX = 0;
+    let prevY = 0;
+
+    canvas.addEventListener('pointerdown', (e) => {
+      isOrbiting = true;
+      prevX = e.clientX;
+      prevY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      if (!isOrbiting) return;
+      const dx = e.clientX - prevX;
+      const dy = e.clientY - prevY;
+
+      targetY += dx * 0.007;
+      targetX += dy * 0.007;
+
+      // Keep within comfortable horizontal range, clamp absolute flipovers
+      targetX = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, targetX));
+
+      prevX = e.clientX;
+      prevY = e.clientY;
+      
+      state.viewState = 'orbit';
+      document.getElementById('hud-view-state').innerText = "INTERACTIVE ORBIT";
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+    });
+
+    canvas.addEventListener('pointerup', (e) => {
+      isOrbiting = false;
+      canvas.releasePointerCapture(e.pointerId);
+    });
+
+    /* Start Drawing */
+    requestAnimationFrame(render);
+
+
+    /* ==========================================
+       DRAG AND DROP FORMULA MECHANICS
+       ========================================== */
+    const chips = document.querySelectorAll('.draggable-chip');
+    const slots = document.querySelectorAll('.drop-slot');
+
+    chips.forEach(chip => {
+      chip.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', e.target.id);
+        if (audioCtx && audioCtx.state === 'running') {
+          playTone(300, 0.05, 'triangle');
+        }
+      });
+    });
+
+    slots.forEach(slot => {
+      slot.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        slot.classList.add('dragover');
+      });
+
+      slot.addEventListener('dragleave', () => {
+        slot.classList.remove('dragover');
+      });
+
+      slot.addEventListener('drop', (e) => {
+        e.preventDefault();
+        slot.classList.remove('dragover');
+
+        const chipId = e.dataTransfer.getData('text/plain');
+        const expectedTarget = slot.getAttribute('data-target');
+        const draggedVar = chipId.replace('chip-', '');
+
+        if (draggedVar === expectedTarget) {
+          // Success Placement
+          slot.innerText = draggedVar;
+          slot.classList.add('filled');
+          state.slotsFilled[expectedTarget] = true;
+          playChime();
+          runCalculations();
+        } else {
+          // Error Placement
+          slot.classList.add('shake');
+          playError();
+          setTimeout(() => slot.classList.remove('shake'), 400);
+        }
+      });
+    });
+
+    // Codebook Trigger Modal Actions
+    const modal = document.getElementById('codebook-modal');
+    document.getElementById('btn-codebook').addEventListener('click', () => {
+      modal.classList.add('active');
+      playTone(400, 0.1, 'sine');
+    });
+
+    document.getElementById('btn-close-modal').addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+
+    document.getElementById('btn-auth-code').addEventListener('click', () => {
+      state.codebookUnlocked = true;
+      modal.classList.remove('active');
+      document.getElementById('formula-lock').style.display = 'none';
+      document.getElementById('btn-codebook').style.border = '1px solid var(--emerald)';
+      document.getElementById('btn-codebook').innerHTML = `
+        <span class="pulse-status" style="background-color: var(--emerald);"></span>
+        <h3>IS 800 Unlocked!</h3>
+        <p>Clause 7.4.3.1 active. Resolve variables to finalize calculation parameters.</p>
+      `;
+      playChime();
+      runCalculations();
+      speakText("Fantastic! You have unlocked Section 7 of the Indian Standard code. You can now configure the minimum plate thickness requirements.");
+    });
+
+
+    /* ==========================================
+       USER SLIDERS & CONFIGURATION INTERACTION
+       ========================================== */
+    const loadSlider = document.getElementById('slider-load');
+    const dimSlider = document.getElementById('slider-dim');
+    const fckSlider = document.getElementById('slider-fck');
+    const tsSlider = document.getElementById('slider-ts');
+
+    loadSlider.addEventListener('input', (e) => {
+      state.P = parseInt(e.target.value);
+      runCalculations();
+    });
+
+    dimSlider.addEventListener('input', (e) => {
+      state.B = parseInt(e.target.value);
+      runCalculations();
+    });
+
+    fckSlider.addEventListener('input', (e) => {
+      state.fck = parseInt(e.target.value);
+      runCalculations();
+    });
+
+    tsSlider.addEventListener('input', (e) => {
+      state.ts = parseInt(e.target.value);
+      runCalculations();
+    });
+
+    // Base Type Selector Buttons
+    document.getElementById('btn-slab').addEventListener('click', () => {
+      state.baseType = 'slab';
+      updateActiveBtn('mode-btn', 'btn-slab');
+      document.getElementById('hud-base-module').innerText = "SLAB BASE";
+      playTone(500, 0.08, 'sine');
+      runCalculations();
+      speakText("Slab base system loaded. Ready to calculate minimum bearing specifications.");
+    });
+
+    document.getElementById('btn-gusseted').addEventListener('click', () => {
+      state.baseType = 'gusseted';
+      updateActiveBtn('mode-btn', 'btn-gusseted');
+      document.getElementById('hud-base-module').innerText = "GUSSETED BASE";
+      playTone(600, 0.08, 'sine');
+      runCalculations();
+      speakText("Gusseted plates added to provide wings! These stiffen the baseplate and handle extreme heavy structural loads.");
+    });
+
+    // Header Controls (Synthesizer & Audio Toggles)
+    document.getElementById('btn-audio').addEventListener('click', () => {
+      toggleAudio();
+    });
+
+    document.getElementById('btn-eli5').addEventListener('click', () => {
+      ttsEnabled = !ttsEnabled;
+      const btn = document.getElementById('btn-eli5');
+      if (ttsEnabled) {
+        btn.classList.add('active');
+        btn.innerHTML = `<span class="pulse-status" style="background-color: var(--emerald);"></span> ELI5 Voice Assistant`;
+      } else {
+        btn.classList.remove('active');
+        btn.innerHTML = `<span class="pulse-status" style="background-color: var(--text-muted); animation:none;"></span> ELI5 Voice Assistant`;
+        if ('speechSynthesis' in window) {
+          window.speechSynthesis.cancel();
+        }
+      }
+    });
+
+    // Run Initial State Calculations
+    runCalculations();
+    speakText("Welcome to the Steel Base Designer. The steel column is a tall, heavy giant, and the base is his giant, flat sneaker to keep him from sinking!");
+  </script>
+</body>
+</html>

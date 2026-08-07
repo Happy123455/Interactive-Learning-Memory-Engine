@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RCC Structural Simulator | Limit States</title>
+    <style>
+        :root {
+            --bg: #0a0b10;
+            --panel: rgba(15, 17, 28, 0.7);
+            --neon-cyan: #00f3ff;
+            --neon-purple: #9d00ff;
+            --neon-yellow: #ffde00;
+            --text: #e0e0e0;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100vh;
+            overflow: hidden;
+            background: radial-gradient(circle at center, #1c1f2e, #0a0b10);
+            color: var(--text);
+            font-family: 'Segoe UI', sans-serif;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 30% 40% 30%;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .panel {
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 20px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .scroll-area { overflow-y: auto; flex-grow: 1; padding-right: 5px; }
+
+        canvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+
+        .btn {
+            background: transparent;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+        }
+
+        .btn:hover { background: var(--neon-cyan); color: #000; }
+
+        .drag-target {
+            border: 2px dashed var(--neon-purple);
+            padding: 15px;
+            text-align: center;
+            margin: 10px 0;
+            border-radius: 10px;
+        }
+
+        h2 { color: var(--neon-cyan); margin-top: 0; font-size: 1.2rem; }
+    </style>
+</head>
+<body>
+
+<div class="dashboard">
+    <div class="panel">
+        <h2>IS-456 Playroom</h2>
+        <div class="scroll-area" id="controls">
+            <button class="btn" onclick="toggleAudio()">Toggle Audio Engine</button>
+            <div id="check-list">
+                <p onclick="identify('fck')" style="cursor:pointer">fck = 20 MPa ⏳</p>
+                <p onclick="identify('fy')" style="cursor:pointer">fy = 415 MPa ⏳</p>
+            </div>
+            <div class="drag-target" id="formula-slot">Drag parameter here</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <canvas id="simCanvas"></canvas>
+    </div>
+
+    <div class="panel">
+        <h2>Monitor & Narrator</h2>
+        <div id="narrator" style="font-style: italic; color: var(--neon-yellow);"></div>
+        <div id="status-bars" style="margin-top: 20px;">
+            <p>Moment Ratio: <span id="m-ratio">0%</span></p>
+            <div style="background:#333; height:10px;"><div id="m-bar" style="width:0%; height:100%; background:var(--neon-cyan)"></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const State = {
+        b: 250, D: 450, d_prime: 50, L: 4000,
+        fck: 20, fy: 415, Ast: 603,
+        appliedLoad: 10, handTension: 0,
+        narratorMuted: false, synthActive: false
+    };
+
+    let audioCtx, osc, gainNode;
+
+    function resizeCanvas() {
+        const rect = canvas.getBoundingClientRect();
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        ctx.scale(dpr, dpr);
+    }
+
+    function initAudio() {
+        if(audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        osc = audioCtx.createOscillator();
+        gainNode = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.value = 120;
+        gainNode.gain.value = 0.02;
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.start();
+        State.synthActive = true;
+    }
+
+    function toggleAudio() { 
+        initAudio(); 
+        if(State.synthActive) { gainNode.gain.value = 0; State.synthActive = false; } 
+        else { gainNode.gain.value = 0.02; State.synthActive = true; }
+    }
+
+    function draw() {
+        const rect = canvas.getBoundingClientRect();
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        
+        // Beam Logic
+        ctx.fillStyle = '#4a4a4a';
+        ctx.fillRect(50, 150, rect.width - 100, 50);
+        
+        // Supports
+        ctx.fillStyle = 'yellow';
+        ctx.fillRect(60, 200, 40, 40);
+        ctx.fillRect(rect.width - 100, 200, 40, 40);
+
+        // Physics Calculation
+        let M = ((State.appliedLoad + State.handTension) * Math.pow(4, 2)) / 8;
+        document.getElementById('m-bar').style.width = Math.min(M*5, 100) + "%";
+        
+        requestAnimationFrame(draw);
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    draw();
+
+    function speak(text) {
+        if(State.narratorMuted) return;
+        const msg = new SpeechSynthesisUtterance(text);
+        window.speechSynthesis.speak(msg);
+        document.getElementById('narrator').innerText = text;
+    }
+
+    function identify(param) {
+        speak("You have identified the " + param + " variable!");
+    }
+
+    // Interaction
+    canvas.addEventListener('mousedown', (e) => {
+        State.handTension = 15;
+        speak("Ooh! Adding weight! Compression zone is active!");
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+        State.handTension = 0;
+    });
+
+</script>
+</body>
+</html>
