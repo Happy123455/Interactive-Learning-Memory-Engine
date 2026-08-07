@@ -713,8 +713,6 @@ Please guide me through this calculation/concept step-by-step. Break it down int
         const activeStep = question.steps.find(st => st.id === question.activeStepId);
         if (activeStep && activeStep.status === 'ready' && activeStep.simulationFile) {
           targetFile = activeStep.simulationFile;
-        } else {
-          targetFile = '';
         }
       }
 
