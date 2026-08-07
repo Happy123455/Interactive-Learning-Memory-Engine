@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Database, FsrsItem, FsrsMCQ } from '../types';
+import { getSimUrl } from '../utils/url';
 import { Calendar, CheckCircle, RefreshCw, Star, Play, Sparkles, Loader, ArrowLeft, TrendingUp, GitFork, BarChart3, Layers, Zap, XCircle, HelpCircle, Check, X, Target, Award, Clock, Maximize2, ClipboardList, Code, Copy, GitBranch, Volume2, VolumeX, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface FSRSSpaceProps {
@@ -659,7 +660,7 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
               ) : (
                 <iframe
                   id="mcq-sim-iframe"
-                  src={item.simulationFile}
+                  src={getSimUrl(item.simulationFile)}
                   style={{ width: '100%', height: '100%', border: 'none', background: '#090b11' }}
                   title={`FSRS Sim: ${item.concept}`}
                 />

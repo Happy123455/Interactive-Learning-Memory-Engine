@@ -92,16 +92,30 @@ export const App: React.FC = () => {
     alert(`Custom feature "${newFeatureInput.trim()}" added to your style profile!`);
   };
 
-  // Load database and settings
+  // Load database and settings with static fallback for GitHub Pages
   const loadDB = async () => {
     try {
-      const res = await fetch('/api/db');
+      let res = await fetch('/api/db');
+      if (!res.ok) {
+        const base = import.meta.env.BASE_URL || '/';
+        const cleanBase = base.endsWith('/') ? base : base + '/';
+        res = await fetch(`${cleanBase}data/db.json`);
+      }
       if (res.ok) {
         const data = await res.json();
         setDb(data);
       }
     } catch (error) {
       console.error('Error loading DB:', error);
+      try {
+        const base = import.meta.env.BASE_URL || '/';
+        const cleanBase = base.endsWith('/') ? base : base + '/';
+        const res = await fetch(`${cleanBase}data/db.json`);
+        if (res.ok) {
+          const data = await res.json();
+          setDb(data);
+        }
+      } catch (e) {}
     }
   };
 

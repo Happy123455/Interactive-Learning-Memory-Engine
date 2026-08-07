@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { Question } from '../types';
+import { getSimUrl } from '../utils/url';
 import { X, Send, RefreshCw, Volume2, Sparkles, Sliders, CheckSquare, Square, ChevronLeft, ChevronRight, ClipboardList, FileText, ListOrdered, Check, Play, Loader, Layers, Maximize2, Copy, GitBranch } from 'lucide-react';
 
 interface SimViewerProps {
@@ -718,10 +719,7 @@ Please guide me through this calculation/concept step-by-step. Break it down int
         }
       }
 
-      let cleanPath = targetFile ? targetFile.trim() : '';
-      if (cleanPath.startsWith('data/simulations/')) {
-        cleanPath = cleanPath.replace('data/simulations/', '/simulations/');
-      }
+      let cleanPath = targetFile ? getSimUrl(targetFile) : '';
       if (cleanPath === '/' || cleanPath === '') {
         cleanPath = '';
       }

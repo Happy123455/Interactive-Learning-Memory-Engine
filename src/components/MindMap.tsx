@@ -78,11 +78,11 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
     // Helper to calculate the visible height (in leaf slots) of a subtree
     const getSpacingHeight = (nodeId: string, type: 'root' | 'subject' | 'unit' | 'assignment'): number => {
       if (type === 'root') {
-        return db.subjects.reduce((sum, sub) => sum + getSpacingHeight(sub.id, 'subject'), 0) || 1;
+        return (db.subjects || []).reduce((sum, sub) => sum + getSpacingHeight(sub.id, 'subject'), 0) || 1;
       }
       if (type === 'subject') {
         if (!expandedSubjects[nodeId]) return 1;
-        const subject = db.subjects.find(s => s.id === nodeId);
+        const subject = (db.subjects || []).find(s => s.id === nodeId);
         const units = subject?.units || [];
         return units.reduce((sum, u) => sum + getSpacingHeight(`${nodeId}-${u.id}`, 'unit'), 0) || 1;
       }
