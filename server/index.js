@@ -3716,6 +3716,92 @@ app.get('/api/style-profile-stats', (req, res) => {
 // Serve UMS Content Tracker static files & dashboard HTML
 app.use('/ums-tracker', express.static(path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker')));
 
+// Helper to sync scraped UMS metadata (content.json) directly into db.json
+const syncScrapedContentToDB = () => {
+  try {
+    const contentPath = fs.existsSync(path.join(DATA_DIR, 'content.json'))
+      ? path.join(DATA_DIR, 'content.json')
+      : path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/data/content.json');
+
+    if (!fs.existsSync(contentPath)) return;
+
+    const contentData = JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
+    if (!contentData || !contentData.subjects) return;
+
+    const db = readDB();
+    let dbUpdated = false;
+
+    contentData.subjects.forEach(cs => {
+      let cleanName = cs.name.replace(/^[0-9A-Z]+\s*-\s*/, '').replace(/\s*Semester\s*-\s*\d+/, '').trim();
+      let dbSub = db.subjects.find(s => s.name.toLowerCase() === cleanName.toLowerCase() || cs.name.toLowerCase().includes(s.name.toLowerCase()));
+
+      if (!dbSub) {
+        dbUpdated = true;
+        const newSub = {
+          id: `subject-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          name: cleanName,
+          units: []
+        };
+
+        const unitsMap = new Map();
+        const processItem = (type, item) => {
+          let unitNum = 1;
+          const match = item.name.match(/(?:Unit|UNIT|Tutorial)\s*:?\s*(\d+)/i) || item.name.match(/^(\d+)\./);
+          if (match) unitNum = parseInt(match[1], 10);
+
+          if (!unitsMap.has(unitNum)) {
+            unitsMap.set(unitNum, {
+              id: `unit-${Date.now()}-${unitNum}`,
+              number: unitNum,
+              name: `Unit ${unitNum}: ${cleanName}`,
+              assignments: [],
+              topics: []
+            });
+          }
+          const unitObj = unitsMap.get(unitNum);
+          if (type === 'Assignment') {
+            unitObj.assignments.push({
+              id: `assignment-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              name: item.name,
+              questions: []
+            });
+          } else if (type === 'Presentation' || type === 'E-Notes') {
+            unitObj.topics.push({
+              id: `topic-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+              title: item.name,
+              concept: `${cleanName}: ${item.name}`,
+              description: `UMS Course Material (${type}): ${item.name}`,
+              importanceScore: 8.5,
+              difficulty: 5,
+              status: 'pending',
+              simulationFile: ''
+            });
+          }
+        };
+
+        if (cs.content) {
+          Object.keys(cs.content).forEach(type => {
+            (cs.content[type] || []).forEach(item => processItem(type, item));
+          });
+        }
+
+        newSub.units = Array.from(unitsMap.values());
+        db.subjects.push(newSub);
+      }
+    });
+
+    if (dbUpdated) {
+      writeDB(db);
+      console.log('✅ Automatically synced scraped UMS subjects into db.json');
+    }
+  } catch (e) {
+    console.error('Error syncing scraped content to DB:', e);
+  }
+};
+
+// Run content sync on startup
+syncScrapedContentToDB();
+
 // Run UMS Scraper script from darshan-tracker
 let isUmsScraperRunning = false;
 let umsScraperLog = '';
@@ -3729,8 +3815,8 @@ app.post('/api/run-ums-scraper', (req, res) => {
   const reqUser = req.body?.username;
   const reqPass = req.body?.password;
 
-  const envUser = reqUser || settings.umsUsername || process.env.UMS_USERNAME || '';
-  const envPass = reqPass || settings.umsPassword || process.env.UMS_PASSWORD || '';
+  const envUser = reqUser || settings.umsUsername || process.env.UMS_USERNAME || '6352905262';
+  const envPass = reqPass || settings.umsPassword || process.env.UMS_PASSWORD || '!123abcCBA';
 
   isUmsScraperRunning = true;
   umsScraperLog = 'Starting Darshan UMS Scraper process...';
@@ -3751,6 +3837,7 @@ app.post('/api/run-ums-scraper', (req, res) => {
       console.log('UMS Scraper finished successfully.');
       umsScraperLog = stdout || 'Scraper completed successfully.';
       try {
+        syncScrapedContentToDB();
         const freshDb = readDB();
         writeDB(freshDb);
       } catch (e) {}
