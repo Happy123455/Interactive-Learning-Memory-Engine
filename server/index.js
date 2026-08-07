@@ -32,12 +32,22 @@ const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR || path.join(os.homedir(), '.gem
 const BACKUP_DIR = process.env.BACKUP_DIR || path.join(os.homedir(), 'Documents/darshan-tracker-saves');
 const BACKUP_SIM_DIR = path.join(BACKUP_DIR, 'simulations');
 
-// Ensure directories exist
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR, { recursive: true });
-}
-if (!fs.existsSync(SIM_DIR)) {
-  fs.mkdirSync(SIM_DIR, { recursive: true });
+// Ensure directories exist safely (handles cloud environments)
+try {
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(SIM_DIR)) {
+    fs.mkdirSync(SIM_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+  if (!fs.existsSync(BACKUP_SIM_DIR)) {
+    fs.mkdirSync(BACKUP_SIM_DIR, { recursive: true });
+  }
+} catch (e) {
+  console.warn('[Cloud Storage Warning] Persistent backup directory disabled:', e.message);
 }
 
 // Default system prompts for customization

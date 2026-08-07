@@ -7,6 +7,7 @@ export default defineConfig(({ command }) => {
     base: command === 'build' ? '/Interactive-Learning-Memory-Engine/' : '/',
     plugins: [react()],
     server: {
+      host: true,
       proxy: {
         '/api': 'http://localhost:5050',
         '/simulations': 'http://localhost:5050'
