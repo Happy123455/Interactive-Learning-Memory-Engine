@@ -9,6 +9,12 @@ export const getSimUrl = (path?: string): string => {
   const cleanBase = base.endsWith('/') ? base : base + '/';
 
   let p = path.trim();
+
+  // If path already starts with cleanBase, prevent double-prefixing
+  if (cleanBase !== '/' && p.startsWith(cleanBase)) {
+    return p;
+  }
+
   if (p.startsWith('/simulations/')) {
     p = 'data' + p;
   } else if (p.startsWith('simulations/')) {

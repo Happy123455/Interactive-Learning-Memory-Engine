@@ -727,7 +727,7 @@ Please guide me through this calculation/concept step-by-step. Break it down int
         }
       }
 
-      let cleanPath = targetFile ? getSimUrl(targetFile) : '';
+      let cleanPath = targetFile ? targetFile.trim() : '';
       if (cleanPath === '/' || cleanPath === '') {
         cleanPath = '';
       }
