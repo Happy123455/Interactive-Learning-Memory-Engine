@@ -1,0 +1,2110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBR Test Simulation - Subgrade Evaluation</title>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* Global Reset */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Space Mono', monospace;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        html, body {
+            overflow: hidden; /* Ensure no outer page scrollbars */
+            width: 100%;
+            height: 100%;
+        }
+
+        /* App Container */
+        #app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            background: radial-gradient(circle at top left, #1a2a3a 0%, #0d1218 100%);
+            color: #e0f2f7;
+            position: relative;
+            overflow: hidden; /* Critical for container containment */
+        }
+
+        /* Control Panel */
+        #control-panel {
+            flex: 0 0 350px; /* Fixed width, non-growable, non-shrinkable */
+            min-width: 300px;
+            max-width: 400px;
+            background: rgba(2, 28, 48, 0.2);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-right: 1px solid rgba(78, 205, 196, 0.3);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto; /* Allow scrolling for content inside control panel */
+            overflow-x: hidden;
+            position: relative;
+            z-index: 10; /* Ensure it's above canvas */
+        }
+        
+        #control-panel h1 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            color: #4ecdc4;
+            text-shadow: 0 0 8px #4ecdc4;
+            letter-spacing: 1px;
+        }
+
+        #control-panel h2 {
+            font-size: 1.4em;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            color: #4ecdc4;
+            text-shadow: 0 0 8px #4ecdc4;
+            border-bottom: 1px solid rgba(78, 205, 196, 0.2);
+            padding-bottom: 5px;
+        }
+
+        .control-group {
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid rgba(78, 205, 196, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.1);
+            transition: all 0.3s ease-in-out;
+        }
+
+        .control-group:hover {
+            box-shadow: 0 0 25px rgba(78, 205, 196, 0.3);
+            border-color: rgba(78, 205, 196, 0.5);
+        }
+
+        /* Simulation Canvas Container */
+        #simulation-canvas-container {
+            flex: 1; /* Take remaining space */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        #simulationCanvas {
+            background: #0d1218;
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none; /* Prevent browser touch actions like scrolling/zooming */
+        }
+
+        /* Neon Highlights & Animations */
+        .neon-cyan { color: #4ecdc4; text-shadow: 0 0 5px #4ecdc4, 0 0 10px #4ecdc4, 0 0 15px #4ecdc4; }
+        .neon-purple { color: #8a2be2; text-shadow: 0 0 5px #8a2be2, 0 0 10px #8a2be2, 0 0 15px #8a2be2; }
+        .neon-green { color: #00ff00; text-shadow: 0 0 5px #00ff00, 0 0 10px #00ff00, 0 0 15px #00ff00; }
+        .neon-red { color: #ff0000; text-shadow: 0 0 5px #ff0000, 0 0 10px #ff0000, 0 0 15px #ff0000; }
+        .neon-yellow { color: #ffff00; text-shadow: 0 0 5px #ffff00, 0 0 10px #ffff00, 0 0 15px #ffff00; }
+
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+
+        .pulsing {
+            animation: pulse 1.5s infinite alternate;
+        }
+
+        /* Interactive Elements - Buttons */
+        .cyber-button {
+            background: rgba(78, 205, 196, 0.2);
+            border: 2px solid #4ecdc4;
+            color: #e0f2f7;
+            padding: 10px 15px;
+            font-size: 1.1em;
+            cursor: pointer;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            transition: all 0.3s ease-in-out;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .cyber-button:hover {
+            background: rgba(78, 205, 196, 0.4);
+            box-shadow: 0 0 20px #4ecdc4;
+            text-shadow: 0 0 8px #e0f2f7;
+            transform: translateY(-2px);
+        }
+
+        .cyber-button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 5px #4ecdc4;
+        }
+
+        /* Interactive Elements - Sliders */
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px;
+            background: rgba(78, 205, 196, 0.1);
+            border-radius: 5px;
+            outline: none;
+            margin: 10px 0;
+            transition: background 0.2s ease-in-out;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4ecdc4;
+            cursor: pointer;
+            box-shadow: 0 0 8px #4ecdc4;
+            transition: background 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #e0f2f7;
+            box-shadow: 0 0 15px #e0f2f7;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4ecdc4;
+            cursor: pointer;
+            box-shadow: 0 0 8px #4ecdc4;
+            transition: background 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #e0f2f7;
+            box-shadow: 0 0 15px #e0f2f7;
+        }
+
+        .slider-label {
+            font-size: 0.9em;
+            color: #b3e0e6;
+            margin-bottom: 5px;
+        }
+
+        /* Draggable Soil Cards */
+        .soil-card {
+            background: rgba(78, 205, 196, 0.1);
+            border: 1px solid rgba(78, 205, 196, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: grab;
+            transition: all 0.2s ease-in-out;
+            box-shadow: 0 0 8px rgba(78, 205, 196, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            user-select: none;
+        }
+        .soil-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+            background: rgba(78, 205, 196, 0.2);
+        }
+        .soil-card:active {
+            cursor: grabbing;
+            box-shadow: 0 0 20px #4ecdc4;
+        }
+        .soil-card-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            margin-bottom: 5px;
+            background-size: cover;
+            background-position: center;
+            border: 2px solid #4ecdc4;
+            box-shadow: 0 0 5px #4ecdc4;
+        }
+        #soil-sand .soil-card-icon { background: linear-gradient(45deg, #f0e68c, #dbd272); }
+        #soil-clay .soil-card-icon { background: linear-gradient(45deg, #a0522d, #8b4513); }
+        #soil-gravel .soil-card-icon { background: linear-gradient(45deg, #a9a9a9, #808080); }
+
+        .soil-selection-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 10px;
+            flex-wrap: wrap; /* Allow cards to wrap on smaller control panel widths */
+        }
+
+        /* Canvas Overlay Text and Buttons (for start screen, value readouts) */
+        .canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none; /* Allows mouse events to pass through to canvas by default */
+        }
+
+        .canvas-overlay.active {
+            pointer-events: auto; /* Enable interaction when active */
+        }
+
+        #start-screen {
+            background: rgba(13, 18, 24, 0.8); /* Semi-transparent overlay for start */
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            width: 100%;
+        }
+
+        #start-screen h1 {
+            font-size: 3.5em;
+            margin-bottom: 20px;
+            text-align: center;
+            color: #4ecdc4;
+            text-shadow: 0 0 20px #4ecdc4, 0 0 30px #4ecdc4;
+            animation: pulse 2s infinite alternate;
+        }
+
+        #realtime-readouts {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(2, 28, 48, 0.5);
+            backdrop-filter: blur(5px);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid rgba(78, 205, 196, 0.3);
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.2);
+            text-align: right;
+            pointer-events: none; /* Readouts don't block canvas interaction */
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s ease-in-out;
+            z-index: 5;
+        }
+        #realtime-readouts.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .readout-item {
+            font-size: 1.2em;
+            margin-bottom: 8px;
+            color: #e0f2f7;
+            text-shadow: 0 0 5px #e0f2f7;
+        }
+        .readout-value {
+            font-weight: bold;
+            font-size: 1.4em;
+            color: #00ff00; /* Neon green for values */
+            text-shadow: 0 0 8px #00ff00;
+        }
+
+        /* Draggable Number Chips for CBR Calculation */
+        .numeric-chip {
+            background: rgba(138, 43, 226, 0.15);
+            border: 1px solid #8a2be2;
+            border-radius: 5px;
+            padding: 8px 12px;
+            margin: 5px;
+            cursor: grab;
+            font-weight: bold;
+            text-shadow: 0 0 5px #8a2be2;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.4);
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+            display: inline-block;
+            white-space: nowrap; /* Prevent breaking */
+        }
+        .numeric-chip:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px #8a2be2;
+            background: rgba(138, 43, 226, 0.3);
+        }
+        .numeric-chip.dragging {
+            opacity: 0.7;
+            transform: scale(1.05);
+        }
+
+        .cbr-formula-card {
+            background: rgba(78, 205, 196, 0.05);
+            border: 1px solid rgba(78, 205, 196, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.1);
+        }
+
+        .cbr-formula-card p {
+            font-size: 1.1em;
+            margin-bottom: 10px;
+            color: #e0f2f7;
+        }
+        .cbr-formula-card .cbr-value-display {
+            font-size: 1.6em;
+            font-weight: bold;
+            color: #00ff00; /* Neon green */
+            text-shadow: 0 0 8px #00ff00;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        .cbr-equation {
+            font-family: 'Space Mono', monospace;
+            font-size: 1.1em;
+            margin: 10px 0;
+            color: #e0f2f7;
+        }
+        .cbr-equation strong {
+            color: #4ecdc4;
+            text-shadow: 0 0 5px #4ecdc4;
+        }
+        .cbr-equation .drop-target {
+            display: inline-block;
+            width: 100px;
+            height: 30px;
+            border: 2px dashed rgba(224, 242, 247, 0.5);
+            background: rgba(224, 242, 247, 0.05);
+            border-radius: 5px;
+            vertical-align: middle;
+            margin: 0 5px;
+            text-align: center;
+            line-height: 26px;
+            font-size: 0.9em;
+            color: rgba(224, 242, 247, 0.6);
+            transition: all 0.2s ease-in-out;
+        }
+        .cbr-equation .drop-target.hovered {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 15px #00ff00;
+        }
+        .cbr-equation .drop-target.filled {
+            border-style: solid;
+            background: rgba(0, 255, 0, 0.2);
+            color: #00ff00;
+            font-weight: bold;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        .cbr-equation .drop-target.error {
+            border-color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+            box-shadow: 0 0 15px #ff0000;
+        }
+
+        .cbr-result {
+            margin-top: 15px;
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 8px #00ff00;
+            text-align: center;
+        }
+        .cbr-result span {
+            font-size: 0.8em;
+            color: #e0f2f7;
+            text-shadow: none;
+            font-weight: normal;
+        }
+
+
+        /* Gamified IS 456 Codebook Challenge */
+        .codebook-section {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        #is-codebook-trigger {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(138, 43, 226, 0.1);
+            border: 1px solid #8a2be2;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.2);
+        }
+        #is-codebook-trigger:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 20px #8a2be2;
+            background: rgba(138, 43, 226, 0.3);
+        }
+        #is-codebook-trigger svg {
+            width: 30px;
+            height: 30px;
+            fill: #8a2be2;
+            stroke: #8a2be2;
+            stroke-width: 1px;
+            filter: drop-shadow(0 0 5px #8a2be2);
+        }
+        #codebook-content {
+            background: rgba(138, 43, 226, 0.05);
+            border: 1px solid rgba(138, 43, 226, 0.15);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 10px;
+            display: none; /* Hidden by default */
+            flex-direction: column;
+            gap: 10px;
+            box-shadow: 0 0 15px rgba(138, 43, 226, 0.1);
+        }
+        #codebook-content.active {
+            display: flex;
+        }
+        .codebook-pages {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 10px;
+        }
+        .codebook-page-tab {
+            background: rgba(138, 43, 226, 0.1);
+            border: 1px solid rgba(138, 43, 226, 0.3);
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+            color: #e0f2f7;
+            user-select: none;
+        }
+        .codebook-page-tab:hover {
+            background: rgba(138, 43, 226, 0.25);
+            box-shadow: 0 0 10px rgba(138, 43, 226, 0.5);
+        }
+        .codebook-page-tab.active {
+            background: #8a2be2;
+            color: #fff;
+            box-shadow: 0 0 15px #8a2be2;
+            font-weight: bold;
+        }
+        #codebook-rule-display {
+            background: rgba(2, 28, 48, 0.5);
+            border: 1px solid rgba(78, 205, 196, 0.3);
+            padding: 10px;
+            border-radius: 5px;
+            min-height: 80px;
+            font-style: italic;
+            color: #b3e0e6;
+        }
+
+        #design-cbr-dropzone {
+            margin-top: 15px;
+            padding: 20px;
+            border: 3px dashed #4ecdc4;
+            border-radius: 10px;
+            text-align: center;
+            font-size: 1.3em;
+            color: rgba(78, 205, 196, 0.7);
+            background: rgba(78, 205, 196, 0.1);
+            transition: all 0.3s ease-in-out;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.2);
+            position: relative;
+        }
+        #design-cbr-dropzone.hovered {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 25px #00ff00;
+        }
+        #design-cbr-dropzone.filled {
+             border-style: solid;
+             background: rgba(0, 255, 0, 0.2);
+             color: #00ff00;
+             font-weight: bold;
+             box-shadow: 0 0 20px #00ff00;
+        }
+        #design-cbr-dropzone::after {
+            content: "Drop Design CBR Here";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 0.8em;
+            color: inherit;
+            pointer-events: none;
+            opacity: 1;
+            transition: opacity 0.3s;
+        }
+        #design-cbr-dropzone.filled::after {
+            opacity: 0;
+        }
+        #design-cbr-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+            display: none; /* Initially hidden */
+        }
+        #design-cbr-value.visible {
+            display: block;
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.1em;
+            color: #b3e0e6;
+            margin-bottom: 8px;
+        }
+        .checklist-item.completed {
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+        }
+        .checklist-item .check-icon {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #b3e0e6;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: transparent;
+            font-weight: bold;
+            transition: all 0.3s ease-in-out;
+        }
+        .checklist-item.completed .check-icon {
+            border-color: #00ff00;
+            background: #00ff00;
+            color: #0d1218;
+            box-shadow: 0 0 10px #00ff00;
+        }
+
+        /* Instructions Modal */
+        #instructions-modal {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+        }
+        #instructions-modal.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: rgba(2, 28, 48, 0.8);
+            border: 1px solid rgba(78, 205, 196, 0.5);
+            border-radius: 12px;
+            padding: 30px;
+            width: 80%;
+            max-width: 700px;
+            max-height: 80vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 0 30px rgba(78, 205, 196, 0.8);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .modal-content h3 {
+            font-size: 2em;
+            color: #4ecdc4;
+            text-shadow: 0 0 10px #4ecdc4;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        .modal-instruction-item {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 1.1em;
+            line-height: 1.4;
+        }
+        .modal-instruction-item .icon {
+            width: 40px;
+            height: 40px;
+            min-width: 40px;
+            min-height: 40px;
+            background: rgba(78, 205, 196, 0.2);
+            border: 1px solid #4ecdc4;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 10px rgba(78, 205, 196, 0.5);
+            font-size: 1.5em;
+            color: #e0f2f7;
+        }
+        .modal-close-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: #e0f2f7;
+            cursor: pointer;
+            transition: color 0.2s ease-in-out, transform 0.2s ease-in-out;
+            line-height: 1;
+        }
+        .modal-close-button:hover {
+            color: #ff0000;
+            transform: scale(1.2) rotate(90deg);
+        }
+
+        /* Info Button */
+        #info-button {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(78, 205, 196, 0.2);
+            border: 2px solid #4ecdc4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e0f2f7;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(78, 205, 196, 0.5);
+            transition: all 0.3s ease-in-out;
+            z-index: 10; /* Above canvas, below modal */
+            animation: pulse 2s infinite alternate;
+        }
+        #info-button:hover {
+            background: rgba(78, 205, 196, 0.4);
+            box-shadow: 0 0 25px #4ecdc4;
+            transform: scale(1.1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 900px) {
+            #app-container {
+                flex-direction: column;
+            }
+            #control-panel {
+                flex: 0 0 auto; /* Allow height to be determined by content */
+                width: 100%;
+                max-width: none; /* Remove max-width for smaller screens */
+                border-right: none;
+                border-bottom: 1px solid rgba(78, 205, 196, 0.3);
+                max-height: 50vh; /* Limit control panel height to prevent overflow */
+            }
+            #simulation-canvas-container {
+                flex: 1; /* Canvas takes remaining height */
+                height: 50vh; /* Explicitly set height */
+            }
+            #start-screen h1 {
+                font-size: 2.5em;
+            }
+            .modal-content {
+                width: 95%;
+                padding: 20px;
+            }
+            .modal-instruction-item {
+                font-size: 1em;
+            }
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <!-- Control Panel -->
+        <div id="control-panel">
+            <h1>CBR Test Sandbox</h1>
+
+            <div id="phase-intro" class="control-group">
+                <p>Welcome, future engineer! Let's explore soil strength with the California Bearing Ratio test!</p>
+                <button id="intro-start-button" class="cyber-button">Start Simulation</button>
+            </div>
+
+            <div id="phase-setup" class="control-group" style="display: none;">
+                <h2>1. Prepare Your Ground!</h2>
+                <label class="slider-label">Choose your soil type:</label>
+                <div class="soil-selection-container">
+                    <div id="soil-sand" class="soil-card" draggable="true" data-soil-type="sand">
+                        <div class="soil-card-icon"></div>
+                        <span>Sand</span>
+                    </div>
+                    <div id="soil-clay" class="soil-card" draggable="true" data-soil-type="clay">
+                        <div class="soil-card-icon"></div>
+                        <span>Clay</span>
+                    </div>
+                    <div id="soil-gravel" class="soil-card" draggable="true" data-soil-type="gravel">
+                        <div class="soil-card-icon"></div>
+                        <span>Gravel</span>
+                    </div>
+                </div>
+
+                <label for="compaction-slider" class="slider-label">How much do you squish the soil? (Compaction Level)</label>
+                <input type="range" id="compaction-slider" min="0" max="100" value="50">
+            </div>
+
+            <div id="phase-testing" class="control-group" style="display: none;">
+                <h2>2. Penetration Test in Progress...</h2>
+                <p class="neon-cyan">Control plunger speed by sweeping your mouse left/right on the canvas while pressing!</p>
+                <button id="finish-test-button" class="cyber-button" style="display: none;">Finish Test Manually</button>
+            </div>
+
+            <div id="phase-correction" class="control-group" style="display: none;">
+                <h2>3. Curve Correction</h2>
+                <p class="neon-yellow">Oops! Our curve needs a gentle nudge. Drag the ruler on the canvas to find the tangent!</p>
+                <button id="correct-curve-button" class="cyber-button" disabled>Correct Curve</button>
+            </div>
+
+            <div id="phase-calculation" class="control-group" style="display: none;">
+                <h2>4. Magic Numbers Time!</h2>
+                <div class="cbr-formula-card">
+                    <p class="cbr-equation"><strong>CBR (%)</strong> = (Tested Load at 'p' / Standard Load at 'p') * 100</p>
+                    <p>Drag the load values into the correct slots:</p>
+
+                    <h3>CBR @ 2.5 mm</h3>
+                    <div class="cbr-equation">
+                        Tested Load: <span class="drop-target" data-penetration="2.5" data-load-type="tested" id="drop-tested-2_5"></span>
+                    </div>
+                    <div class="cbr-equation">
+                        Standard Load: <span class="drop-target" data-penetration="2.5" data-load-type="standard" id="drop-standard-2_5"></span>
+                    </div>
+                    <p class="cbr-result">CBR 2.5mm: <span id="result-cbr-2_5">N/A</span></p>
+
+                    <h3>CBR @ 5.0 mm</h3>
+                    <div class="cbr-equation">
+                        Tested Load: <span class="drop-target" data-penetration="5.0" data-load-type="tested" id="drop-tested-5_0"></span>
+                    </div>
+                    <div class="cbr-equation">
+                        Standard Load: <span class="drop-target" data-penetration="5.0" data-load-type="standard" id="drop-standard-5_0"></span>
+                    </div>
+                    <p class="cbr-result">CBR 5.0mm: <span id="result-cbr-5_0">N/A</span></p>
+
+                    <div id="numeric-chips-container" style="display: flex; flex-wrap: wrap; justify-content: center; margin-top: 15px;">
+                        <!-- Draggable chips will be inserted here by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <div id="phase-selection" class="control-group" style="display: none;">
+                <h2>5. Choose Your Champion CBR!</h2>
+                <div class="codebook-section">
+                    <div id="is-codebook-trigger">
+                        <svg viewBox="0 0 24 24" width="24" height="24">
+                            <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm-2 18H6v-2h6v2zm0-4H6v-2h6v2zm-2-4H6v-2h4v2zm4-6h-4V3.5L17.5 9H14v-.5z" fill="currentColor"/>
+                        </svg>
+                        <span class="neon-purple">Consult IS 456 Codebook (Click Me!)</span>
+                    </div>
+                    <div id="codebook-content">
+                        <div class="codebook-pages">
+                            <div class="codebook-page-tab" data-page="69">Page 69</div>
+                            <div class="codebook-page-tab" data-page="70">Page 70</div>
+                            <div class="codebook-page-tab" data-page="96">Page 96</div>
+                        </div>
+                        <div id="codebook-rule-display">Select a page to reveal the rule.</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-around; margin-top: 20px;">
+                    <div id="cbr-2_5-chip" class="numeric-chip pulsing" draggable="true" data-cbr-value="0" data-cbr-pen="2.5" style="display:none;"></div>
+                    <div id="cbr-5_0-chip" class="numeric-chip pulsing" draggable="true" data-cbr-value="0" data-cbr-pen="5.0" style="display:none;"></div>
+                </div>
+
+                <div id="design-cbr-dropzone">
+                    <span id="design-cbr-value">N/A</span>
+                </div>
+                <button id="repeat-test-button" class="cyber-button" style="display: none; margin-top: 10px;">Repeat Test (Reset)</button>
+            </div>
+
+            <div id="phase-conclusion" class="control-group" style="display: none;">
+                <h2>Mission Accomplished!</h2>
+                <p>Your Final Design CBR: <span id="final-design-cbr" class="neon-green">N/A</span></p>
+                <h3>Learning Objectives:</h3>
+                <ul id="learning-checklist">
+                    <li class="checklist-item" data-objective="soil">
+                        <div class="check-icon"></div>Identified soil type
+                    </li>
+                    <li class="checklist-item" data-objective="compaction">
+                        <div class="check-icon"></div>Set compaction level
+                    </li>
+                    <li class="checklist-item" data-objective="test">
+                        <div class="check-icon"></div>Performed penetration test
+                    </li>
+                    <li class="checklist-item" data-objective="correction">
+                        <div class="check-icon"></div>Corrected concave curve
+                    </li>
+                    <li class="checklist-item" data-objective="calculation">
+                        <div class="check-icon"></div>Calculated CBR values
+                    </li>
+                    <li class="checklist-item" data-objective="selection">
+                        <div class="check-icon"></div>Selected Design CBR
+                    </li>
+                </ul>
+                <button id="restart-simulation-button" class="cyber-button">Restart Simulation</button>
+            </div>
+
+        </div>
+
+        <!-- Simulation Canvas Container -->
+        <div id="simulation-canvas-container">
+            <canvas id="simulationCanvas"></canvas>
+            <div class="canvas-overlay" id="start-screen">
+                <h1 class="pulsing">CBR Test Sandbox!</h1>
+                <button id="start-simulation-button-canvas" class="cyber-button">Start Simulation</button>
+            </div>
+
+            <div id="realtime-readouts">
+                <div class="readout-item">Penetration: <span id="current-penetration" class="readout-value">0.00</span> mm</div>
+                <div class="readout-item">Load: <span id="current-load" class="readout-value">0</span> kg</div>
+            </div>
+        </div>
+
+        <!-- Info Button -->
+        <div id="info-button" class="pulsing">i</div>
+
+        <!-- Instructions Modal -->
+        <div id="instructions-modal">
+            <div class="modal-content">
+                <button class="modal-close-button">&times;</button>
+                <h3>Simulation Instructions</h3>
+                <div class="modal-instruction-item">
+                    <div class="icon">👆</div>
+                    <span>**Drag & Drop:** Pick up soil cards and numerical chips from the control panel and drop them into designated zones on the canvas or control panel.</span>
+                </div>
+                <div class="modal-instruction-item">
+                    <div class="icon">🎚️</div>
+                    <span>**Sliders:** Adjust values like 'Compaction Level' using the sliders in the control panel.</span>
+                </div>
+                <div class="modal-instruction-item">
+                    <div class="icon">↔️</div>
+                    <span>**Hand Gesture (Canvas):** During the test, hold down your mouse button and sweep left/right on the canvas to control the plunger's penetration speed.</span>
+                </div>
+                <div class="modal-instruction-item">
+                    <div class="icon">📐</div>
+                    <span>**Tangent Ruler (Canvas):** When a concave curve appears, drag the glowing ruler on the canvas to align it as a tangent to the steepest part of the curve.</span>
+                </div>
+                <div class="modal-instruction-item">
+                    <div class="icon">📖</div>
+                    <span>**Codebook:** Click the 'IS 456 Codebook' to reveal important rules for CBR selection.</span>
+                </div>
+                <button id="modal-got-it-button" class="cyber-button" style="margin-top: 20px;">Got It!</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- Global Setup ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const appContainer = document.getElementById('app-container');
+        const controlPanel = document.getElementById('control-panel');
+        const simulationCanvasContainer = document.getElementById('simulation-canvas-container');
+
+        let animationFrameId;
+        let dpi = window.devicePixelRatio || 1;
+
+        // --- High-DPI (Retina) Canvas Scaling ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpi;
+            canvas.height = rect.height * dpi;
+            ctx.scale(dpi, dpi);
+            drawSimulation(); // Redraw everything on resize
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial call
+
+        // --- Web Audio API & Speech Synthesis API ---
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        let speechSynth = window.speechSynthesis;
+        let voices = [];
+        speechSynth.onvoiceschanged = () => { voices = speechSynth.getVoices(); };
+
+        function speak(text, rate = 1.0, pitch = 1.0, voiceName = 'Google UK English Female') {
+            if (!speechSynth) return;
+            if (speechSynth.speaking) speechSynth.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = rate;
+            utterance.pitch = pitch;
+            // Try to find a specific voice, otherwise use default
+            utterance.voice = voices.find(v => v.name === voiceName) || voices[0];
+            speechSynth.speak(utterance);
+        }
+
+        // Simple sound effects using Web Audio
+        function playSound(type, freq = 440, duration = 0.1, gain = 0.5) {
+            if (!audioContext) return;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.type = 'sine';
+            oscillator.frequency.value = freq;
+            gainNode.gain.value = gain;
+
+            if (type === 'chime') {
+                oscillator.type = 'triangle';
+                oscillator.frequency.setValueAtTime(freq * 1.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+            } else if (type === 'thunk') {
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(freq * 0.5, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration);
+            } else if (type === 'buzz') {
+                 oscillator.type = 'sawtooth';
+                 oscillator.frequency.setValueAtTime(freq * 0.8, audioContext.currentTime);
+                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + duration * 2);
+            } else if (type === 'pageFlip') {
+                oscillator.type = 'square';
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                oscillator.frequency.linearRampToValueAtTime(500, audioContext.currentTime + 0.05);
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.1);
+                duration = 0.1;
+            }
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        let plungerOscillator = null;
+        function updateCompactionSound(level) {
+            if (!audioContext) return;
+            if (!plungerOscillator) {
+                plungerOscillator = audioContext.createOscillator();
+                plungerOscillator.type = 'sine';
+                const gainNode = audioContext.createGain();
+                gainNode.gain.value = 0.1; // Low volume
+                plungerOscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                plungerOscillator.start();
+            }
+            // Map 0-100 to 100-500 Hz
+            plungerOscillator.frequency.setValueAtTime(100 + level * 4, audioContext.currentTime);
+        }
+        function stopCompactionSound() {
+            if (plungerOscillator) {
+                plungerOscillator.stop();
+                plungerOscillator.disconnect();
+                plungerOscillator = null;
+            }
+        }
+
+
+        // --- Global Simulation State Object ---
+        const simState = {
+            currentPhase: 'intro', // intro, setup, testing, correction, calculation, selection, conclusion
+            soilType: null, // 'sand', 'clay', 'gravel'
+            compactionLevel: 50, // 0-100
+            loadPenetrationData: [], // [{ penetration: mm, load: kg }]
+            correctedCurveData: [],
+            cbr2_5: null,
+            cbr5_0: null,
+            selectedCBR: null,
+            testSpeed: 0.5, // mm/frame
+            currentPenetration: 0,
+            maxPenetration: 12.5, // Standard CBR max penetration
+            plungerYOffset: 0, // for plunger animation
+            plungerLoad: 0,
+            ruler: { x: 0, y: 0, angle: 0, width: 200, height: 5, active: false, initialTouchDistance: 0, rotationCenter: { x: 0, y: 0 } },
+            isDraggingCanvas: false, // For mouse gesture control
+            prevMouseX: 0,
+            draggedHTMLElement: null, // Track HTML element being dragged
+            dropTargetElement: null, // Track HTML drop target being hovered over
+            canvasDragData: null, // For canvas-based drag elements (e.g. ruler)
+            zoomLevel: 1,
+            zoomTargetX: 0,
+            checklist: {
+                soil: false,
+                compaction: false,
+                test: false,
+                correction: false,
+                calculation: false,
+                selection: false
+            },
+            isCodebookOpen: false,
+            cbrCalculationTargets: {
+                '2.5_tested': null, '2.5_standard': null,
+                '5.0_tested': null, '5.0_standard': null
+            }
+        };
+
+        // --- Utility Functions ---
+        function clamp(value, min, max) { return Math.max(min, Math.min(value, max)); }
+        function lerp(start, end, t) { return start * (1 - t) + end * t; }
+        function degreesToRadians(degrees) { return degrees * (Math.PI / 180); }
+        function radiansToDegrees(radians) { return radians * (180 / Math.PI); }
+
+        // --- Canvas Drawing Helpers (for legible text) ---
+        function drawTextWithBackground(text, x, y, options = {}) {
+            ctx.save();
+            ctx.font = options.font || '20px Space Mono';
+            ctx.fillStyle = options.color || '#e0f2f7';
+            ctx.textAlign = options.align || 'center';
+            ctx.textBaseline = options.baseline || 'middle';
+
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            const textHeight = parseInt(ctx.font, 10) * 1.5; // Estimate height
+
+            const padding = options.padding || 8;
+            const bgX = x - textWidth / 2 - padding;
+            const bgY = y - textHeight / 2 - padding / 2;
+            const bgWidth = textWidth + padding * 2;
+            const bgHeight = textHeight + padding;
+
+            if (options.bgColor && options.bgColor !== 'transparent') {
+                ctx.fillStyle = options.bgColor; // Dark translucent background
+                ctx.fillRect(bgX, bgY, bgWidth, bgHeight);
+            }
+
+            ctx.fillStyle = options.color || '#e0f2f7';
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        // Drawing a line with an arrow head
+        function drawArrow(x1, y1, x2, y2, color, thickness, headLength = 10) {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = thickness;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+
+            const angle = Math.atan2(y2 - y1, x2 - x1);
+            ctx.lineTo(x2 - headLength * Math.cos(angle - Math.PI / 6), y2 - headLength * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(x2, y2);
+            ctx.lineTo(x2 - headLength * Math.cos(angle + Math.PI / 6), y2 - headLength * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        // --- Canvas Drawing Functions ---
+        let graph = {
+            padding: 50,
+            width: 0,
+            height: 0,
+            originX: 0,
+            originY: 0,
+            maxPenetration: 12.5,
+            maxLoad: 2500, // Max standard load
+            scaleX: 1,
+            scaleY: 1
+        };
+
+        function setupGraphBounds() {
+            const canvasRect = canvas.getBoundingClientRect();
+            graph.padding = Math.max(50, Math.min(100, canvasRect.width / 10)); // Responsive padding
+            graph.width = canvasRect.width / dpi - graph.padding * 2;
+            graph.height = canvasRect.height / dpi - graph.padding * 2;
+            graph.originX = graph.padding;
+            graph.originY = canvasRect.height / dpi - graph.padding;
+            graph.scaleX = graph.width / graph.maxPenetration;
+            graph.scaleY = graph.height / graph.maxLoad;
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#0d1218';
+            ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(78, 205, 196, 0.1)';
+            ctx.lineWidth = 1;
+
+            // X-axis grid lines (Penetration)
+            for (let i = 0; i <= graph.maxPenetration; i += 2.5) {
+                const x = graph.originX + i * graph.scaleX;
+                ctx.beginPath();
+                ctx.moveTo(x, graph.originY);
+                ctx.lineTo(x, graph.originY - graph.height);
+                ctx.stroke();
+                drawTextWithBackground(`${i} mm`, x, graph.originY + 20, { font: '14px Space Mono', color: '#b3e0e6', bgColor: 'rgba(13, 18, 24, 0.5)' });
+            }
+
+            // Y-axis grid lines (Load)
+            for (let i = 0; i <= graph.maxLoad; i += 500) {
+                const y = graph.originY - i * graph.scaleY;
+                ctx.beginPath();
+                ctx.moveTo(graph.originX, y);
+                ctx.lineTo(graph.originX + graph.width, y);
+                ctx.stroke();
+                drawTextWithBackground(`${i} kg`, graph.originX - 30, y, { font: '14px Space Mono', color: '#b3e0e6', align: 'right', bgColor: 'rgba(13, 18, 24, 0.5)' });
+            }
+
+            // Axes labels
+            drawTextWithBackground('Penetration (mm)', graph.originX + graph.width / 2, graph.originY + 45, { font: '16px Space Mono', color: '#e0f2f7', bgColor: 'transparent' });
+            ctx.save();
+            ctx.translate(graph.originX - 60, graph.originY - graph.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            drawTextWithBackground('Load (kg)', 0, 0, { font: '16px Space Mono', color: '#e0f2f7', bgColor: 'transparent' });
+            ctx.restore();
+        }
+
+        // Coordinates for CBR mold and plunger (relative to canvas, will be adjusted by graph.originX/Y)
+        const moldHeight = 200;
+        const moldWidth = 100;
+        const plungerRadius = 20;
+
+        function drawCBRMold() {
+            const moldX = graph.originX + graph.width * 0.15; // Position on graph
+            const moldY = graph.originY - moldHeight;
+
+            // Mold outline
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.rect(moldX, moldY, moldWidth, moldHeight);
+            ctx.stroke();
+
+            // Soil filling inside mold
+            if (simState.soilType) {
+                const soilFillHeight = (simState.compactionLevel / 100) * moldHeight;
+                const soilFillY = moldY + moldHeight - soilFillHeight;
+                ctx.fillStyle = getSoilColor(simState.soilType, simState.compactionLevel);
+                ctx.fillRect(moldX + 1, soilFillY, moldWidth - 2, soilFillHeight);
+            }
+
+            // Drop zone for soil
+            if (simState.currentPhase === 'setup' && !simState.soilType) {
+                ctx.strokeStyle = 'rgba(0, 255, 0, 0.5)';
+                ctx.setLineDash([5, 5]);
+                ctx.strokeRect(moldX + 5, moldY + 5, moldWidth - 10, moldHeight - 10);
+                ctx.setLineDash([]);
+                drawTextWithBackground('Drag Soil Here', moldX + moldWidth / 2, moldY + moldHeight / 2, { color: 'rgba(0, 255, 0, 0.7)', font: '18px Space Mono', bgColor: 'rgba(13, 18, 24, 0.8)' });
+            }
+        }
+
+        function getSoilColor(soilType, compaction) {
+            const baseColor = {
+                'sand': [240, 230, 140], // Khaki
+                'clay': [160, 82, 45],   // Sienna
+                'gravel': [169, 169, 169] // DarkGray
+            }[soilType] || [100, 100, 100]; // Default
+
+            // Adjust color/darkness based on compaction
+            const compactionFactor = compaction / 100;
+            const r = Math.round(baseColor[0] * (1 - 0.2 * compactionFactor));
+            const g = Math.round(baseColor[1] * (1 - 0.2 * compactionFactor));
+            const b = Math.round(baseColor[2] * (1 - 0.2 * compactionFactor));
+
+            return `rgb(${r},${g},${b})`;
+        }
+
+
+        function drawPlunger(penetration, load) {
+            if (!simState.soilType) return; // Only draw plunger if soil is selected
+
+            const moldX = graph.originX + graph.width * 0.15;
+            const moldY = graph.originY - moldHeight;
+            const plungerCenterX = moldX + moldWidth / 2;
+
+            // Plunger body
+            ctx.fillStyle = '#e0f2f7';
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 2;
+
+            let currentPenetrationY = moldY + (penetration / graph.maxPenetration) * moldHeight;
+            // Adjust currentPenetrationY based on how much soil is filled
+            const soilFillHeight = (simState.compactionLevel / 100) * moldHeight;
+            const plungerStartHeight = moldY + moldHeight - soilFillHeight; // Top of the soil
+            currentPenetrationY = plungerStartHeight + (penetration / graph.maxPenetration) * soilFillHeight;
+
+
+            const plungerHeadY = currentPenetrationY; // Top of plunger head
+
+            // Plunger shaft
+            ctx.fillRect(plungerCenterX - 5, moldY - 50, 10, currentPenetrationY - (moldY - 50));
+            ctx.strokeRect(plungerCenterX - 5, moldY - 50, 10, currentPenetrationY - (moldY - 50));
+
+            // Plunger head (circular)
+            ctx.beginPath();
+            ctx.arc(plungerCenterX, plungerHeadY, plungerRadius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Force vector
+            if (load > 0) {
+                const vectorLength = load / graph.maxLoad * 50; // Scale vector length
+                drawArrow(plungerCenterX, plungerHeadY + plungerRadius, plungerCenterX, plungerHeadY + plungerRadius + vectorLength, '#ff006e', 3);
+            }
+        }
+
+        function drawCurve(data, color, thickness = 3, label = null) {
+            if (data.length < 2) return;
+
+            ctx.strokeStyle = color;
+            ctx.lineWidth = thickness;
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 15;
+
+            ctx.beginPath();
+            ctx.moveTo(graph.originX + data[0].penetration * graph.scaleX, graph.originY - data[0].load * graph.scaleY);
+
+            for (let i = 1; i < data.length; i++) {
+                ctx.lineTo(graph.originX + data[i].penetration * graph.scaleX, graph.originY - data[i].load * graph.scaleY);
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            if (label) {
+                const lastPoint = data[data.length - 1];
+                drawTextWithBackground(label, graph.originX + lastPoint.penetration * graph.scaleX + 20, graph.originY - lastPoint.load * graph.scaleY, { color: color, font: '16px Space Mono', align: 'left', bgColor: 'rgba(13, 18, 24, 0.8)' });
+            }
+        }
+
+        function drawRuler() {
+            if (!simState.ruler.active) return;
+
+            ctx.save();
+            ctx.translate(simState.ruler.x, simState.ruler.y);
+            ctx.rotate(simState.ruler.angle);
+
+            // Ruler body
+            ctx.fillStyle = 'rgba(78, 205, 196, 0.2)';
+            ctx.strokeStyle = '#4ecdc4';
+            ctx.lineWidth = 2;
+            ctx.shadowColor = '#4ecdc4';
+            ctx.shadowBlur = 10;
+            ctx.fillRect(-simState.ruler.width / 2, -simState.ruler.height / 2, simState.ruler.width, simState.ruler.height);
+            ctx.strokeRect(-simState.ruler.width / 2, -simState.ruler.height / 2, simState.ruler.width, simState.ruler.height);
+            ctx.shadowBlur = 0;
+
+            // Ruler handles (for rotation)
+            ctx.fillStyle = '#e0f2f7';
+            ctx.beginPath();
+            ctx.arc(-simState.ruler.width / 2, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.arc(simState.ruler.width / 2, 0, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        function drawSimulation() {
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas completely (DPI already scaled)
+            ctx.save(); // Save context before potential transformations
+
+            setupGraphBounds(); // Recalculate graph bounds based on new canvas size
+
+            // Apply global zoom if any
+            if (simState.zoomLevel !== 1) {
+                // Calculate where the zoom target is in canvas pixels
+                const targetXCanvas = graph.originX + simState.zoomTargetX * graph.scaleX;
+                const canvasRect = canvas.getBoundingClientRect();
+
+                // Translate to make the target point the new origin, scale, then translate back to keep it visible
+                // This formula effectively zooms *into* the target point, keeping it relatively centered
+                ctx.translate(
+                    canvasRect.width / (2 * dpi) - targetXCanvas * simState.zoomLevel,
+                    canvasRect.height / (2 * dpi) - (graph.originY - graph.height/2) * simState.zoomLevel // Keep vertical center of graph
+                );
+                ctx.scale(simState.zoomLevel, simState.zoomLevel);
+            }
+
+            drawBackground();
+            drawGrid();
+            drawCBRMold();
+
+            if (simState.currentPhase === 'testing' || simState.currentPhase === 'correction' || simState.currentPhase === 'calculation' || simState.currentPhase === 'selection') {
+                drawPlunger(simState.currentPenetration, simState.plungerLoad);
+                if (simState.loadPenetrationData.length > 0) {
+                    drawCurve(simState.loadPenetrationData, '#4ecdc4', 4, 'Raw Data');
+                }
+            }
+
+            if (simState.currentPhase === 'correction' && simState.ruler.active) {
+                drawRuler();
+            }
+
+            if ((simState.currentPhase === 'correction' || simState.currentPhase === 'calculation' || simState.currentPhase === 'selection') && simState.correctedCurveData.length > 0) {
+                drawCurve(simState.correctedCurveData, '#00ff00', 4, 'Corrected');
+
+                if (simState.currentPhase === 'correction' && simState.correctedOriginX) {
+                    // Draw corrected origin line
+                    const correctedX = graph.originX + simState.correctedOriginX * graph.scaleX;
+                    ctx.strokeStyle = '#ffff00';
+                    ctx.setLineDash([8, 8]);
+                    ctx.beginPath();
+                    ctx.moveTo(correctedX, graph.originY);
+                    ctx.lineTo(correctedX, graph.originY - graph.height);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    drawTextWithBackground('New Origin', correctedX, graph.originY + 20, { color: '#ffff00', font: '14px Space Mono', bgColor: 'rgba(13, 18, 24, 0.6)' });
+                }
+            }
+
+            // Highlight penetration points for calculation phase
+            if (simState.currentPhase === 'calculation' || simState.currentPhase === 'selection') {
+                [2.5, 5.0].forEach(p => {
+                    const correctedLoad = interpolateLoad(simState.correctedCurveData, p);
+                    if (correctedLoad !== null) {
+                        const x = graph.originX + p * graph.scaleX;
+                        const y = graph.originY - correctedLoad * graph.scaleY;
+
+                        ctx.fillStyle = '#ff006e';
+                        ctx.strokeStyle = '#ff006e';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 7, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        ctx.setLineDash([4, 2]);
+                        ctx.beginPath();
+                        ctx.moveTo(x, graph.originY);
+                        ctx.lineTo(x, y);
+                        ctx.moveTo(graph.originX, y);
+                        ctx.lineTo(x, y);
+                        ctx.stroke();
+                        ctx.setLineDash([]);
+                        
+                        drawTextWithBackground(`${p} mm`, x, graph.originY + 20, { color: '#ff006e', font: '14px Space Mono', bgColor: 'rgba(13, 18, 24, 0.6)' });
+                        drawTextWithBackground(`${correctedLoad.toFixed(0)} kg`, graph.originX - 30, y, { color: '#ff006e', font: '14px Space Mono', align: 'right', bgColor: 'rgba(13, 18, 24, 0.6)' });
+
+                    }
+                });
+            }
+
+            ctx.restore(); // Restore context to remove transformations
+        }
+
+        // --- Core Simulation Logic ---
+        function getLoadForPenetration(penetration, soilType, compaction) {
+            const maxLoadBase = 2500; // Reference max load at max penetration
+
+            // Coefficients based on soil type and compaction
+            let A, B, C;
+
+            // Simplified models for illustration
+            if (soilType === 'sand') {
+                A = 100 + compaction * 2; // Stronger with more compaction
+                B = 1.3;
+                C = 0;
+            } else if (soilType === 'clay') {
+                // Clay often shows initial concavity at low compaction
+                // More dynamic concavity logic:
+                A = 50 + compaction;
+                B = 1.8;
+                C = 0;
+                
+                // Introduce a 'concavity factor' based on low compaction
+                if (compaction < 60) {
+                    const lowCompactionFactor = 1 - (compaction / 60); // 1.0 at 0, 0 at 60
+                    const inflectionPoint = 2 + (2 * lowCompactionFactor); // Point where concavity shifts to convex (e.g., 2 to 4 mm)
+                    
+                    if (penetration < inflectionPoint) {
+                        // More pronounced concave start for low compaction
+                        const loadBeforeInflection = A * Math.pow(penetration, 2) * (0.5 + lowCompactionFactor) / (inflectionPoint * (1 + lowCompactionFactor));
+                        return loadBeforeInflection;
+                    } else {
+                        // After inflection, behave more convexly, but still softer than sand/gravel
+                        const baseLoad = A * Math.pow(penetration - inflectionPoint * lowCompactionFactor, B) + C;
+                        // Smooth transition
+                        return baseLoad + getLoadForPenetration(inflectionPoint, soilType, compaction); // Add the load at inflection point for continuity
+                    }
+                }
+            } else if (soilType === 'gravel') {
+                A = 150 + compaction * 3; // Strongest overall
+                B = 1.1;
+                C = 0;
+            } else { // Default or no soil selected
+                return 0;
+            }
+
+            // General convex curve (simplified)
+            let load = A * Math.pow(penetration, B) + C;
+
+            // Cap the load at a reasonable maximum
+            return Math.min(load, maxLoadBase * (0.5 + compaction / 200));
+        }
+
+        function interpolateLoad(data, targetPenetration) {
+            if (data.length === 0) return null;
+
+            // Find two points that bracket the target penetration
+            let p1 = null, p2 = null;
+            for (let i = 0; i < data.length; i++) {
+                if (data[i].penetration <= targetPenetration) {
+                    p1 = data[i];
+                }
+                if (data[i].penetration >= targetPenetration) {
+                    p2 = data[i];
+                    break;
+                }
+            }
+
+            if (!p1 && p2) return p2.load; // Target is before first point
+            if (p1 && !p2) return p1.load; // Target is after last point
+            if (!p1 && !p2) return null; // No data
+
+            if (p1.penetration === targetPenetration) return p1.load;
+            if (p2.penetration === targetPenetration) return p2.load;
+
+            // Linear interpolation
+            const t = (targetPenetration - p1.penetration) / (p2.penetration - p1.penetration);
+            return lerp(p1.load, p2.load, t);
+        }
+
+        function detectConcavity(data) {
+            if (data.length < 5) return false;
+            // Check if the initial slope is very flat and then steeply increases
+            // Compare slope at 0-1mm vs 1-3mm
+            const slope0_1 = (interpolateLoad(data, 1) - interpolateLoad(data, 0.1)) / (1 - 0.1);
+            const slope1_3 = (interpolateLoad(data, 3) - interpolateLoad(data, 1)) / (3 - 1);
+            
+            // If initial slope is much lower than subsequent slope, likely concave
+            return slope0_1 < (slope1_3 * 0.3) && slope0_1 > 0; // Avoid division by zero/negative slopes
+        }
+
+        function calculateCorrectedCurve(data, correctedOriginX) {
+            return data.map(p => ({
+                penetration: Math.max(0, p.penetration - correctedOriginX),
+                load: p.load
+            }));
+        }
+
+        // --- Animation Loop ---
+        function animate() {
+            if (simState.currentPhase === 'testing') {
+                simState.currentPenetration += simState.testSpeed;
+                if (simState.currentPenetration > simState.maxPenetration) {
+                    simState.currentPenetration = simState.maxPenetration;
+                    setPhase('correction'); // Move to next phase
+                }
+                simState.plungerLoad = getLoadForPenetration(simState.currentPenetration, simState.soilType, simState.compactionLevel);
+                simState.loadPenetrationData.push({
+                    penetration: simState.currentPenetration,
+                    load: simState.plungerLoad
+                });
+
+                document.getElementById('current-penetration').textContent = simState.currentPenetration.toFixed(2);
+                document.getElementById('current-load').textContent = simState.plungerLoad.toFixed(0);
+
+                drawSimulation();
+                animationFrameId = requestAnimationFrame(animate);
+            }
+        }
+
+        // --- Phase Management ---
+        function setPhase(newPhase) {
+            simState.currentPhase = newPhase;
+            
+            // Hide all phase-specific control groups
+            document.querySelectorAll('.control-group').forEach(group => group.style.display = 'none');
+            // Hide canvas overlays by default
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('realtime-readouts').classList.remove('visible');
+            document.getElementById('start-simulation-button-canvas').style.display = 'none';
+
+            // Stop any ongoing sounds
+            stopCompactionSound();
+            if (speechSynth.speaking) speechSynth.cancel();
+
+            switch (newPhase) {
+                case 'intro':
+                    document.getElementById('phase-intro').style.display = 'flex';
+                    document.getElementById('start-screen').classList.add('active');
+                    document.getElementById('start-simulation-button-canvas').style.display = 'block';
+                    speak("Hello there, future engineer! Today, we're going on an adventure to test how strong the ground is! We'll use a special test called CBR, like checking if your gummy bear is squishy or firm!", 1.1, 1.2);
+                    break;
+                case 'setup':
+                    document.getElementById('phase-setup').style.display = 'flex';
+                    simState.checklist.soil = false; // Reset checklist for this phase
+                    simState.checklist.compaction = false;
+                    speak("Great! Now, let's prepare our ground. Drag a soil type into the mold and set the compaction level!", 1.0, 1.1);
+                    break;
+                case 'testing':
+                    document.getElementById('phase-testing').style.display = 'flex';
+                    document.getElementById('realtime-readouts').classList.add('visible');
+                    simState.loadPenetrationData = []; // Clear previous data
+                    simState.currentPenetration = 0;
+                    simState.plungerLoad = 0;
+                    simState.checklist.test = false;
+                    simState.ruler.active = false; // Ensure ruler is hidden
+                    simState.correctedOriginX = null; // Reset corrected origin
+                    speak("The test is starting! Control the plunger speed by sweeping your hand on the screen. Slower for precise, faster for zoom!", 1.0, 1.1);
+                    animationFrameId = requestAnimationFrame(animate); // Start animation
+                    document.getElementById('finish-test-button').style.display = 'block'; // Show manual finish button
+                    break;
+                case 'correction':
+                    document.getElementById('phase-correction').style.display = 'flex';
+                    document.getElementById('finish-test-button').style.display = 'none';
+                    cancelAnimationFrame(animationFrameId); // Stop test animation
+                    simState.checklist.test = true; // Mark test as completed
+                    updateChecklist();
+
+                    // Check for concavity and activate ruler
+                    if (detectConcavity(simState.loadPenetrationData)) {
+                        simState.ruler.active = true;
+                        // Initial ruler position (roughly where concavity might be, around 2mm penetration)
+                        const initialRulerPen = 2;
+                        const initialRulerLoad = interpolateLoad(simState.loadPenetrationData, initialRulerPen);
+                        simState.ruler.x = graph.originX + initialRulerPen * graph.scaleX;
+                        simState.ruler.y = graph.originY - initialRulerLoad * graph.scaleY;
+                        simState.ruler.angle = degreesToRadians(-10); // Slight initial angle
+                        document.getElementById('correct-curve-button').disabled = false;
+                        speak("Uh oh! Our soil curve is a bit shy at the start, like a sleepy kitten! We need to gently wake it up by drawing a special line!", 1.0, 1.2);
+                    } else {
+                        // No concavity, proceed directly to calculation with raw data
+                        simState.correctedCurveData = simState.loadPenetrationData;
+                        simState.checklist.correction = true;
+                        updateChecklist();
+                        speak("Good job! Your curve is already perfect. Let's move to calculations!", 1.0, 1.1);
+                        setPhase('calculation');
+                    }
+                    break;
+                case 'calculation':
+                    document.getElementById('phase-calculation').style.display = 'flex';
+                    simState.checklist.calculation = false;
+                    document.getElementById('correct-curve-button').disabled = true;
+                    simState.ruler.active = false; // Hide ruler
+                    simState.zoomLevel = 1; // Reset any lingering zoom
+                    simState.zoomTargetX = 0;
+
+                    // Generate draggable chips for tested loads
+                    const load2_5 = interpolateLoad(simState.correctedCurveData, 2.5);
+                    const load5_0 = interpolateLoad(simState.correctedCurveData, 5.0);
+                    
+                    document.getElementById('numeric-chips-container').innerHTML = '';
+                    if (load2_5 !== null) {
+                        createDraggableChip(load2_5.toFixed(0) + ' kg', 'tested', 2.5, load2_5);
+                    }
+                    if (load5_0 !== null) {
+                        createDraggableChip(load5_0.toFixed(0) + ' kg', 'tested', 5.0, load5_0);
+                    }
+                    // Standard loads are fixed
+                    createDraggableChip('1370 kg', 'standard', 2.5, 1370);
+                    createDraggableChip('2055 kg', 'standard', 5.0, 2055);
+
+                    // Reset drop targets
+                    document.querySelectorAll('.drop-target').forEach(target => {
+                        target.textContent = '';
+                        target.classList.remove('filled', 'error');
+                        simState.cbrCalculationTargets[`${target.dataset.penetration}_${target.dataset.loadType}`] = null;
+                    });
+                    document.getElementById('result-cbr-2_5').textContent = 'N/A';
+                    document.getElementById('result-cbr-5_0').textContent = 'N/A';
+                    simState.cbr2_5 = null;
+                    simState.cbr5_0 = null;
+
+                    speak("Time for some magic numbers! Drag the load values into the correct formula slots to calculate the CBR!", 1.0, 1.1);
+                    break;
+                case 'selection':
+                    document.getElementById('phase-selection').style.display = 'flex';
+                    simState.checklist.selection = false;
+                    document.getElementById('cbr-2_5-chip').textContent = `CBR 2.5: ${simState.cbr2_5.toFixed(1)}%`;
+                    document.getElementById('cbr-2_5-chip').dataset.cbrValue = simState.cbr2_5.toFixed(1);
+                    document.getElementById('cbr-2_5-chip').style.display = 'inline-block';
+
+                    document.getElementById('cbr-5_0-chip').textContent = `CBR 5.0: ${simState.cbr5_0.toFixed(1)}%`;
+                    document.getElementById('cbr-5_0-chip').dataset.cbrValue = simState.cbr5_0.toFixed(1);
+                    document.getElementById('cbr-5_0-chip').style.display = 'inline-block';
+
+                    // Reset design CBR dropzone
+                    document.getElementById('design-cbr-dropzone').classList.remove('filled');
+                    document.getElementById('design-cbr-value').classList.remove('visible');
+                    document.getElementById('design-cbr-value').textContent = 'N/A';
+                    document.getElementById('repeat-test-button').style.display = 'none';
+
+                    // Close codebook content if open
+                    document.getElementById('codebook-content').classList.remove('active');
+                    simState.isCodebookOpen = false;
+                    document.querySelectorAll('.codebook-page-tab').forEach(t => t.classList.remove('active'));
+                    document.getElementById('codebook-rule-display').textContent = "Select a page to reveal the rule.";
+
+
+                    speak("Now, let's choose our champion CBR! Consult the IS 456 Codebook to make the best decision!", 1.0, 1.1);
+                    break;
+                case 'conclusion':
+                    document.getElementById('phase-conclusion').style.display = 'flex';
+                    document.getElementById('final-design-cbr').textContent = simState.selectedCBR ? `${simState.selectedCBR.toFixed(1)}%` : 'N/A';
+                    updateChecklist(); // Final update
+                    speak("Fantastic job, engineer! You've successfully completed your CBR test! You now know how to check the ground's strength, fix tricky curves, and pick the best number. You're a soil superstar!", 1.0, 1.1);
+                    break;
+            }
+            drawSimulation(); // Ensure canvas is updated for the new phase
+        }
+
+        function updateChecklist() {
+            for (const objective in simState.checklist) {
+                const listItem = document.querySelector(`.checklist-item[data-objective="${objective}"]`);
+                if (listItem) {
+                    if (simState.checklist[objective]) {
+                        listItem.classList.add('completed');
+                        listItem.querySelector('.check-icon').textContent = '✓';
+                    } else {
+                        listItem.classList.remove('completed');
+                        listItem.querySelector('.check-icon').textContent = '';
+                    }
+                }
+            }
+        }
+
+
+        // --- Event Listeners and Interaction Logic ---
+
+        // Phase Intro
+        document.getElementById('intro-start-button').addEventListener('click', () => setPhase('setup'));
+        document.getElementById('start-simulation-button-canvas').addEventListener('click', () => setPhase('setup'));
+
+        // Phase Setup
+        const soilCards = document.querySelectorAll('.soil-card');
+        soilCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                simState.draggedHTMLElement = e.target;
+                e.dataTransfer.setData('text/plain', e.target.dataset.soilType); // For browsers, though we'll use draggedHTMLElement
+                e.dataTransfer.effectAllowed = 'copyMove';
+            });
+        });
+
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop
+            if (simState.currentPhase === 'setup' && simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('soil-card')) {
+                e.dataTransfer.dropEffect = 'copy';
+            }
+        });
+
+        canvas.addEventListener('dragleave', (e) => {
+            // Optional visual feedback for drag leave
+        });
+
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (simState.currentPhase === 'setup' && simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('soil-card')) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / dpi;
+                const mouseY = (e.clientY - rect.top) / dpi;
+
+                const moldX = graph.originX + graph.width * 0.15;
+                const moldY = graph.originY - moldHeight;
+
+                // Check if dropped inside mold area
+                if (mouseX > moldX && mouseX < moldX + moldWidth && mouseY > moldY && mouseY < moldY + moldHeight) {
+                    simState.soilType = simState.draggedHTMLElement.dataset.soilType;
+                    simState.checklist.soil = true;
+                    updateChecklist();
+                    playSound('chime', 800);
+                    speak(`You chose ${simState.soilType}! Great job! Now, let's squish it just right!`);
+                    drawSimulation(); // Redraw with new soil
+                    simState.draggedHTMLElement = null; // Reset dragged element
+                }
+            }
+        });
+
+        document.getElementById('compaction-slider').addEventListener('input', (e) => {
+            simState.compactionLevel = parseInt(e.target.value);
+            simState.checklist.compaction = true;
+            updateCompactionSound(simState.compactionLevel);
+            drawSimulation(); // Redraw to show soil compaction effect
+        });
+        document.getElementById('compaction-slider').addEventListener('change', () => {
+            stopCompactionSound(); // Stop sound when slider is released
+        });
+
+        // Phase Testing (Hand Gesture Control)
+        canvas.addEventListener('pointerdown', (e) => {
+            if (simState.currentPhase === 'testing') {
+                simState.isDraggingCanvas = true;
+                simState.prevMouseX = e.clientX;
+                canvas.setPointerCapture(e.pointerId); // Capture pointer for smoother drag
+            }
+        });
+
+        canvas.addEventListener('pointermove', (e) => {
+            if (simState.currentPhase === 'testing' && simState.isDraggingCanvas) {
+                const deltaX = e.clientX - simState.prevMouseX;
+                simState.testSpeed = clamp(simState.testSpeed + deltaX * 0.01, 0.1, 2.0); // Adjust speed
+                simState.prevMouseX = e.clientX;
+            } else if (simState.currentPhase === 'correction' && simState.canvasDragData) {
+                const rect = canvas.getBoundingClientRect();
+                const mouseX = (e.clientX - rect.left) / dpi;
+                const mouseY = (e.clientY - rect.top) / dpi;
+
+                if (simState.canvasDragData.type === 'ruler_move') {
+                    simState.ruler.x = mouseX - simState.canvasDragData.offsetX;
+                    simState.ruler.y = mouseY - simState.canvasDragData.offsetY;
+                } else if (simState.canvasDragData.type === 'ruler_rotate') {
+                    const originX = simState.ruler.x;
+                    const originY = simState.ruler.y;
+                    const currentAngle = Math.atan2(mouseY - originY, mouseX - originX);
+                    simState.ruler.angle = currentAngle - simState.canvasDragData.startAngle;
+                }
+                drawSimulation();
+            }
+        });
+
+        canvas.addEventListener('pointerup', (e) => {
+            if (simState.isDraggingCanvas) {
+                simState.isDraggingCanvas = false;
+                canvas.releasePointerCapture(e.pointerId);
+            }
+            if (simState.canvasDragData) {
+                simState.canvasDragData = null;
+            }
+        });
+
+        document.getElementById('finish-test-button').addEventListener('click', () => {
+            if (simState.currentPhase === 'testing') {
+                simState.currentPenetration = simState.maxPenetration; // Force finish
+                setPhase('correction');
+            }
+        });
+
+        // Phase Correction (Ruler Drag & Rotate)
+        canvas.addEventListener('pointerdown', (e) => {
+            if (simState.currentPhase !== 'correction' || !simState.ruler.active) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / dpi;
+            const mouseY = (e.clientY - rect.top) / dpi;
+
+            // Check if clicking on the ruler itself for moving
+            const rulerBounds = {
+                x: simState.ruler.x - simState.ruler.width / 2,
+                y: simState.ruler.y - simState.ruler.height / 2,
+                width: simState.ruler.width,
+                height: simState.ruler.height
+            };
+
+            const distFromLeftHandle = Math.sqrt(Math.pow(mouseX - (simState.ruler.x - simState.ruler.width / 2), 2) + Math.pow(mouseY - simState.ruler.y, 2));
+            const distFromRightHandle = Math.sqrt(Math.pow(mouseX - (simState.ruler.x + simState.ruler.width / 2), 2) + Math.pow(mouseY - simState.ruler.y, 2));
+
+            if (mouseX >= rulerBounds.x && mouseX <= rulerBounds.x + rulerBounds.width &&
+                mouseY >= rulerBounds.y && mouseY <= rulerBounds.y + rulerBounds.height) {
+                // If within ruler body, prioritize moving
+                simState.canvasDragData = {
+                    type: 'ruler_move',
+                    offsetX: mouseX - simState.ruler.x,
+                    offsetY: mouseY - simState.ruler.y
+                };
+            } else if (distFromLeftHandle < 15 || distFromRightHandle < 15) { // Check if near rotation handles
+                simState.canvasDragData = {
+                    type: 'ruler_rotate',
+                    startAngle: Math.atan2(mouseY - simState.ruler.y, mouseX - simState.ruler.x) - simState.ruler.angle
+                };
+            }
+        });
+
+        document.getElementById('correct-curve-button').addEventListener('click', () => {
+            // Determine corrected origin X based on ruler position and angle
+            // Find a point on the ruler (e.g., its center) in global coordinates
+            const rulerGlobalX = simState.ruler.x;
+            const rulerGlobalY = simState.ruler.y;
+
+            // The ruler line equation in global coordinates is:
+            // Y - rulerGlobalY = tan(simState.ruler.angle) * (X - rulerGlobalX)
+            // To find X-intercept (where Y = graph.originY), assuming ruler represents tangent to curve
+            const yInterceptForTangent = graph.originY;
+            let correctedOriginXCanvas = rulerGlobalX - (rulerGlobalY - yInterceptForTangent) / Math.tan(simState.ruler.angle);
+            
+            if (Math.abs(Math.tan(simState.ruler.angle)) < 0.01) { // Near horizontal, assume origin at ruler x
+                correctedOriginXCanvas = rulerGlobalX;
+            }
+
+            // Convert back to penetration unit from canvas coordinates
+            let correctedOriginPenetration = (correctedOriginXCanvas - graph.originX) / graph.scaleX;
+
+            // Ensure the corrected origin is not negative, it should be at least 0.
+            simState.correctedOriginX = Math.max(0, correctedOriginPenetration);
+
+            simState.correctedCurveData = calculateCorrectedCurve(simState.loadPenetrationData, simState.correctedOriginX);
+            simState.checklist.correction = true;
+            updateChecklist();
+            playSound('chime', 1000);
+            speak("Hooray! We found the real beginning of our soil's strength! Now it's ready for its close-up!", 1.0, 1.1);
+            setPhase('calculation'); // Proceed to next phase
+        });
+
+        // Phase Calculation (Drag & Drop Numeric Chips)
+        function createDraggableChip(text, loadType, penetration, value) {
+            const chip = document.createElement('div');
+            chip.className = 'numeric-chip';
+            chip.textContent = text;
+            chip.draggable = true;
+            chip.dataset.loadType = loadType;
+            chip.dataset.penetration = penetration;
+            chip.dataset.value = value;
+            document.getElementById('numeric-chips-container').appendChild(chip);
+
+            chip.addEventListener('dragstart', (e) => {
+                simState.draggedHTMLElement = e.target;
+                e.target.classList.add('dragging');
+                e.dataTransfer.setData('text/plain', 'drag-chip'); // dummy data
+            });
+
+            chip.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+                simState.draggedHTMLElement = null;
+                simState.dropTargetElement = null; // Clear hovered drop target
+            });
+        }
+
+        document.querySelectorAll('.drop-target').forEach(target => {
+            target.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('numeric-chip')) {
+                    target.classList.add('hovered');
+                    simState.dropTargetElement = e.target;
+                    // Trigger zoom effect
+                    const pen = parseFloat(target.dataset.penetration);
+                    if (pen === 2.5) simState.zoomTargetX = 2.5;
+                    else if (pen === 5.0) simState.zoomTargetX = 5.0;
+                    simState.zoomLevel = 1.5;
+                    drawSimulation(); // Redraw to apply zoom
+                }
+            });
+
+            target.addEventListener('dragleave', (e) => {
+                target.classList.remove('hovered');
+                simState.dropTargetElement = null;
+                simState.zoomLevel = 1; // Reset zoom
+                drawSimulation();
+            });
+
+            target.addEventListener('drop', (e) => {
+                e.preventDefault();
+                target.classList.remove('hovered');
+                simState.zoomLevel = 1; // Reset zoom after drop
+                drawSimulation();
+
+                if (simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('numeric-chip')) {
+                    const droppedChip = simState.draggedHTMLElement;
+                    const dropPenetration = target.dataset.penetration;
+                    const dropLoadType = target.dataset.loadType;
+                    const chipPenetration = droppedChip.dataset.penetration;
+                    const chipLoadType = droppedChip.dataset.loadType;
+
+                    if (dropPenetration === chipPenetration && dropLoadType === chipLoadType) {
+                        target.textContent = droppedChip.dataset.value + ' kg';
+                        target.classList.add('filled');
+                        target.classList.remove('error');
+                        simState.cbrCalculationTargets[`${dropPenetration}_${dropLoadType}`] = parseFloat(droppedChip.dataset.value);
+                        droppedChip.style.display = 'none'; // Hide the chip after dropping
+                        playSound('chime', 700);
+                    } else {
+                        target.classList.add('error');
+                        playSound('thunk', 150);
+                        speak("Oops! That chip doesn't quite fit there. Try again!", 0.9, 0.9);
+                    }
+                    simState.draggedHTMLElement = null; // Reset
+                    checkCBRCalculations();
+                }
+            });
+        });
+
+        function checkCBRCalculations() {
+            const t2_5 = simState.cbrCalculationTargets['2.5_tested'];
+            const s2_5 = simState.cbrCalculationTargets['2.5_standard'];
+            const t5_0 = simState.cbrCalculationTargets['5.0_tested'];
+            const s5_0 = simState.cbrCalculationTargets['5.0_standard'];
+
+            if (t2_5 !== null && s2_5 !== null) {
+                simState.cbr2_5 = (t2_5 / s2_5) * 100;
+                document.getElementById('result-cbr-2_5').textContent = simState.cbr2_5.toFixed(1) + '%';
+            }
+            if (t5_0 !== null && s5_0 !== null) {
+                simState.cbr5_0 = (t5_0 / s5_0) * 100;
+                document.getElementById('result-cbr-5_0').textContent = simState.cbr5_0.toFixed(1) + '%';
+            }
+
+            if (simState.cbr2_5 !== null && simState.cbr5_0 !== null) {
+                simState.checklist.calculation = true;
+                updateChecklist();
+                speak("All CBR values calculated! Now, let's select the final design CBR.", 1.0, 1.1);
+                setPhase('selection');
+            }
+        }
+
+        // Phase Selection (IS 456 Codebook & Design CBR)
+        document.getElementById('is-codebook-trigger').addEventListener('click', () => {
+            const codebookContent = document.getElementById('codebook-content');
+            simState.isCodebookOpen = !simState.isCodebookOpen;
+            if (simState.isCodebookOpen) {
+                codebookContent.classList.add('active');
+                speak("Accessing the codebook. Remember to check page 70!", 1.0, 1.1);
+            } else {
+                codebookContent.classList.remove('active');
+            }
+        });
+
+        document.querySelectorAll('.codebook-page-tab').forEach(tab => {
+            tab.addEventListener('click', (e) => {
+                document.querySelectorAll('.codebook-page-tab').forEach(t => t.classList.remove('active'));
+                e.target.classList.add('active');
+                const ruleDisplay = document.getElementById('codebook-rule-display');
+                if (e.target.dataset.page === '70') {
+                    ruleDisplay.innerHTML = "<strong>Rule (IS 456):</strong> Usually, the CBR at 2.5 mm penetration is higher and adopted. If the 5.0 mm value is higher, the test is repeated. If the repeat test yields a similar trend, the 5.0 mm value is adopted as the design CBR.";
+                    playSound('chime', 900);
+                    speak("Correct page! This is the rule for selecting the design CBR.", 1.0, 1.1);
+                } else {
+                    ruleDisplay.textContent = "This page contains irrelevant information for CBR selection. Try another page!";
+                    playSound('buzz', 200);
+                    speak("Incorrect page. Look for the relevant rule!", 1.0, 1.0);
+                }
+            });
+        });
+
+        const designCBRDropzone = document.getElementById('design-cbr-dropzone');
+        designCBRDropzone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            if (simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('numeric-chip') && simState.draggedHTMLElement.dataset.cbrPen) {
+                designCBRDropzone.classList.add('hovered');
+            }
+        });
+
+        designCBRDropzone.addEventListener('dragleave', (e) => {
+            designCBRDropzone.classList.remove('hovered');
+        });
+
+        designCBRDropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            designCBRDropzone.classList.remove('hovered');
+
+            if (simState.draggedHTMLElement && simState.draggedHTMLElement.classList.contains('numeric-chip') && simState.draggedHTMLElement.dataset.cbrPen) {
+                const droppedCBR = parseFloat(simState.draggedHTMLElement.dataset.cbrValue);
+                const droppedCBRPen = parseFloat(simState.draggedHTMLElement.dataset.cbrPen);
+
+                let isCorrect = false;
+                if (simState.cbr2_5 > simState.cbr5_0) {
+                    if (droppedCBRPen === 2.5) {
+                        isCorrect = true;
+                        speak("You chose wisely! The 2.5mm value is the big winner!", 1.0, 1.1);
+                    } else {
+                        speak("Hmm, remember the rule? The 2.5mm value usually wins here! You might want to retry.", 1.0, 1.0);
+                    }
+                } else if (simState.cbr5_0 > simState.cbr2_5) {
+                    // In a real scenario, we'd repeat the test. Here, we simulate accepting 5.0mm if it's higher.
+                    if (droppedCBRPen === 5.0) {
+                        isCorrect = true;
+                        speak("Excellent! Since 5.0mm was higher, and we'd imagine we repeated the test, this is our champion!", 1.0, 1.1);
+                    } else {
+                        speak("Not quite! When 5.0mm is higher, it needs special attention! You might want to retry.", 1.0, 1.0);
+                    }
+                } else { // Equal or other scenario
+                     isCorrect = true; // Assume equal can be either
+                     speak("Both values are close, you've made a reasonable choice!", 1.0, 1.1);
+                }
+
+                if (isCorrect) {
+                    simState.selectedCBR = droppedCBR;
+                    document.getElementById('design-cbr-value').textContent = `${droppedCBR.toFixed(1)}%`;
+                    document.getElementById('design-cbr-value').classList.add('visible');
+                    designCBRDropzone.classList.add('filled');
+                    playSound('chime', 1200);
+                    simState.draggedHTMLElement.style.display = 'none'; // Hide selected chip
+                    // If 5.0mm was higher, show repeat button
+                    if (simState.cbr5_0 > simState.cbr2_5 && document.querySelector('.codebook-page-tab[data-page="70"]').classList.contains('active')) {
+                        document.getElementById('repeat-test-button').style.display = 'block';
+                    } else {
+                        simState.checklist.selection = true;
+                        updateChecklist();
+                        setTimeout(() => setPhase('conclusion'), 2000);
+                    }
+                } else {
+                    playSound('buzz', 250);
+                }
+            }
+        });
+
+        document.getElementById('repeat-test-button').addEventListener('click', () => {
+            // Reset to setup phase
+            resetSimulation();
+            setPhase('setup');
+            speak("Repeating the test! Let's ensure our results are consistent.", 1.0, 1.1);
+        });
+
+        // Conclusion Phase
+        document.getElementById('restart-simulation-button').addEventListener('click', () => {
+            resetSimulation();
+            setPhase('intro');
+            speak("Simulation reset. Welcome back, engineer!", 1.0, 1.1);
+        });
+
+        // --- Instructions Modal Logic ---
+        const instructionsModal = document.getElementById('instructions-modal');
+        document.getElementById('info-button').addEventListener('click', () => {
+            instructionsModal.classList.add('visible');
+            speak("Need a little help? Here's how to play!", 1.0, 1.1);
+        });
+        document.querySelector('.modal-close-button').addEventListener('click', () => {
+            instructionsModal.classList.remove('visible');
+            if (speechSynth.speaking) speechSynth.cancel();
+        });
+        document.getElementById('modal-got-it-button').addEventListener('click', () => {
+            instructionsModal.classList.remove('visible');
+            if (speechSynth.speaking) speechSynth.cancel();
+        });
+        instructionsModal.addEventListener('click', (e) => {
+            if (e.target === instructionsModal) { // Click outside modal content
+                instructionsModal.classList.remove('visible');
+                if (speechSynth.speaking) speechSynth.cancel();
+            }
+        });
+
+        // --- Reset Simulation ---
+        function resetSimulation() {
+            simState.soilType = null;
+            simState.compactionLevel = 50;
+            simState.loadPenetrationData = [];
+            simState.correctedCurveData = [];
+            simState.cbr2_5 = null;
+            simState.cbr5_0 = null;
+            simState.selectedCBR = null;
+            simState.currentPenetration = 0;
+            simState.plungerLoad = 0;
+            simState.testSpeed = 0.5;
+            simState.ruler = { x: 0, y: 0, angle: 0, width: 200, height: 5, active: false, initialTouchDistance: 0, rotationCenter: { x: 0, y: 0 } };
+            simState.correctedOriginX = null;
+            simState.zoomLevel = 1;
+            simState.zoomTargetX = 0;
+            simState.isCodebookOpen = false;
+            simState.cbrCalculationTargets = {
+                '2.5_tested': null, '2.5_standard': null,
+                '5.0_tested': null, '5.0_standard': null
+            };
+            for (const objective in simState.checklist) {
+                simState.checklist[objective] = false;
+            }
+            updateChecklist();
+            stopCompactionSound();
+            if (speechSynth.speaking) speechSynth.cancel();
+        }
+
+
+        // Initial setup
+        resetSimulation(); // Ensures a clean state on load
+        setPhase('intro'); // Start with the introduction phase
+        updateChecklist();
+
+    </script>
+</body>
+</html>

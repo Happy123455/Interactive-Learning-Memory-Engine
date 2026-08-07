@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>USCS Soil Classification Cyber-Engineering Simulator</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0f172a',
+                            card: 'rgba(30, 41, 59, 0.7)',
+                            cyan: '#22d3ee',
+                            magenta: '#f472b6',
+                            emerald: '#34d399',
+                            amber: '#fbbf24',
+                            purple: '#c084fc'
+                        }
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'Fira Code', 'Courier New', 'monospace'],
+                        sans: ['Inter', 'system-ui', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Custom styling for cyber-engineering UI */
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            font-family: 'Inter', sans-serif;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism effects */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-glow {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(34, 211, 238, 0.3);
+            box-shadow: 0 0 25px rgba(34, 211, 238, 0.15);
+        }
+
+        /* Custom glowing scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(34, 211, 238, 0.3);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(34, 211, 238, 0.6);
+        }
+
+        /* Custom slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: rgba(51, 65, 85, 0.8);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #22d3ee;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px #22d3ee;
+            transition: all 0.2s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #38bdf8;
+            box-shadow: 0 0 15px #38bdf8;
+        }
+
+        /* Pulsing animation for active canvas elements */
+        @keyframes cyber-pulse {
+            0% { box-shadow: 0 0 0 0 rgba(244, 114, 182, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(244, 114, 182, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(244, 114, 182, 0); }
+        }
+
+        .pulse-target {
+            animation: cyber-pulse 2s infinite;
+        }
+
+        /* Drag and Drop sieve style */
+        .sieve-item {
+            transition: transform 0.2s, box-shadow 0.2s;
+            cursor: grab;
+        }
+        .sieve-item:active {
+            cursor: grabbing;
+        }
+        .sieve-item.dragging {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+        .sieve-drop-zone.drag-over {
+            border-color: #22d3ee;
+            background: rgba(34, 211, 238, 0.15);
+        }
+
+        /* Canvas container response */
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 280px;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-slate-950">
+
+    <!-- TOP NAVIGATION BAR / DASHBOARD HEADER -->
+    <header class="border-b border-cyan-500/20 bg-slate-900/80 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+                    <i class="fa-solid fa-layer-group text-slate-950 text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-wider text-cyan-400 uppercase font-mono flex items-center gap-2">
+                        USCS Soil Classifier <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-500/30">v2.5 Lab</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Transportation Engineering Visual Simulation & Analysis System</p>
+                </div>
+            </div>
+
+            <!-- Header Quick Stats & Controls -->
+            <div class="flex items-center space-x-3">
+                <!-- Sound Toggle -->
+                <button id="soundToggleBtn" onclick="toggleAudio()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-cyan-400 flex items-center gap-2 transition">
+                    <i id="soundIcon" class="fa-solid fa-volume-high"></i>
+                    <span id="soundLabel">Audio: ON</span>
+                </button>
+
+                <!-- TTS Narration Button -->
+                <button id="narrateBtn" onclick="narrateCurrentState()" class="px-3 py-1.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center gap-2 transition">
+                    <i class="fa-solid fa-comment-dots text-cyan-400"></i>
+                    <span>Narrate Lesson</span>
+                </button>
+
+                <!-- Preset Soil Selector -->
+                <select id="presetSelect" onchange="loadPreset(this.value)" class="bg-slate-900 border border-slate-700 text-xs text-slate-200 rounded-lg px-3 py-1.5 font-mono focus:border-cyan-400 focus:outline-none">
+                    <option value="">-- Load Preset Sample --</option>
+                    <option value="CL">Lean Clay (CL) - High Plastic Fine</option>
+                    <option value="CH">Fat Clay (CH) - High Limit Fine</option>
+                    <option value="SW-SC">Well-Graded Sand with Clay (SW-SC)</option>
+                    <option value="GP">Poorly Graded Gravel (GP)</option>
+                    <option value="SM">Silty Sand (SM)</option>
+                    <option value="CL-ML">Silty Clay Dual Zone (CL-ML)</option>
+                </select>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN DASHBOARD CONTENT -->
+    <main class="flex-grow max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: CANVASES AND VISUAL SIMULATION (Lg: 7 cols) -->
+        <section class="lg:col-span-7 flex flex-col space-y-6">
+
+            <!-- CLASSIFICATION BANNER CARD -->
+            <div class="glass-panel-glow rounded-2xl p-5 border border-cyan-500/30 relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 w-32 h-32 bg-cyan-500/10 rounded-full blur-2xl pointer-events-none"></div>
+                
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <div>
+                        <span class="text-xs font-mono text-cyan-400 uppercase tracking-widest block mb-1">Determined USCS Classification</span>
+                        <div class="flex items-baseline space-x-3">
+                            <span id="uscsSymbolDisplay" class="text-4xl font-extrabold font-mono text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-magenta-400">
+                                SC
+                            </span>
+                            <span id="uscsNameDisplay" class="text-lg font-semibold text-slate-200">
+                                Clayey Sand
+                            </span>
+                        </div>
+                    </div>
+                    <div id="soilCategoryBadge" class="px-3 py-1.5 rounded-xl bg-cyan-950/80 border border-cyan-500/40 text-xs font-mono text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-microscope text-cyan-400"></i>
+                        <span id="soilCategoryText">Coarse-Grained Soil (&gt; 50% retained on #200)</span>
+                    </div>
+                </div>
+
+                <!-- Equation Diagnostic Ribbon -->
+                <div class="mt-4 pt-3 border-t border-slate-800 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">PLASTICITY INDEX (PI)</span>
+                        <span id="piValueDisplay" class="text-cyan-300 font-bold text-sm">18.0%</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">A-LINE PI THRESHOLD</span>
+                        <span id="aLinePiDisplay" class="text-amber-300 font-bold text-sm">18.25%</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">COARSE FRACTION</span>
+                        <span id="coarseFractionDisplay" class="text-emerald-300 font-bold text-sm">65.0%</span>
+                    </div>
+                    <div class="bg-slate-900/60 p-2 rounded-lg border border-slate-800">
+                        <span class="text-slate-400 block text-[10px]">GRADATION STATUS</span>
+                        <span id="gradationStatusDisplay" class="text-purple-300 font-bold text-sm">Cu=7.5, Cc=1.8</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CANVAS 1: DYNAMIC PLASTICITY CHART (PI vs LL) -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-2 border border-slate-800">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="text-sm font-bold font-mono text-cyan-400 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-line text-cyan-400"></i>
+                        USCS PLASTICITY CHART (A-LINE: PI = 0.73 × [LL - 20])
+                    </h2>
+                    <span class="text-[11px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        Interactive View
+                    </span>
+                </div>
+
+                <!-- Plasticity Canvas Container -->
+                <div class="canvas-container h-72 sm:h-80 w-full bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80 relative">
+                    <canvas id="plasticityCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+                    <!-- Coordinate Hover Legend -->
+                    <div id="chartTooltip" class="absolute hidden top-2 right-2 bg-slate-900/90 backdrop-blur-md border border-cyan-500/40 text-[11px] font-mono px-2.5 py-1.5 rounded-lg text-cyan-300 pointer-events-none shadow-lg">
+                        LL: -- | PI: --
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 px-1 font-mono flex items-center gap-1">
+                    <i class="fa-solid fa-circle-info text-cyan-400"></i>
+                    Glowing magenta marker denotes target soil coordinates. A-Line separates Clay (C) above from Silt (M) below.
+                </p>
+            </div>
+
+            <!-- CANVAS 2: GRAIN SIZE DISTRIBUTION CURVE (Logarithmic Sieve Analysis) -->
+            <div class="glass-panel rounded-2xl p-4 flex flex-col space-y-2 border border-slate-800">
+                <div class="flex justify-between items-center px-1">
+                    <h2 class="text-sm font-bold font-mono text-cyan-400 flex items-center gap-2">
+                        <i class="fa-solid fa-chart-area text-cyan-400"></i>
+                        PARTICLE SIZE DISTRIBUTION GRAPH (LOG D vs % PASSING)
+                    </h2>
+                    <span class="text-[11px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        Semi-Log Scale
+                    </span>
+                </div>
+
+                <!-- Particle Size Canvas -->
+                <div class="canvas-container h-64 sm:h-72 w-full bg-slate-950/80 rounded-xl overflow-hidden border border-slate-800/80">
+                    <canvas id="grainCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- RIGHT COLUMN: INTERACTIVE CONTROL PANEL & SIEVE LAB (Lg: 5 cols) -->
+        <section class="lg:col-span-5 flex flex-col space-y-6">
+
+            <!-- TABBED CONTROLS CARD -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col space-y-5">
+                
+                <!-- Tab Headers -->
+                <div class="flex border-b border-slate-800 pb-2 gap-2 font-mono text-xs">
+                    <button id="tabBtn1" onclick="switchTab(1)" class="px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-sliders"></i> Parameters
+                    </button>
+                    <button id="tabBtn2" onclick="switchTab(2)" class="px-3 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-filter"></i> Drag-Sieve Lab
+                    </button>
+                    <button id="tabBtn3" onclick="switchTab(3)" class="px-3 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 font-bold transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-diagram-project"></i> Logic Flow
+                    </button>
+                </div>
+
+                <!-- TAB 1: SLIDER CONTROLS -->
+                <div id="tabContent1" class="space-y-4">
+                    <h3 class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-flask text-xs"></i> 1. Atterberg Limits (Plasticity)
+                    </h3>
+
+                    <!-- Liquid Limit (LL) Slider -->
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex justify-between text-xs font-mono">
+                            <label for="llSlider" class="text-slate-300 font-medium">Liquid Limit (LL):</label>
+                            <span id="llValueText" class="text-cyan-400 font-bold">45.0%</span>
+                        </div>
+                        <input type="range" id="llSlider" min="10" max="100" step="0.5" value="45" oninput="updateStateFromInputs()">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>10% (Low Limit)</span>
+                            <span>50% (High plastic cutoff)</span>
+                            <span>100%</span>
+                        </div>
+                    </div>
+
+                    <!-- Plastic Limit (PL) Slider -->
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex justify-between text-xs font-mono">
+                            <label for="plSlider" class="text-slate-300 font-medium">Plastic Limit (PL):</label>
+                            <span id="plValueText" class="text-cyan-400 font-bold">22.0%</span>
+                        </div>
+                        <input type="range" id="plSlider" min="5" max="60" step="0.5" value="22" oninput="updateStateFromInputs()">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>5%</span>
+                            <span>Note: Must be &lt; LL</span>
+                            <span>60%</span>
+                        </div>
+                    </div>
+
+                    <h3 class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider pt-2 flex items-center gap-1.5">
+                        <i class="fa-solid fa-wheat-awn text-xs"></i> 2. Grain Size & Gradation Data
+                    </h3>
+
+                    <!-- % Passing No. 200 Sieve Slider -->
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex justify-between text-xs font-mono">
+                            <label for="p200Slider" class="text-slate-300 font-medium">% Passing #200 Sieve (0.075mm):</label>
+                            <span id="p200ValueText" class="text-cyan-400 font-bold">35.0%</span>
+                        </div>
+                        <input type="range" id="p200Slider" min="0" max="100" step="0.5" value="35" oninput="updateStateFromInputs()">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>0% (Clean Coarse)</span>
+                            <span>50% (Fine Cutoff)</span>
+                            <span>100% (Pure Fine)</span>
+                        </div>
+                    </div>
+
+                    <!-- % Coarse Retained on No. 4 Sieve Slider -->
+                    <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                        <div class="flex justify-between text-xs font-mono">
+                            <label for="r4Slider" class="text-slate-300 font-medium">% Retained on #4 Sieve (4.75mm):</label>
+                            <span id="r4ValueText" class="text-cyan-400 font-bold">20.0%</span>
+                        </div>
+                        <input type="range" id="r4Slider" min="0" max="100" step="0.5" value="20" oninput="updateStateFromInputs()">
+                        <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                            <span>0% (All Sand/Fines)</span>
+                            <span>Gravel vs Sand Threshold</span>
+                            <span>100% (Gravel)</span>
+                        </div>
+                    </div>
+
+                    <!-- Gradation Coefficients: Cu and Cc -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                            <div class="flex justify-between text-xs font-mono">
+                                <label for="cuSlider" class="text-slate-300 font-medium">Cu (Uniformity):</label>
+                                <span id="cuValueText" class="text-purple-300 font-bold">7.5</span>
+                            </div>
+                            <input type="range" id="cuSlider" min="1" max="25" step="0.1" value="7.5" oninput="updateStateFromInputs()">
+                            <span class="text-[10px] text-slate-500 font-mono block">Gravel ≥4 | Sand ≥6</span>
+                        </div>
+                        <div class="bg-slate-900/60 p-3 rounded-xl border border-slate-800 space-y-1.5">
+                            <div class="flex justify-between text-xs font-mono">
+                                <label for="ccSlider" class="text-slate-300 font-medium">Cc (Curvature):</label>
+                                <span id="ccValueText" class="text-purple-300 font-bold">1.8</span>
+                            </div>
+                            <input type="range" id="ccSlider" min="0.1" max="5" step="0.1" value="1.8" oninput="updateStateFromInputs()">
+                            <span class="text-[10px] text-slate-500 font-mono block">Well-graded: 1.0 to 3.0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- TAB 2: DRAG-AND-DROP SIEVE LAB -->
+                <div id="tabContent2" class="space-y-4 hidden">
+                    <p class="text-xs text-slate-300 font-mono">
+                        Drag soil weight fractions from the soil bin into the sieve stack below to dynamically derive gradation percentages.
+                    </p>
+
+                    <!-- Soil Weight Bin (Draggable Items) -->
+                    <div class="bg-slate-900/80 p-3 rounded-xl border border-cyan-500/30">
+                        <span class="text-xs font-mono text-cyan-400 font-bold block mb-2">Available Soil Weight Fractions (Drag to Sieve):</span>
+                        <div class="flex flex-wrap gap-2">
+                            <div draggable="true" ondragstart="handleDragStart(event, 150)" class="sieve-item bg-cyan-950 border border-cyan-500/50 hover:border-cyan-400 px-3 py-1.5 rounded-lg text-xs font-mono text-cyan-300 flex items-center gap-1.5 shadow">
+                                <i class="fa-solid fa-cube text-cyan-400"></i> 150g Coarse Gravel
+                            </div>
+                            <div draggable="true" ondragstart="handleDragStart(event, 250)" class="sieve-item bg-teal-950 border border-teal-500/50 hover:border-teal-400 px-3 py-1.5 rounded-lg text-xs font-mono text-teal-300 flex items-center gap-1.5 shadow">
+                                <i class="fa-solid fa-cubes text-teal-400"></i> 250g Fine Gravel / Sand
+                            </div>
+                            <div draggable="true" ondragstart="handleDragStart(event, 200)" class="sieve-item bg-blue-950 border border-blue-500/50 hover:border-blue-400 px-3 py-1.5 rounded-lg text-xs font-mono text-blue-300 flex items-center gap-1.5 shadow">
+                                <i class="fa-solid fa-circle text-blue-400 text-[10px]"></i> 200g Medium Sand
+                            </div>
+                            <div draggable="true" ondragstart="handleDragStart(event, 100)" class="sieve-item bg-purple-950 border border-purple-500/50 hover:border-purple-400 px-3 py-1.5 rounded-lg text-xs font-mono text-purple-300 flex items-center gap-1.5 shadow">
+                                <i class="fa-solid fa-ellipsis text-purple-400"></i> 100g Silt & Clay Fines
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Graphical Sieve Stack Drop Zone -->
+                    <div id="sieveDropZone" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" class="sieve-drop-zone border-2 border-dashed border-slate-700 bg-slate-900/40 p-4 rounded-xl transition text-center space-y-3">
+                        <div class="text-xs font-mono text-slate-400 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-down-to-bracket text-cyan-400 text-lg"></i>
+                            Drop Soil Batch Here to Load Sieve Stack
+                        </div>
+
+                        <!-- Live Sieve Stack Breakdown -->
+                        <div id="sieveBreakdownContainer" class="space-y-1.5 text-left text-xs font-mono">
+                            <!-- Populated dynamically -->
+                        </div>
+                    </div>
+
+                    <button onclick="resetSieveStack()" class="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-mono text-slate-300 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-rotate-left"></i> Reset Sieve Stack Data
+                    </button>
+                </div>
+
+                <!-- TAB 3: DECISION TREE & LOGIC PATH -->
+                <div id="tabContent3" class="space-y-3 hidden">
+                    <h3 class="text-xs font-mono font-bold text-cyan-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-sitemap text-xs"></i> Geotechnical Classification Flow
+                    </h3>
+                    <div id="decisionTreeContainer" class="bg-slate-950 p-4 rounded-xl border border-slate-800 font-mono text-xs space-y-2 text-slate-300">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- SUMMARY REPORT BOX -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800 flex flex-col space-y-3">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-xs font-bold font-mono text-cyan-400 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-file-contract text-cyan-400"></i>
+                        Engineering Summary & Logic Report
+                    </h2>
+                    <button onclick="copyReportToClipboard()" class="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-[11px] font-mono text-slate-300 border border-slate-700 transition flex items-center gap-1">
+                        <i class="fa-solid fa-copy"></i> Copy
+                    </button>
+                </div>
+
+                <div id="summaryReportText" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800/80 font-mono text-xs text-slate-300 space-y-2 leading-relaxed max-h-48 overflow-y-auto">
+                    <!-- Report text injected here -->
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // Centralized State Object
+        const state = {
+            // Atterberg Limits
+            LL: 45.0,
+            PL: 22.0,
+            PI: 23.0,
+            
+            // Sieve Analysis
+            P200: 35.0,  // % Passing No. 200 sieve (0.075mm)
+            R4: 20.0,    // % Retained on No. 4 sieve (4.75mm)
+            P4: 80.0,    // % Passing No. 4 sieve = 100 - R4
+            Cu: 7.5,     // Coefficient of Uniformity
+            Cc: 1.8,     // Coefficient of Curvature
+            
+            // Sieve Stack Mass Data (g)
+            sieveMasses: {
+                sieve3in: 0,
+                sieve34: 50,
+                sieveNo4: 150,
+                sieveNo10: 200,
+                sieveNo40: 250,
+                sieveNo200: 150,
+                pan: 200
+            },
+
+            // Calculated Output
+            uscsSymbol: '',
+            uscsName: '',
+            categoryText: '',
+            aLinePI: 0,
+            isFineGrained: false,
+            isWellGraded: false,
+            logicSteps: [],
+            
+            // App settings
+            audioEnabled: true,
+            activeTab: 1
+        };
+
+        // Web Audio Context Singleton
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioCtx = new AudioContext();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+        }
+
+        function toggleAudio() {
+            state.audioEnabled = !state.audioEnabled;
+            const icon = document.getElementById('soundIcon');
+            const label = document.getElementById('soundLabel');
+            if (state.audioEnabled) {
+                icon.className = "fa-solid fa-volume-high";
+                label.innerText = "Audio: ON";
+                playPluckSound();
+            } else {
+                icon.className = "fa-solid fa-volume-xmark text-slate-500";
+                label.innerText = "Audio: OFF";
+            }
+        }
+
+        // Short sine pluck on slider adjustment
+        function playPluckSound() {
+            if (!state.audioEnabled) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600 + Math.random() * 200, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.08);
+                
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.08);
+            } catch(e) {}
+        }
+
+        // Low frequency thrum warning on boundary errors
+        function playThrumSound() {
+            if (!state.audioEnabled) return;
+            try {
+                initAudio();
+                const osc = audioCtx.createOscillator();
+                const filter = audioCtx.createBiquadFilter();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, audioCtx.currentTime);
+                osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.25);
+
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(300, audioCtx.currentTime);
+
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch(e) {}
+        }
+
+        // Rising harmonic chime on valid classification trigger
+        function playSuccessChime() {
+            if (!state.audioEnabled) return;
+            try {
+                initAudio();
+                const freqs = [523.25, 659.25, 783.99, 1046.50]; // C Major Chord
+                freqs.forEach((freq, idx) => {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime + idx * 0.05);
+
+                    gain.gain.setValueAtTime(0.08, audioCtx.currentTime + idx * 0.05);
+                    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + idx * 0.05 + 0.3);
+
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+
+                    osc.start(audioCtx.currentTime + idx * 0.05);
+                    osc.stop(audioCtx.currentTime + idx * 0.05 + 0.3);
+                });
+            } catch(e) {}
+        }
+
+        /**
+         * Core Geotechnical USCS Logic Classifier
+         * Follows ASTM D2487 Standard Practice for Classification of Soils
+         */
+        function solveUSCSClassification() {
+            // Calculate Plasticity Index
+            state.PI = state.LL - state.PL;
+            state.aLinePI = 0.73 * (state.LL - 20);
+            state.P4 = 100 - state.R4;
+
+            const steps = [];
+            let symbol = '';
+            let name = '';
+
+            // Step 1: Check inputs validity
+            if (state.PL >= state.LL) {
+                state.PI = 0;
+                playThrumSound();
+                steps.push("⚠️ WARNING: Plastic Limit (PL) exceeds or equals Liquid Limit (LL). Soil is considered Non-Plastic (NP).");
+            }
+
+            steps.push(`1. Evaluate % Passing No. 200 Sieve (P₂₀₀ = ${state.P200.toFixed(1)}%).`);
+
+            // Step 2: Coarse vs Fine Division
+            if (state.P200 >= 50.0) {
+                // FINE-GRAINED SOILS (≥ 50% passes No. 200)
+                state.isFineGrained = true;
+                state.categoryText = "Fine-Grained Soil (≥ 50% passing #200)";
+                steps.push("   ➔ Soil is FINE-GRAINED (Fines ≥ 50%).");
+
+                const isHighPlasticity = (state.LL >= 50.0);
+                steps.push(`2. Check Liquid Limit: LL = ${state.LL.toFixed(1)}% (${isHighPlasticity ? '≥ 50%: High Plasticity' : '< 50%: Low/Medium Plasticity'}).`);
+
+                const aboveALine = (state.PI > state.aLinePI);
+                steps.push(`3. Evaluate Plasticity Index relative to A-Line: PI = ${state.PI.toFixed(1)}% vs A-Line = ${state.aLinePI.toFixed(1)}%.`);
+
+                if (isHighPlasticity) {
+                    if (aboveALine) {
+                        symbol = "CH";
+                        name = "Fat Clay (High Plasticity Clay)";
+                    } else {
+                        symbol = "MH";
+                        name = "Elastic Silt (High Plasticity Silt)";
+                    }
+                } else {
+                    // Low Plasticity (< 50)
+                    // Check CL-ML Dual Zone: PI between 4 and 7 and on/above A-Line
+                    if (state.PI >= 4 && state.PI <= 7 && aboveALine) {
+                        symbol = "CL-ML";
+                        name = "Silty Clay / Clayey Silt (Dual Symbol Zone)";
+                        steps.push("   ➔ Coordinates fall into the CL-ML hatched dual plasticity region.");
+                    } else if (aboveALine && state.PI > 7) {
+                        symbol = "CL";
+                        name = "Lean Clay (Low to Medium Plasticity)";
+                    } else {
+                        symbol = "ML";
+                        name = "Silt (Low Plasticity)";
+                    }
+                }
+            } else {
+                // COARSE-GRAINED SOILS (< 50% passes No. 200)
+                state.isFineGrained = false;
+                state.categoryText = "Coarse-Grained Soil (< 50% passing #200)";
+                steps.push("   ➔ Soil is COARSE-GRAINED (Coarse fraction > 50%).");
+
+                // Coarse fraction retained = 100 - P200
+                const coarseFraction = 100.0 - state.P200;
+                // Gravel fraction = Retained on No. 4 (R4)
+                // Sand fraction = Fraction passing No. 4 minus passing No. 200
+                const gravelFrac = state.R4;
+                const sandFrac = state.P4 - state.P200;
+
+                steps.push(`2. Division of coarse fraction: Gravel = ${gravelFrac.toFixed(1)}%, Sand = ${sandFrac.toFixed(1)}%.`);
+
+                const isGravel = (gravelFrac > sandFrac);
+                const prefix = isGravel ? 'G' : 'S';
+                const mainName = isGravel ? 'Gravel' : 'Sand';
+
+                steps.push(`   ➔ Primary coarse material: ${isGravel ? 'Gravel (G)' : 'Sand (S)'}.`);
+
+                // Check fines percentage subdivisions (<5%, 5-12%, >12%)
+                if (state.P200 < 5.0) {
+                    // Clean Gravel/Sand: Gradation (W vs P)
+                    steps.push(`3. Clean coarse soil (Fines < 5%). Evaluate gradation coefficients.`);
+                    const wellGraded = checkWellGraded(isGravel, state.Cu, state.Cc);
+                    state.isWellGraded = wellGraded;
+                    
+                    if (wellGraded) {
+                        symbol = prefix + 'W';
+                        name = isGravel ? "Well-Graded Gravel" : "Well-Graded Sand";
+                    } else {
+                        symbol = prefix + 'P';
+                        name = isGravel ? "Poorly-Graded Gravel" : "Poorly-Graded Sand";
+                    }
+                    steps.push(`   ➔ Gradation Criteria (${isGravel ? 'Gravel: Cu≥4 & 1≤Cc≤3' : 'Sand: Cu≥6 & 1≤Cc≤3'}): ${wellGraded ? 'PASSED (Well-Graded)' : 'FAILED (Poorly-Graded)'}.`);
+
+                } else if (state.P200 > 12.0) {
+                    // Coarse soil with fines (> 12%): Plasticity of fines (C vs M)
+                    steps.push(`3. Coarse soil with high fines (Fines > 12%). Evaluate fines plasticity.`);
+                    const aboveALine = (state.PI > state.aLinePI);
+
+                    if (state.PI >= 4 && state.PI <= 7 && aboveALine) {
+                        symbol = `${prefix}C-${prefix}M`;
+                        name = `${mainName} with Silty Clay Fines`;
+                    } else if (aboveALine && state.PI > 7) {
+                        symbol = prefix + 'C';
+                        name = isGravel ? "Clayey Gravel" : "Clayey Sand";
+                    } else {
+                        symbol = prefix + 'M';
+                        name = isGravel ? "Silty Gravel" : "Silty Sand";
+                    }
+                    steps.push(`   ➔ Fines Plasticity: ${aboveALine ? 'Above A-Line (Clayey Fines)' : 'Below A-Line or low PI (Silty Fines)'}.`);
+
+                } else {
+                    // Dual symbol range (5% <= P200 <= 12%)
+                    steps.push(`3. Borderline fines content (5% ≤ P₂₀₀ ≤ 12%). Dual symbol required.`);
+                    const wellGraded = checkWellGraded(isGravel, state.Cu, state.Cc);
+                    const aboveALine = (state.PI > state.aLinePI);
+
+                    const gradCode = wellGraded ? 'W' : 'P';
+                    const fineCode = (aboveALine && state.PI > 4) ? 'C' : 'M';
+
+                    symbol = `${prefix}${gradCode}-${prefix}${fineCode}`;
+                    name = `${wellGraded ? 'Well-Graded' : 'Poorly-Graded'} ${mainName} with ${fineCode === 'C' ? 'Clay' : 'Silt'}`;
+                }
+            }
+
+            state.uscsSymbol = symbol;
+            state.uscsName = name;
+            state.logicSteps = steps;
+
+            updateDOMDisplays();
+        }
+
+        function checkWellGraded(isGravel, Cu, Cc) {
+            const ccValid = (Cc >= 1.0 && Cc <= 3.0);
+            if (isGravel) {
+                return (Cu >= 4.0 && ccValid);
+            } else {
+                return (Cu >= 6.0 && ccValid);
+            }
+        }
+
+        function updateDOMDisplays() {
+            document.getElementById('uscsSymbolDisplay').innerText = state.uscsSymbol;
+            document.getElementById('uscsNameDisplay').innerText = state.uscsName;
+            document.getElementById('soilCategoryText').innerText = state.categoryText;
+
+            document.getElementById('piValueDisplay').innerText = `${state.PI.toFixed(1)}%`;
+            document.getElementById('aLinePiDisplay').innerText = `${state.aLinePI.toFixed(2)}%`;
+            document.getElementById('coarseFractionDisplay').innerText = `${(100 - state.P200).toFixed(1)}%`;
+            document.getElementById('gradationStatusDisplay').innerText = `Cu=${state.Cu.toFixed(1)}, Cc=${state.Cc.toFixed(1)}`;
+
+            // Decision Tree Content
+            const treeContainer = document.getElementById('decisionTreeContainer');
+            treeContainer.innerHTML = state.logicSteps.map(step => `<div class="p-1 rounded hover:bg-slate-900">${step}</div>`).join('');
+
+            // Summary Report text
+            const reportBox = document.getElementById('summaryReportText');
+            reportBox.innerHTML = `
+                <p><strong class="text-cyan-400">Sample USCS Classification:</strong> <span class="text-magenta-400 font-bold">${state.uscsSymbol} (${state.uscsName})</span></p>
+                <p><strong class="text-slate-400">Atterberg Limits:</strong> LL = ${state.LL.toFixed(1)}%, PL = ${state.PL.toFixed(1)}% ➔ PI = ${state.PI.toFixed(1)}% (A-Line threshold: ${state.aLinePI.toFixed(2)}%).</p>
+                <p><strong class="text-slate-400">Sieve & Gradation:</strong> % Passing #200 = ${state.P200.toFixed(1)}%, % Retained #4 = ${state.R4.toFixed(1)}%, Cu = ${state.Cu.toFixed(1)}, Cc = ${state.Cc.toFixed(1)}.</p>
+                <p class="text-slate-400 text-[11px] pt-1 border-t border-slate-800">
+                    <em>Geotechnical Interpretation:</em> ${state.isFineGrained ? 
+                    `Behavior is governed by fine clay/silt mineralogy. Sample plots ${state.PI > state.aLinePI ? 'ABOVE' : 'BELOW'} the A-line.` : 
+                    `Behavior is governed by grain size distribution skeleton. Soil exhibits ${state.R4 > (state.P4 - state.P200) ? 'Gravel' : 'Sand'} predominance with ${state.P200.toFixed(1)}% fines.`}
+                </p>
+            `;
+        }
+
+        function updateStateFromInputs() {
+            state.LL = parseFloat(document.getElementById('llSlider').value);
+            state.PL = parseFloat(document.getElementById('plSlider').value);
+            state.P200 = parseFloat(document.getElementById('p200Slider').value);
+            state.R4 = parseFloat(document.getElementById('r4Slider').value);
+            state.Cu = parseFloat(document.getElementById('cuSlider').value);
+            state.Cc = parseFloat(document.getElementById('ccSlider').value);
+
+            // Text displays
+            document.getElementById('llValueText').innerText = state.LL.toFixed(1) + '%';
+            document.getElementById('plValueText').innerText = state.PL.toFixed(1) + '%';
+            document.getElementById('p200ValueText').innerText = state.P200.toFixed(1) + '%';
+            document.getElementById('r4ValueText').innerText = state.R4.toFixed(1) + '%';
+            document.getElementById('cuValueText').innerText = state.Cu.toFixed(1);
+            document.getElementById('ccValueText').innerText = state.Cc.toFixed(1);
+
+            playPluckSound();
+            solveUSCSClassification();
+        }
+
+        function loadPreset(presetKey) {
+            if (!presetKey) return;
+            switch(presetKey) {
+                case 'CL':
+                    state.LL = 38.0; state.PL = 16.0; state.P200 = 78.0; state.R4 = 5.0; state.Cu = 3.0; state.Cc = 1.1;
+                    break;
+                case 'CH':
+                    state.LL = 65.0; state.PL = 24.0; state.P200 = 88.0; state.R4 = 2.0; state.Cu = 2.5; state.Cc = 1.0;
+                    break;
+                case 'SW-SC':
+                    state.LL = 32.0; state.PL = 14.0; state.P200 = 8.0; state.R4 = 15.0; state.Cu = 8.5; state.Cc = 1.9;
+                    break;
+                case 'GP':
+                    state.LL = 20.0; state.PL = 15.0; state.P200 = 2.0; state.R4 = 65.0; state.Cu = 2.8; state.Cc = 0.8;
+                    break;
+                case 'SM':
+                    state.LL = 28.0; state.PL = 22.0; state.P200 = 25.0; state.R4 = 10.0; state.Cu = 5.0; state.Cc = 1.2;
+                    break;
+                case 'CL-ML':
+                    state.LL = 22.0; state.PL = 16.0; state.P200 = 85.0; state.R4 = 2.0; state.Cu = 2.0; state.Cc = 1.0;
+                    break;
+            }
+
+            // Sync Sliders
+            document.getElementById('llSlider').value = state.LL;
+            document.getElementById('plSlider').value = state.PL;
+            document.getElementById('p200Slider').value = state.P200;
+            document.getElementById('r4Slider').value = state.R4;
+            document.getElementById('cuSlider').value = state.Cu;
+            document.getElementById('ccSlider').value = state.Cc;
+
+            updateStateFromInputs();
+            playSuccessChime();
+        }
+
+        function narrateCurrentState() {
+            if (!('speechSynthesis' in window)) {
+                alert("Text-to-Speech is not supported in this browser.");
+                return;
+            }
+
+            window.speechSynthesis.cancel(); // Stop ongoing speech
+
+            const script = `USCS Soil Analysis Result: ${state.uscsName}, symbol ${state.uscsSymbol}. ` +
+                `The Liquid Limit is ${state.LL.toFixed(0)} percent, and Plastic Limit is ${state.PL.toFixed(0)} percent, ` +
+                `resulting in a Plasticity Index of ${state.PI.toFixed(0)} percent. ` +
+                `The sample contains ${state.P200.toFixed(0)} percent fines passing the number 200 sieve. ` +
+                `This soil is classified as ${state.categoryText}.`;
+
+            const utterance = new SpeechSynthesisUtterance(script);
+            utterance.rate = 0.95;
+            utterance.pitch = 1.0;
+
+            const narrateBtn = document.getElementById('narrateBtn');
+            narrateBtn.classList.add('bg-cyan-500/30', 'animate-pulse');
+
+            utterance.onend = () => {
+                narrateBtn.classList.remove('bg-cyan-500/30', 'animate-pulse');
+            };
+
+            window.speechSynthesis.speak(utterance);
+        }
+
+        let draggedMass = 0;
+
+        function handleDragStart(e, mass) {
+            draggedMass = mass;
+            e.dataTransfer.setData('text/plain', mass);
+            e.target.classList.add('dragging');
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            document.getElementById('sieveDropZone').classList.add('drag-over');
+        }
+
+        function handleDragLeave(e) {
+            document.getElementById('sieveDropZone').classList.remove('drag-over');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            document.getElementById('sieveDropZone').classList.remove('drag-over');
+
+            // Distribute added mass into sieve stack
+            state.sieveMasses.sieve34 += draggedMass * 0.2;
+            state.sieveMasses.sieveNo4 += draggedMass * 0.3;
+            state.sieveMasses.sieveNo40 += draggedMass * 0.3;
+            state.sieveMasses.sieveNo200 += draggedMass * 0.15;
+            state.sieveMasses.pan += draggedMass * 0.05;
+
+            recalculateSieveStackData();
+            playSuccessChime();
+        }
+
+        function resetSieveStack() {
+            state.sieveMasses = { sieve3in: 0, sieve34: 50, sieveNo4: 150, sieveNo10: 200, sieveNo40: 250, sieveNo200: 150, pan: 200 };
+            recalculateSieveStackData();
+            playPluckSound();
+        }
+
+        function recalculateSieveStackData() {
+            const m = state.sieveMasses;
+            const total = m.sieve3in + m.sieve34 + m.sieveNo4 + m.sieveNo10 + m.sieveNo40 + m.sieveNo200 + m.pan;
+
+            // Retained on #4 (Gravel fraction)
+            const retainedNo4Mass = m.sieve3in + m.sieve34 + m.sieveNo4;
+            state.R4 = (retainedNo4Mass / total) * 100.0;
+
+            // Passing #200 (Fines fraction)
+            const panMass = m.pan;
+            state.P200 = (panMass / total) * 100.0;
+
+            // Sync sliders
+            document.getElementById('r4Slider').value = state.R4;
+            document.getElementById('p200Slider').value = state.P200;
+
+            renderSieveBreakdownUI(total);
+            updateStateFromInputs();
+        }
+
+        function renderSieveBreakdownUI(total) {
+            const m = state.sieveMasses;
+            const container = document.getElementById('sieveBreakdownContainer');
+            container.innerHTML = `
+                <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border border-slate-800">
+                    <span>3" & 3/4" Sieves (Gravel):</span>
+                    <span class="text-cyan-300 font-bold">${(m.sieve3in + m.sieve34).toFixed(0)}g</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border border-slate-800">
+                    <span>#4 Sieve (4.75mm Cutoff):</span>
+                    <span class="text-cyan-300 font-bold">${m.sieveNo4.toFixed(0)}g</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border border-slate-800">
+                    <span>#10 & #40 Sieves (Sand):</span>
+                    <span class="text-cyan-300 font-bold">${(m.sieveNo10 + m.sieveNo40).toFixed(0)}g</span>
+                </div>
+                <div class="flex justify-between items-center bg-slate-900 p-1.5 rounded border border-slate-800">
+                    <span>#200 Sieve & Pan (Fines):</span>
+                    <span class="text-cyan-300 font-bold">${(m.sieveNo200 + m.pan).toFixed(0)}g</span>
+                </div>
+                <div class="flex justify-between items-center text-cyan-400 font-bold pt-1 border-t border-slate-800">
+                    <span>Total Sample Mass:</span>
+                    <span>${total.toFixed(0)}g</span>
+                </div>
+            `;
+        }
+
+        const plasticCanvas = document.getElementById('plasticityCanvas');
+        const plasticCtx = plasticCanvas.getContext('2d');
+
+        function drawPlasticityChart() {
+            const width = plasticCanvas.width = plasticCanvas.clientWidth;
+            const height = plasticCanvas.height = plasticCanvas.clientHeight;
+
+            plasticCtx.clearRect(0, 0, width, height);
+
+            // Chart Bounds
+            const padLeft = 45;
+            const padBottom = 35;
+            const padTop = 20;
+            const padRight = 20;
+
+            const graphWidth = width - padLeft - padRight;
+            const graphHeight = height - padTop - padBottom;
+
+            // Scale limits: LL (0 to 100), PI (0 to 60)
+            const minLL = 0, maxLL = 100;
+            const minPI = 0, maxPI = 60;
+
+            function mapX(ll) {
+                return padLeft + ((ll - minLL) / (maxLL - minLL)) * graphWidth;
+            }
+            function mapY(pi) {
+                return height - padBottom - ((pi - minPI) / (maxPI - minPI)) * graphHeight;
+            }
+
+            // Draw Background Grid
+            plasticCtx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+            plasticCtx.lineWidth = 1;
+
+            for (let ll = 0; ll <= 100; ll += 10) {
+                const x = mapX(ll);
+                plasticCtx.beginPath();
+                plasticCtx.moveTo(x, padTop);
+                plasticCtx.lineTo(x, height - padBottom);
+                plasticCtx.stroke();
+
+                // Axis labels
+                plasticCtx.fillStyle = '#64748b';
+                plasticCtx.font = '10px JetBrains Mono';
+                plasticCtx.textAlign = 'center';
+                if (ll % 20 === 0) plasticCtx.fillText(ll, x, height - padBottom + 14);
+            }
+
+            for (let pi = 0; pi <= 60; pi += 10) {
+                const y = mapY(pi);
+                plasticCtx.beginPath();
+                plasticCtx.moveTo(padLeft, y);
+                plasticCtx.lineTo(width - padRight, y);
+                plasticCtx.stroke();
+
+                plasticCtx.fillStyle = '#64748b';
+                plasticCtx.font = '10px JetBrains Mono';
+                plasticCtx.textAlign = 'right';
+                plasticCtx.fillText(pi, padLeft - 6, y + 3);
+            }
+
+            // Draw LL = 50 Vertical Line (High Plasticity Division)
+            const x50 = mapX(50);
+            plasticCtx.strokeStyle = 'rgba(234, 179, 8, 0.6)';
+            plasticCtx.setLineDash([4, 4]);
+            plasticCtx.beginPath();
+            plasticCtx.moveTo(x50, padTop);
+            plasticCtx.lineTo(x50, height - padBottom);
+            plasticCtx.stroke();
+            plasticCtx.setLineDash([]);
+
+            // Label LL=50
+            plasticCtx.fillStyle = '#eab308';
+            plasticCtx.fillText('LL=50', x50 + 22, padTop + 12);
+
+            // Draw CL-ML Hatch Zone (PI 4-7 & Above A-line up to LL ~25)
+            plasticCtx.fillStyle = 'rgba(34, 211, 238, 0.15)';
+            plasticCtx.beginPath();
+            plasticCtx.moveTo(mapX(12.4), mapY(4));
+            plasticCtx.lineTo(mapX(25.5), mapY(4));
+            plasticCtx.lineTo(mapX(29.6), mapY(7));
+            plasticCtx.lineTo(mapX(15.8), mapY(7));
+            plasticCtx.closePath();
+            plasticCtx.fill();
+            plasticCtx.strokeStyle = 'rgba(34, 211, 238, 0.4)';
+            plasticCtx.stroke();
+
+            plasticCtx.fillStyle = '#22d3ee';
+            plasticCtx.font = '9px JetBrains Mono';
+            plasticCtx.fillText('CL-ML', mapX(18), mapY(5.5));
+
+            // Draw A-Line: PI = 0.73 * (LL - 20)
+            plasticCtx.strokeStyle = '#22d3ee';
+            plasticCtx.lineWidth = 2.5;
+            plasticCtx.shadowColor = '#22d3ee';
+            plasticCtx.shadowBlur = 8;
+
+            plasticCtx.beginPath();
+            plasticCtx.moveTo(mapX(20), mapY(0));
+            plasticCtx.lineTo(mapX(100), mapY(0.73 * (100 - 20)));
+            plasticCtx.stroke();
+            plasticCtx.shadowBlur = 0; // Reset shadow
+
+            // Label A-Line
+            plasticCtx.fillStyle = '#22d3ee';
+            plasticCtx.font = 'bold 10px JetBrains Mono';
+            plasticCtx.fillText('A-LINE (PI = 0.73[LL-20])', mapX(70), mapY(0.73 * (70 - 20)) - 8);
+
+            // Draw U-Line: Upper limit PI = 0.9 * (LL - 8)
+            plasticCtx.strokeStyle = 'rgba(244, 114, 182, 0.4)';
+            plasticCtx.lineWidth = 1.5;
+            plasticCtx.setLineDash([3, 3]);
+            plasticCtx.beginPath();
+            plasticCtx.moveTo(mapX(8), mapY(0));
+            plasticCtx.lineTo(mapX(75), mapY(0.9 * (75 - 8)));
+            plasticCtx.stroke();
+            plasticCtx.setLineDash([]);
+            plasticCtx.fillText('U-LINE', mapX(60), mapY(0.9 * (60 - 8)) - 5);
+
+            // Region Titles
+            plasticCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            plasticCtx.font = 'bold 14px JetBrains Mono';
+            plasticCtx.fillText('CL', mapX(35), mapY(22));
+            plasticCtx.fillText('CH', mapX(75), mapY(45));
+            plasticCtx.fillText('ML / OL', mapX(38), mapY(8));
+            plasticCtx.fillText('MH / OH', mapX(80), mapY(20));
+
+            // Draw Current User Soil Sample Point
+            const sampleX = mapX(state.LL);
+            const sampleY = mapY(Math.max(0, state.PI));
+
+            // Pulsing target animation ring
+            const time = Date.now() * 0.003;
+            const pulseRadius = 6 + Math.sin(time) * 4;
+
+            plasticCtx.strokeStyle = '#f472b6';
+            plasticCtx.lineWidth = 2;
+            plasticCtx.beginPath();
+            plasticCtx.arc(sampleX, sampleY, pulseRadius + 4, 0, Math.PI * 2);
+            plasticCtx.stroke();
+
+            plasticCtx.fillStyle = '#f472b6';
+            plasticCtx.shadowColor = '#f472b6';
+            plasticCtx.shadowBlur = 12;
+            plasticCtx.beginPath();
+            plasticCtx.arc(sampleX, sampleY, 6, 0, Math.PI * 2);
+            plasticCtx.fill();
+            plasticCtx.shadowBlur = 0;
+
+            // Axis Title Labels
+            plasticCtx.fillStyle = '#94a3b8';
+            plasticCtx.font = '10px Inter';
+            plasticCtx.textAlign = 'center';
+            plasticCtx.fillText('Liquid Limit (LL %)', mapX(50), height - 8);
+
+            plasticCtx.save();
+            plasticCtx.translate(12, mapY(30));
+            plasticCtx.rotate(-Math.PI / 2);
+            plasticCtx.fillText('Plasticity Index (PI %)', 0, 0);
+            plasticCtx.restore();
+        }
+
+        const grainCanvas = document.getElementById('grainCanvas');
+        const grainCtx = grainCanvas.getContext('2d');
+
+        function drawGrainSizeChart() {
+            const width = grainCanvas.width = grainCanvas.clientWidth;
+            const height = grainCanvas.height = grainCanvas.clientHeight;
+
+            grainCtx.clearRect(0, 0, width, height);
+
+            const padLeft = 45, padRight = 20, padTop = 20, padBottom = 35;
+            const graphWidth = width - padLeft - padRight;
+            const graphHeight = height - padTop - padBottom;
+
+            // Particle size range in mm (Logarithmic 0.001mm to 100mm)
+            const minD = 0.001, maxD = 100.0;
+            const logMin = Math.log10(minD); // -3
+            const logMax = Math.log10(maxD); // 2
+
+            function mapX(d) {
+                const logVal = Math.log10(Math.max(d, 0.0001));
+                return padLeft + ((logVal - logMin) / (logMax - logMin)) * graphWidth;
+            }
+            function mapY(passing) {
+                return height - padBottom - (passing / 100.0) * graphHeight;
+            }
+
+            // Draw Logarithmic Grid Lines
+            grainCtx.strokeStyle = 'rgba(51, 65, 85, 0.3)';
+            grainCtx.lineWidth = 1;
+
+            const sieveTicks = [
+                { d: 75.0, label: '3"' },
+                { d: 19.0, label: '3/4"' },
+                { d: 4.75, label: '#4' },
+                { d: 2.0, label: '#10' },
+                { d: 0.425, label: '#40' },
+                { d: 0.075, label: '#200' },
+                { d: 0.005, label: '0.005' }
+            ];
+
+            sieveTicks.forEach(tick => {
+                const x = mapX(tick.d);
+                grainCtx.beginPath();
+                grainCtx.moveTo(x, padTop);
+                grainCtx.lineTo(x, height - padBottom);
+                grainCtx.stroke();
+
+                // Tick label
+                grainCtx.fillStyle = tick.d === 0.075 || tick.d === 4.75 ? '#22d3ee' : '#64748b';
+                grainCtx.font = '9px JetBrains Mono';
+                grainCtx.textAlign = 'center';
+                grainCtx.fillText(tick.label, x, height - padBottom + 14);
+            });
+
+            // Y-Axis Grid (% Passing 0 to 100)
+            for (let p = 0; p <= 100; p += 20) {
+                const y = mapY(p);
+                grainCtx.beginPath();
+                grainCtx.moveTo(padLeft, y);
+                grainCtx.lineTo(width - padRight, y);
+                grainCtx.stroke();
+
+                grainCtx.fillStyle = '#64748b';
+                grainCtx.font = '10px JetBrains Mono';
+                grainCtx.textAlign = 'right';
+                grainCtx.fillText(p + '%', padLeft - 6, y + 3);
+            }
+
+            // Key Cutoff Lines (#4 Sieve = 4.75mm and #200 Sieve = 0.075mm)
+            const x4 = mapX(4.75);
+            const x200 = mapX(0.075);
+
+            grainCtx.strokeStyle = 'rgba(34, 211, 238, 0.5)';
+            grainCtx.setLineDash([3, 3]);
+            
+            grainCtx.beginPath(); grainCtx.moveTo(x4, padTop); grainCtx.lineTo(x4, height - padBottom); grainCtx.stroke();
+            grainCtx.beginPath(); grainCtx.moveTo(x200, padTop); grainCtx.lineTo(x200, height - padBottom); grainCtx.stroke();
+            grainCtx.setLineDash([]);
+
+            // Draw Synthesized Gradation Curve based on State Parameters
+            grainCtx.strokeStyle = '#34d399';
+            grainCtx.lineWidth = 2.5;
+            grainCtx.shadowColor = '#34d399';
+            grainCtx.shadowBlur = 8;
+
+            // Generate representative curve control points
+            const points = [
+                { d: 100.0, p: 100 },
+                { d: 19.0, p: Math.min(100, state.P4 + (100 - state.P4) * 0.6) },
+                { d: 4.75, p: state.P4 }, // #4 Sieve Passing
+                { d: 0.425, p: state.P200 + (state.P4 - state.P200) * 0.4 },
+                { d: 0.075, p: state.P200 }, // #200 Sieve Passing
+                { d: 0.005, p: state.P200 * 0.3 },
+                { d: 0.001, p: 0 }
+            ];
+
+            grainCtx.beginPath();
+            points.forEach((pt, i) => {
+                const x = mapX(pt.d);
+                const y = mapY(pt.p);
+                if (i === 0) grainCtx.moveTo(x, y);
+                else grainCtx.lineTo(x, y);
+            });
+            grainCtx.stroke();
+            grainCtx.shadowBlur = 0;
+
+            // Draw Data Points
+            points.forEach((pt) => {
+                const x = mapX(pt.d);
+                const y = mapY(pt.p);
+                grainCtx.fillStyle = '#34d399';
+                grainCtx.beginPath();
+                grainCtx.arc(x, y, 4, 0, Math.PI * 2);
+                grainCtx.fill();
+            });
+
+            // Axis Title
+            grainCtx.fillStyle = '#94a3b8';
+            grainCtx.font = '10px Inter';
+            grainCtx.textAlign = 'center';
+            grainCtx.fillText('Particle Diameter D (mm) - Log Scale', mapX(0.1), height - 8);
+        }
+
+        function animationLoop() {
+            drawPlasticityChart();
+            drawGrainSizeChart();
+            requestAnimationFrame(animationLoop);
+        }
+
+        function switchTab(tabIndex) {
+            state.activeTab = tabIndex;
+            [1, 2, 3].forEach(i => {
+                const btn = document.getElementById(`tabBtn${i}`);
+                const content = document.getElementById(`tabContent${i}`);
+                if (i === tabIndex) {
+                    btn.className = "px-3 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-bold transition flex items-center gap-1.5";
+                    content.classList.remove('hidden');
+                } else {
+                    btn.className = "px-3 py-2 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 font-bold transition flex items-center gap-1.5";
+                    content.classList.add('hidden');
+                }
+            });
+            playPluckSound();
+        }
+
+        function copyReportToClipboard() {
+            const reportText = document.getElementById('summaryReportText').innerText;
+            const tempInput = document.createElement('textarea');
+            tempInput.value = reportText;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+
+            playSuccessChime();
+            alert("Summary Report copied to clipboard!");
+        }
+
+        // Window Load Initialization
+        window.onload = function() {
+            recalculateSieveStackData();
+            updateStateFromInputs();
+            animationLoop();
+        };
+    </script>
+</body>
+</html>

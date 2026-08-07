@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Architectural Rhythm & Accentuation Simulator</title>
+    <style>
+        :root {
+            --bg-color: #0d0e15;
+            --surface-color: #171923;
+            --surface-accent: #212431;
+            --accent-cyan: #00f0ff;
+            --accent-pink: #ff007f;
+            --accent-yellow: #f39c12;
+            --accent-peach: #ff7979;
+            --text-main: #a0aec0;
+            --text-bright: #ffffff;
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .simulation-container {
+            width: 100%;
+            max-width: 900px;
+            background-color: var(--surface-color);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 25px 50px rgba(0, 0, 0, 0.6);
+            border: 1px solid #2d3748;
+        }
+
+        .sim-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+
+        .sim-title {
+            font-size: 1.6rem;
+            font-weight: 800;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sim-badge {
+            background: linear-gradient(135deg, var(--accent-pink), var(--accent-yellow));
+            color: var(--bg-color);
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .audio-narrator-btn {
+            background: var(--surface-accent);
+            border: 1px solid #4a5568;
+            color: var(--accent-cyan);
+            padding: 10px 18px;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .audio-narrator-btn:hover {
+            transform: scale(1.05);
+            background: var(--accent-cyan);
+            color: var(--bg-color);
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            border-color: var(--accent-cyan);
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 100%;
+            height: 280px;
+            background-color: #07080c;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 2px solid #2d3748;
+            margin-bottom: 20px;
+            touch-action: none;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .canvas-overlay-hint {
+            position: absolute;
+            bottom: 12px;
+            left: 50%;
+            transform: translateX(-50%);
+            pointer-events: none;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            background: rgba(11, 12, 16, 0.85);
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        .control-row {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 20px;
+            margin-bottom: 25px;
+        }
+
+        @media (max-width: 768px) {
+            .control-row {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .control-group {
+            background: var(--surface-accent);
+            padding: 18px;
+            border-radius: 16px;
+            border: 1px solid #2d3748;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .control-label {
+            font-size: 0.9rem;
+            font-weight: bold;
+            color: var(--text-bright);
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .control-buttons-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .mode-btn {
+            flex: 1;
+            background: #1a1d29;
+            border: 2px solid #2d3748;
+            color: var(--text-main);
+            padding: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.8rem;
+            transition: all 0.15s ease;
+        }
+
+        .mode-btn:hover {
+            border-color: var(--accent-cyan);
+            color: var(--text-bright);
+        }
+
+        .mode-btn.active {
+            background: var(--accent-cyan);
+            color: var(--bg-color);
+            border-color: var(--accent-cyan);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.35);
+        }
+
+        .slider-wrapper {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #2d3748;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent-pink);
+            cursor: pointer;
+            box-shadow: 0 0 8px rgba(255, 0, 127, 0.6);
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+
+        .playhead-toggle-btn {
+            background: #1a1d29;
+            border: 2px solid #2d3748;
+            color: var(--text-main);
+            padding: 10px 14px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.15s ease;
+            margin-top: auto;
+        }
+
+        .playhead-toggle-btn:hover {
+            border-color: var(--accent-yellow);
+            color: var(--text-bright);
+        }
+
+        .playhead-toggle-btn.active {
+            background: var(--accent-yellow);
+            color: var(--bg-color);
+            border-color: var(--accent-yellow);
+            box-shadow: 0 0 12px rgba(243, 156, 18, 0.35);
+        }
+
+        .question-box {
+            background: linear-gradient(145deg, var(--surface-accent), #1a1d29);
+            padding: 24px;
+            border-radius: 18px;
+            border: 1px solid #2d3748;
+        }
+
+        .question-text {
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--text-bright);
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .option-card {
+            background: #141622;
+            border: 2px solid #2d3748;
+            border-radius: 12px;
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.2s cubic-bezier(0.165, 0.84, 0.44, 1);
+            text-align: left;
+        }
+
+        .option-card:hover {
+            border-color: var(--accent-pink);
+            background: #1a1d2e;
+            transform: translateY(-2px);
+        }
+
+        .option-card.selected {
+            border-color: var(--accent-yellow);
+            background: #202436;
+            box-shadow: 0 0 15px rgba(243, 156, 18, 0.15);
+        }
+
+        .option-letter {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #2d3748;
+            color: var(--text-bright);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.95rem;
+            flex-shrink: 0;
+            transition: all 0.2s ease;
+        }
+
+        .option-card.selected .option-letter {
+            background: var(--accent-yellow);
+            color: var(--bg-color);
+        }
+
+        .option-text {
+            font-size: 0.95rem;
+            color: var(--text-main);
+            line-height: 1.4;
+        }
+
+        .option-card.selected .option-text {
+            color: var(--text-bright);
+        }
+    </style>
+</head>
+<body>
+
+<div class="simulation-container">
+    <div class="sim-header">
+        <div class="sim-title">
+            <span class="sim-badge">Visual Metronome</span> 
+            Accentuation & Rhythm
+        </div>
+        <button class="audio-narrator-btn" id="narratorBtn" onclick="readQuestionAndOptions()">
+            🔊 Listen Playfully
+        </button>
+    </div>
+
+    <!-- Playground Interactive Facade Sandbox -->
+    <div class="canvas-container" id="canvasFrame">
+        <canvas id="rhythmCanvas"></canvas>
+        <div class="canvas-overlay-hint">✨ Sweep cursor across columns to play the facade!</div>
+    </div>
+
+    <!-- Sandbox Configuration Panels -->
+    <div class="control-row">
+        <!-- Spacing Mode Elements -->
+        <div class="control-group">
+            <div class="control-label">
+                <span>Rhythmic Spacing Interval</span>
+                <span id="activeModeLabel" style="color: var(--accent-cyan); font-size: 0.8rem; text-transform: uppercase;">Steady</span>
+            </div>
+            <div class="control-buttons-row">
+                <button class="mode-btn active" id="btnModeRegular" onclick="setRhythmMode('regular')">Steady (A)</button>
+                <button class="mode-btn" id="btnModeGradation" onclick="setRhythmMode('gradation')">Progressive (B)</button>
+                <button class="mode-btn" id="btnModeChaos" onclick="setRhythmMode('chaos')">Chaotic (C)</button>
+            </div>
+        </div>
+
+        <!-- Pillar Synthesizer Pitch Dynamics -->
+        <div class="control-group">
+            <div class="control-label">
+                <span>Pillar Bounce Pitch</span>
+                <span id="pitchLabelValue" style="color: var(--accent-pink);">1.0x</span>
+            </div>
+            <div class="slider-wrapper">
+                <input type="range" id="pitchSlider" min="0.5" max="2.0" step="0.1" value="1.0" oninput="updatePitchFactor(this.value)">
+            </div>
+            <button class="playhead-toggle-btn" id="playheadBtn" onclick="toggleAutoSweep()">
+                <span>⏱️ Auto Sweep Playhead</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Dynamic Interactive MCQ Card Container -->
+    <div class="question-box">
+        <div class="question-text" id="questionText">
+            How is "Rhythm" typically created and structured within architectural facades?
+        </div>
+        <div class="options-grid" id="optionsGrid">
+            <!-- Dynamically populated or updated via postMessage configuration -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- APP ENGINE STATE STATE ---
+    let rhythmMode = 'regular';
+    let pitchMultiplier = 1.0;
+    let columns = [];
+    const totalColumns = 10;
+    let lastSweepX = -1;
+    
+    // Auto Playhead properties
+    let autoSweepActive = false;
+    let playheadX = 0;
+    let playheadSpeed = 3.5;
+
+    // Default Options
+    let dynamicOptions = [
+        { text: "By ensuring every single window and door has a completely different structural geometry, material, and color.", originalIndex: 0 },
+        { text: "By repeating columns, openings, or elements at regular intervals, or dynamically shifting their distances in a progressive pattern.", originalIndex: 1 },
+        { text: "By using structural solid concrete walls without any openings, textures, patterns, or window frames.", originalIndex: 2 },
+        { text: "By arranging load-bearing framing columns in completely unorganized and random angular configurations.", originalIndex: 3 }
+    ];
+
+    let selectedOptionOriginalIndex = null;
+    let audioCtx = null;
+
+    // --- SOUND SYNTHESIS PIPELINE ---
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+
+    function playPillarSqueak(pitchHz) {
+        initAudio();
+        if (!audioCtx) return;
+
+        if (audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        const filterNode = audioCtx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(pitchHz * pitchMultiplier, audioCtx.currentTime);
+        // Exponential glide simulation
+        osc.frequency.exponentialRampToValueAtTime((pitchHz * 1.45) * pitchMultiplier, audioCtx.currentTime + 0.12);
+
+        filterNode.type = 'lowpass';
+        filterNode.frequency.setValueAtTime(900, audioCtx.currentTime);
+        filterNode.Q.setValueAtTime(5, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0.28, audioCtx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.005, audioCtx.currentTime + 0.32);
+
+        osc.connect(filterNode);
+        filterNode.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.35);
+    }
+
+    // --- CANVAS VISUALIZATION ENGINE ---
+    const canvas = document.getElementById('rhythmCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const kSpring = 0.075;
+    const damping = 0.84;
+
+    class ArchitecturalColumn {
+        constructor(id, targetX, targetWidth, targetHeight, basePitch) {
+            this.id = id;
+            this.x = targetX;
+            this.width = targetWidth;
+            this.targetHeight = targetHeight;
+            this.currentHeight = targetHeight;
+            this.velocity = 0;
+            this.color = getPillarColor(id);
+            this.basePitch = basePitch;
+            this.sweepFlashIntensity = 0;
+        }
+
+        update() {
+            // Spring acceleration calculations
+            const deltaHeight = this.targetHeight - this.currentHeight;
+            const acceleration = kSpring * deltaHeight;
+            this.velocity += acceleration;
+            this.velocity *= damping;
+            this.currentHeight += this.velocity;
+
+            if (this.sweepFlashIntensity > 0) {
+                this.sweepFlashIntensity -= 0.04;
+            }
+        }
+
+        bounce() {
+            this.velocity = -28; 
+            this.sweepFlashIntensity = 1.0;
+            playPillarSqueak(this.basePitch);
+        }
+
+        draw() {
+            ctx.save();
+            ctx.shadowBlur = 8 + (this.sweepFlashIntensity * 20);
+            ctx.shadowColor = this.color;
+
+            // Draw glowing architectural pill column
+            const gradient = ctx.createLinearGradient(this.x, canvas.height, this.x, canvas.height - this.currentHeight);
+            gradient.addColorStop(0, this.color + '22');
+            gradient.addColorStop(0.7, this.color);
+            gradient.addColorStop(1, '#ffffff');
+
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            
+            // Standardizing pill rounded top rendering logic
+            ctx.roundRect(
+                this.x - this.width / 2, 
+                canvas.height - this.currentHeight, 
+                this.width, 
+                this.currentHeight, 
+                [10, 10, 0, 0]
+            );
+            ctx.fill();
+
+            // Accent indicator light
+            if (this.sweepFlashIntensity > 0) {
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+            }
+
+            // Pillar dynamic dot metric
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(this.x, canvas.height - this.currentHeight, 4.5 + (this.sweepFlashIntensity * 3.5), 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+    }
+
+    function getPillarColor(idx) {
+        const presets = ['#00f0ff', '#ff007f', '#f39c12', '#ff7979', '#9b59b6', '#2ecc71'];
+        return presets[idx % presets.length];
+    }
+
+    function setupColumns() {
+        columns = [];
+        const canvasWidth = canvas.width || 800;
+        const usableWidth = canvasWidth - 100;
+
+        for (let i = 0; i < totalColumns; i++) {
+            let targetX;
+            let pitchHz;
+
+            if (rhythmMode === 'regular') {
+                // Perfect rhythmic balance
+                const spacing = usableWidth / (totalColumns - 1);
+                targetX = 50 + (i * spacing);
+                pitchHz = 200 * Math.pow(1.12, i); 
+            } else if (rhythmMode === 'gradation') {
+                // Progressive dynamic compression
+                let accumProgressiveRatio = 0;
+                let stepRatio = 1.0;
+                const steps = [];
+                for (let k = 0; k < totalColumns; k++) {
+                    steps.push(stepRatio);
+                    accumProgressiveRatio += stepRatio;
+                    stepRatio *= 0.76; 
+                }
+                
+                let currentAccum = 0;
+                const normalizedSteps = steps.map(s => {
+                    const mappedX = (currentAccum / accumProgressiveRatio) * usableWidth;
+                    currentAccum += s;
+                    return mappedX;
+                });
+
+                targetX = 50 + normalizedSteps[i];
+                pitchHz = 200 * Math.pow(1.2, i); 
+            } else {
+                // Chaotic composition
+                const randomXFactor = Math.sin(i * 2.3) * 0.45 + 0.55; 
+                targetX = 50 + (i * (usableWidth / (totalColumns - 1))) + (Math.sin(i * 3.7) * 32);
+                pitchHz = 180 + (Math.floor(Math.abs(Math.sin(i * 11.2)) * 260));
+            }
+
+            // Unique visual dynamic structural facade heights
+            const targetHeight = 110 + (Math.sin(i * 1.6) * 35);
+
+            columns.push(new ArchitecturalColumn(i, targetX, 22, targetHeight, pitchHz));
+        }
+    }
+
+    function resizeCanvas() {
+        const container = document.getElementById('canvasFrame');
+        canvas.width = container.clientWidth;
+        canvas.height = container.clientHeight;
+        setupColumns();
+    }
+
+    function setRhythmMode(mode) {
+        rhythmMode = mode;
+        document.getElementById('activeModeLabel').innerText = mode;
+        
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        if (mode === 'regular') document.getElementById('btnModeRegular').classList.add('active');
+        if (mode === 'gradation') document.getElementById('btnModeGradation').classList.add('active');
+        if (mode === 'chaos') document.getElementById('btnModeChaos').classList.add('active');
+
+        setupColumns();
+    }
+
+    function updatePitchFactor(val) {
+        pitchMultiplier = parseFloat(val);
+        document.getElementById('pitchLabelValue').innerText = val + 'x';
+    }
+
+    function toggleAutoSweep() {
+        autoSweepActive = !autoSweepActive;
+        const playheadBtn = document.getElementById('playheadBtn');
+        if (autoSweepActive) {
+            playheadBtn.classList.add('active');
+            playheadX = 0;
+            initAudio();
+        } else {
+            playheadBtn.classList.remove('active');
+        }
+    }
+
+    // --- SWEEP & TOUCH TRACKER ---
+    function handlePointerSweep(clientX) {
+        const rect = canvas.getBoundingClientRect();
+        const pointerX = clientX - rect.left;
+
+        columns.forEach(col => {
+            const hitRange = col.width * 1.1;
+            if ((lastSweepX < col.x && pointerX >= col.x) || (lastSweepX > col.x && pointerX <= col.x)) {
+                if (Math.abs(pointerX - col.x) < hitRange) {
+                    col.bounce();
+                }
+            }
+        });
+        lastSweepX = pointerX;
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+        handlePointerSweep(e.clientX);
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+        if (e.touches.length > 0) {
+            handlePointerSweep(e.touches[0].clientX);
+        }
+    });
+
+    canvas.addEventListener('mouseleave', () => { lastSweepX = -1; });
+    canvas.addEventListener('touchend', () => { lastSweepX = -1; });
+
+    canvas.addEventListener('mousedown', (e) => {
+        initAudio();
+        const rect = canvas.getBoundingClientRect();
+        const pointerX = e.clientX - rect.left;
+        columns.forEach(col => {
+            if (Math.abs(pointerX - col.x) < 22) {
+                col.bounce();
+            }
+        });
+    });
+
+    // --- RENDER ENGINE LOOP ---
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Ground/Horizon visual guide
+        ctx.strokeStyle = '#2d3748';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height - 1);
+        ctx.lineTo(canvas.width, canvas.height - 1);
+        ctx.stroke();
+
+        // Architectural foundation gridlines
+        ctx.strokeStyle = '#1a202c';
+        ctx.lineWidth = 1;
+        for (let i = 0; i < canvas.width; i += 40) {
+            ctx.beginPath();
+            ctx.moveTo(i, 0);
+            ctx.lineTo(i, canvas.height);
+            ctx.stroke();
+        }
+
+        // Draw and update architectural columns
+        columns.forEach(col => {
+            col.update();
+            col.draw();
+        });
+
+        // Dynamic Playhead Simulation
+        if (autoSweepActive) {
+            playheadX += playheadSpeed;
+            if (playheadX > canvas.width) {
+                playheadX = 0;
+            }
+
+            // Draw Neon Playhead
+            ctx.strokeStyle = 'var(--accent-yellow)';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = 'var(--accent-yellow)';
+            ctx.beginPath();
+            ctx.moveTo(playheadX, 0);
+            ctx.lineTo(playheadX, canvas.height);
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Trigger columns passing the sweep line
+            columns.forEach(col => {
+                const triggerThreshold = playheadSpeed;
+                if (Math.abs(playheadX - col.x) < triggerThreshold) {
+                    col.bounce();
+                }
+            });
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // --- MCQ INTERFACE CONTROLLER ---
+    function renderMCQOptions() {
+        const container = document.getElementById('optionsGrid');
+        container.innerHTML = '';
+
+        const alphabet = ['A', 'B', 'C', 'D'];
+        dynamicOptions.forEach((option, index) => {
+            const letter = alphabet[index] || '';
+            const isSelected = selectedOptionOriginalIndex === option.originalIndex;
+
+            const card = document.createElement('div');
+            card.className = `option-card ${isSelected ? 'selected' : ''}`;
+            card.onclick = () => selectOption(option.originalIndex);
+
+            card.innerHTML = `
+                <div class="option-letter">${letter}</div>
+                <div class="option-text">${option.text}</div>
+            `;
+            container.appendChild(card);
+        });
+    }
+
+    function selectOption(originalIndex) {
+        selectedOptionOriginalIndex = originalIndex;
+        renderMCQOptions();
+
+        // Broadcast to parent interface framework
+        window.parent.postMessage({
+            type: 'mcq-selected',
+            optionIndex: originalIndex
+        }, '*');
+
+        // Pitch trigger representation
+        initAudio();
+        playPillarSqueak(originalIndex === 1 ? 480 : 220);
+    }
+
+    // Capture outer dynamic adjustments
+    window.addEventListener('message', (e) => {
+        if (e.data && e.data.type === 'init-mcq-options' && Array.isArray(e.data.options)) {
+            dynamicOptions = e.data.options;
+            selectedOptionOriginalIndex = null;
+            renderMCQOptions();
+        }
+    });
+
+    // --- PLAYFUL SYNTHESIZED TEXT VOICE READOUTS ---
+    function readQuestionAndOptions() {
+        if (!('speechSynthesis' in window)) {
+            alert("Your modern system is quiet! No Speech Synthesis support was found.");
+            return;
+        }
+
+        window.speechSynthesis.cancel();
+
+        const question = document.getElementById('questionText').innerText;
+        let speechChain = `Listen up! Question: ${question} ... `;
+
+        const alphabet = ['A', 'B', 'C', 'D'];
+        dynamicOptions.forEach((opt, idx) => {
+            speechChain += `Option ${alphabet[idx]}: ${opt.text} ... `;
+        });
+
+        speechChain += "Choose the rhythm pattern that best constructs beautiful compositions!";
+
+        const talker = new SpeechSynthesisUtterance(speechChain);
+        talker.rate = 1.05;
+        talker.pitch = 1.15;
+        window.speechSynthesis.speak(talker);
+    }
+
+    // Initialize layout hooks
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+    renderMCQOptions();
+    requestAnimationFrame(animate);
+</script>
+
+</body>
+</html>

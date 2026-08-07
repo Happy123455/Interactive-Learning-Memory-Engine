@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aggregate Impact Test Simulator - Transportation Engineering</title>
+    <!-- Google Fonts & Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        cyber: {
+                            bg: '#030712',
+                            panel: '#0f172a',
+                            border: 'rgba(51, 65, 85, 0.6)',
+                            cyan: '#06b6d4',
+                            cyanGlow: '#22d3ee',
+                            lime: '#84cc16',
+                            limeGlow: '#a3e635',
+                            amber: '#f59e0b',
+                            rose: '#f43f5e'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #030712;
+            color: #f8fafc;
+            overflow-x: hidden;
+            font-family: 'Inter', sans-serif;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(6, 182, 212, 0.08) 0%, transparent 40%),
+                radial-gradient(circle at 85% 85%, rgba(132, 204, 22, 0.05) 0%, transparent 40%),
+                linear-gradient(to right, rgba(30, 41, 59, 0.2) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(30, 41, 59, 0.2) 1px, transparent 1px);
+            background-size: 100% 100%, 100% 100%, 32px 32px, 32px 32px;
+        }
+
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-interactive {
+            transition: all 0.2s ease-in-out;
+        }
+        .glass-panel-interactive:hover {
+            border-color: rgba(6, 182, 212, 0.4);
+            box-shadow: 0 8px 32px 0 rgba(6, 182, 212, 0.15);
+        }
+
+        /* Neon Glow Effects */
+        .glow-cyan {
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+        }
+        .glow-lime {
+            box-shadow: 0 0 15px rgba(132, 204, 22, 0.4);
+        }
+        .text-glow-cyan {
+            text-shadow: 0 0 8px rgba(6, 182, 212, 0.6);
+        }
+        .text-glow-lime {
+            text-shadow: 0 0 8px rgba(132, 204, 22, 0.6);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+
+        /* Canvas Cursor */
+        canvas#apparatusCanvas {
+            cursor: grab;
+        }
+        canvas#apparatusCanvas:active {
+            cursor: grabbing;
+        }
+
+        /* Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e293b;
+            border-radius: 4px;
+            height: 6px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(6, 182, 212, 0.8);
+            border: 2px solid #0f172a;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between text-slate-100">
+
+    <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur-md sticky top-0 z-50 px-4 lg:px-8 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="p-2 rounded-lg bg-cyan-500/10 border border-cyan-500/30 text-cyan-400">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                        AGGREGATE IMPACT TEST <span class="text-xs px-2 py-0.5 rounded bg-cyan-950 text-cyan-400 border border-cyan-800 font-mono">IS: 2386 / BS 812</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Transportation Engineering Lab • Mechanical Toughness & Particle Degradation</p>
+                </div>
+            </div>
+
+            <!-- Top Header Indicators -->
+            <div class="flex items-center gap-4 font-mono text-xs">
+                <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-900 border border-slate-800">
+                    <span class="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></span>
+                    <span class="text-slate-400">STATUS:</span>
+                    <span id="testStateBadge" class="text-cyan-400 font-semibold">IDLE / READY</span>
+                </div>
+                
+                <button id="narrationToggleBtn" onclick="toggleNarration()" class="flex items-center gap-2 px-3 py-1.5 rounded-md bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 transition">
+                    <svg id="speakerIcon" class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"></path>
+                    </svg>
+                    <span>VOICE: <span id="narrationStatus" class="text-lime-400">ON</span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-7xl w-full mx-auto p-4 lg:p-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+        <!-- LEFT COLUMN: Apparatus Visual Canvas (7 Cols) -->
+        <section class="lg:col-span-7 flex flex-col gap-4">
+            <div class="glass-panel rounded-xl p-4 flex-1 flex flex-col relative overflow-hidden">
+                <div class="flex justify-between items-center mb-3 z-10">
+                    <div class="flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                        <h2 class="text-sm font-bold tracking-wide uppercase text-slate-200">Impact Testing Machine Simulation</h2>
+                    </div>
+                    <div class="text-xs font-mono text-slate-400 flex gap-3">
+                        <span>Drop Standard: <span class="text-cyan-400">380 mm</span></span>
+                        <span>Hammer: <span class="text-cyan-400" id="hammerWeightDisplay">13.75 kg</span></span>
+                    </div>
+                </div>
+
+                <!-- Main Interactive Canvas -->
+                <div class="relative flex-1 min-h-[460px] bg-slate-950/80 rounded-lg border border-slate-800/80 overflow-hidden flex items-center justify-center">
+                    <canvas id="apparatusCanvas" class="w-full h-full block"></canvas>
+                    
+                    <!-- Drag Instruction Overlay -->
+                    <div id="dragHint" class="absolute top-4 left-4 bg-slate-900/90 border border-slate-700/60 px-3 py-1.5 rounded-md text-xs font-mono text-cyan-300 pointer-events-none flex items-center gap-2 backdrop-blur">
+                        <svg class="w-4 h-4 animate-bounce text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>
+                        </svg>
+                        <span>DRAG HAMMER VERTICALLY TO ADJUST HEIGHT</span>
+                    </div>
+
+                    <!-- Live Physics Overlay Panel -->
+                    <div class="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-slate-800 rounded-lg p-3 grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs backdrop-blur">
+                        <div>
+                            <span class="text-slate-500 block">HEIGHT (h)</span>
+                            <span id="liveHeight" class="text-lime-400 font-bold text-sm">38.0 cm</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">POTENTIAL ENERGY</span>
+                            <span id="livePE" class="text-cyan-400 font-bold text-sm">51.21 J</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">VELOCITY (v)</span>
+                            <span id="liveVelocity" class="text-cyan-400 font-bold text-sm">2.73 m/s</span>
+                        </div>
+                        <div>
+                            <span class="text-slate-500 block">PEAK FORCE</span>
+                            <span id="livePeakForce" class="text-rose-400 font-bold text-sm">0.00 kN</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Quick Action Buttons -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+                    <button id="releaseBtn" onclick="releaseHammer()" class="py-2.5 px-4 rounded-lg bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"></path></svg>
+                        Release Drop
+                    </button>
+                    <button id="multiBlowBtn" onclick="run15BlowsSequence()" class="py-2.5 px-4 rounded-lg bg-gradient-to-r from-lime-600 to-lime-500 hover:from-lime-500 hover:to-lime-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-lime-500/20 active:scale-95 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Run 15 Blows
+                    </button>
+                    <button id="sieveBtn" onclick="runSieveAnalysis()" class="py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-xs uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"></path></svg>
+                        Sieve & Calculate
+                    </button>
+                    <button id="resetBtn" onclick="resetTest()" class="py-2.5 px-4 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-rose-400 font-semibold text-xs uppercase tracking-wider transition active:scale-95 flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        Reset Test
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT COLUMN: Analytics, Charts & Parameters (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Control Parameters Panel -->
+            <div class="glass-panel glass-panel-interactive rounded-xl p-4 flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"></path></svg>
+                        Test Parameters
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400">Spec: 12.5mm - 10mm fraction</span>
+                </div>
+
+                <!-- Rock Type Selection -->
+                <div>
+                    <label class="text-xs font-semibold text-slate-300 block mb-2">Aggregate Hardness / Rock Type:</label>
+                    <div class="grid grid-cols-2 gap-2 font-mono text-xs">
+                        <button onclick="setRockType('basalt')" id="rockBasalt" class="rock-btn p-2 rounded-lg border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 font-bold flex flex-col items-start transition">
+                            <span>Basalt / Trap</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Tough (AIV ~ 8-12%)</span>
+                        </button>
+                        <button onclick="setRockType('granite')" id="rockGranite" class="rock-btn p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-400 flex flex-col items-start hover:border-slate-700 transition">
+                            <span>Granite</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Medium (AIV ~ 14-18%)</span>
+                        </button>
+                        <button onclick="setRockType('limestone')" id="rockLimestone" class="rock-btn p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-400 flex flex-col items-start hover:border-slate-700 transition">
+                            <span>Limestone</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Fair (AIV ~ 22-26%)</span>
+                        </button>
+                        <button onclick="setRockType('sandstone')" id="rockSandstone" class="rock-btn p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-400 flex flex-col items-start hover:border-slate-700 transition">
+                            <span>Soft Sandstone</span>
+                            <span class="text-[10px] text-slate-400 font-normal">Weak (AIV ~ 32-38%)</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sliders for Height & Weight -->
+                <div class="space-y-3 font-mono text-xs">
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Drop Height (cm):</span>
+                            <span id="sliderHeightVal" class="text-cyan-400 font-bold">38.0 cm</span>
+                        </div>
+                        <input type="range" id="heightSlider" min="10" max="38" step="0.5" value="38" oninput="updateHeightFromSlider(this.value)" class="w-full">
+                    </div>
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <span class="text-slate-400">Hammer Mass (kg):</span>
+                            <span id="sliderWeightVal" class="text-cyan-400 font-bold">13.75 kg</span>
+                        </div>
+                        <input type="range" id="weightSlider" min="10" max="15" step="0.25" value="13.75" oninput="updateWeightFromSlider(this.value)" class="w-full">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Impulse Chart Canvas -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold uppercase tracking-wider text-lime-400 flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"></path></svg>
+                        Impact Impulse Curve (Force vs Time)
+                    </h3>
+                    <span class="text-[10px] font-mono text-slate-400">Sampling Rate: 10 kHz</span>
+                </div>
+
+                <div class="h-36 bg-slate-950/80 rounded-lg border border-slate-800 relative overflow-hidden">
+                    <canvas id="chartCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Math Equations & AIV Results Box -->
+            <div class="glass-panel rounded-xl p-4 flex flex-col gap-3 font-mono">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    AIV Equation & Results
+                </h3>
+
+                <!-- Equation Display -->
+                <div class="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-center text-xs">
+                    <div class="text-slate-300 font-semibold mb-1">Aggregate Impact Value (AIV)</div>
+                    <div class="text-cyan-300 font-bold text-sm tracking-wide">
+                        AIV (%) = <span class="text-lime-400">(W₂ / W₁)</span> × 100
+                    </div>
+                    <p class="text-[10px] text-slate-500 mt-1">W₁ = Sample Weight (300g) | W₂ = Weight Passing 2.36mm Sieve</p>
+                </div>
+
+                <!-- Dynamic Numerical Results -->
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="p-2 rounded bg-slate-900/80 border border-slate-800">
+                        <span class="text-slate-500 block text-[10px]">BLOW COUNTER</span>
+                        <span id="blowCounterDisplay" class="text-lime-400 font-bold text-base">0 / 15</span>
+                    </div>
+                    <div class="p-2 rounded bg-slate-900/80 border border-slate-800">
+                        <span class="text-slate-500 block text-[10px]">FINES GENERATED (W₂)</span>
+                        <span id="finesWeightDisplay" class="text-slate-300 font-bold text-base">0.0 g</span>
+                    </div>
+                </div>
+
+                <!-- Final AIV Calculated Card -->
+                <div id="resultBox" class="p-3 rounded-lg bg-slate-900/90 border border-slate-700/60 flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Calculated AIV</span>
+                        <span id="aivValueDisplay" class="text-xl font-extrabold text-cyan-400">-- %</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-400 uppercase tracking-wider block">Suitability Grade</span>
+                        <span id="aivGradeDisplay" class="text-xs font-bold text-slate-400">NOT TESTED YET</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        /* ------------------------------------------------------------------
+         *  GLOBAL STATE & CONFIGURATION
+         * ------------------------------------------------------------------ */
+        const state = {
+            // Apparatus Parameters
+            hammerMass: 13.75, // kg
+            dropHeightCm: 38.0, // cm (Standard BS 812 = 380mm)
+            minHeightCm: 10.0,
+            maxHeightCm: 38.0,
+            
+            // Physics Simulation Variables
+            hammerYPx: 0, // Pixels relative to top drop guide
+            velocity: 0, // m/s
+            isFalling: false,
+            isDragging: false,
+            gravity: 9.81, // m/s²
+            
+            // Rock / Aggregate Properties
+            rockType: 'basalt',
+            hardnessCoeff: 1.0, // Multiplier for fracture resistance (1.0 = tough, 0.3 = soft)
+            baseAIV: 10.5, // Standard percentage
+            
+            // Blow Sequence & Sieving
+            blowCount: 0,
+            totalBlows: 15,
+            accumulatedFinesGrams: 0.0,
+            initialSampleWeight: 300.0, // grams
+            isSequenceRunning: false,
+            testCompleted: false,
+            
+            // Visualization
+            particles: [],
+            impulseHistory: [], // Force vs Time data points
+            shockwaveRadius: 0,
+            shockwaveAlpha: 0,
+            peakForceKn: 0,
+
+            // Web Audio & Speech
+            isNarrating: true,
+            audioCtx: null
+        };
+
+        // DOM Element Cache
+        const canvas = document.getElementById('apparatusCanvas');
+        const ctx = canvas.getContext('2d');
+        const chartCanvas = document.getElementById('chartCanvas');
+        const chartCtx = chartCanvas.getContext('2d');
+
+        /* ------------------------------------------------------------------
+         *  WEB AUDIO API SYSTEM (Pure Synth sound generation)
+         * ------------------------------------------------------------------ */
+        function initAudio() {
+            if (!state.audioCtx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                state.audioCtx = new AudioContext();
+            }
+            if (state.audioCtx.state === 'suspended') {
+                state.audioCtx.resume();
+            }
+        }
+
+        // Soft Interface Chirp
+        function playClickSound() {
+            if (!state.audioCtx) return;
+            try {
+                const osc = state.audioCtx.createOscillator();
+                const gain = state.audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, state.audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(1400, state.audioCtx.currentTime + 0.05);
+                
+                gain.gain.setValueAtTime(0.08, state.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + 0.05);
+                
+                osc.connect(gain);
+                gain.connect(state.audioCtx.destination);
+                osc.start();
+                osc.stop(state.audioCtx.currentTime + 0.05);
+            } catch (e) {}
+        }
+
+        // Mechanical Drag Whir
+        function playDragSound(pitch = 200) {
+            if (!state.audioCtx) return;
+            try {
+                const osc = state.audioCtx.createOscillator();
+                const gain = state.audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(pitch, state.audioCtx.currentTime);
+                
+                gain.gain.setValueAtTime(0.02, state.audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, state.audioCtx.currentTime + 0.08);
+                
+                osc.connect(gain);
+                gain.connect(state.audioCtx.destination);
+                osc.start();
+                osc.stop(state.audioCtx.currentTime + 0.08);
+            } catch (e) {}
+        }
+
+        // Aggregate Impact Crack & Crunch Sound (Sawtooth Sweep + Noise Burst)
+        function playImpactSound(energyJ) {
+            if (!state.audioCtx) return;
+            try {
+                const now = state.audioCtx.currentTime;
+                
+                // 1. Low frequency metallic thud
+                const osc = state.audioCtx.createOscillator();
+                const oscGain = state.audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.exponentialRampToValueAtTime(25, now + 0.2);
+                
+                oscGain.gain.setValueAtTime(Math.min(0.4, 0.1 + energyJ / 100), now);
+                oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+                
+                osc.connect(oscGain);
+                oscGain.connect(state.audioCtx.destination);
+                osc.start(now);
+                osc.stop(now + 0.25);
+
+                // 2. White noise burst for aggregate crunch/shattering
+                const bufferSize = state.audioCtx.sampleRate * 0.12; // 120ms
+                const buffer = state.audioCtx.createBuffer(1, bufferSize, state.audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = state.audioCtx.createBufferSource();
+                noise.buffer = buffer;
+
+                // Highpass filter for aggregate crunch resonance
+                const filter = state.audioCtx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1200, now);
+                filter.Q.setValueAtTime(1.5, now);
+
+                const noiseGain = state.audioCtx.createGain();
+                noiseGain.gain.setValueAtTime(0.3, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+                noise.connect(filter);
+                filter.connect(noiseGain);
+                noiseGain.connect(state.audioCtx.destination);
+                
+                noise.start(now);
+            } catch (e) {}
+        }
+
+        /* ------------------------------------------------------------------
+         *  NARRATION / SPEECH SYNTHESIS ENGINE
+         * ------------------------------------------------------------------ */
+        function speak(text) {
+            if (!state.isNarrating || !('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel(); // Interrupt previous spoken text
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.05;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function toggleNarration() {
+            playClickSound();
+            state.isNarrating = !state.isNarrating;
+            document.getElementById('narrationStatus').innerText = state.isNarrating ? 'ON' : 'OFF';
+            document.getElementById('narrationStatus').className = state.isNarrating ? 'text-lime-400' : 'text-slate-500';
+            if (state.isNarrating) {
+                speak("Voice commentary enabled. Select aggregate hardness or drop the hammer.");
+            } else {
+                window.speechSynthesis.cancel();
+            }
+        }
+
+        /* ------------------------------------------------------------------
+         *  ROCK SELECTION & TEST PARAMETERS
+         * ------------------------------------------------------------------ */
+        function setRockType(type) {
+            initAudio();
+            playClickSound();
+            state.rockType = type;
+
+            const buttons = document.querySelectorAll('.rock-btn');
+            buttons.forEach(btn => {
+                btn.className = 'rock-btn p-2 rounded-lg border border-slate-800 bg-slate-900/60 text-slate-400 flex flex-col items-start hover:border-slate-700 transition';
+            });
+
+            let rockName = "";
+            switch (type) {
+                case 'basalt':
+                    state.hardnessCoeff = 1.0;
+                    state.baseAIV = 10.5;
+                    rockName = "Basalt Trap Rock (Very Strong)";
+                    document.getElementById('rockBasalt').className = 'rock-btn p-2 rounded-lg border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 font-bold flex flex-col items-start transition';
+                    break;
+                case 'granite':
+                    state.hardnessCoeff = 0.75;
+                    state.baseAIV = 16.2;
+                    rockName = "Granite Aggregate (Strong)";
+                    document.getElementById('rockGranite').className = 'rock-btn p-2 rounded-lg border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 font-bold flex flex-col items-start transition';
+                    break;
+                case 'limestone':
+                    state.hardnessCoeff = 0.5;
+                    state.baseAIV = 24.8;
+                    rockName = "Limestone (Medium Toughness)";
+                    document.getElementById('rockLimestone').className = 'rock-btn p-2 rounded-lg border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 font-bold flex flex-col items-start transition';
+                    break;
+                case 'sandstone':
+                    state.hardnessCoeff = 0.3;
+                    state.baseAIV = 34.5;
+                    rockName = "Soft Sandstone (Weak)";
+                    document.getElementById('rockSandstone').className = 'rock-btn p-2 rounded-lg border border-cyan-500/50 bg-cyan-950/40 text-cyan-300 font-bold flex flex-col items-start transition';
+                    break;
+            }
+
+            resetTest();
+            speak(`Aggregate material set to ${rockName}. Ready for impact testing.`);
+        }
+
+        function updateHeightFromSlider(val) {
+            state.dropHeightCm = parseFloat(val);
+            document.getElementById('sliderHeightVal').innerText = state.dropHeightCm.toFixed(1) + ' cm';
+            document.getElementById('liveHeight').innerText = state.dropHeightCm.toFixed(1) + ' cm';
+            updateCalculatedPhysics();
+        }
+
+        function updateWeightFromSlider(val) {
+            state.hammerMass = parseFloat(val);
+            document.getElementById('sliderWeightVal').innerText = state.hammerMass.toFixed(2) + ' kg';
+            document.getElementById('hammerWeightDisplay').innerText = state.hammerMass.toFixed(2) + ' kg';
+            updateCalculatedPhysics();
+        }
+
+        function updateCalculatedPhysics() {
+            const hMeters = state.dropHeightCm / 100.0;
+            const pe = state.hammerMass * state.gravity * hMeters;
+            const v = Math.sqrt(2 * state.gravity * hMeters);
+
+            document.getElementById('livePE').innerText = pe.toFixed(2) + ' J';
+            document.getElementById('liveVelocity').innerText = v.toFixed(2) + ' m/s';
+        }
+
+        /* ------------------------------------------------------------------
+         *  PARTICLE SYSTEM (AGGREGATE FRAGMENTS)
+         * ------------------------------------------------------------------ */
+        class FragmentParticle {
+            constructor(x, y, hardness) {
+                this.x = x;
+                this.y = y;
+                const angle = (Math.random() * Math.PI) - Math.PI / 2; // Upwards scatter
+                const speed = (2 + Math.random() * 6) / hardness;
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed - 1.5;
+                this.size = 2 + Math.random() * (7 / hardness);
+                this.color = Math.random() > 0.4 ? '#94a3b8' : (Math.random() > 0.5 ? '#64748b' : '#cbd5e1');
+                this.rotation = Math.random() * Math.PI * 2;
+                this.vRot = (Math.random() - 0.5) * 0.2;
+                this.alpha = 1.0;
+                this.gravity = 0.25;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.rotation += this.vRot;
+                this.alpha -= 0.015;
+            }
+
+            draw(c) {
+                if (this.alpha <= 0) return;
+                c.save();
+                c.globalAlpha = Math.max(0, this.alpha);
+                c.translate(this.x, this.y);
+                c.rotate(this.rotation);
+                c.fillStyle = this.color;
+                
+                // Draw irregular polygon particle
+                c.beginPath();
+                c.moveTo(-this.size, -this.size / 2);
+                c.lineTo(this.size / 2, -this.size);
+                c.lineTo(this.size, this.size / 2);
+                c.lineTo(-this.size / 2, this.size);
+                c.closePath();
+                c.fill();
+                
+                c.restore();
+            }
+        }
+
+        function triggerImpactEffects(cx, cy, energyJ) {
+            // Spawn fragments based on hardness and energy
+            const count = Math.floor(15 + (1 / state.hardnessCoeff) * 12);
+            for (let i = 0; i < count; i++) {
+                state.particles.push(new FragmentParticle(cx + (Math.random() - 0.5) * 40, cy, state.hardnessCoeff));
+            }
+
+            // Trigger Shockwave Pulse
+            state.shockwaveRadius = 10;
+            state.shockwaveAlpha = 1.0;
+
+            // Generate Impact Force Curve (Contact duration ~ 3ms peak)
+            generateImpulseCurve(energyJ);
+        }
+
+        /* ------------------------------------------------------------------
+         *  IMPULSE CHART GENERATOR
+         * ------------------------------------------------------------------ */
+        function generateImpulseCurve(energyJ) {
+            // Impulse J = Integral(F dt) = delta P = m * v
+            const hM = state.dropHeightCm / 100.0;
+            const vImpact = Math.sqrt(2 * state.gravity * hM);
+            const momentum = state.hammerMass * vImpact; // kg m/s
+            
+            // Harder rocks have shorter contact time dt -> higher peak force F_max
+            const contactTimeMs = 2.5 + (1 - state.hardnessCoeff) * 3.0; // ms
+            const peakForceN = (2 * momentum) / (contactTimeMs / 1000.0); // Simple triangular impulse approximation
+            state.peakForceKn = (peakForceN / 1000.0) * (0.9 + Math.random() * 0.2);
+
+            document.getElementById('livePeakForce').innerText = state.peakForceKn.toFixed(2) + ' kN';
+
+            // Generate plot data points
+            state.impulseHistory = [];
+            const points = 60;
+            for (let i = 0; i <= points; i++) {
+                const t = (i / points) * (contactTimeMs * 1.5); // time in ms
+                let force = 0;
+                if (t <= contactTimeMs) {
+                    // Sine-squared pulse shape
+                    force = state.peakForceKn * Math.sin((t / contactTimeMs) * Math.PI);
+                }
+                state.impulseHistory.push({ t: t, f: force });
+            }
+
+            drawChart();
+        }
+
+        function drawChart() {
+            const w = chartCanvas.width;
+            const h = chartCanvas.height;
+            chartCtx.clearRect(0, 0, w, h);
+
+            // Draw Background Grid
+            chartCtx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+            chartCtx.lineWidth = 1;
+            chartCtx.beginPath();
+            for (let x = 0; x < w; x += 30) {
+                chartCtx.moveTo(x, 0);
+                chartCtx.lineTo(x, h);
+            }
+            for (let y = 0; y < h; y += 20) {
+                chartCtx.moveTo(0, y);
+                chartCtx.lineTo(w, y);
+            }
+            chartCtx.stroke();
+
+            if (state.impulseHistory.length === 0) return;
+
+            // Plot Impulse Curve
+            const maxF = Math.max(...state.impulseHistory.map(p => p.f), 10);
+            const padding = 20;
+
+            chartCtx.beginPath();
+            chartCtx.moveTo(padding, h - padding);
+
+            state.impulseHistory.forEach((p, idx) => {
+                const x = padding + (idx / (state.impulseHistory.length - 1)) * (w - 2 * padding);
+                const y = (h - padding) - (p.f / maxF) * (h - 2 * padding);
+                if (idx === 0) chartCtx.moveTo(x, y);
+                else chartCtx.lineTo(x, y);
+            });
+
+            // Gradient Fill under curve
+            const fillGrad = chartCtx.createLinearGradient(0, 0, 0, h);
+            fillGrad.addColorStop(0, 'rgba(132, 204, 22, 0.4)');
+            fillGrad.addColorStop(1, 'rgba(132, 204, 22, 0.0)');
+
+            chartCtx.lineTo(w - padding, h - padding);
+            chartCtx.closePath();
+            chartCtx.fillStyle = fillGrad;
+            chartCtx.fill();
+
+            // Stroke Curve
+            chartCtx.strokeStyle = '#a3e635';
+            chartCtx.lineWidth = 2.5;
+            chartCtx.stroke();
+
+            // Peak Marker Text
+            chartCtx.fillStyle = '#22d3ee';
+            chartCtx.font = '10px JetBrains Mono';
+            chartCtx.fillText(`F_peak: ${state.peakForceKn.toFixed(1)} kN`, w / 2 - 30, padding + 10);
+        }
+
+        /* ------------------------------------------------------------------
+         *  HAMMER RELEASE & BLOW MECHANICS
+         * ------------------------------------------------------------------ */
+        function releaseHammer() {
+            if (state.isFalling) return;
+            initAudio();
+            playClickSound();
+
+            state.isFalling = true;
+            document.getElementById('testStateBadge').innerText = 'HAMMER DROPPING...';
+            document.getElementById('testStateBadge').className = 'text-amber-400 font-semibold animate-pulse';
+
+            if (state.blowCount === 0) {
+                speak(`Releasing hammer from height of ${state.dropHeightCm} centimeters.`);
+            }
+        }
+
+        function triggerImpactEvent() {
+            state.isFalling = false;
+            state.blowCount++;
+
+            // Dynamic Fines Generation calculation per blow
+            // Standard AIV based on rock type & height scaling factor
+            const heightFactor = state.dropHeightCm / 38.0;
+            const singleBlowFines = (state.initialSampleWeight * (state.baseAIV / 100.0) / 15.0) * heightFactor * (0.9 + Math.random() * 0.2);
+            
+            state.accumulatedFinesGrams += singleBlowFines;
+
+            // Audio & Visual Effects
+            const hM = state.dropHeightCm / 100.0;
+            const pe = state.hammerMass * state.gravity * hM;
+            playImpactSound(pe);
+            
+            const cupY = canvas.height - 80;
+            triggerImpactEffects(canvas.width / 2, cupY, pe);
+
+            // Update DOM Displays
+            document.getElementById('blowCounterDisplay').innerText = `${state.blowCount} / ${state.totalBlows}`;
+            document.getElementById('finesWeightDisplay').innerText = state.accumulatedFinesGrams.toFixed(1) + ' g';
+            document.getElementById('testStateBadge').innerText = `BLOW ${state.blowCount} COMPLETED`;
+            document.getElementById('testStateBadge').className = 'text-cyan-400 font-semibold';
+
+            if (state.blowCount >= state.totalBlows) {
+                state.isSequenceRunning = false;
+                speak(`Completed 15 blows test sequence. Click Sieve and Calculate to obtain the Aggregate Impact Value.`);
+            } else if (!state.isSequenceRunning) {
+                speak(`Blow ${state.blowCount} impact delivered.`);
+            }
+        }
+
+        function run15BlowsSequence() {
+            if (state.isSequenceRunning) return;
+            resetTest();
+            state.isSequenceRunning = true;
+            speak("Starting standard 15-blow aggregate impact sequence.");
+
+            let currentBlow = 0;
+            const interval = setInterval(() => {
+                if (currentBlow < 15 && !state.isFalling) {
+                    releaseHammer();
+                    currentBlow++;
+                } else if (currentBlow >= 15) {
+                    clearInterval(interval);
+                }
+            }, 800);
+        }
+
+        /* ------------------------------------------------------------------
+         *  SIEVE ANALYSIS & AIV COMPUTATION
+         * ------------------------------------------------------------------ */
+        function runSieveAnalysis() {
+            initAudio();
+            playClickSound();
+
+            if (state.blowCount === 0) {
+                speak("Please deliver impact blows prior to running sieve analysis.");
+                return;
+            }
+
+            const w1 = state.initialSampleWeight; // Total weight
+            const w2 = state.accumulatedFinesGrams; // Passing 2.36mm sieve
+            const aiv = (w2 / w1) * 100.0;
+
+            document.getElementById('aivValueDisplay').innerText = aiv.toFixed(2) + ' %';
+
+            let gradeText = "";
+            let gradeColor = "";
+
+            if (aiv < 10) {
+                gradeText = "EXCEPTIONAL TOUGHNESS (<10%)\nSuitable for Heavy Wearing Courses";
+                gradeColor = "text-lime-400";
+            } else if (aiv >= 10 && aiv <= 20) {
+                gradeText = "STRONG / SUBSTANTIAL (10-20%)\nIdeal for Bituminous Base & Surface";
+                gradeColor = "text-cyan-400";
+            } else if (aiv > 20 && aiv <= 30) {
+                gradeText = "SATISFACTORY (20-30%)\nSuitable for Road Base / Sub-base";
+                gradeColor = "text-amber-400";
+            } else {
+                gradeText = "WEAK / UNFIT (>30%)\nDisqualified for Wearing Pavements";
+                gradeColor = "text-rose-400";
+            }
+
+            document.getElementById('aivGradeDisplay').innerText = gradeText;
+            document.getElementById('aivGradeDisplay').className = `text-xs font-bold ${gradeColor}`;
+            document.getElementById('resultBox').className = 'p-3 rounded-lg bg-slate-900/90 border border-cyan-500/50 glow-cyan flex items-center justify-between';
+
+            speak(`Sieve analysis completed. The Aggregate Impact Value is ${aiv.toFixed(1)} percent. ${gradeText.split('\n')[0]}`);
+        }
+
+        function resetTest() {
+            initAudio();
+            playClickSound();
+
+            state.blowCount = 0;
+            state.accumulatedFinesGrams = 0.0;
+            state.isFalling = false;
+            state.isSequenceRunning = false;
+            state.particles = [];
+            state.impulseHistory = [];
+            state.peakForceKn = 0;
+
+            document.getElementById('blowCounterDisplay').innerText = `0 / 15`;
+            document.getElementById('finesWeightDisplay').innerText = `0.0 g`;
+            document.getElementById('aivValueDisplay').innerText = `-- %`;
+            document.getElementById('aivGradeDisplay').innerText = `NOT TESTED YET`;
+            document.getElementById('aivGradeDisplay').className = `text-xs font-bold text-slate-400`;
+            document.getElementById('testStateBadge').innerText = `IDLE / READY`;
+            document.getElementById('testStateBadge').className = `text-cyan-400 font-semibold`;
+            document.getElementById('livePeakForce').innerText = `0.00 kN`;
+
+            drawChart();
+            speak("Test reset. Ready for new trial.");
+        }
+
+        /* ------------------------------------------------------------------
+         *  2D APPARATUS CANVAS RENDERING ENGINE
+         * ------------------------------------------------------------------ */
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+
+            chartCanvas.width = chartCanvas.parentElement.clientWidth;
+            chartCanvas.height = chartCanvas.parentElement.clientHeight;
+            drawChart();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Hammer Mouse Dragging Interaction Logic
+        let dragStartY = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            initAudio();
+            const rect = canvas.getBoundingClientRect();
+            const mouseY = e.clientY - rect.top;
+            
+            // Define Hammer bounding box
+            const cx = canvas.width / 2;
+            const cupY = canvas.height - 80;
+            const guideTopY = 80;
+            const maxPxDrop = cupY - guideTopY - 40;
+            const currentHammerY = guideTopY + maxPxDrop * (1 - (state.dropHeightCm / 38.0));
+
+            if (Math.abs(mouseY - currentHammerY) < 40 && !state.isFalling) {
+                state.isDragging = true;
+                dragStartY = mouseY;
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!state.isDragging) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseY = e.clientY - rect.top;
+            
+            const cupY = canvas.height - 80;
+            const guideTopY = 80;
+            const maxPxDrop = cupY - guideTopY - 40;
+
+            // Map mouse position to drop height (10cm to 38cm)
+            let clampedY = Math.max(guideTopY, Math.min(cupY - 40, mouseY));
+            let heightRatio = 1 - ((clampedY - guideTopY) / maxPxDrop);
+            let heightCm = Math.max(state.minHeightCm, Math.min(state.maxHeightCm, heightRatio * 38.0));
+
+            state.dropHeightCm = heightCm;
+            document.getElementById('heightSlider').value = heightCm;
+            document.getElementById('sliderHeightVal').innerText = heightCm.toFixed(1) + ' cm';
+            document.getElementById('liveHeight').innerText = heightCm.toFixed(1) + ' cm';
+            
+            playDragSound(150 + heightCm * 5);
+            updateCalculatedPhysics();
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (state.isDragging) {
+                state.isDragging = false;
+                playClickSound();
+            }
+        });
+
+        /* ------------------------------------------------------------------
+         *  MAIN ANIMATION LOOP (60 FPS)
+         * ------------------------------------------------------------------ */
+        function animate() {
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Apparatus Coordinates
+            const cx = w / 2;
+            const cupY = h - 80;
+            const cupWidth = 110;
+            const cupHeight = 50;
+            const guideTopY = 80;
+            const guideHeight = cupY - guideTopY;
+            const maxPxDrop = guideHeight - 40;
+
+            // Compute Target Hammer Position
+            const targetHammerY = guideTopY + maxPxDrop * (1 - (state.dropHeightCm / 38.0));
+
+            // Physics Free-Fall Update
+            if (state.isFalling) {
+                state.velocity += state.gravity * 0.4; // Acceleration frame scaling
+                state.hammerYPx += state.velocity;
+
+                if (state.hammerYPx >= cupY - 40) {
+                    state.hammerYPx = cupY - 40;
+                    triggerImpactEvent();
+                }
+            } else {
+                state.hammerYPx = targetHammerY;
+                state.velocity = 0;
+            }
+
+            /* --- 1. DRAW BASE & ANVIL MACHINE FRAME --- */
+            // Heavy Steel Base Plate
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(cx - 140, cupY + cupHeight, 280, 25);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(cx - 140, cupY + cupHeight, 280, 25);
+
+            // Vertical Cylindrical Columns (Drop Guides)
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(cx - 75, guideTopY - 20, 10, guideHeight + 70);
+            ctx.fillRect(cx + 65, guideTopY - 20, 10, guideHeight + 70);
+
+            // Height Scale Ruler Marks
+            ctx.strokeStyle = '#64748b';
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '10px JetBrains Mono';
+            ctx.lineWidth = 1;
+            
+            for (let cm = 10; cm <= 38; cm += 4) {
+                const markY = guideTopY + maxPxDrop * (1 - (cm / 38.0)) + 20;
+                ctx.beginPath();
+                ctx.moveTo(cx - 90, markY);
+                ctx.lineTo(cx - 75, markY);
+                ctx.stroke();
+                ctx.fillText(`${cm}cm`, cx - 120, markY + 3);
+            }
+
+            /* --- 2. DRAW CULINARY/AGGREGATE CUP & SAMPLE --- */
+            // Steel Cup Outer Frame
+            ctx.fillStyle = '#0f172a';
+            ctx.beginPath();
+            ctx.rect(cx - cupWidth / 2, cupY, cupWidth, cupHeight);
+            ctx.fill();
+            ctx.strokeStyle = '#06b6d4';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Aggregates inside cup
+            const rockColor = state.rockType === 'basalt' ? '#334155' :
+                              state.rockType === 'granite' ? '#64748b' :
+                              state.rockType === 'limestone' ? '#94a3b8' : '#d97706';
+
+            ctx.fillStyle = rockColor;
+            for (let rx = cx - cupWidth / 2 + 10; rx <= cx + cupWidth / 2 - 10; rx += 14) {
+                for (let ry = cupY + cupHeight - 12; ry >= cupY + 15; ry -= 12) {
+                    ctx.beginPath();
+                    ctx.arc(rx + (Math.sin(ry) * 3), ry, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            /* --- 3. DRAW FALLING HAMMER & CATCH MECHANISM --- */
+            const hammerWidth = 90;
+            const hammerHeight = 40;
+            const currentY = state.hammerYPx;
+
+            // Hammer Body
+            const hammerGrad = ctx.createLinearGradient(cx - hammerWidth / 2, 0, cx + hammerWidth / 2, 0);
+            hammerGrad.addColorStop(0, '#475569');
+            hammerGrad.addColorStop(0.5, '#94a3b8');
+            hammerGrad.addColorStop(1, '#334155');
+
+            ctx.fillStyle = hammerGrad;
+            ctx.fillRect(cx - hammerWidth / 2, currentY, hammerWidth, hammerHeight);
+            ctx.strokeStyle = '#22d3ee';
+            ctx.lineWidth = state.isDragging ? 2.5 : 1.5;
+            ctx.strokeRect(cx - hammerWidth / 2, currentY, hammerWidth, hammerHeight);
+
+            // Velocity Vector Arrow (During Free-Fall)
+            if (state.isFalling && state.velocity > 0) {
+                const arrowLength = Math.min(60, state.velocity * 12);
+                const arrowY = currentY + hammerHeight + 5;
+
+                ctx.strokeStyle = '#f43f5e';
+                ctx.fillStyle = '#f43f5e';
+                ctx.lineWidth = 3;
+
+                ctx.beginPath();
+                ctx.moveTo(cx, arrowY);
+                ctx.lineTo(cx, arrowY + arrowLength);
+                ctx.stroke();
+
+                // Arrowhead
+                ctx.beginPath();
+                ctx.moveTo(cx - 6, arrowY + arrowLength - 8);
+                ctx.lineTo(cx, arrowY + arrowLength);
+                ctx.lineTo(cx + 6, arrowY + arrowLength - 8);
+                ctx.fill();
+
+                // Vector Label
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(`v = ${state.velocity.toFixed(1)} m/s`, cx + 12, arrowY + arrowLength / 2);
+            }
+
+            /* --- 4. SHOCKWAVE EFFECT ON IMPACT --- */
+            if (state.shockwaveAlpha > 0) {
+                ctx.strokeStyle = `rgba(34, 211, 238, ${state.shockwaveAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.ellipse(cx, cupY, state.shockwaveRadius * 1.8, state.shockwaveRadius * 0.6, 0, 0, Math.PI * 2);
+                ctx.stroke();
+
+                state.shockwaveRadius += 3;
+                state.shockwaveAlpha -= 0.04;
+            }
+
+            /* --- 5. RENDER PARTICLES (AGGREGATE FRAGMENTS) --- */
+            for (let i = state.particles.length - 1; i >= 0; i--) {
+                const p = state.particles[i];
+                p.update();
+                p.draw(ctx);
+                if (p.alpha <= 0) {
+                    state.particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        /* ------------------------------------------------------------------
+         *  INITIALIZATION ON LOAD
+         * ------------------------------------------------------------------ */
+        window.onload = function() {
+            resizeCanvas();
+            updateCalculatedPhysics();
+            requestAnimationFrame(animate);
+
+            // Welcome TTS Narration
+            setTimeout(() => {
+                speak("Welcome to the Aggregate Impact Test Simulator. Adjust drop height or select a rock type, then press Release Drop.");
+            }, 500);
+        };
+    </script>
+</body>
+</html>

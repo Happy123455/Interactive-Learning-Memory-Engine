@@ -1,0 +1,1279 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pavement Engineering: Structural Layers & Mechanics Simulation</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for real-time engineering plots -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#080d1a',
+                            card: '#0f172a',
+                            border: '#1e293b',
+                            accent: '#38bdf8',
+                            neonGreen: '#10b981',
+                            neonYellow: '#f59e0b',
+                            neonRed: '#ef4444',
+                            purple: '#a855f7'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Custom scrollbar and animations */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080d1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+        .glow-accent {
+            box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+        }
+        .glow-green {
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.25);
+        }
+        .glow-red {
+            box-shadow: 0 0 15px rgba(239, 68, 68, 0.25);
+        }
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="bg-cyber-bg text-slate-200 font-sans antialiased min-h-screen flex flex-col justify-between selection:bg-cyber-accent selection:text-slate-900">
+
+    <!-- TOP NAVBAR -->
+    <header class="border-b border-cyber-border bg-cyber-card/90 backdrop-blur-md sticky top-0 z-50 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-gradient-to-tr from-sky-500 to-indigo-600 p-2.5 rounded-xl text-white shadow-lg">
+                    <i class="fa-solid me-0 fa-road text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+                        Pavement Engineering <span class="text-xs font-mono font-normal px-2 py-0.5 rounded-full bg-sky-500/10 text-sky-400 border border-sky-500/30">IRC:37 / IRC:58 Model</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Structural Layers, Layered Elasticity & Westergaard Slab Simulator</p>
+                </div>
+            </div>
+
+            <!-- Global Actions & Mode Controls -->
+            <div class="flex items-center gap-2 flex-wrap">
+                <!-- Pavement Type Switcher -->
+                <div class="bg-slate-900/90 p-1 rounded-lg border border-cyber-border flex items-center">
+                    <button id="btnFlexible" onclick="switchPavementType('flexible')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 bg-sky-500 text-white shadow-md">
+                        <i class="fa-solid fa-layer-group"></i> Flexible (Bituminous)
+                    </button>
+                    <button id="btnRigid" onclick="switchPavementType('rigid')" class="px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-400 hover:text-white">
+                        <i class="fa-solid fa-cubes"></i> Rigid (Concrete PQC)
+                    </button>
+                </div>
+
+                <!-- Presets Dropdown -->
+                <select id="presetSelect" onchange="applyPreset(this.value)" class="bg-slate-900 border border-cyber-border text-xs rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500">
+                    <option value="highway">Preset: Heavy Express Highway</option>
+                    <option value="rural">Preset: Rural Village Road</option>
+                    <option value="overloaded">Preset: Overloaded Mining Corridor</option>
+                    <option value="softSubgrade">Preset: Soft Clay Subgrade (Low CBR)</option>
+                </select>
+
+                <!-- Voice Narration Button -->
+                <button id="btnAudioTour" onclick="toggleAudioTour()" class="bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2">
+                    <i id="audioIcon" class="fa-solid fa-volume-high"></i>
+                    <span id="audioText">Voice Guide</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="max-w-7xl w-full mx-auto p-4 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5">
+
+        <!-- LEFT PANEL: CONTROLS & LAYER EDITORS (4 cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-4">
+
+            <!-- Primary Control Card -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-sky-400"></i> Design Parameters
+                    </h2>
+                    <span id="roadClassBadge" class="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">Highway Standard</span>
+                </div>
+
+                <!-- Road Application Category -->
+                <div>
+                    <label class="text-xs text-slate-400 font-medium mb-1 block">Road Classification</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button id="btnClassHighway" onclick="setRoadClass('highway')" class="py-1.5 px-2 rounded text-xs font-medium border border-sky-500/50 bg-sky-500/20 text-sky-300">
+                            Highway (≥500mm subgrade)
+                        </button>
+                        <button id="btnClassRural" onclick="setRoadClass('rural')" class="py-1.5 px-2 rounded text-xs font-medium border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200">
+                            Rural Road (≥300mm subgrade)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Axle Load Slider -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium"><i class="fa-solid fa-truck text-amber-400 me-1"></i> Single Axle Load (P)</span>
+                        <span id="valAxleLoad" class="font-mono text-sky-400 font-bold">80 kN</span>
+                    </div>
+                    <input type="range" id="sliderAxleLoad" min="40" max="220" step="5" value="80" oninput="updateSimulation()" class="w-full accent-sky-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                        <span>40 kN (Light)</span>
+                        <span>80 kN (Standard)</span>
+                        <span>220 kN (Extreme)</span>
+                    </div>
+                </div>
+
+                <!-- Temperature / Curling Slider -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="text-slate-300 font-medium"><i class="fa-solid fa-temperature-three-quarters text-rose-400 me-1"></i> Pavement Temp / Curling ΔT</span>
+                        <span id="valTemp" class="font-mono text-sky-400 font-bold">35 °C</span>
+                    </div>
+                    <input type="range" id="sliderTemp" min="10" max="60" step="1" value="35" oninput="updateSimulation()" class="w-full accent-rose-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    <p id="tempDescription" class="text-[11px] text-slate-400 italic mt-1">Bitumen stiffness reduces at high temps; Concrete slabs curl due to temperature gradient.</p>
+                </div>
+
+                <!-- Subgrade Quality Slider -->
+                <div>
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span id="lblSubgradeProp" class="text-slate-300 font-medium"><i class="fa-solid fa-mound text-emerald-400 me-1"></i> Subgrade CBR (%)</span>
+                        <span id="valSubgradeProp" class="font-mono text-sky-400 font-bold">8.0 %</span>
+                    </div>
+                    <input type="range" id="sliderSubgrade" min="2" max="20" step="0.5" value="8" oninput="updateSimulation()" class="w-full accent-emerald-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                        <span>2% (Very Soft)</span>
+                        <span>8% (Good)</span>
+                        <span>20% (Excellent)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamic Layer Thickness & Modulus Adjusters -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-purple-400"></i> Structural Layer Thicknesses
+                    </h3>
+                    <span class="text-[10px] text-slate-400">Drag to adjust (mm)</span>
+                </div>
+
+                <div id="layerSlidersContainer" class="space-y-3">
+                    <!-- Javascript populates layer sliders dynamically based on pavement type -->
+                </div>
+            </div>
+
+            <!-- Distress / Failure Mechanics Quick Diagnostics -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg">
+                <h3 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Critical Failure Modes
+                </h3>
+                <div id="distressModeSummary" class="text-xs text-slate-300 space-y-2">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+        </section>
+
+        <!-- CENTER PANEL: INTERACTIVE CANVAS SIMULATION & VISUALIZER (5 cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Simulation Viewport Card -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl overflow-hidden shadow-2xl flex flex-col">
+
+                <!-- Canvas Control Toolbar -->
+                <div class="bg-slate-900/90 border-b border-cyber-border px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+                    <div class="flex items-center gap-1.5">
+                        <button id="btnPlayWheel" onclick="toggleWheelMotion()" class="px-2.5 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded text-xs transition-all flex items-center gap-1">
+                            <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">Animate Traffic</span>
+                        </button>
+                        <button onclick="resetDistressSim()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs border border-slate-700 transition-all flex items-center gap-1">
+                            <i class="fa-solid fa-rotate-left"></i> Reset Damage
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3 text-xs">
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="chkHeatmap" checked onchange="updateSimulation()" class="rounded accent-sky-400">
+                            <span>Stress Bulb</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 text-slate-300 cursor-pointer">
+                            <input type="checkbox" id="chkDeflection" checked onchange="updateSimulation()" class="rounded accent-sky-400">
+                            <span>Deflection Grid</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- HTML5 Interactive Canvas -->
+                <div class="relative bg-slate-950 w-full h-[380px] cursor-crosshair overflow-hidden">
+                    <canvas id="pavementCanvas" class="w-full h-full block"></canvas>
+
+                    <!-- Interactive Canvas Overlay Info Box -->
+                    <div id="layerHoverTooltip" class="hidden absolute top-3 left-3 bg-slate-900/90 backdrop-blur border border-sky-500/40 rounded-lg p-2.5 text-xs shadow-xl pointer-events-none max-w-[220px]">
+                        <p id="tooltipTitle" class="font-bold text-sky-400">Layer Name</p>
+                        <p id="tooltipSpecs" class="text-[11px] text-slate-300 font-mono mt-0.5">Thickness: 0 mm</p>
+                        <p id="tooltipFunction" class="text-[10px] text-slate-400 italic mt-1">Function text...</p>
+                    </div>
+
+                    <!-- Visual Legend Overlay -->
+                    <div class="absolute bottom-2 right-2 bg-slate-900/80 backdrop-blur p-2 rounded-lg border border-slate-800 text-[10px] font-mono flex flex-col gap-1">
+                        <span class="text-slate-400 font-sans font-semibold mb-0.5">Stress Intensity</span>
+                        <div class="w-28 h-2 rounded bg-gradient-to-r from-blue-600 via-emerald-400 via-amber-400 to-red-600"></div>
+                        <div class="flex justify-between text-[9px] text-slate-400">
+                            <span>Low</span>
+                            <span>Medium</span>
+                            <span>High Peak</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Simulation Status Footbar -->
+                <div class="bg-slate-900 p-2.5 border-t border-cyber-border flex items-center justify-between text-xs font-mono">
+                    <div class="flex items-center gap-2">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="canvasStatusText" class="text-slate-300">Live Load Dispersal Active</span>
+                    </div>
+                    <span id="axleRepetitionCounter" class="text-slate-400">Simulated Passages: <strong class="text-sky-400">0 MSA</strong></span>
+                </div>
+            </div>
+
+            <!-- Cross-Section Inspector & Material Composition -->
+            <div id="inspectorDetailCard" class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col gap-2">
+                <div class="flex items-center justify-between">
+                    <h3 id="inspectorLayerTitle" class="text-sm font-bold text-sky-400 flex items-center gap-2">
+                        <i class="fa-solid fa-magnifying-glass-location"></i> Layer Material Inspector
+                    </h3>
+                    <span id="inspectorCodeStandard" class="text-[10px] font-mono bg-purple-500/10 text-purple-300 border border-purple-500/30 px-2 py-0.5 rounded">IRC Code Specs</span>
+                </div>
+                <p id="inspectorLayerDesc" class="text-xs text-slate-300 leading-relaxed">
+                    Click any layer on the canvas above to inspect its material composition, structural behavior, binder types, and engineering specifications.
+                </p>
+                <div id="inspectorPropertiesGrid" class="grid grid-cols-2 gap-2 mt-2 text-xs font-mono">
+                    <!-- Dynamic Layer Details -->
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT PANEL: MATHEMATICAL & MECHANISTIC ENGINE (3 cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-4">
+
+            <!-- Real-Time Stresses & Design Life Card -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <h2 class="text-sm font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-calculator text-emerald-400"></i> Calculated Mechanics
+                    </h2>
+                    <span class="text-[10px] font-mono text-slate-400">IRC:37 / IRC:58</span>
+                </div>
+
+                <!-- Calculation Outputs -->
+                <div class="space-y-2.5">
+                    <!-- Flexible Metrics -->
+                    <div id="calcBoxFlexible" class="space-y-2">
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Tensile Strain at Bottom of Asphalt Layer (&epsilon;<sub>t</sub>)</p>
+                            <p id="valTensileStrain" class="text-base font-mono font-bold text-sky-400">0.000185 microstrain</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Compressive Strain on Top of Subgrade (&epsilon;<sub>v</sub>)</p>
+                            <p id="valSubgradeStrain" class="text-base font-mono font-bold text-amber-400">0.000420 microstrain</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Predicted Fatigue Life (N<sub>f</sub>)</p>
+                            <p id="valFatigueLife" class="text-base font-mono font-bold text-emerald-400">18.5 MSA</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Predicted Rutting Life (N<sub>r</sub>)</p>
+                            <p id="valRuttingLife" class="text-base font-mono font-bold text-indigo-400">24.2 MSA</p>
+                        </div>
+                    </div>
+
+                    <!-- Rigid Metrics (Hidden initially until switched) -->
+                    <div id="calcBoxRigid" class="space-y-2 hidden">
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Radius of Relative Stiffness (l)</p>
+                            <p id="valRelStiffness" class="text-base font-mono font-bold text-purple-400">820 mm</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Combined Westergaard Edge Stress (&sigma;<sub>e</sub> + &sigma;<sub>t</sub>)</p>
+                            <p id="valEdgeStress" class="text-base font-mono font-bold text-rose-400">3.45 MPa</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Concrete Flexural Strength (f<sub>cr</sub>)</p>
+                            <p id="valFlexuralStrength" class="text-base font-mono font-bold text-emerald-400">4.50 MPa</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-2.5 rounded-lg border border-slate-800">
+                            <p class="text-[11px] text-slate-400">Cumulative Fatigue Damage Ratio (CFD)</p>
+                            <p id="valCFDRatio" class="text-base font-mono font-bold text-amber-400">0.32 (Safe)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stress Distribution Depth Graph -->
+            <div class="bg-cyber-card border border-cyber-border rounded-xl p-4 shadow-lg flex flex-col gap-2">
+                <h3 class="text-xs font-bold text-slate-300 flex items-center justify-between">
+                    <span><i class="fa-solid fa-chart-line text-sky-400 me-1"></i> Stress vs Depth Profile</span>
+                    <span class="text-[10px] font-mono text-slate-500">kPa vs Depth (mm)</span>
+                </h3>
+                <div class="w-full h-44">
+                    <canvas id="stressProfileChart"></canvas>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM DETAILED EXPLANATION & COMPARISON MATRIX TAB -->
+    <footer class="max-w-7xl w-full mx-auto p-4 mb-6">
+        <div class="bg-cyber-card border border-cyber-border rounded-xl p-5 shadow-xl space-y-6">
+
+            <div class="flex flex-wrap items-center justify-between border-b border-slate-800 pb-3 gap-3">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-sky-400"></i> Structural Layer Engineering Reference Manual
+                </h3>
+                <div class="flex gap-2">
+                    <span class="text-xs font-mono bg-slate-800 text-sky-400 px-3 py-1 rounded border border-slate-700">Flexible: Wearing → Binder → Base → Sub-base → Subgrade</span>
+                    <span class="text-xs font-mono bg-slate-800 text-purple-400 px-3 py-1 rounded border border-slate-700">Rigid: PQC → DLC → Membrane → GSB → Subgrade</span>
+                </div>
+            </div>
+
+            <!-- Interactive Comparison Table -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs text-left text-slate-300 font-mono">
+                    <thead class="text-[11px] text-slate-400 bg-slate-900 border-b border-cyber-border uppercase">
+                        <tr>
+                            <th class="p-3">Layer Name</th>
+                            <th class="p-3">Material Options</th>
+                            <th class="p-3">Typical Thickness</th>
+                            <th class="p-3">Key Function & Mechanical Role</th>
+                            <th class="p-3">IRC Code Standard</th>
+                        </tr>
+                    </thead>
+                    <tbody id="referenceTableBody" class="divide-y divide-slate-800">
+                        <!-- Javascript populates reference table -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Key Engineering Principles Summary Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs pt-2">
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-sky-400 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-arrows-split-up-and-left"></i> Load Distribution Mechanism
+                    </h4>
+                    <p class="text-slate-400 leading-relaxed">
+                        Flexible pavements distribute concentrated wheel loads layer-by-layer through grain-to-grain contact, reducing vertical stress down to the subgrade. Rigid pavements act as flexural beams, spanning soft subgrades using slab flexural rigidity ($E_c$).
+                    </p>
+                </div>
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-purple-400 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-sheet-plastic"></i> 150-Micron Separation Membrane
+                    </h4>
+                    <p class="text-slate-400 leading-relaxed">
+                        Placed between the PQC slab and DLC sub-base in rigid pavements. Prevents bonding to reduce frictional restraint during thermal contraction, avoids cement slurry loss during PQC placement, and acts as a moisture barrier.
+                    </p>
+                </div>
+                <div class="bg-slate-900/60 p-3 rounded-lg border border-slate-800">
+                    <h4 class="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+                        <i class="fa-solid fa-shield-halved"></i> Subgrade Preparation Norms
+                    </h4>
+                    <p class="text-slate-400 leading-relaxed">
+                        Compacted subgrade foundation must be minimum 500 mm thick for Expressways/Highways and minimum 300 mm for Rural Roads (IRC:37/IRC:SP:20). Requires minimum 97% MDD compaction and target CBR ≥ 8%.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Global Application State
+        const state = {
+            pavementType: 'flexible', // 'flexible' | 'rigid'
+            roadClass: 'highway', // 'highway' | 'rural'
+            axleLoad: 80, // kN
+            temperature: 35, // °C
+            subgradeProp: 8.0, // CBR % for flexible, k (MPa/m) for rigid
+            wheelX: 0.5, // Normalized horizontal wheel position (0.0 to 1.0)
+            wheelMoving: false,
+            wheelDirection: 1,
+            distressMSA: 0.0, // Simulated accumulated standard axle repetitions (MSA)
+            showHeatmap: true,
+            showDeflection: true,
+            selectedLayerIndex: null,
+            audioTourActive: false,
+
+            // Flexible Pavement Layer Configuration (Top to Bottom)
+            flexibleLayers: [
+                { id: 'bc', name: 'Wearing Course (BC / SDBC)', thickness: 40, min: 25, max: 80, modulus: 3500, color: '#1e293b', border: '#38bdf8', desc: 'Bituminous Concrete (BC) or Semi-Dense Bituminous Concrete (SDBC). Provides skid resistance, smooth riding surface, and impermeability against water.', std: 'IRC:111 / IRC:37' },
+                { id: 'dbm', name: 'Binder Course (DBM / BM)', thickness: 90, min: 50, max: 180, modulus: 2800, color: '#334155', border: '#60a5fa', desc: 'Dense Bituminous Macadam (DBM) or Bituminous Macadam (BM). Main structural bituminous layer carrying heavy fatigue bending stresses.', std: 'IRC:111 / IRC:37' },
+                { id: 'wmm', name: 'Base Course (WMM / WBM)', thickness: 250, min: 150, max: 350, modulus: 250, color: '#78350f', border: '#f59e0b', desc: 'Wet Mix Macadam (WMM) or Water Bound Macadam (WBM). High quality graded crushed stone aggregate base that dissipates load.', std: 'IRC:109 / IRC:19' },
+                { id: 'gsb', name: 'Sub-Base Course (GSB)', thickness: 200, min: 150, max: 300, modulus: 120, color: '#854d0e', border: '#eab308', desc: 'Granular Sub-Base (GSB). Natural gravel or crushed stone layer providing drainage, preventing capillary rise, and spreading stress.', std: 'IRC:37 Grade I-VI' },
+                { id: 'subgrade', name: 'Compacted Subgrade', thickness: 500, min: 300, max: 800, modulus: 80, color: '#3f2c20', border: '#10b981', desc: 'Compacted natural soil foundation (Min 500 mm for highways, 300 mm for rural roads). Must achieve ≥ 97% max dry density.', std: 'IRC:37 / IRC:SP:20' }
+            ],
+
+            // Rigid Pavement Layer Configuration (Top to Bottom)
+            rigidLayers: [
+                { id: 'pqc', name: 'PQC Slab (Concrete Surface)', thickness: 280, min: 150, max: 400, modulus: 30000, color: '#475569', border: '#a855f7', desc: 'Pavement Quality Concrete (PQC) slab (M40/M50 grade). High flexural strength structural beam resting on uniform base.', std: 'IRC:58 / IRC:15' },
+                { id: 'membrane', name: 'Separation Membrane', thickness: 1, min: 1, max: 1, modulus: 500, color: '#38bdf8', border: '#38bdf8', desc: '150-micron transparent polythene plastic sheet. Reduces slab-subbase frictional bond and prevents cement slurry loss into DLC.', std: 'IRC:58 Norms' },
+                { id: 'dlc', name: 'Sub-Base Course (DLC)', thickness: 150, min: 100, max: 200, modulus: 12000, color: '#64748b', border: '#818cf8', desc: 'Dry Lean Concrete (DLC). Low cement content zero-slump concrete layer providing non-erodible uniform slab foundation support.', std: 'IRC:SP:49' },
+                { id: 'gsb_rigid', name: 'GSB Drainage Layer', thickness: 150, min: 100, max: 250, modulus: 150, color: '#854d0e', border: '#eab308', desc: 'Granular Sub-Base (GSB) drainage layer with high permeability to remove infiltrated water from slab joints.', std: 'IRC:58 Drainage' },
+                { id: 'subgrade_rigid', name: 'Compacted Subgrade', thickness: 500, min: 300, max: 800, modulus: 80, color: '#3f2c20', border: '#10b981', desc: 'Compacted foundation soil supporting DLC/GSB layer. Modulus of subgrade reaction k evaluated via 750 mm plate load test.', std: 'IRC:58 / IS:9221' }
+            ]
+        };
+
+        // Chart Instance
+        let stressChart = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            initCanvas();
+            initChart();
+            renderLayerSliders();
+            updateSimulation();
+            populateReferenceTable();
+
+            // Resize listener for responsive canvas & chart
+            window.addEventListener('resize', () => {
+                resizeCanvas();
+                drawPavement();
+            });
+        });
+
+        // Canvas Setup
+        let canvas, ctx;
+        function initCanvas() {
+            canvas = document.getElementById('pavementCanvas');
+            ctx = canvas.getContext('2d');
+            resizeCanvas();
+
+            // Canvas Interaction: Click to inspect layer
+            canvas.addEventListener('pointerdown', handleCanvasClick);
+            canvas.addEventListener('pointermove', handleCanvasMouseMove);
+            canvas.addEventListener('pointerleave', () => {
+                document.getElementById('layerHoverTooltip').classList.add('hidden');
+            });
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+        }
+
+        function renderLayerSliders() {
+            const container = document.getElementById('layerSlidersContainer');
+            container.innerHTML = '';
+
+            const currentLayers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+
+            currentLayers.forEach((layer, idx) => {
+                if (layer.id === 'membrane') return; // Hide membrane thickness slider (fixed 150 micron / visual offset)
+
+                const div = document.createElement('div');
+                div.className = 'bg-slate-900/80 p-2.5 rounded-lg border border-slate-800 hover:border-slate-700 transition-all';
+                div.innerHTML = `
+                    <div class="flex justify-between items-center text-xs mb-1">
+                        <span class="font-medium text-slate-200 flex items-center gap-1.5">
+                            <span class="w-2.5 h-2.5 rounded-full inline-block" style="background-color: ${layer.border}"></span>
+                            ${layer.name}
+                        </span>
+                        <span id="valLayerThick_${idx}" class="font-mono text-sky-400 font-bold">${layer.thickness} mm</span>
+                    </div>
+                    <input type="range" min="${layer.min}" max="${layer.max}" step="5" value="${layer.thickness}"
+                           oninput="onLayerThicknessChange(${idx}, this.value)"
+                           class="w-full accent-sky-400 bg-slate-800 h-1.5 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono mt-1">
+                        <span>Min: ${layer.min}mm</span>
+                        <span>Max: ${layer.max}mm</span>
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function onLayerThicknessChange(idx, val) {
+            const currentLayers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+            currentLayers[idx].thickness = parseFloat(val);
+            document.getElementById(`valLayerThick_${idx}`).innerText = `${val} mm`;
+            updateSimulation();
+        }
+
+        function switchPavementType(type) {
+            state.pavementType = type;
+            const btnFlex = document.getElementById('btnFlexible');
+            const btnRigid = document.getElementById('btnRigid');
+            const lblSub = document.getElementById('lblSubgradeProp');
+
+            if (type === 'flexible') {
+                btnFlex.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 bg-sky-500 text-white shadow-md";
+                btnRigid.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-400 hover:text-white";
+                lblSub.innerHTML = `<i class="fa-solid fa-mound text-emerald-400 me-1"></i> Subgrade CBR (%)`;
+                document.getElementById('sliderSubgrade').min = 2;
+                document.getElementById('sliderSubgrade').max = 20;
+                document.getElementById('sliderSubgrade').value = state.subgradeProp > 20 ? 8 : state.subgradeProp;
+                document.getElementById('calcBoxFlexible').classList.remove('hidden');
+                document.getElementById('calcBoxRigid').classList.add('hidden');
+            } else {
+                btnRigid.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 bg-purple-600 text-white shadow-md";
+                btnFlex.className = "px-3 py-1.5 rounded-md text-xs font-semibold transition-all flex items-center gap-1.5 text-slate-400 hover:text-white";
+                lblSub.innerHTML = `<i class="fa-solid fa-mound text-emerald-400 me-1"></i> Subgrade Modulus k (MPa/m)`;
+                document.getElementById('sliderSubgrade').min = 20;
+                document.getElementById('sliderSubgrade').max = 120;
+                document.getElementById('sliderSubgrade').value = 60;
+                state.subgradeProp = 60;
+                document.getElementById('calcBoxFlexible').classList.add('hidden');
+                document.getElementById('calcBoxRigid').classList.remove('hidden');
+            }
+
+            renderLayerSliders();
+            updateSimulation();
+            populateReferenceTable();
+        }
+
+        function setRoadClass(roadClass) {
+            state.roadClass = roadClass;
+            const btnHighway = document.getElementById('btnClassHighway');
+            const btnRural = document.getElementById('btnClassRural');
+            const badge = document.getElementById('roadClassBadge');
+
+            const currentLayers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+            const subgradeLayer = currentLayers.find(l => l.id.includes('subgrade'));
+
+            if (roadClass === 'highway') {
+                btnHighway.className = "py-1.5 px-2 rounded text-xs font-medium border border-sky-500/50 bg-sky-500/20 text-sky-300";
+                btnRural.className = "py-1.5 px-2 rounded text-xs font-medium border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200";
+                badge.innerText = "Highway Standard";
+                badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                if (subgradeLayer) subgradeLayer.thickness = 500;
+            } else {
+                btnRural.className = "py-1.5 px-2 rounded text-xs font-medium border border-sky-500/50 bg-sky-500/20 text-sky-300";
+                btnHighway.className = "py-1.5 px-2 rounded text-xs font-medium border border-slate-700 bg-slate-800 text-slate-400 hover:text-slate-200";
+                badge.innerText = "Rural Road Standard";
+                badge.className = "text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30";
+                if (subgradeLayer) subgradeLayer.thickness = 300;
+            }
+
+            renderLayerSliders();
+            updateSimulation();
+        }
+
+        function applyPreset(presetKey) {
+            if (presetKey === 'highway') {
+                setRoadClass('highway');
+                document.getElementById('sliderAxleLoad').value = 80;
+                document.getElementById('sliderSubgrade').value = state.pavementType === 'flexible' ? 8 : 60;
+            } else if (presetKey === 'rural') {
+                setRoadClass('rural');
+                document.getElementById('sliderAxleLoad').value = 50;
+                document.getElementById('sliderSubgrade').value = state.pavementType === 'flexible' ? 5 : 40;
+                if (state.pavementType === 'flexible') {
+                    state.flexibleLayers[0].thickness = 30; // SDBC
+                    state.flexibleLayers[1].thickness = 50; // BM
+                    state.flexibleLayers[2].thickness = 150; // WBM
+                }
+            } else if (presetKey === 'overloaded') {
+                setRoadClass('highway');
+                document.getElementById('sliderAxleLoad').value = 160; // 160 kN heavy axle overload
+                document.getElementById('sliderSubgrade').value = state.pavementType === 'flexible' ? 6 : 50;
+            } else if (presetKey === 'softSubgrade') {
+                document.getElementById('sliderSubgrade').value = state.pavementType === 'flexible' ? 3 : 25;
+            }
+            renderLayerSliders();
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            // Read input slider values
+            state.axleLoad = parseFloat(document.getElementById('sliderAxleLoad').value);
+            state.temperature = parseFloat(document.getElementById('sliderTemp').value);
+            state.subgradeProp = parseFloat(document.getElementById('sliderSubgrade').value);
+            state.showHeatmap = document.getElementById('chkHeatmap').checked;
+            state.showDeflection = document.getElementById('chkDeflection').checked;
+
+            document.getElementById('valAxleLoad').innerText = `${state.axleLoad} kN`;
+            document.getElementById('valTemp').innerText = `${state.temperature} °C`;
+            document.getElementById('valSubgradeProp').innerText = state.pavementType === 'flexible'
+                ? `${state.subgradeProp.toFixed(1)} %`
+                : `${state.subgradeProp.toFixed(1)} MPa/m`;
+
+            // Calculate Mechanics
+            if (state.pavementType === 'flexible') {
+                calculateFlexibleMechanics();
+            } else {
+                calculateRigidMechanics();
+            }
+
+            // Redraw Visuals & Update Chart
+            drawPavement();
+            updateStressChart();
+            updateDistressSummary();
+        }
+
+        // IRC:37 Flexible Pavement Boussinesq & Strain Formulas
+        function calculateFlexibleMechanics() {
+            const P = state.axleLoad * 1000 / 2; // Wheel load in N (assuming dual tire half axle)
+            const pContact = 0.56; // Tyre contact pressure in MPa (560 kPa)
+            const a = Math.sqrt(P / (Math.pi * pContact)); // Contact radius mm
+
+            // Modulus of Subgrade
+            const CBR = state.subgradeProp;
+            const E_subgrade = CBR <= 5 ? 10 * CBR : 17.6 * Math.pow(CBR, 0.64); // IRC:37 relation in MPa
+            state.flexibleLayers.find(l => l.id === 'subgrade').modulus = Math.round(E_subgrade);
+
+            // Total Asphalt Layer Thickness (BC + DBM)
+            const h_bit = state.flexibleLayers[0].thickness + state.flexibleLayers[1].thickness;
+
+            // Temperature adjustment factor for asphalt modulus
+            const tempFactor = Math.exp(-0.035 * (state.temperature - 35));
+            const E_bit = state.flexibleLayers[0].modulus * tempFactor;
+
+            // Approximate Multi-layer Strain Formulas (Burmister / IRC:37 fit)
+            // Tensile Strain at bottom of Asphalt: \epsilon_t
+            const strain_t = (1.2 * P) / (E_bit * Math.pow(h_bit, 1.35)) * 1000; // Microstrain
+
+            // Vertical Compressive Strain on Subgrade: \epsilon_v
+            const h_total = state.flexibleLayers.reduce((sum, l) => sum + l.thickness, 0);
+            const strain_v = (2.5 * P) / (E_subgrade * Math.pow(h_total, 1.1)) * 1000; // Microstrain
+
+            // IRC:37 Fatigue Life Prediction Model (MSA)
+            // N_f = 2.021 * 10^-4 * (1/\epsilon_t)^3.89 * (1/M_R)^0.854
+            const Nf = (2.021e-4) * Math.pow(1 / (strain_t * 1e-6), 3.89) * Math.pow(1 / E_bit, 0.854) / 1e6;
+
+            // IRC:37 Rutting Life Prediction Model (MSA)
+            // N_r = 1.41 * 10^-8 * (1/\epsilon_v)^4.533
+            const Nr = (1.41e-8) * Math.pow(1 / (strain_v * 1e-6), 4.533) / 1e6;
+
+            // Update UI Display
+            document.getElementById('valTensileStrain').innerText = `${strain_t.toFixed(1)} µε`;
+            document.getElementById('valSubgradeStrain').innerText = `${strain_v.toFixed(1)} µε`;
+            document.getElementById('valFatigueLife').innerText = `${Nf > 999 ? '> 1000' : Nf.toFixed(1)} MSA`;
+            document.getElementById('valRuttingLife').innerText = `${Nr > 999 ? '> 1000' : Nr.toFixed(1)} MSA`;
+        }
+
+        // IRC:58 Rigid Pavement Westergaard Equations
+        function calculateRigidMechanics() {
+            const P = state.axleLoad * 1000 / 2; // N
+            const h_pqc = state.rigidLayers[0].thickness; // mm
+            const k = state.subgradeProp / 1000; // N/mm3
+            const E_c = 30000; // MPa for M40 concrete
+            const nu = 0.15; // Poisson ratio
+
+            // Radius of relative stiffness l = [E h^3 / (12 (1 - nu^2) k)]^0.25
+            const l = Math.pow((E_c * Math.pow(h_pqc, 3)) / (12 * (1 - nu * nu) * k), 0.25);
+
+            const a = 150; // Equivalent tire contact radius mm
+            const b = a < 1.724 * h_pqc ? Math.sqrt(1.6 * a * a + h_pqc * h_pqc) - 0.675 * h_pqc : a;
+
+            // Westergaard Edge Stress \sigma_e
+            const sigma_e = (0.572 * P) / (h_pqc * h_pqc) * (4 * Math.log10(l / b) + 0.359);
+
+            // Thermal Curling Stress \sigma_t (Daytime differential ~ 15-20 °C)
+            const alpha = 1e-5; // Thermal expansion 1/°C
+            const deltaT = (state.temperature / 35) * 18; // Temperature gradient
+            const sigma_t = 0.5 * E_c * alpha * deltaT;
+
+            const totalEdgeStress = sigma_e + sigma_t;
+
+            // Flexural Strength f_cr = 0.7 * sqrt(f_ck) for M40 = 4.43 MPa
+            const f_cr = 4.43;
+
+            // Stress Ratio SR
+            const SR = totalEdgeStress / f_cr;
+            let CFD = 0;
+            if (SR < 0.45) CFD = 0.05;
+            else if (SR <= 0.55) CFD = Math.pow((4.2577 / (SR - 0.4325)), 3.268) / 1e7;
+            else CFD = Math.min(5.0, Math.exp(12 * (SR - 0.55)));
+
+            // Update UI Display
+            document.getElementById('valRelStiffness').innerText = `${Math.round(l)} mm`;
+            document.getElementById('valEdgeStress').innerText = `${totalEdgeStress.toFixed(2)} MPa`;
+            document.getElementById('valFlexuralStrength').innerText = `${f_cr.toFixed(2)} MPa`;
+
+            const cfdElem = document.getElementById('valCFDRatio');
+            cfdElem.innerText = `${CFD.toFixed(2)} (${CFD > 1.0 ? 'FAIL / Cracking' : 'Safe Design'})`;
+            cfdElem.className = `text-base font-mono font-bold ${CFD > 1.0 ? 'text-rose-400' : 'text-emerald-400'}`;
+        }
+
+        function drawPavement() {
+            if (!ctx) return;
+
+            const width = canvas.width;
+            const height = canvas.height;
+            if (width <= 0 || height <= 0) return;
+            ctx.clearRect(0, 0, width, height);
+
+            const layers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+
+            // Compute cumulative drawing bounds
+            const headerMargin = 50; // Top clearance for wheel & vehicle
+            const totalLayerThick = layers.reduce((sum, l) => sum + l.thickness, 0);
+            const availableHeight = Math.max(20, height - headerMargin - 20);
+
+            let currentY = headerMargin;
+
+            // Draw Layers
+            layers.forEach((layer, idx) => {
+                const layerH = (layer.thickness / totalLayerThick) * availableHeight;
+                layer._drawY = currentY;
+                layer._drawH = layerH;
+
+                // Base Fill
+                ctx.fillStyle = layer.color;
+                ctx.fillRect(0, currentY, width, layerH);
+
+                // Separation Membrane Specular Shimmer effect for Rigid
+                if (layer.id === 'membrane') {
+                    const grad = ctx.createLinearGradient(0, currentY, width, currentY);
+                    grad.addColorStop(0, 'rgba(56, 189, 248, 0.2)');
+                    grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.9)');
+                    grad.addColorStop(1, 'rgba(56, 189, 248, 0.2)');
+                    ctx.fillStyle = grad;
+                    ctx.fillRect(0, currentY - 2, width, 4);
+                }
+
+                // Aggregate Texture detailing
+                drawLayerTexture(ctx, layer, 0, currentY, width, layerH);
+
+                // Layer Highlight on Hover/Select
+                if (state.selectedLayerIndex === idx) {
+                    ctx.strokeStyle = '#38bdf8';
+                    ctx.lineWidth = 3;
+                    ctx.strokeRect(2, currentY + 1, width - 4, layerH - 2);
+                } else {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(0, currentY, width, layerH);
+                }
+
+                // Layer Label Text
+                ctx.font = '11px Inter, sans-serif';
+                ctx.fillStyle = '#f8fafc';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 4;
+                ctx.fillText(`${layer.name} (${layer.thickness} mm)`, 15, currentY + Math.min(20, layerH / 2 + 4));
+                ctx.shadowBlur = 0;
+
+                currentY += layerH;
+            });
+
+            // Wheel X Position in Pixels
+            const wheelXPx = state.wheelX * width;
+            const roadSurfaceY = headerMargin;
+
+            // Draw Deflection Mesh Overlay
+            if (state.showDeflection) {
+                drawDeflectionGrid(ctx, width, roadSurfaceY, wheelXPx, availableHeight);
+            }
+
+            // Draw Stress Dispersal Heatmap Bulb
+            if (state.showHeatmap) {
+                drawStressHeatmap(ctx, wheelXPx, roadSurfaceY, availableHeight);
+            }
+
+            // Draw Vehicle Axle and Dual Tires
+            drawVehicleAxle(ctx, wheelXPx, roadSurfaceY);
+
+            // Draw Distress Crack Propagation / Rutting Visuals
+            drawDistressEffects(ctx, width, roadSurfaceY, layers);
+        }
+
+        // Texture Details Generator
+        function drawLayerTexture(ctx, layer, x, y, w, h) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, y, w, h);
+            ctx.clip();
+
+            if (layer.id.includes('bc') || layer.id.includes('dbm')) {
+                // Fine Bituminous asphalt dots
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.05)';
+                for (let i = 0; i < 60; i++) {
+                    const rx = (Math.sin(i * 99 + y) * 0.5 + 0.5) * w;
+                    const ry = y + (Math.cos(i * 33) * 0.5 + 0.5) * h;
+                    ctx.fillRect(rx, ry, 2, 2);
+                }
+            } else if (layer.id.includes('wmm') || layer.id.includes('gsb')) {
+                // Coarse Aggregate angular stones
+                ctx.fillStyle = 'rgba(245, 158, 11, 0.15)';
+                ctx.strokeStyle = 'rgba(245, 158, 11, 0.2)';
+                for (let i = 0; i < 40; i++) {
+                    const rx = (Math.sin(i * 47) * 0.5 + 0.5) * w;
+                    const ry = y + (Math.cos(i * 71) * 0.5 + 0.5) * h;
+                    ctx.beginPath();
+                    ctx.arc(rx, ry, 3 + (i % 4), 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            } else if (layer.id === 'pqc') {
+                // Concrete aggregates & Dowel/Tie bars
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                for (let i = 0; i < 50; i++) {
+                    const rx = (Math.sin(i * 123) * 0.5 + 0.5) * w;
+                    const ry = y + (Math.cos(i * 87) * 0.5 + 0.5) * h;
+                    ctx.fillRect(rx, ry, 3, 3);
+                }
+
+                // Draw Contraction Joint & Dowel Bar in PQC Slab Center
+                const jointX = w * 0.5;
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 2]);
+                ctx.beginPath();
+                ctx.moveTo(jointX, y);
+                ctx.lineTo(jointX, y + h * 0.4); // Joint notch
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Dowel Bar at mid-depth
+                ctx.fillStyle = '#e2e8f0';
+                ctx.fillRect(jointX - 35, y + h * 0.5 - 3, 70, 6);
+                ctx.strokeStyle = '#94a3b8';
+                ctx.strokeRect(jointX - 35, y + h * 0.5 - 3, 70, 6);
+            }
+            ctx.restore();
+        }
+
+        // Deflection Mesh Simulation
+        function drawDeflectionGrid(ctx, width, roadY, wheelX, maxH) {
+            ctx.save();
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.3)';
+            ctx.lineWidth = 1;
+
+            const gridCols = 30;
+            const colW = width / gridCols;
+            const loadIntensity = state.axleLoad / 80;
+
+            for (let i = 0; i <= gridCols; i++) {
+                const gx = i * colW;
+                const dist = Math.abs(gx - wheelX);
+                const deltaY = Math.max(0, (18 * loadIntensity) * Math.exp(-Math.pow(dist / 90, 2)));
+
+                ctx.beginPath();
+                ctx.moveTo(gx, roadY + deltaY);
+                ctx.lineTo(gx, roadY + maxH);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        // Stress Bulb Heatmap
+        function drawStressHeatmap(ctx, wheelX, roadY, maxH) {
+            ctx.save();
+
+            const safeMaxH = Math.max(10, maxH);
+            const loadIntensity = Math.max(0.1, state.axleLoad / 80);
+            const bulbRadius = Math.max(5, 160 * loadIntensity);
+
+            // Boussinesq Radial Stress Gradient
+            const grad = ctx.createRadialGradient(
+                wheelX, roadY, 5,
+                wheelX, roadY + 80, bulbRadius
+            );
+
+            grad.addColorStop(0, 'rgba(239, 68, 68, 0.75)');   // High Peak Stress (Red)
+            grad.addColorStop(0.35, 'rgba(245, 158, 11, 0.5)'); // Moderate Stress (Yellow/Orange)
+            grad.addColorStop(0.7, 'rgba(16, 185, 129, 0.3)');  // Low Stress (Green)
+            grad.addColorStop(1, 'rgba(56, 189, 248, 0.0)');    // Dissipated (Blue/Transparent)
+
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.ellipse(wheelX, roadY + safeMaxH * 0.45, bulbRadius, Math.max(1, safeMaxH * 0.55), 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stress Dispersal Angle Lines (e.g., 2:1 distribution)
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.setLineDash([3, 3]);
+            ctx.beginPath();
+            ctx.moveTo(wheelX - 25, roadY);
+            ctx.lineTo(wheelX - 25 - safeMaxH * 0.5, roadY + safeMaxH);
+            ctx.moveTo(wheelX + 25, roadY);
+            ctx.lineTo(wheelX + 25 + safeMaxH * 0.5, roadY + safeMaxH);
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        // Axle & Tire Graphics
+        function drawVehicleAxle(ctx, x, y) {
+            ctx.save();
+
+            // Dual Wheel Assembly
+            const tireW = 22;
+            const tireH = 36;
+
+            // Left Dual Tire
+            ctx.fillStyle = '#0f172a';
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 1.5;
+
+            ctx.fillRect(x - 28, y - tireH, tireW, tireH);
+            ctx.strokeRect(x - 28, y - tireH, tireW, tireH);
+
+            ctx.fillRect(x + 6, y - tireH, tireW, tireH);
+            ctx.strokeRect(x + 6, y - tireH, tireW, tireH);
+
+            // Steel Axle Shaft
+            ctx.fillStyle = '#64748b';
+            ctx.fillRect(x - 35, y - tireH * 0.6, 70, 8);
+
+            // Load Arrow Indicator
+            ctx.strokeStyle = '#ef4444';
+            ctx.fillStyle = '#ef4444';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(x, y - tireH - 25);
+            ctx.lineTo(x, y - tireH - 5);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(x - 6, y - tireH - 10);
+            ctx.lineTo(x, y - tireH - 2);
+            ctx.lineTo(x + 6, y - tireH - 10);
+            ctx.fill();
+
+            // Axle Load Label
+            ctx.font = 'bold 10px font-mono, sans-serif';
+            ctx.fillStyle = '#f8fafc';
+            ctx.textAlign = 'center';
+            ctx.fillText(`P = ${state.axleLoad} kN`, x, y - tireH - 28);
+
+            ctx.restore();
+        }
+
+        // Dynamic Distress Propagation Visualizer
+        function drawDistressEffects(ctx, width, roadY, layers) {
+            if (state.distressMSA <= 0) return;
+
+            ctx.save();
+            const damageFactor = Math.min(1.0, state.distressMSA / 30.0);
+
+            if (state.pavementType === 'flexible') {
+                // Rutting Depression under wheel path
+                const rutDepth = Math.max(0.1, damageFactor * 18); // mm surface depression
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.beginPath();
+                ctx.ellipse(width * 0.5, roadY + rutDepth / 2, 80, Math.max(0.1, rutDepth), 0, 0, Math.PI);
+                ctx.fill();
+
+                // Bottom-Up Fatigue Cracks in DBM Layer
+                if (damageFactor > 0.3) {
+                    const dbmLayer = layers.find(l => l.id === 'dbm');
+                    if (dbmLayer && dbmLayer._drawY) {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 2;
+                        const crackY = dbmLayer._drawY + dbmLayer._drawH;
+                        for (let i = -3; i <= 3; i++) {
+                            const cx = width * 0.5 + i * 20;
+                            ctx.beginPath();
+                            ctx.moveTo(cx, crackY);
+                            ctx.lineTo(cx + (i % 2 === 0 ? 5 : -5), crackY - 25 * damageFactor);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            } else {
+                // Rigid PQC Corner / Transverse Cracking
+                if (damageFactor > 0.2) {
+                    const pqcLayer = layers.find(l => l.id === 'pqc');
+                    if (pqcLayer && pqcLayer._drawY) {
+                        ctx.strokeStyle = '#ef4444';
+                        ctx.lineWidth = 2.5;
+                        const slabY = pqcLayer._drawY;
+                        // Top-down / Bottom-up Slab Crack
+                        ctx.beginPath();
+                        ctx.moveTo(width * 0.5, slabY);
+                        ctx.lineTo(width * 0.5 + 10, slabY + pqcLayer._drawH * damageFactor);
+                        ctx.stroke();
+                    }
+                }
+            }
+            ctx.restore();
+        }
+
+        function handleCanvasMouseMove(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const layers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+            const tooltip = document.getElementById('layerHoverTooltip');
+
+            let hoveredIdx = -1;
+            layers.forEach((layer, idx) => {
+                if (layer._drawY && mouseY >= layer._drawY && mouseY <= layer._drawY + layer._drawH) {
+                    hoveredIdx = idx;
+                }
+            });
+
+            if (hoveredIdx !== -1) {
+                const layer = layers[hoveredIdx];
+                tooltip.classList.remove('hidden');
+                tooltip.style.left = `${Math.min(mouseX + 15, rect.width - 230)}px`;
+                tooltip.style.top = `${Math.max(10, mouseY - 40)}px`;
+
+                document.getElementById('tooltipTitle').innerText = layer.name;
+                document.getElementById('tooltipSpecs').innerText = `Thickness: ${layer.thickness} mm | E: ${layer.modulus} MPa`;
+                document.getElementById('tooltipFunction').innerText = layer.desc;
+            } else {
+                tooltip.classList.add('hidden');
+            }
+        }
+
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const mouseY = e.clientY - rect.top;
+            const layers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+
+            layers.forEach((layer, idx) => {
+                if (layer._drawY && mouseY >= layer._drawY && mouseY <= layer._drawY + layer._drawH) {
+                    inspectLayer(idx);
+                }
+            });
+        }
+
+        function inspectLayer(idx) {
+            state.selectedLayerIndex = idx;
+            const layers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+            const layer = layers[idx];
+
+            document.getElementById('inspectorLayerTitle').innerHTML = `<i class="fa-solid fa-magnifying-glass-location"></i> ${layer.name}`;
+            document.getElementById('inspectorLayerDesc').innerText = layer.desc;
+            document.getElementById('inspectorCodeStandard').innerText = layer.std;
+
+            const grid = document.getElementById('inspectorPropertiesGrid');
+            grid.innerHTML = `
+                <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Thickness</span>
+                    <span class="text-sky-400 font-bold">${layer.thickness} mm</span>
+                </div>
+                <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                    <span class="text-slate-400 block text-[10px]">Elastic Modulus (E)</span>
+                    <span class="text-emerald-400 font-bold">${layer.modulus} MPa</span>
+                </div>
+            `;
+
+            drawPavement();
+
+            if (state.audioTourActive) {
+                speakText(`${layer.name}. Thickness is ${layer.thickness} millimeters. ${layer.desc}`);
+            }
+        }
+
+        function initChart() {
+            const ctxChart = document.getElementById('stressProfileChart').getContext('2d');
+            stressChart = new Chart(ctxChart, {
+                type: 'line',
+                data: {
+                    labels: [0, 50, 100, 200, 300, 500, 800],
+                    datasets: [{
+                        label: 'Vertical Stress (kPa)',
+                        data: [560, 420, 280, 140, 75, 35, 12],
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        borderWidth: 2,
+                        pointRadius: 3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            title: { display: true, text: 'Depth from Surface (mm)', color: '#94a3b8', font: { size: 10 } },
+                            ticks: { color: '#64748b', font: { size: 9 } },
+                            grid: { color: '#1e293b' }
+                        },
+                        y: {
+                            title: { display: true, text: 'Stress (kPa)', color: '#94a3b8', font: { size: 10 } },
+                            ticks: { color: '#64748b', font: { size: 9 } },
+                            grid: { color: '#1e293b' }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateStressChart() {
+            if (!stressChart) return;
+
+            const p0 = (state.axleLoad / 80) * 560; // Surface pressure kPa
+            const depths = [0, 40, 130, 300, 500, 800, 1200];
+            const stresses = depths.map(z => {
+                if (z === 0) return Math.round(p0);
+                // Boussinesq stress formula approximation
+                const r = 150; // contact radius mm
+                const sz = p0 * (1 - Math.pow(z, 3) / Math.pow(r * r + z * z, 1.5));
+                return Math.max(5, Math.round(sz));
+            });
+
+            stressChart.data.labels = depths;
+            stressChart.data.datasets[0].data = stresses;
+            stressChart.update();
+        }
+
+        let animFrameId = null;
+        function toggleWheelMotion() {
+            state.wheelMoving = !state.wheelMoving;
+            const btn = document.getElementById('btnPlayWheel');
+            const icon = document.getElementById('playIcon');
+            const text = document.getElementById('playText');
+
+            if (state.wheelMoving) {
+                btn.className = "px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded text-xs transition-all flex items-center gap-1";
+                icon.className = "fa-solid fa-pause";
+                text.innerText = "Pause Motion";
+                animateWheelLoop();
+            } else {
+                btn.className = "px-2.5 py-1 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold rounded text-xs transition-all flex items-center gap-1";
+                icon.className = "fa-solid fa-play";
+                text.innerText = "Animate Traffic";
+                if (animFrameId) cancelAnimationFrame(animFrameId);
+            }
+        }
+
+        function animateWheelLoop() {
+            if (!state.wheelMoving) return;
+
+            state.wheelX += 0.005 * state.wheelDirection;
+            if (state.wheelX > 0.85 || state.wheelX < 0.15) {
+                state.wheelDirection *= -1;
+            }
+
+            // Accumulate Axle Passes (Accelerated MSA)
+            state.distressMSA += 0.02;
+            document.getElementById('axleRepetitionCounter').innerHTML = `Simulated Passages: <strong class="text-sky-400">${state.distressMSA.toFixed(2)} MSA</strong>`;
+
+            updateSimulation();
+            animFrameId = requestAnimationFrame(animateWheelLoop);
+        }
+
+        function resetDistressSim() {
+            state.distressMSA = 0.0;
+            document.getElementById('axleRepetitionCounter').innerHTML = `Simulated Passages: <strong class="text-sky-400">0.00 MSA</strong>`;
+            updateSimulation();
+        }
+
+        function updateDistressSummary() {
+            const summary = document.getElementById('distressModeSummary');
+            if (state.pavementType === 'flexible') {
+                summary.innerHTML = `
+                    <div class="flex justify-between items-center bg-slate-900 p-2 rounded">
+                        <span class="text-slate-400">Fatigue Cracking (Bottom-Up)</span>
+                        <span class="font-mono text-sky-400 font-bold">${state.distressMSA > 15 ? 'Critical Risk' : 'Low Risk'}</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-2 rounded">
+                        <span class="text-slate-400">Rutting Depressions (Subgrade)</span>
+                        <span class="font-mono text-amber-400 font-bold">${state.axleLoad > 120 ? 'High Rutting' : 'Normal'}</span>
+                    </div>
+                `;
+            } else {
+                summary.innerHTML = `
+                    <div class="flex justify-between items-center bg-slate-900 p-2 rounded">
+                        <span class="text-slate-400">Edge Bending Fatigue</span>
+                        <span class="font-mono text-purple-400 font-bold">${state.temperature > 40 ? 'Thermal Curling High' : 'Safe'}</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-slate-900 p-2 rounded">
+                        <span class="text-slate-400">Joint Faulting / Spalling</span>
+                        <span class="font-mono text-emerald-400 font-bold">Dowel Bars Active</span>
+                    </div>
+                `;
+            }
+        }
+
+        function populateReferenceTable() {
+            const tbody = document.getElementById('referenceTableBody');
+            tbody.innerHTML = '';
+
+            const layers = state.pavementType === 'flexible' ? state.flexibleLayers : state.rigidLayers;
+
+            layers.forEach(layer => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-900/50 transition-colors';
+                tr.innerHTML = `
+                    <td class="p-3 font-bold text-sky-400 flex items-center gap-1.5">
+                        <span class="w-2 h-2 rounded-full" style="background-color: ${layer.border}"></span>
+                        ${layer.name}
+                    </td>
+                    <td class="p-3 text-slate-300">${layer.id.includes('bc') ? 'BC / SDBC Bituminous Mix' : layer.id.includes('pqc') ? 'M40 / M50 Concrete' : layer.id.includes('dlc') ? 'Dry Lean Concrete (M10)' : 'Crushed Aggregates Grade I'}</td>
+                    <td class="p-3 font-mono text-amber-400">${layer.thickness} mm</td>
+                    <td class="p-3 text-slate-400 leading-normal">${layer.desc}</td>
+                    <td class="p-3 font-mono text-purple-300">${layer.std}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function toggleAudioTour() {
+            state.audioTourActive = !state.audioTourActive;
+            const btn = document.getElementById('btnAudioTour');
+            const icon = document.getElementById('audioIcon');
+            const text = document.getElementById('audioText');
+
+            if (state.audioTourActive) {
+                btn.className = "bg-sky-500 text-slate-950 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-2 shadow-lg";
+                icon.className = "fa-solid fa-volume-high animate-bounce";
+                text.innerText = "Guide Active";
+
+                const tourText = state.pavementType === 'flexible'
+                    ? "Welcome to the Flexible Pavement Structural Simulator. Flexible pavements consist of a wearing course, binder course, base course, granular sub-base, and compacted subgrade. Load is transferred through grain-to-grain contact down to the subgrade."
+                    : "Welcome to the Rigid Pavement Structural Simulator. Rigid pavements feature a high strength Pavement Quality Concrete slab over a Dry Lean Concrete sub-base, a 150-micron separation membrane, and a granular sub-base. The slab acts as a structural beam.";
+
+                speakText(tourText);
+            } else {
+                btn.className = "bg-slate-800 hover:bg-slate-700 text-sky-400 border border-sky-500/30 px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-2";
+                icon.className = "fa-solid fa-volume-high";
+                text.innerText = "Voice Guide";
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            }
+        }
+
+        function speakText(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.95;
+                utterance.pitch = 1.0;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    </script>
+</body>
+</html>

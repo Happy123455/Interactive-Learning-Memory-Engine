@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tone Explorer's Build-a-Block Adventure!</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #1a1a2e; font-family: 'Comic Sans MS', cursive; color: #e0e0e0; }
+        #simulation-container {
+            display: flex;
+            width: 100vw;
+            height: 100vh;
+            background-color: #1a1a2e; /* Dark cyber theme base */
+            box-sizing: border-box;
+            padding: 20px;
+        }
+        #canvas-wrapper {
+            flex-grow: 1;
+            position: relative;
+            background-color: #2e2e4a; /* Slightly lighter dark cyber */
+            border-radius: 25px;
+            overflow: hidden;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5); /* Cyber glow */
+        }
+        #interactive-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        #sidebar {
+            width: 350px; /* Fixed width sidebar */
+            background-color: #1a1a2e;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            border-left: 2px solid #00ffff; /* Cyber border */
+            border-radius: 0 25px 25px 0;
+            margin-left: 20px;
+            box-shadow: -10px 0 20px rgba(0, 255, 255, 0.3);
+        }
+        #question-area, #options-area {
+            background-color: #2e2e4a;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 15px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            color: #d0f0f0;
+        }
+        #question-text { font-size: 1.2em; font-weight: bold; margin-bottom: 10px; }
+        .mcq-option-button {
+            background-color: #3f3f6a;
+            border: 2px solid #00ffff;
+            color: #d0f0f0;
+            padding: 12px 20px;
+            margin: 8px 0;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            text-align: left;
+            transition: all 0.2s ease-in-out;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+        }
+        .mcq-option-button:hover {
+            background-color: #5a5a8a;
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 255, 255, 0.3);
+        }
+        .mcq-option-button span.letter {
+            font-weight: bold;
+            margin-right: 10px;
+            color: #9affff;
+        }
+        #listen-button {
+            background-color: #00ffff;
+            color: #1a1a2e;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: bold;
+            transition: background-color 0.2s;
+            align-self: flex-start;
+            margin-bottom: 15px;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+        #listen-button:hover { background-color: #9affff; }
+        #simulation-instructions {
+            font-size: 0.9em;
+            color: #a0a0c0;
+            margin-top: 15px;
+            background-color: #2e2e4a;
+            padding: 10px;
+            border-radius: 10px;
+            box-shadow: inset 0 0 8px rgba(0, 255, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div id="simulation-container">
+        <div id="canvas-wrapper">
+            <canvas id="interactive-canvas"></canvas>
+        </div>
+        <div id="sidebar">
+            <div id="question-area">
+                <button id="listen-button" aria-label="Listen to the question">🔊 Read/Listen</button>
+                <p id="question-text">Loading question...</p>
+            </div>
+            <div id="options-area">
+                <button class="mcq-option-button" id="option-A-btn" data-original-index="0"><span class="letter">A)</span> Loading option A...</button>
+                <button class="mcq-option-button" id="option-B-btn" data-original-index="1"><span class="letter">B)</span> Loading option B...</button>
+                <button class="mcq-option-button" id="option-C-btn" data-original-index="2"><span class="letter">C)</span> Loading option C...</button>
+                <button class="mcq-option-button" id="option-D-btn" data-original-index="3"><span class="letter">D)</span> Loading option D...</button>
+            </div>
+            <div id="simulation-instructions">
+                <strong>Hey there, little architect!</strong> Use your mouse or finger to explore the building blocks. Try dragging materials and paints from the 'Material Magic!' box to see how they change! Can you make some parts look super different from others? That's what "Contrast of Tone" is all about!
+            </div>
+        </div>
+    </div>
+    <script>
+        // Canvas and Context
+        const canvas = document.getElementById('interactive-canvas');
+        const ctx = canvas.getContext('2d');
+        let animationFrameId;
+
+        // Audio Context (Web Audio API for pitch-shifting)
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        oscillator.type = 'sine'; // Playful sine wave
+        oscillator.frequency.value = 220; // Default starting pitch
+        oscillator.start();
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        gainNode.gain.value = 0; // Start muted, only active during interaction
+
+        // Speech Synthesis
+        const synth = window.speechSynthesis;
+        let currentUtterance = null;
+
+        // Simulation State
+        let buildingBlocks = []; // Array of objects representing the modular structure
+        let currentMousePos = { x: 0, y: 0 };
+        let isMouseDown = false;
+
+        // UI Elements (palette, and eventually, the dragged item)
+        const uiElements = {
+            palette: {
+                x: 0, y: 0, width: 200, height: 260, // Positioned dynamically
+                items: [
+                    // Each item includes properties for color, texture, and shininess
+                    { type: 'material', name: 'Smooth Metal ✨', color: '#B0B0B0', textureFactor: 0.1, shininess: 0.9, icon: '✨' }, // Light tone, low texture, high shininess
+                    { type: 'material', name: 'Bumpy Stone ⛰️', color: '#8B4513', textureFactor: 0.8, shininess: 0.2, icon: '⛰️' }, // Dark tone, high texture, low shininess
+                    { type: 'material', name: 'Shiny Glass 💎', color: '#ADD8E6', textureFactor: 0.05, shininess: 0.95, icon: '💎' }, // Very light tone, very low texture, very high shininess
+                    { type: 'color', name: 'Deep Blue 💙', color: '#000080', textureFactor: 0.2, shininess: 0.3, icon: '💙' }, // Dark tone, subtle texture
+                    { type: 'color', name: 'Sunny Yellow 💛', color: '#FFFF00', textureFactor: 0.1, shininess: 0.7, icon: '💛' }, // Very light tone, low texture
+                    { type: 'color', name: 'Grassy Green 💚', color: '#008000', textureFactor: 0.6, shininess: 0.5, icon: '💚' }  // Medium tone, moderate texture
+                ]
+            },
+            draggedItem: null // Stores the item being dragged
+        };
+
+        // MCQ UI Elements (references from HTML)
+        const questionTextElem = document.getElementById('question-text');
+        const optionButtons = [
+            document.getElementById('option-A-btn'),
+            document.getElementById('option-B-btn'),
+            document.getElementById('option-C-btn'),
+            document.getElementById('option-D-btn')
+        ];
+        const listenButton = document.getElementById('listen-button');
+
+        // Particle system for rewarding effects
+        let particles = [];
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            // Reposition UI elements dynamically
+            uiElements.palette.x = canvas.width - uiElements.palette.width - 20;
+            uiElements.palette.y = 20;
+            initBuildingBlocks(); // Re-initialize blocks to re-center
+        }
+
+        function initBuildingBlocks() {
+            buildingBlocks = [];
+            const blockWidth = 120;
+            const blockHeight = 100;
+            const gap = 10;
+            const numRows = 3;
+            const numCols = 4;
+
+            const totalWidth = numCols * blockWidth + (numCols - 1) * gap;
+            const totalHeight = numRows * blockHeight + (numRows - 1) * gap;
+
+            // Center the block grid
+            const startX = (canvas.width / 2) - (totalWidth / 2);
+            const startY = (canvas.height / 2) - (totalHeight / 2);
+
+            for (let r = 0; r < numRows; r++) {
+                for (let c = 0; c < numCols; c++) {
+                    buildingBlocks.push({
+                        id: `block-${r}-${c}`,
+                        x: startX + c * (blockWidth + gap),
+                        y: startY + r * (blockHeight + gap),
+                        width: blockWidth,
+                        height: blockHeight,
+                        color: '#808080', // Default mid-grey tone
+                        textureFactor: 0.3, // Default slight roughness
+                        shininess: 0.5,     // Default medium shininess
+                        isHovered: false,
+                        initialY: startY + r * (blockHeight + gap) // Store initial Y for bouncy animation
+                    });
+                }
+            }
+        }
+
+        function drawBuildingBlock(block) {
+            ctx.save();
+            ctx.translate(block.x, block.y);
+
+            // Playful Bouncy Toy Visuals: Apply "bouncy" effect on hover
+            const bounceOffset = block.isHovered ? Math.sin(Date.now() / 150) * 5 : 0; // 5px bounce
+            ctx.translate(0, bounceOffset);
+
+            // Main block body (rounded rectangles for toy-like feel)
+            ctx.fillStyle = block.color;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, block.width, block.height, 15); // Rounded corners
+            ctx.fill();
+
+            // Simulate texture overlay (simple noise/gradient)
+            if (block.textureFactor > 0.05) {
+                ctx.save();
+                ctx.globalAlpha = block.textureFactor * 0.4; // More texture = more visible
+                const textureGradient = ctx.createLinearGradient(0, 0, block.width, block.height);
+                textureGradient.addColorStop(0, `rgba(0,0,0,${block.textureFactor * 0.2})`);
+                textureGradient.addColorStop(0.5, `rgba(255,255,255,${block.textureFactor * 0.1})`);
+                textureGradient.addColorStop(1, `rgba(0,0,0,${block.textureFactor * 0.2})`);
+                ctx.fillStyle = textureGradient;
+                ctx.fill(); // Fill using gradient on the rounded rectangle path
+                // Add subtle random dots/lines for extra roughness
+                if (block.textureFactor > 0.4) {
+                    for (let i = 0; i < 30 * block.textureFactor; i++) {
+                        const dotX = Math.random() * block.width;
+                        const dotY = Math.random() * block.height;
+                        const dotSize = Math.random() * 1.5 + 0.5;
+                        ctx.fillStyle = `rgba(0,0,0,${Math.random() * 0.2})`;
+                        ctx.beginPath();
+                        ctx.arc(dotX, dotY, dotSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                ctx.restore();
+            }
+
+            // Simulate shininess/specular highlights
+            if (block.shininess > 0.1) {
+                ctx.save();
+                ctx.globalAlpha = block.shininess * 0.4; // More shiny = more highlight
+                const shineGradient = ctx.createRadialGradient(
+                    block.width * 0.2, block.height * 0.2, 0,
+                    block.width * 0.2, block.height * 0.2, block.width * 0.6
+                );
+                shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.8)');
+                shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                ctx.fillStyle = shineGradient;
+                ctx.fill(); // Fill using gradient on the rounded rectangle path
+                ctx.restore();
+            }
+
+            // Border for visual separation and hover feedback (glowing effect)
+            ctx.strokeStyle = block.isHovered ? '#00ffff' : '#333333';
+            ctx.lineWidth = block.isHovered ? 4 : 2;
+            if (block.isHovered) {
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 10;
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            ctx.restore();
+        }
+
+        function drawPalette() {
+            const pal = uiElements.palette;
+            ctx.fillStyle = '#2e2e4a';
+            ctx.beginPath();
+            ctx.roundRect(pal.x, pal.y, pal.width, pal.height, 20);
+            ctx.fill();
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            ctx.fillStyle = '#d0f0f0';
+            ctx.font = '20px "Comic Sans MS"';
+            ctx.textAlign = 'center';
+            ctx.fillText("🎨 Material Magic!", pal.x + pal.width / 2, pal.y + 30);
+
+            const itemSize = 50;
+            const startItemX = pal.x + 20;
+            const startItemY = pal.y + 50;
+            const itemsPerRow = Math.floor((pal.width - 40) / (itemSize + 10)); // 10px margin
+
+            uiElements.palette.items.forEach((item, index) => {
+                const row = Math.floor(index / itemsPerRow);
+                const col = index % itemsPerRow;
+                const itemX = startItemX + col * (itemSize + 10);
+                const itemY = startItemY + row * (itemSize + 10);
+
+                ctx.save();
+                ctx.translate(itemX, itemY);
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.roundRect(0, 0, itemSize, itemSize, 8); // Rounded items
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Icon/text for material type
+                ctx.fillStyle = '#333';
+                ctx.font = '28px "Comic Sans MS"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.icon, itemSize / 2, itemSize / 2);
+                ctx.restore();
+
+                // Store item's actual drawing bounds for hit detection
+                item.bounds = { x: itemX, y: itemY, width: itemSize, height: itemSize };
+            });
+
+            // Draw dragged item with bouncy, glowing effect
+            if (uiElements.draggedItem) {
+                ctx.save();
+                ctx.globalAlpha = 0.7;
+                const item = uiElements.draggedItem.item;
+                const size = itemSize + 10; // Slightly larger when dragged
+                const dragOffsetX = Math.sin(Date.now() / 100) * 3; // Subtle bounce
+                const dragOffsetY = Math.cos(Date.now() / 100) * 3;
+                ctx.translate(currentMousePos.x - size / 2 + dragOffsetX, currentMousePos.y - size / 2 + dragOffsetY);
+
+                ctx.fillStyle = item.color;
+                ctx.beginPath();
+                ctx.roundRect(0, 0, size, size, 10);
+                ctx.fill();
+                ctx.strokeStyle = '#00ffff'; // Glowing border
+                ctx.lineWidth = 3;
+                ctx.shadowColor = '#00ffff';
+                ctx.shadowBlur = 15;
+                ctx.stroke();
+                ctx.shadowBlur = 0; // Reset shadow
+
+                ctx.fillStyle = '#333';
+                ctx.font = '32px "Comic Sans MS"';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(item.icon, size / 2, size / 2);
+                ctx.restore();
+            }
+        }
+
+        // Particle system drawing
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#2e2e4a'; // Background for canvas area
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            buildingBlocks.forEach(drawBuildingBlock);
+            drawPalette();
+            drawParticles(); // Draw particles
+
+            updateParticles(); // Update particle positions and fade
+
+            animationFrameId = requestAnimationFrame(render);
+        }
+
+        // Particle update logic
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.vy += p.gravity;
+                p.alpha -= 0.02; // Fade out
+                p.radius -= 0.1; // Shrink
+
+                if (p.alpha <= 0 || p.radius <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+        }
+
+        // Helper for hit testing
+        function isPointInRect(point, rect) {
+            return point.x > rect.x && point.x < rect.x + rect.width &&
+                   point.y > rect.y && point.y < rect.y + rect.height;
+        }
+
+        function getMousePos(event) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: event.clientX - rect.left,
+                y: event.clientY - rect.top
+            };
+        }
+
+        canvas.addEventListener('mousemove', (event) => {
+            currentMousePos = getMousePos(event);
+
+            // Hand/Mouse Motion Gesture Detection: Update hovered block
+            buildingBlocks.forEach(block => {
+                block.isHovered = isPointInRect(currentMousePos, block);
+            });
+
+            // Dynamic Pitch-Shifting Audio: During drag
+            if (uiElements.draggedItem) {
+                // Adjust pitch based on mouse X position (simple example for a sweep effect)
+                oscillator.frequency.value = 200 + (currentMousePos.x / canvas.width) * 800; // 200Hz to 1000Hz
+                gainNode.gain.value = 0.3; // Audible volume
+            } else {
+                gainNode.gain.value = 0; // Mute when not dragging
+            }
+        });
+
+        canvas.addEventListener('mousedown', (event) => {
+            isMouseDown = true;
+            const mousePos = getMousePos(event);
+
+            // Check if a palette item is clicked (start drag)
+            uiElements.palette.items.forEach(item => {
+                if (item.bounds && isPointInRect(mousePos, item.bounds)) {
+                    uiElements.draggedItem = { item: item, startMouseX: mousePos.x, startMouseY: mousePos.y };
+                    // Play a little 'pick up' sound (quick boop)
+                    oscillator.frequency.value = 550;
+                    gainNode.gain.value = 0.6;
+                    setTimeout(() => gainNode.gain.value = 0, 100);
+                    return; // Only drag one item at a time
+                }
+            });
+        });
+
+        canvas.addEventListener('mouseup', (event) => {
+            isMouseDown = false;
+            const mousePos = getMousePos(event);
+            gainNode.gain.value = 0; // Mute audio on mouse up
+
+            if (uiElements.draggedItem) {
+                const droppedItem = uiElements.draggedItem.item;
+                const hoveredBlock = buildingBlocks.find(block => isPointInRect(mousePos, block));
+
+                if (hoveredBlock) {
+                    // Apply the material/color to the block
+                    hoveredBlock.color = droppedItem.color;
+                    hoveredBlock.textureFactor = droppedItem.textureFactor;
+                    hoveredBlock.shininess = droppedItem.shininess;
+
+                    // Rewarding cheer sound effects + Playful Bouncy Toy Visuals (particles)
+                    const successPitch = 880; // High happy pitch
+                    oscillator.frequency.value = successPitch;
+                    gainNode.gain.value = 0.5;
+                    setTimeout(() => {
+                        gainNode.gain.value = 0;
+                        createParticleBurst(mousePos.x, mousePos.y, droppedItem.color);
+                    }, 150);
+                }
+                uiElements.draggedItem = null; // Clear dragged item
+            }
+        });
+
+        // Particle system creation
+        function createParticleBurst(x, y, color) {
+            for (let i = 0; i < 20; i++) {
+                particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 10,
+                    vy: (Math.random() - 0.5) * 10 - 5, // Upward initial velocity
+                    radius: Math.random() * 5 + 2,
+                    color: color,
+                    alpha: 1,
+                    gravity: 0.2
+                });
+            }
+        }
+
+        listenButton.addEventListener('click', () => {
+            if (synth.speaking) {
+                synth.cancel();
+                listenButton.textContent = '🔊 Read/Listen';
+                return;
+            }
+
+            listenButton.textContent = '⏸️ Pause/Stop';
+
+            const questionText = document.getElementById('question-text').innerText;
+            const instructionsText = document.getElementById('simulation-instructions').innerText;
+            let combinedText = `Hello, little architect! Today we're going to learn about making things look super different! We call it 'Contrast of Tone'. Imagine making your building blocks look like dark chocolate next to white chocolate! Or a super smooth glass next to a bumpy rock! ${instructionsText}. The question is: ${questionText}. `;
+
+            // Get active options from buttons (they will be updated dynamically)
+            optionButtons.forEach((btn, index) => {
+                combinedText += `Option ${String.fromCharCode(65 + index)}: ${btn.innerText.substring(btn.innerText.indexOf(')') + 1).trim()}. `;
+            });
+
+            currentUtterance = new SpeechSynthesisUtterance(combinedText);
+            currentUtterance.lang = 'en-US';
+            currentUtterance.pitch = 1.2; // Child-like pitch
+            currentUtterance.rate = 0.9; // Slightly slower
+            currentUtterance.volume = 1;
+
+            currentUtterance.onend = () => {
+                listenButton.textContent = '🔊 Read/Listen';
+            };
+
+            currentUtterance.onerror = (event) => {
+                console.error('SpeechSynthesisUtterance.onerror', event);
+                listenButton.textContent = '🔊 Read/Listen';
+            };
+
+            synth.speak(currentUtterance);
+        });
+
+        // Option selection handler
+        optionButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const originalIndex = parseInt(button.dataset.originalIndex);
+                window.parent.postMessage({
+                    type: 'mcq-selected',
+                    optionIndex: originalIndex
+                }, '*');
+
+                // Visual feedback for clicked option
+                button.style.backgroundColor = '#00ffff';
+                button.style.color = '#1a1a2e';
+                setTimeout(() => {
+                    button.style.backgroundColor = '#3f3f6a';
+                    button.style.color = '#d0f0f0';
+                }, 300);
+            });
+        });
+
+        // Dynamic Option Shuffling Support
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'init-mcq-options' && event.data.options) {
+                const shuffledOptions = event.data.options;
+                shuffledOptions.forEach((option, i) => {
+                    const btn = optionButtons[i];
+                    if (btn) {
+                        btn.dataset.originalIndex = option.originalIndex;
+                        btn.innerHTML = `<span class="letter">${String.fromCharCode(65 + i)})</span> ${option.text}`;
+                    }
+                });
+                questionTextElem.innerText = "Which combination of architectural strategies produces 'Contrast of Tone'?"; // Static question text
+            } else if (event.data.type === 'init-mcq-options' && (!event.data.options || event.data.options.length === 0)) {
+                // Fallback for standalone testing if no options are passed
+                console.warn("No MCQ options received, using fallback options.");
+                questionTextElem.innerText = "Which combination of architectural strategies produces 'Contrast of Tone'?";
+                const defaultOptions = [
+                    "Aligning columns in a strictly symmetrical grid along a single major axis.",
+                    "Varying the surface texture, using different construction materials, or implementing distinct color combinations.",
+                    "Modifying the height-to-width ratio of a space from 1.2 to more than 1.5.",
+                    "Mixing traditional Vastu Shastra rules with Vitruvian humanistic layout plans."
+                ];
+                defaultOptions.forEach((text, i) => {
+                    const btn = optionButtons[i];
+                    if (btn) {
+                        btn.dataset.originalIndex = i;
+                        btn.innerHTML = `<span class="letter">${String.fromCharCode(65 + i)})</span> ${text}`;
+                    }
+                });
+            }
+        });
+
+        // Initial calls
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Set initial canvas size and populate blocks
+        requestAnimationFrame(render); // Start the animation loop
+
+        // Send a dummy init-mcq-options message for standalone testing
+        // This ensures the options populate even when not embedded in a parent frame.
+        window.dispatchEvent(new MessageEvent('message', {
+            data: {
+                type: 'init-mcq-options',
+                options: [
+                    { text: "Aligning columns in a strictly symmetrical grid along a single major axis.", originalIndex: 0 },
+                    { text: "Varying the surface texture, using different construction materials, or implementing distinct color combinations.", originalIndex: 1 },
+                    { text: "Modifying the height-to-width ratio of a space from 1.2 to more than 1.5.", originalIndex: 2 },
+                    { text: "Mixing traditional Vastu Shastra rules with Vitruvian humanistic layout plans.", originalIndex: 3 }
+                ]
+            }
+        }));
+    </script>
+</body>
+</html>

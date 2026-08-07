@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Structural Material Logic Simulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg-dark: #0a0b10;
+      --card-bg: #11131e;
+      --card-border: #1f2438;
+      --primary-cyan: #00f2fe;
+      --primary-pink: #ff007f;
+      --accent-gold: #ffd700;
+      --text-main: #f0f4f8;
+      --text-muted: #8a99ad;
+      --shadow-neon-cyan: 0 0 15px rgba(0, 242, 254, 0.4);
+      --shadow-neon-pink: 0 0 15px rgba(255, 0, 127, 0.4);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 15px;
+      overflow-x: hidden;
+    }
+
+    .app-container {
+      width: 100%;
+      max-width: 1280px;
+      background: var(--card-bg);
+      border-radius: 20px;
+      border: 1px solid var(--card-border);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7);
+      display: grid;
+      grid-template-columns: 1.25fr 0.75fr;
+      overflow: hidden;
+    }
+
+    @media (max-width: 992px) {
+      .app-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Simulation Area */
+    .sandbox {
+      padding: 25px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      border-right: 1px solid var(--card-border);
+    }
+
+    @media (max-width: 992px) {
+      .sandbox {
+        border-right: none;
+        border-bottom: 1px solid var(--card-border);
+      }
+    }
+
+    .sandbox-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sandbox-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      color: var(--primary-cyan);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      text-shadow: 0 0 8px rgba(0, 242, 254, 0.3);
+    }
+
+    .btn-action {
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid var(--primary-cyan);
+      color: var(--primary-cyan);
+      font-weight: 600;
+      padding: 8px 16px;
+      border-radius: 30px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .btn-action:hover {
+      background: var(--primary-cyan);
+      color: #000;
+      box-shadow: var(--shadow-neon-cyan);
+      transform: translateY(-2px);
+    }
+
+    .canvas-container {
+      position: relative;
+      background: #06070a;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      height: 400px;
+      overflow: hidden;
+      cursor: crosshair;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .interactive-overlay-msg {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      background: rgba(10, 11, 16, 0.8);
+      border: 1px solid var(--accent-gold);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: var(--accent-gold);
+      pointer-events: none;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      animation: pulseGold 2s infinite;
+    }
+
+    @keyframes pulseGold {
+      0% { opacity: 0.8; box-shadow: 0 0 4px rgba(255, 215, 0, 0.2); }
+      50% { opacity: 1; box-shadow: 0 0 12px rgba(255, 215, 0, 0.5); }
+      100% { opacity: 0.8; box-shadow: 0 0 4px rgba(255, 215, 0, 0.2); }
+    }
+
+    .control-deck {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      background: rgba(255, 255, 255, 0.01);
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+
+    .control-row {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      align-items: center;
+      gap: 15px;
+    }
+
+    @media (max-width: 576px) {
+      .control-row {
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+    }
+
+    .control-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .slider-wrapper {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .interactive-slider {
+      width: 100%;
+      -webkit-appearance: none;
+      height: 6px;
+      border-radius: 3px;
+      background: #1a1e2f;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .interactive-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: var(--primary-cyan);
+      box-shadow: var(--shadow-neon-cyan);
+      transition: transform 0.15s ease, background-color 0.15s ease;
+    }
+
+    .interactive-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    .eli5-box {
+      background: rgba(255, 0, 127, 0.03);
+      border-left: 3px solid var(--primary-pink);
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.82rem;
+      line-height: 1.45;
+      color: #e2e8f0;
+    }
+
+    .eli5-tag {
+      color: var(--primary-pink);
+      font-weight: 800;
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+      display: block;
+    }
+
+    /* MCQ Area */
+    .mcq-panel {
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.15);
+      gap: 30px;
+    }
+
+    .question-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .question-category {
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--primary-pink);
+      text-shadow: 0 0 5px rgba(255, 0, 127, 0.2);
+    }
+
+    .question-text {
+      font-size: 1.12rem;
+      font-weight: 700;
+      line-height: 1.5;
+      color: var(--text-main);
+    }
+
+    .options-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .option-btn {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid var(--card-border);
+      border-radius: 10px;
+      padding: 16px;
+      color: var(--text-main);
+      text-align: left;
+      font-size: 0.88rem;
+      line-height: 1.4;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .option-btn::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      height: 100%;
+      width: 3px;
+      background: transparent;
+      transition: background 0.2s ease;
+    }
+
+    .option-btn:hover {
+      background: rgba(0, 242, 254, 0.03);
+      border-color: rgba(0, 242, 254, 0.3);
+      transform: translateX(4px);
+    }
+
+    .option-btn.selected {
+      background: rgba(0, 242, 254, 0.06);
+      border-color: var(--primary-cyan);
+      box-shadow: 0 0 12px rgba(0, 242, 254, 0.1);
+    }
+
+    .option-btn.selected::before {
+      background: var(--primary-cyan);
+    }
+
+    .submit-btn {
+      width: 100%;
+      background: linear-gradient(135deg, var(--primary-pink), #e6006f);
+      border: none;
+      color: #fff;
+      font-weight: 700;
+      padding: 16px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 0.95rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow-neon-pink);
+    }
+
+    .submit-btn:hover {
+      transform: translateY(-2px);
+      filter: brightness(1.1);
+      box-shadow: 0 0 20px rgba(255, 0, 127, 0.6);
+    }
+
+    .submit-btn:active {
+      transform: translateY(0);
+    }
+
+    .tooltip-hint {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 12px;
+      letter-spacing: 0.5px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="app-container">
+    
+    <!-- Simulation Sandbox -->
+    <div class="sandbox">
+      <div class="sandbox-header">
+        <h2 class="sandbox-title">Material Logic Engine</h2>
+        <button id="voiceBtn" class="btn-action" aria-label="Listen to structural narration">
+          🔊 Audio Guide
+        </button>
+      </div>
+
+      <div class="canvas-container" id="canvasContainer">
+        <canvas id="simCanvas"></canvas>
+        <div class="interactive-overlay-msg" id="interactiveIndicator">🪓 Sweep mouse right to carve!</div>
+      </div>
+
+      <div class="control-deck">
+        <div class="control-row">
+          <span class="control-label">Western Evolution</span>
+          <div class="slider-wrapper">
+            <input id="westernSlider" class="interactive-slider" type="range" min="0" max="100" value="0">
+          </div>
+        </div>
+        <div class="eli5-box">
+          <span class="eli5-tag">Pedagogical Analogy</span>
+          Western structural history behaves like a shape-shifting robot—completely transforming its skeleton from massive stone arches to slender steel spaceframes. Conversely, Indian architecture treats stone continuously as a masterfully carved monolithic canvas, refusing to separate decoration from physical support.
+        </div>
+      </div>
+    </div>
+
+    <!-- MCQ Panel -->
+    <div class="mcq-panel">
+      <div class="question-card">
+        <div class="question-category">Theoretical Inquiry</div>
+        <h3 class="question-text" id="questionText">
+          When comparing structural material logic, how does the historic development of Western architecture differ from traditional Indian architectural craftsmanship?
+        </h3>
+
+        <div class="options-list" id="optionsContainer">
+          <!-- Dynamically Populated Option Buttons -->
+        </div>
+      </div>
+
+      <div>
+        <button class="submit-btn" id="submitBtn">Submit Answer</button>
+        <p class="tooltip-hint">Move the Western evolution slider and swipe on the Indian stone to observe dynamic physical qualities.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // MCQ Fallback Options (for standalone operation)
+    const fallbackOptions = [
+      { 
+        text: "Western architectural material history is marked by discontinuous technological transitions (stone, concrete, iron, steel, glass), whereas traditional Indian architecture prioritizes a continuous, highly sculptural integration of ornament and monolithic material support.", 
+        originalIndex: 0 
+      },
+      { 
+        text: "Western architecture avoided physical structural materials in favor of timber lattices, while Indian design prioritized cast-iron skeleton frameworks entirely.", 
+        originalIndex: 1 
+      },
+      { 
+        text: "Indian architectural material logic was strictly modular and industrial, while Western systems focused solely on continuous hand-carved solid rock monoliths.", 
+        originalIndex: 2 
+      },
+      { 
+        text: "Both systems completely banned structural masonry and evolved solely through lightweight synthetic membranes.", 
+        originalIndex: 3 
+      }
+    ];
+
+    let currentOptions = [...fallbackOptions];
+    let selectedOptionIndex = null;
+
+    // Canvas Graphics Engine State
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let westernValue = 0; // Slider value 0-100
+    let particles = [];
+    
+    // Scratching / Carving Offscreen Buffers for Indian Side
+    let maskCanvas = document.createElement('canvas');
+    let mctx = maskCanvas.getContext('2d');
+    let isMaskInitialized = false;
+
+    // Web Audio State
+    let audioCtx = null;
+    let mainOsc = null;
+    let mainGain = null;
+    let audioFadeTimeout = null;
+
+    function resize() {
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+
+      // Re-initialize carving mask sizes matching the right half of sandbox
+      const indianWidth = rect.width / 2;
+      const indianHeight = rect.height;
+      
+      // Save mask pixels to restore after resize if already initialized
+      let tempBuffer = null;
+      if (isMaskInitialized) {
+        tempBuffer = document.createElement('canvas');
+        tempBuffer.width = maskCanvas.width;
+        tempBuffer.height = maskCanvas.height;
+        tempBuffer.getContext('2d').drawImage(maskCanvas, 0, 0);
+      }
+
+      maskCanvas.width = indianWidth * dpr;
+      maskCanvas.height = indianHeight * dpr;
+      mctx.scale(dpr, dpr);
+
+      if (tempBuffer) {
+        // Redraw previous carving progress onto resized mask
+        mctx.drawImage(tempBuffer, 0, 0, rect.width / 2, rect.height);
+      } else {
+        // First initialization: Solid opaque gray slate layer
+        mctx.fillStyle = '#1e2130';
+        mctx.fillRect(0, 0, indianWidth, indianHeight);
+        
+        // Add light decorative stone texture to raw block
+        mctx.fillStyle = '#171924';
+        for (let i = 0; i < 40; i++) {
+          mctx.beginPath();
+          mctx.arc(Math.random() * indianWidth, Math.random() * indianHeight, 1 + Math.random() * 2, 0, Math.PI * 2);
+          mctx.fill();
+        }
+        isMaskInitialized = true;
+      }
+    }
+
+    // Dynamic Spark/Debris Particle Generator
+    function emitParticles(x, y, color, count = 3) {
+      for (let i = 0; i < count; i++) {
+        particles.push({
+          x: x,
+          y: y,
+          vx: (Math.random() - 0.5) * 5,
+          vy: (Math.random() - 0.5) * 5 - 1.5,
+          life: 1.0,
+          decay: 0.02 + Math.random() * 0.03,
+          color: color,
+          size: 1.5 + Math.random() * 2
+        });
+      }
+    }
+
+    // Audio Synthesizer Controls
+    function initAudio() {
+      if (audioCtx) return;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (!AudioContextClass) return;
+      audioCtx = new AudioContextClass();
+
+      mainGain = audioCtx.createGain();
+      mainGain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      mainOsc = audioCtx.createOscillator();
+      mainOsc.type = 'triangle';
+      mainOsc.frequency.setValueAtTime(80, audioCtx.currentTime);
+
+      mainOsc.connect(mainGain);
+      mainGain.connect(audioCtx.destination);
+      mainOsc.start();
+    }
+
+    function triggerWesternAudio(val) {
+      initAudio();
+      if (!audioCtx) return;
+
+      // Deep compression (Stone) maps to 80Hz; Modern structural tension (Steel) maps to 450Hz
+      const mappedFreq = 80 + (val * 3.7);
+      mainOsc.frequency.setTargetAtTime(mappedFreq, audioCtx.currentTime, 0.04);
+      mainGain.gain.setTargetAtTime(0.15, audioCtx.currentTime, 0.01);
+
+      clearTimeout(audioFadeTimeout);
+      audioFadeTimeout = setTimeout(() => {
+        mainGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.15);
+      }, 250);
+    }
+
+    function triggerChime(pitchMultiplier = 1) {
+      initAudio();
+      if (!audioCtx) return;
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      // Crisp mineral/stone carving impact ring
+      osc.frequency.setValueAtTime(700 * pitchMultiplier + Math.random() * 200, audioCtx.currentTime);
+      
+      gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.35);
+    }
+
+    // Rendering Frame Updates
+    function render() {
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Section Border Division
+      ctx.strokeStyle = '#1a1d2e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(w / 2, 0);
+      ctx.lineTo(w / 2, h);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Section Labels
+      ctx.font = 'bold 10px sans-serif';
+      ctx.fillStyle = 'rgba(0, 242, 254, 0.8)';
+      ctx.textAlign = 'center';
+      ctx.fillText("WESTERN EVOLUTION", w / 4, 25);
+
+      ctx.fillStyle = 'rgba(255, 215, 0, 0.8)';
+      ctx.fillText("INDIAN SCULPTURAL CONTINUITY", (3 * w) / 4, 25);
+
+      // --- WESTERN RENDER (DYNAMIC MATERIAL TRANSITION) ---
+      ctx.save();
+      ctx.translate(w / 4, h / 2 + 20);
+      
+      const morph = westernValue / 100;
+
+      if (morph < 0.45) {
+        // Stage 1: Ancient Megalithic Stone Post and Beam
+        const opacity = Math.max(0, 1 - (morph / 0.45));
+        ctx.fillStyle = `rgba(45, 55, 72, ${opacity})`;
+        ctx.strokeStyle = `rgba(0, 242, 254, ${opacity * 0.4})`;
+        ctx.lineWidth = 1.5;
+
+        // Pillars
+        ctx.fillRect(-50, -70, 20, 110);
+        ctx.strokeRect(-50, -70, 20, 110);
+        ctx.fillRect(30, -70, 20, 110);
+        ctx.strokeRect(30, -70, 20, 110);
+
+        // Header Lintel Stone
+        ctx.fillRect(-65, -90, 130, 22);
+        ctx.strokeRect(-65, -90, 130, 22);
+      }
+
+      if (morph > 0.15 && morph < 0.8) {
+        // Stage 2: Roman/Gothic Masonry Arch
+        const localProgress = (morph - 0.15) / 0.65;
+        // Peak opacity in mid range
+        const opacity = Math.sin(localProgress * Math.PI);
+        ctx.strokeStyle = `rgba(255, 0, 127, ${opacity})`;
+        ctx.fillStyle = `rgba(32, 21, 46, ${opacity})`;
+        ctx.lineWidth = 2.5;
+
+        // Arch path
+        ctx.beginPath();
+        ctx.arc(0, -10, 45, Math.PI, 0, false);
+        ctx.lineTo(45, 40);
+        ctx.lineTo(25, 40);
+        ctx.arc(0, -10, 25, 0, Math.PI, true);
+        ctx.lineTo(-45, 40);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Flying buttresses indications
+        ctx.beginPath();
+        ctx.moveTo(-45, -15);
+        ctx.quadraticCurveTo(-75, -5, -80, 20);
+        ctx.moveTo(45, -15);
+        ctx.quadraticCurveTo(75, -5, 80, 20);
+        ctx.stroke();
+      }
+
+      if (morph > 0.55) {
+        // Stage 3: Modern/Industrial Steel Skeleton Trusses
+        const opacity = Math.min(1, (morph - 0.55) / 0.45);
+        ctx.strokeStyle = `rgba(0, 242, 254, ${opacity})`;
+        ctx.lineWidth = 2;
+
+        // Draw active neon grid truss tower
+        ctx.beginPath();
+        // Columns
+        ctx.moveTo(-40, 40); ctx.lineTo(-40, -110);
+        ctx.moveTo(40, 40); ctx.lineTo(40, -110);
+        // Beams
+        for (let yOffset = -110; yOffset <= 40; yOffset += 30) {
+          ctx.moveTo(-40, yOffset);
+          ctx.lineTo(40, yOffset);
+          // Diagonal structural cross trusses
+          if (yOffset < 40) {
+            ctx.moveTo(-40, yOffset);
+            ctx.lineTo(40, yOffset + 30);
+            ctx.moveTo(40, yOffset);
+            ctx.lineTo(-40, yOffset + 30);
+          }
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // --- INDIAN RENDER (MONOLITHIC CARVED RELIEF) ---
+      ctx.save();
+      ctx.translate((3 * w) / 4, h / 2 + 20);
+
+      // 1. Draw Highly Intricate Golden Mandala & Pillar Relief inside boundaries (representing carved layer underneath)
+      ctx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
+      ctx.fillStyle = 'rgba(40, 24, 8, 0.6)';
+      ctx.lineWidth = 1.5;
+
+      const blockW = 140;
+      const blockH = 160;
+
+      // Carved structural outline
+      ctx.fillRect(-blockW / 2, -100, blockW, blockH);
+      ctx.strokeRect(-blockW / 2, -100, blockW, blockH);
+
+      // Ornate Pillars
+      ctx.strokeRect(-60, -90, 16, 140);
+      ctx.strokeRect(44, -90, 16, 140);
+
+      // Intricate Mandala Details
+      ctx.beginPath();
+      ctx.arc(0, -20, 32, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(0, -20, 16, 0, Math.PI * 2);
+      ctx.stroke();
+
+      for (let angle = 0; angle < Math.PI * 2; angle += Math.PI / 6) {
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(angle) * 16, -20 + Math.sin(angle) * 16);
+        ctx.lineTo(Math.cos(angle) * 32, -20 + Math.sin(angle) * 32);
+        ctx.stroke();
+      }
+
+      ctx.beginPath();
+      // Lotus base carvings
+      for (let xOffset = -50; xOffset <= 50; xOffset += 25) {
+        ctx.moveTo(xOffset, 30);
+        ctx.quadraticCurveTo(xOffset + 12.5, 10, xOffset + 25, 30);
+      }
+      ctx.stroke();
+
+      ctx.restore();
+
+      // 2. Overlay the dynamically carved scratch mask on top of the Indian Sector
+      ctx.drawImage(maskCanvas, w / 2, 0, w / 2, h);
+
+      // Render Dynamic Debris Particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+        }
+      }
+      ctx.globalAlpha = 1.0;
+
+      requestAnimationFrame(render);
+    }
+
+    // Pointer Coordinate Mechanics
+    const canvasContainer = document.getElementById('canvasContainer');
+    
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      let clientX, clientY;
+      
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+        clientY = e.touches[0].clientY;
+      } else {
+        clientX = e.clientX;
+        clientY = e.clientY;
+      }
+      
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+
+    function handleInteraction(e) {
+      const coords = getCanvasCoordinates(e);
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      
+      // If pointer is moving across the Indian design sector (right half)
+      if (coords.x > w / 2 && coords.y > 40 && coords.y < canvas.height / (window.devicePixelRatio || 1) - 20) {
+        // Clear indicator message
+        document.getElementById('interactiveIndicator').style.display = 'none';
+
+        // Calculate mask coordinates relative to right partition offset
+        const localX = coords.x - (w / 2);
+        const localY = coords.y;
+
+        // Erase stone to reveal gold undercarving
+        mctx.save();
+        mctx.globalCompositeOperation = 'destination-out';
+        mctx.beginPath();
+        mctx.arc(localX, localY, 22, 0, Math.PI * 2);
+        mctx.fill();
+        mctx.restore();
+
+        // Emit sparkling golden material dust
+        emitParticles(coords.x, coords.y, 'rgba(255, 215, 0, 0.95)', 2);
+
+        // Responsive acoustic audio feedback (Bell pitches trigger dynamically based on vertical coordinate)
+        if (Math.random() < 0.22) {
+          const pitch = 1.5 - (coords.y / canvas.height);
+          triggerChime(pitch);
+        }
+      }
+    }
+
+    // Capture Move/Drag Interactions across platforms
+    canvasContainer.addEventListener('mousemove', handleInteraction);
+    canvasContainer.addEventListener('touchmove', handleInteraction);
+
+    // Slider Event Listeners
+    const westernSlider = document.getElementById('westernSlider');
+    westernSlider.addEventListener('input', (e) => {
+      westernValue = parseInt(e.target.value);
+      triggerWesternAudio(westernValue);
+
+      // Visual particles flowing from slider updates
+      const w = canvas.width / (window.devicePixelRatio || 1);
+      const h = canvas.height / (window.devicePixelRatio || 1);
+      emitParticles(w / 4 + (Math.random() - 0.5) * 120, h / 2 + 20, '#00f2fe', 1);
+    });
+
+    // Web Speech Narration Engine
+    const voiceBtn = document.getElementById('voiceBtn');
+    voiceBtn.addEventListener('click', () => {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const speechText = "Let's observe structural material logic. In Western history, material structures shift entirely—from stone posts, to concrete arches, to steel frames. In Indian architecture, materials remain continuous, focusing on detailed sculptural craftsmanship where support and ornament are completely integrated. Select the best matching answer on the panel to proceed.";
+        const utterance = new SpeechSynthesisUtterance(speechText);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.05;
+        window.speechSynthesis.speak(utterance);
+      } else {
+        alert("Audio narration is not supported in this browser.");
+      }
+    });
+
+    // MCQ Initialization & Event Dispatching
+    function populateOptions() {
+      const container = document.getElementById('optionsContainer');
+      container.innerHTML = '';
+
+      currentOptions.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-btn';
+        btn.innerText = opt.text;
+        btn.addEventListener('click', () => selectOption(idx));
+        container.appendChild(btn);
+      });
+    }
+
+    function selectOption(index) {
+      selectedOptionIndex = index;
+      const buttons = document.querySelectorAll('.option-btn');
+      buttons.forEach((btn, idx) => {
+        if (idx === index) {
+          btn.classList.add('selected');
+        } else {
+          btn.classList.remove('selected');
+        }
+      });
+      // Interactive audio bell click feedback
+      triggerChime(0.7);
+    }
+
+    // Listen for incoming dynamic option packets from hosting containers
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'init-mcq-options') {
+        currentOptions = event.data.options;
+        populateOptions();
+      }
+    });
+
+    // Handle locked-in submit choices
+    document.getElementById('submitBtn').addEventListener('click', () => {
+      if (selectedOptionIndex === null) {
+        alert("Please select a valid option before submitting!");
+        return;
+      }
+
+      const originalIndex = currentOptions[selectedOptionIndex].originalIndex;
+
+      // Safely dispatch the selected option back to host platform for evaluation
+      window.parent.postMessage({
+        type: 'mcq-selected',
+        optionIndex: originalIndex
+      }, '*');
+    });
+
+    // Bootstrapping Engine
+    window.addEventListener('resize', resize);
+    resize();
+    populateOptions();
+    requestAnimationFrame(render);
+  </script>
+</body>
+</html>

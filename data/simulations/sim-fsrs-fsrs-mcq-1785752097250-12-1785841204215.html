@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Functional Character Toybox Simulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-neon: #38bdf8;
+      --accent-neon-glow: rgba(56, 189, 248, 0.4);
+      --pastel-yellow: #fef08a;
+      --pastel-green: #bbf7d0;
+      --pastel-pink: #fbcfe8;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    .simulation-container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 20px;
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 24px;
+      background-color: var(--card-bg);
+      border-radius: 24px;
+      padding: 24px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+    }
+
+    @media (max-width: 900px) {
+      .simulation-container {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Simulation Panel Left */
+    .viewport-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .canvas-card {
+      position: relative;
+      background-color: #0b0f19;
+      border-radius: 16px;
+      overflow: hidden;
+      border: 2px solid #334155;
+      aspect-ratio: 4 / 3;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      cursor: crosshair;
+    }
+
+    .control-deck {
+      background-color: #151f32;
+      border-radius: 16px;
+      padding: 16px;
+      border: 1px solid #334155;
+    }
+
+    .control-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: var(--accent-neon);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .toybox-slider {
+      -webkit-appearance: none;
+      width: 100%;
+      height: 12px;
+      border-radius: 6px;
+      background: #1e293b;
+      outline: none;
+      border: 1px solid #475569;
+      margin-bottom: 8px;
+    }
+
+    .toybox-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: #38bdf8;
+      cursor: pointer;
+      box-shadow: 0 0 10px var(--accent-neon-glow);
+      transition: transform 0.1s ease;
+    }
+
+    .toybox-slider::-webkit-slider-thumb:active {
+      transform: scale(1.3);
+    }
+
+    /* Sidebar / MCQ options Right */
+    .interaction-panel {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .header-block {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      border-bottom: 1px solid #334155;
+      padding-bottom: 16px;
+    }
+
+    .toybox-title {
+      font-size: 1.6rem;
+      font-weight: 800;
+      margin: 0;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .speech-btn {
+      background-color: #334155;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: background 0.2s;
+    }
+
+    .speech-btn:hover {
+      background-color: #475569;
+    }
+
+    .question-box {
+      font-size: 1.1rem;
+      line-height: 1.5;
+      color: var(--text-main);
+      font-weight: 500;
+      margin-bottom: 16px;
+    }
+
+    .options-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .option-button {
+      background-color: #1e293b;
+      border: 2px solid #334155;
+      color: var(--text-main);
+      padding: 16px;
+      border-radius: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-size: 0.95rem;
+      transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+    }
+
+    .option-button:hover {
+      border-color: var(--accent-neon);
+      background-color: #24354f;
+      transform: translateY(-2px);
+    }
+
+    .option-button:active {
+      transform: scale(0.98);
+    }
+
+    .option-tag {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      text-align: center;
+      border-radius: 50%;
+      background-color: #334155;
+      margin-right: 12px;
+      font-weight: bold;
+      color: var(--accent-neon);
+      flex-shrink: 0;
+    }
+
+    .toybox-badge {
+      display: inline-block;
+      background-color: #1e1b4b;
+      color: #a5b4fc;
+      font-size: 0.75rem;
+      font-weight: bold;
+      padding: 4px 10px;
+      border-radius: 50px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="simulation-container">
+    
+    <!-- LEFT SIDE: INTERACTIVE GRAPHIC ZONE -->
+    <div class="viewport-panel">
+      <div class="canvas-card" id="canvasFrame">
+        <canvas id="toyboxCanvas"></canvas>
+      </div>
+      
+      <div class="control-deck">
+        <div class="control-label">
+          <span>📐 Facade Window Scale Selector</span>
+          <span id="windowDisplay">Library View (100%)</span>
+        </div>
+        <input type="range" class="toybox-slider" id="windowSlider" min="0" max="100" value="100">
+        <div style="font-size: 0.75rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+          <span>📦 0%: Protective Solid Walls (Museum Mode)</span>
+          <span>☀️ 100%: High Glass Spandrels (Library Mode)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- RIGHT SIDE: MCQ & PEDAGOGY INTERACTION -->
+    <div class="interaction-panel">
+      <div>
+        <div class="header-block">
+          <div>
+            <span class="toybox-badge">Interactive Learning Module</span>
+            <h1 class="toybox-title">Functional Character</h1>
+          </div>
+          <button class="speech-btn" id="audioBookBtn" title="Listen to Storyteller Engine">
+            🔊 Listen
+          </button>
+        </div>
+
+        <div style="margin-top: 16px;">
+          <div class="question-box" id="questionText">
+            Which of the following features represents an expression of "Functional Character" in architectural design?
+          </div>
+          
+          <div class="options-stack" id="optionsContainer">
+            <!-- Dynamically populated or static baseline buttons -->
+            <button class="option-button" data-index="0">
+              <span class="option-tag">A</span> A spire on a tower indicating a church.
+            </button>
+            <button class="option-button" data-index="1">
+              <span class="option-tag">B</span> Very tall, wide windows that suggest a library, or a lack of windows indicating a museum.
+            </button>
+            <button class="option-button" data-index="2">
+              <span class="option-tag">C</span> A Gopuram over a gateway indicating a Hindu temple.
+            </button>
+            <button class="option-button" data-index="3">
+              <span class="option-tag">D</span> A white dome indicating a mosque.
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid #334155; padding-top: 12px; font-size: 0.8rem; color: var(--text-muted); line-height: 1.4;">
+        💡 <strong>Interactive Guide:</strong> Drag your pointer across the sky above to sweep sunlight. Shrink the window slider down to 0% to witness how a museum safeguards artifacts by closing off solar apertures, dynamically altering its architectural facade!
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    // --- MCQ INTERACTIVE CONTROLLER & DATA STATE ---
+    const defaultOptions = [
+      { text: "A spire on a tower indicating a church.", originalIndex: 0 },
+      { text: "Very tall, wide windows that suggest a library, or a lack of windows indicating a museum.", originalIndex: 1 },
+      { text: "A Gopuram over a gateway indicating a Hindu temple.", originalIndex: 2 },
+      { text: "A white dome indicating a mosque.", originalIndex: 3 }
+    ];
+
+    let currentOptions = [...defaultOptions];
+
+    // Listen to parent for Dynamic Option Shuffling
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'init-mcq-options') {
+        currentOptions = event.data.options;
+        renderOptions();
+      }
+    });
+
+    function renderOptions() {
+      const container = document.getElementById('optionsContainer');
+      container.innerHTML = '';
+      const tags = ['A', 'B', 'C', 'D'];
+      currentOptions.forEach((option, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'option-button';
+        btn.innerHTML = `<span class="option-tag">${tags[idx]}</span> <span>${escapeHTML(option.text)}</span>`;
+        btn.onclick = () => selectOption(option.originalIndex);
+        container.appendChild(btn);
+      });
+    }
+
+    function selectOption(idx) {
+      window.parent.postMessage({
+        type: 'mcq-selected',
+        optionIndex: idx
+      }, '*');
+    }
+
+    function escapeHTML(str) {
+      return str.replace(/[&<>'"]/g, 
+        tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+      );
+    }
+
+    // --- NATIVE SPEECH SYNTHESIS ENGINE ---
+    const speakBtn = document.getElementById('audioBookBtn');
+    speakBtn.addEventListener('click', () => {
+      window.speechSynthesis.cancel();
+      let intro = "Let's explore architectural character! Here is our question: Which of the following features represents an expression of Functional Character in a building? ";
+      let optionsSpeech = currentOptions.map((o, i) => `Option ${['A','B','C','D'][i]}: ${o.text}`).join(". ");
+      let completeScript = intro + optionsSpeech + ". Try shifting our toybox slider to explore how architectural facades communicate their utility!";
+      
+      let utterance = new SpeechSynthesisUtterance(completeScript);
+      utterance.pitch = 1.15;
+      utterance.rate = 0.95;
+      window.speechSynthesis.speak(utterance);
+    });
+
+    // --- REAL-TIME SOUND SYNTH ENGINE (Web Audio API) ---
+    let audioCtx = null;
+    let osc = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (audioCtx) return;
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      osc = audioCtx.createOscillator();
+      gainNode = audioCtx.createGain();
+      
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(400, audioCtx.currentTime);
+      gainNode.gain.setValueAtTime(0.015, audioCtx.currentTime); // Soft volume
+      
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      osc.start();
+    }
+
+    function updateSynth(value) {
+      if (!audioCtx) return;
+      // Map slider value [0, 100] to soft frequencies [180Hz, 580Hz]
+      const targetFreq = 180 + (value / 100) * 400;
+      osc.frequency.setTargetAtTime(targetFreq, audioCtx.currentTime, 0.1);
+    }
+
+    // --- VECTOR CANVAS SIMULATOR ENGINE ---
+    const canvas = document.getElementById('toyboxCanvas');
+    const ctx = canvas.getContext('2d');
+    const slider = document.getElementById('windowSlider');
+    const display = document.getElementById('windowDisplay');
+    
+    let canvasW, canvasH;
+    let windowSize = 1.0; // range [0.0 - 1.0]
+    let sunX = 120;
+    let sunY = 70;
+    let particles = [];
+    
+    function resizeCanvas() {
+      const container = document.getElementById('canvasFrame');
+      canvasW = container.clientWidth;
+      canvasH = container.clientHeight;
+      canvas.width = canvasW;
+      canvas.height = canvasH;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Interaction handlers
+    function handlePointer(clientX, clientY) {
+      initAudio();
+      const rect = canvas.getBoundingClientRect();
+      sunX = clientX - rect.left;
+      sunY = clientY - rect.top;
+      // Constraint: Maintain sun in upper third sky quadrant
+      if (sunY > canvasH * 0.35) {
+        sunY = canvasH * 0.35;
+      }
+    }
+
+    canvas.addEventListener('mousemove', (e) => {
+      handlePointer(e.clientX, e.clientY);
+    });
+
+    canvas.addEventListener('touchmove', (e) => {
+      if (e.touches.length > 0) {
+        handlePointer(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length > 0) {
+        handlePointer(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
+
+    slider.addEventListener('input', (e) => {
+      initAudio();
+      const val = e.target.value;
+      windowSize = val / 100;
+      updateSynth(val);
+      
+      if (windowSize >= 0.5) {
+        display.innerHTML = `📚 Library View (${val}%)`;
+        display.style.color = 'var(--pastel-yellow)';
+      } else {
+        display.innerHTML = `🎨 Museum View (${val}%)`;
+        display.style.color = 'var(--accent-neon)';
+      }
+    });
+
+    // Particle system simulating light rays hitting facade
+    function spawnParticles() {
+      if (particles.length < 80) {
+        particles.push({
+          x: sunX,
+          y: sunY,
+          vx: (Math.random() - 0.3) * 2 + 1,
+          vy: Math.random() * 3 + 1,
+          life: 1.0,
+          color: 'rgba(254, 240, 138, 0.7)'
+        });
+      }
+    }
+
+    // Principal Loop
+    function animate() {
+      // Background Sky Box
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, canvasH);
+      skyGrad.addColorStop(0, '#020617');
+      skyGrad.addColorStop(0.4, '#0d1527');
+      skyGrad.addColorStop(1, '#1e1b4b');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, canvasW, canvasH);
+
+      spawnParticles();
+
+      // Structure Layout Parameters
+      const bX = canvasW * 0.18;
+      const bY = canvasH * 0.42;
+      const bW = canvasW * 0.64;
+      const bH = canvasH * 0.48;
+
+      // Draw Interior Space (behind glass window facade)
+      ctx.save();
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(bX, bY, bW, bH);
+
+      if (windowSize >= 0.5) {
+        // Library mode interiors (bookshelves, warm ambient desk lighting)
+        ctx.fillStyle = '#451a03'; // Wooden shelf left
+        ctx.fillRect(bX + 25, bY + bH - 110, 20, 110);
+        ctx.fillRect(bX + bW - 45, bY + bH - 110, 20, 110);
+
+        const colors = ['#f87171', '#60a5fa', '#34d399', '#fbbf24', '#f472b6'];
+        // Render shelves of colorful books inside windows
+        for (let sX of [bX + 25, bX + bW - 45]) {
+          for (let rowY = 20; rowY < 110; rowY += 30) {
+            ctx.fillStyle = '#78350f';
+            ctx.fillRect(sX, bY + bH - rowY, 20, 3);
+            for (let bk = 1; bk < 18; bk += 3) {
+              ctx.fillStyle = colors[Math.floor((sX + rowY + bk) % colors.length)];
+              ctx.fillRect(sX + bk, bY + bH - rowY - 14, 2, 14);
+            }
+          }
+        }
+
+        // Tiny central table with reading lamp
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(bX + bW/2 - 25, bY + bH - 30, 50, 6);
+        ctx.fillRect(bX + bW/2 - 2, bY + bH - 24, 4, 24);
+
+        // Ambient floor light pool spillage
+        const pool = ctx.createRadialGradient(bX + bW/2, bY + bH - 35, 2, bX + bW/2, bY + bH, 120);
+        pool.addColorStop(0, 'rgba(253, 224, 71, 0.35)');
+        pool.addColorStop(1, 'rgba(253, 224, 71, 0)');
+        ctx.fillStyle = pool;
+        ctx.fillRect(bX + 10, bY + bH - 80, bW - 20, 80);
+      } else {
+        // Museum mode interiors (Art galleries, spotlights)
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#d97706'; // Gold frames
+        
+        ctx.strokeRect(bX + 50, bY + 40, 45, 60);
+        ctx.fillStyle = '#6366f1';
+        ctx.fillRect(bX + 53, bY + 43, 39, 54); // Blue painting
+
+        ctx.strokeRect(bX + bW - 95, bY + 40, 45, 60);
+        ctx.fillStyle = '#ec4899';
+        ctx.fillRect(bX + b92, bY + 43, 39, 54); // Pink painting
+
+        // Localized museum gallery display spotlights
+        const spot1 = ctx.createLinearGradient(bX + 72, bY, bX + 72, bY + 120);
+        spot1.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+        spot1.addColorStop(1, 'rgba(56, 189, 248, 0)');
+        ctx.fillStyle = spot1;
+        ctx.beginPath();
+        ctx.moveTo(bX + 72, bY);
+        ctx.lineTo(bX + 35, bY + 115);
+        ctx.lineTo(bX + 110, bY + 115);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // Structure Outer Concrete Frames
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(bX - 10, bY - 12, bW + 20, 12); // Roof
+      ctx.fillRect(bX - 15, bY + bH, bW + 30, 15); // Base
+
+      // Process Facade Aperture Walls (Dynamic Window Bays)
+      const numBays = 3;
+      const bayW = bW / numBays;
+
+      for (let i = 0; i < numBays; i++) {
+        const bayX = bX + (i * bayW);
+        const wallRatio = 1.0 - windowSize; // Amount of facade closed off by solid concrete
+        const sideWallW = (bayW * wallRatio) / 2;
+
+        // Draw deep interior glass pane reflection layer
+        ctx.fillStyle = 'rgba(56, 189, 248, 0.12)';
+        ctx.fillRect(bayX + 4, bY, bayW - 8, bH);
+
+        // Draw physical solid sliding wall slabs
+        ctx.fillStyle = '#334155';
+        ctx.strokeStyle = '#475569';
+        ctx.lineWidth = 2;
+
+        // Left concrete slab
+        ctx.fillRect(bayX, bY, sideWallW, bH);
+        ctx.strokeRect(bayX, bY, sideWallW, bH);
+
+        // Right concrete slab
+        ctx.fillRect(bayX + bayW - sideWallW, bY, sideWallW, bH);
+        ctx.strokeRect(bayX + bayW - sideWallW, bY, sideWallW, bH);
+
+        // Elegant window grid lines (if open)
+        if (windowSize > 0.12) {
+          ctx.strokeStyle = '#0f172a';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          // Middle vertical spine
+          ctx.moveTo(bayX + bayW/2, bY);
+          ctx.lineTo(bayX + bayW/2, bY + bH);
+          // Horizontals matching window height
+          ctx.moveTo(bayX + sideWallW, bY + bH/2);
+          ctx.lineTo(bayX + bayW - sideWallW, bY + bH/2);
+          ctx.stroke();
+        }
+      }
+
+      // Title HUD Label Overlay (Communicating character instantly)
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 13px system-ui, sans-serif';
+      ctx.textAlign = 'center';
+      
+      if (windowSize >= 0.5) {
+        ctx.fillText("🏛️ FACADE CHARACTER: PUBLIC LIBRARY", bX + bW/2, bY - 30);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = 'var(--pastel-yellow)';
+        ctx.fillText("OPEN GLAZING SYSTEM TELLS OBSERVERS: 'LIGHT-FILLED READING SANCTUARY'", bX + bW/2, bY - 16);
+      } else {
+        ctx.fillText("🖼️ FACADE CHARACTER: ART GALLERY / MUSEUM", bX + bW/2, bY - 30);
+        ctx.font = '10px system-ui, sans-serif';
+        ctx.fillStyle = 'var(--accent-neon)';
+        ctx.fillText("SOLID MONOLITHIC ENVELOPE TELLS OBSERVERS: 'LIGHT-SENSITIVE EXHIBITIONS INSIDE'", bX + bW/2, bY - 16);
+      }
+
+      // Physics Light Particles processing
+      particles.forEach((p, index) => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= 0.007;
+
+        // Wall collision geometry
+        if (p.x >= bX && p.x <= bX + bW && p.y >= bY && p.y <= bY + bH) {
+          const innerX = p.x - bX;
+          const currentBayIdx = Math.floor(innerX / bayW);
+          const currentBayX = bX + (currentBayIdx * bayW);
+          const wallRatio = 1.0 - windowSize;
+          const wallW = (bayW * wallRatio) / 2;
+
+          // Check if particle hits solid sliding concrete sections
+          if (p.x < currentBayX + wallW || p.x > currentBayX + bayW - wallW) {
+            // Bounce off solid concrete facade structure!
+            p.vy = -Math.abs(p.vy) * 0.65;
+            p.vx = (Math.random() - 0.5) * 3;
+            p.y = bY - 3; // Position slightly above ceiling frame
+          } else {
+            // Passes directly through glass windows into interior!
+            p.color = 'rgba(254, 240, 138, 0.45)';
+            p.vx *= 0.99;
+          }
+        }
+
+        // Draw physics particle
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(1, 4.5 * p.life), 0, Math.PI * 2);
+        ctx.fill();
+
+        if (p.life <= 0 || p.y > canvasH || p.x < 0 || p.x > canvasW) {
+          particles.splice(index, 1);
+        }
+      });
+
+      // Render Interactive Cosmic Sun
+      const sunGlow = ctx.createRadialGradient(sunX, sunY, 3, sunX, sunY, 32);
+      sunGlow.addColorStop(0, '#ffffff');
+      sunGlow.addColorStop(0.3, 'var(--pastel-yellow)');
+      sunGlow.addColorStop(1, 'rgba(254, 240, 138, 0)');
+      
+      ctx.fillStyle = sunGlow;
+      ctx.beginPath();
+      ctx.arc(sunX, sunY, 32, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Simple indicator to tell users they can drag/move sun
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+      ctx.font = '8px system-ui, sans-serif';
+      ctx.fillText("☀️ DRAG SUN", sunX, sunY - 12);
+
+      requestAnimationFrame(animate);
+    }
+
+    // Initialize Components
+    animate();
+    renderOptions();
+  </script>
+</body>
+</html>
