@@ -1,6 +1,39 @@
 # 🧠 SynapseLab AI - Interactive Learning & Memory Engine
 
-> A next-generation, AI-powered educational web application combining **FSRS Spaced Repetition**, **Gizmo-style Interactive Canvas Simulations**, **Automated 30-MCQ Generation from PDF/Office Courseware**, and **5-Tier Hierarchical Concept Mind Maps**.
+> A next-generation, AI-powered educational web application combining **FSRS Spaced Repetition**, **Gizmo-style Interactive Canvas Simulations**, **Automated 30-MCQ Generation from PDF/Office Courseware**, **Automated University UMS Portal Incremental Sync**, and **5-Tier Hierarchical Concept Mind Maps**.
+
+---
+
+## 🔄 Automated UMS Portal Sync & Incremental Scraper Architecture
+
+SynapseLab AI features a seamless, one-click integration with University LMS/UMS Portals. When you click **"Sync UMS Portal"** in the top bar, the engine triggers an automated, incremental scraping and simulation compiling pipeline:
+
+### 📊 System Architecture & Data Flow
+
+```mermaid
+flowchart TD
+    A["👤 Student Clicks 'Sync UMS Portal'"] --> B["⚡ Express Backend API (/api/sync-ums)"]
+    B --> C["🐍 Headless Python Scraper (scraper.py)"]
+    C --> D["🔐 Secure UMS Portal Authentication (UMS_USERNAME / UMS_PASSWORD)"]
+    D --> E["📡 Scrape Course Subjects, Units, PPTs & Assignments"]
+    E --> F["🔍 Incremental Delta Check (Compare with local data/content.json)"]
+    F -->|New Content Found| G["📥 Download PDF / PPTX Files into data/downloads/"]
+    F -->|No Changes| H["✅ Local Cache Up-To-Date"]
+    G --> I["📄 Text Extraction Engine (pdf-parse & officeparser)"]
+    I --> J["🤖 Gemini 3.5 Flash AI Engine"]
+    J --> K["📝 Generate 30 Structured MCQs + Step Derivations"]
+    J --> L["🎬 Compile Single-File HTML5 Canvas Simulations"]
+    K --> M["💾 Register in Local Database (data/db.json)"]
+    L --> M
+    M --> N["🚀 Instant UI Update (Dashboard, Mind Map, FSRS Studio)"]
+```
+
+### ⚙️ How UMS Incremental Sync Works Under the Hood:
+1. **One-Click Portal Trigger**: Clicking `Sync UMS Portal` sends a signal to the Express backend (`server/index.js`), which spawns the Playwright-based Python scraper.
+2. **Secure Login**: The scraper reads login credentials securely from environment variables (`UMS_USERNAME`, `UMS_PASSWORD`) or local configuration, navigates to the university portal, selects the student role, and logs in.
+3. **Incremental Delta Scan**: Rather than re-downloading existing files, the scraper performs an incremental scan comparing online syllabus IDs against `data/content.json`. Only newly uploaded assignments, e-notes, and lecture slides are downloaded.
+4. **Automated Content Parsing & AI Compilation**: Downloaded `.pdf` and `.pptx` files are parsed into structured text. Gemini AI generates 30 syllabus-aligned MCQs per unit alongside 2D interactive HTML5 physics canvas simulations for every topic.
+5. **Instant Live Dashboard Sync**: Updated subjects, units, questions, and simulation paths are saved to `data/db.json` and immediately rendered across the Navigation Tree, Mind Map, and FSRS Studio.
 
 ---
 
@@ -72,6 +105,7 @@
 
 * **Frontend**: React 19, TypeScript, Vite, Lucide React Icons, Vanilla Glassmorphism CSS.
 * **Backend**: Node.js, Express 5, `pdf-parse`, `officeparser`, CORS.
+* **Scraper**: Python 3, Playwright, BeautifulSoup4.
 * **AI Engine**: `@google/generative-ai` (Gemini 3.5 Flash, Gemini 3.1 Flash Lite).
 * **Storage**: Local JSON database (`data/db.json`, `data/settings.json`) with automated file system backups.
 
@@ -81,6 +115,7 @@
 
 ### 1. Prerequisites
 * **Node.js** (v18 or higher)
+* **Python 3.10+** (with Playwright for UMS scraping)
 * **npm** or **yarn**
 * A **Gemini API Key** from [Google AI Studio](https://aistudio.google.com/)
 
@@ -90,36 +125,42 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/Happy123455/Interactive-Learning-Memory-Engine.git
+cd Interactive-Learning-Memory-Engine
 
-# Install dependencies
+# Install Node dependencies
 npm install
+
+# Setup Python scraper environment (optional for UMS auto-sync)
+pip install playwright beautifulsoup4
+playwright install chromium
 ```
 
 ---
 
-### 3. Running the Application
+### 3. Environment Setup (UMS Portal Credentials)
 
-You can launch both the backend server and frontend client concurrently:
+Set your UMS portal login credentials safely via environment variables or settings:
 
 ```bash
-# Run backend server (port 5050) & frontend Vite dev server (port 5173)
+export UMS_USERNAME="YOUR_STUDENT_ID"
+export UMS_PASSWORD="YOUR_STUDENT_PASSWORD"
+```
+
+---
+
+### 4. Running the Application
+
+Launch both the backend server and frontend client concurrently:
+
+```bash
+# Run backend server & frontend Vite dev server
 npm run dev
 ```
 
 Open your browser and navigate to:
 * **Local Web Interface**: [http://localhost:5173/](http://localhost:5173/)
-* **Network Sharing (Mobile / Tablet)**: Run `npx vite --host` to access over local Wi-Fi.
-
----
-
-### 4. Configuration
-
-1. Click on the **⚙️ Settings** icon in the app header.
-2. Enter your **Gemini API Key**.
-3. Select your preferred **Optimizer** and **Generator** AI models.
-4. Save settings.
+* **Live GitHub Hosted Interface**: [https://happy123455.github.io/Interactive-Learning-Memory-Engine/](https://happy123455.github.io/Interactive-Learning-Memory-Engine/)
 
 ---
 
