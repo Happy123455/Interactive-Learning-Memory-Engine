@@ -9,8 +9,9 @@ export default defineConfig(({ command }) => {
     server: {
       host: true,
       proxy: {
-        '/api': 'http://localhost:5050',
-        '/simulations': 'http://localhost:5050'
+        '/api': 'http://localhost:3001',
+        '/simulations': 'http://localhost:3001',
+        '/ums-tracker': 'http://localhost:3001'
       }
     }
   }

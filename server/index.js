@@ -16,10 +16,16 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5050;
+const PORT = process.env.PORT || 3001;
 
 app.use(cors());
 app.use(express.json({ limit: '50mb' }));
+
+// Static routes
+const UMS_DASHBOARD_DIR = path.join(__dirname, '../data/ums-dashboard');
+app.use('/ums-tracker', express.static(UMS_DASHBOARD_DIR));
+app.use('/simulations', express.static(path.join(__dirname, '../data/simulations')));
+app.use('/data', express.static(path.join(__dirname, '../data')));
 
 // Local workspace directories
 const DATA_DIR = path.join(__dirname, '../data');
@@ -29,7 +35,7 @@ const SETTINGS_PATH = path.join(DATA_DIR, 'settings.json');
 const DOWNLOADS_DIR = process.env.DOWNLOADS_DIR || path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/downloads');
 
 // Persistent backup directory in user's Documents folder
-const BACKUP_DIR = process.env.BACKUP_DIR || path.join(os.homedir(), 'Documents/darshan-tracker-saves');
+const BACKUP_DIR = process.env.BACKUP_DIR || path.join(__dirname, '../.backup');
 const BACKUP_SIM_DIR = path.join(BACKUP_DIR, 'simulations');
 
 // Ensure directories exist safely (handles cloud environments)
@@ -3707,6 +3713,9 @@ app.get('/api/style-profile-stats', (req, res) => {
   res.json({ success: true, stats });
 });
 
+// Serve UMS Content Tracker static files & dashboard HTML
+app.use('/ums-tracker', express.static(path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker')));
+
 // Run UMS Scraper script from darshan-tracker
 let isUmsScraperRunning = false;
 let umsScraperLog = '';
@@ -3716,11 +3725,24 @@ app.post('/api/run-ums-scraper', (req, res) => {
     return res.status(409).json({ error: 'UMS Scraper is already running in background.' });
   }
 
+  const settings = readSettings();
+  const reqUser = req.body?.username;
+  const reqPass = req.body?.password;
+
+  const envUser = reqUser || settings.umsUsername || process.env.UMS_USERNAME || '';
+  const envPass = reqPass || settings.umsPassword || process.env.UMS_PASSWORD || '';
+
   isUmsScraperRunning = true;
   umsScraperLog = 'Starting Darshan UMS Scraper process...';
 
   const scriptPath = process.env.SCRAPER_SCRIPT_PATH || path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/run_scraper.sh');
-  const child = exec(`bash "${scriptPath}"`, (error, stdout, stderr) => {
+  const env = {
+    ...process.env,
+    UMS_USERNAME: envUser,
+    UMS_PASSWORD: envPass
+  };
+
+  const child = exec(`bash "${scriptPath}"`, { env }, (error, stdout, stderr) => {
     isUmsScraperRunning = false;
     if (error) {
       console.error('UMS Scraper error:', error);

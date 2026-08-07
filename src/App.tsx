@@ -6,7 +6,7 @@ import { SimViewer } from './components/SimViewer';
 import { StructuralWorkspace } from './components/structural/StructuralWorkspace';
 import { FSRSSpace } from './components/FSRSSpace';
 import { PrepPlanner } from './components/PrepPlanner';
-import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square } from 'lucide-react';
+import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square, BarChart3 } from 'lucide-react';
 
 import { DEFAULT_DB } from './data/defaultDb';
 
@@ -38,6 +38,9 @@ export const App: React.FC = () => {
   const [genModel, setGenModel] = useState('gemini-3.5-flash');
   const [styleProfile, setStyleProfile] = useState('universal_pedagogy');
   const [isSyncingUms, setIsSyncingUms] = useState(false);
+  const [showUmsDashboardModal, setShowUmsDashboardModal] = useState(false);
+  const [umsUsernameInput, setUmsUsernameInput] = useState('');
+  const [umsPasswordInput, setUmsPasswordInput] = useState('');
 
   // Style Feature Mapping
   const STYLE_FEATURE_MAP: Record<string, string[]> = {
@@ -131,6 +134,8 @@ export const App: React.FC = () => {
         setOptModel(data.optimizerModel || 'gemini-3.1-flash-lite');
         setGenModel(data.generatorModel || 'gemini-3.5-flash');
         setStyleProfile(data.styleProfile || 'universal_pedagogy');
+        setUmsUsernameInput(data.umsUsername || '');
+        setUmsPasswordInput(data.umsPassword || '');
       }
     } catch (error) {
       console.error('Error loading Settings:', error);
@@ -174,7 +179,9 @@ export const App: React.FC = () => {
           apiKey: apiKeyInput,
           optimizerModel: optModel,
           generatorModel: genModel,
-          styleProfile: styleProfile
+          styleProfile: styleProfile,
+          umsUsername: umsUsernameInput,
+          umsPassword: umsPasswordInput
         })
       });
 
@@ -457,15 +464,49 @@ export const App: React.FC = () => {
 
           <div className="topbar-right" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
+              onClick={() => setShowUmsDashboardModal(true)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '6px',
+                background: 'rgba(168, 85, 247, 0.15)',
+                border: '1px solid #a855f7',
+                color: '#c084fc',
+                fontSize: '11px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+              }}
+              title="View Darshan UMS Content Tracker Dashboard"
+            >
+              <BarChart3 size={12} /> UMS Dashboard
+            </button>
+            <button
               onClick={async () => {
+                let user = settings.umsUsername;
+                let pass = settings.umsPassword;
+                if (!user || !pass) {
+                  user = prompt("Enter your UMS Username / Phone number:", user || "") || "";
+                  pass = prompt("Enter your UMS Password:", pass || "") || "";
+                  if (!user || !pass) {
+                    alert("UMS Username and Password are required to sync portal data.");
+                    return;
+                  }
+                }
                 setIsSyncingUms(true);
                 try {
-                  const res = await fetch('/api/run-ums-scraper', { method: 'POST' });
+                  const res = await fetch('/api/run-ums-scraper', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: user, password: pass })
+                  });
                   if (res.ok) {
                     alert('🚀 UMS Portal Scraper launched in background! Course files will sync automatically.');
                     loadDB();
                   } else {
-                    alert('Could not launch UMS Scraper.');
+                    const data = await res.json();
+                    alert(`Could not launch UMS Scraper: ${data.error || 'Server error'}`);
                   }
                 } catch (e) {
                   alert('Error triggering UMS Scraper.');
@@ -566,6 +607,30 @@ export const App: React.FC = () => {
                   onChange={(e) => setApiKeyInput(e.target.value)}
                   style={{ fontFamily: 'var(--font-mono)', fontSize: '11px' }}
                 />
+              </div>
+
+              {/* UMS Portal Credentials */}
+              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label className="form-label">UMS Username / Phone</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. 6352905262"
+                    value={umsUsernameInput}
+                    onChange={(e) => setUmsUsernameInput(e.target.value)}
+                    style={{ fontSize: '11px' }}
+                  />
+                </div>
+                <div>
+                  <label className="form-label">UMS Password</label>
+                  <input
+                    type="password"
+                    placeholder="••••••••"
+                    value={umsPasswordInput}
+                    onChange={(e) => setUmsPasswordInput(e.target.value)}
+                    style={{ fontSize: '11px' }}
+                  />
+                </div>
               </div>
 
               {/* Optimizer selection */}
@@ -738,6 +803,44 @@ export const App: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* UMS TRACKER DASHBOARD MODAL */}
+      {showUmsDashboardModal && (
+        <div className="modal-backdrop" style={{ zIndex: 1000 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '1200px', width: '95vw', height: '90vh', display: 'flex', flexDirection: 'column', padding: '20px', gap: '14px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid var(--border-glass)', paddingBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <BarChart3 size={20} color="#c084fc" />
+                <h3 style={{ margin: 0, fontSize: '16px', color: 'white', fontWeight: 'bold' }}>
+                  Darshan UMS LMS Content Tracker Dashboard
+                </h3>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <a
+                  href="/ums-tracker/dashboard.html"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn-secondary"
+                  style={{ padding: '6px 12px', fontSize: '11px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                >
+                  Open in New Tab ↗
+                </a>
+                <button
+                  onClick={() => setShowUmsDashboardModal(false)}
+                  style={{ background: 'transparent', border: 'none', fontSize: '22px', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                >
+                  &times;
+                </button>
+              </div>
+            </div>
+            <iframe
+              src="/ums-tracker/dashboard.html"
+              style={{ width: '100%', height: '100%', border: '1px solid var(--border-glass)', borderRadius: '10px', background: '#07080d' }}
+              title="UMS Tracker Dashboard"
+            />
           </div>
         </div>
       )}

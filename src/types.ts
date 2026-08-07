@@ -188,6 +188,8 @@ export interface Settings {
   styleProfile?: string;
   selectedFeatureIds?: string[];
   customFeaturePrompts?: string[];
+  umsUsername?: string;
+  umsPassword?: string;
 }
 
 export type ActiveTab = 'dashboard' | 'mindmap' | 'structural' | 'fsrs' | 'prepplanner';
