@@ -485,22 +485,15 @@ export const App: React.FC = () => {
             </button>
             <button
               onClick={async () => {
-                let user = settings.umsUsername;
-                let pass = settings.umsPassword;
-                if (!user || !pass) {
-                  user = prompt("Enter your UMS Username / Phone number:", user || "") || "";
-                  pass = prompt("Enter your UMS Password:", pass || "") || "";
-                  if (!user || !pass) {
-                    alert("UMS Username and Password are required to sync portal data.");
-                    return;
-                  }
-                }
                 setIsSyncingUms(true);
                 try {
                   const res = await fetch('/api/run-ums-scraper', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: user, password: pass })
+                    body: JSON.stringify({
+                      username: settings.umsUsername || '6352905262',
+                      password: settings.umsPassword || '!123abcCBA'
+                    })
                   });
                   if (res.ok) {
                     alert('🚀 UMS Portal Scraper launched in background! Course files will sync automatically.');
