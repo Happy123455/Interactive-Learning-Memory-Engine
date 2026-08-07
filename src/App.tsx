@@ -8,8 +8,10 @@ import { FSRSSpace } from './components/FSRSSpace';
 import { PrepPlanner } from './components/PrepPlanner';
 import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square } from 'lucide-react';
 
+import { DEFAULT_DB } from './data/defaultDb';
+
 export const App: React.FC = () => {
-  const [db, setDb] = useState<Database>({ subjects: [] });
+  const [db, setDb] = useState<Database>(DEFAULT_DB);
   const [settings, setSettings] = useState<Settings>({
     apiKey: '',
     apiKeyConfigured: false,
