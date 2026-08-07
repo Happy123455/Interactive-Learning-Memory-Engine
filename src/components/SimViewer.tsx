@@ -45,7 +45,7 @@ export const SimViewer: React.FC<SimViewerProps> = ({
   const updateIframeSrc = (path: string) => {
     let clean = path ? path.trim() : '';
     if (!clean || clean === '/') {
-      setIframeSrc('');
+      setIframeSrc(prev => prev === '' ? prev : '');
       return;
     }
 
@@ -54,7 +54,8 @@ export const SimViewer: React.FC<SimViewerProps> = ({
     const query = queryIdx !== -1 ? clean.substring(queryIdx) : '';
 
     const resolved = getSimUrl(base);
-    setIframeSrc(resolved + query);
+    const finalUrl = resolved + query;
+    setIframeSrc(prev => prev === finalUrl ? prev : finalUrl);
   };
 
   const [panelOpen, setPanelOpen] = useState(true);
@@ -709,6 +710,16 @@ Please guide me through this calculation/concept step-by-step. Break it down int
   useEffect(() => {
     if (question) {
       let targetFile = question.simulationFile;
+      
+      // Check if a variant is selected
+      if (question.variants && question.activeVariantId && question.activeVariantId !== 'original') {
+        const activeVar = question.variants.find(v => v.id === question.activeVariantId);
+        if (activeVar && activeVar.file) {
+          targetFile = activeVar.file;
+        }
+      }
+      
+      // Check if a step is selected
       if (question.hasSteps && question.steps && question.activeStepId && question.activeStepId !== 'overview') {
         const activeStep = question.steps.find(st => st.id === question.activeStepId);
         if (activeStep && activeStep.status === 'ready' && activeStep.simulationFile) {
