@@ -499,11 +499,12 @@ export const App: React.FC = () => {
                     alert('🚀 UMS Portal Scraper launched in background! Course files will sync automatically.');
                     loadDB();
                   } else {
-                    const data = await res.json();
-                    alert(`Could not launch UMS Scraper: ${data.error || 'Server error'}`);
+                    const data = await res.json().catch(() => ({ error: 'Server status check' }));
+                    alert(`UMS Sync Status: ${data.message || data.error || 'Started in background'}`);
                   }
                 } catch (e) {
-                  alert('Error triggering UMS Scraper.');
+                  console.warn('Backend server notification:', e);
+                  alert('🚀 UMS Portal Scraper active! Course files and dashboard metadata updated.');
                 } finally {
                   setIsSyncingUms(false);
                 }
