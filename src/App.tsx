@@ -7,6 +7,7 @@ import { StructuralWorkspace } from './components/structural/StructuralWorkspace
 import { FSRSSpace } from './components/FSRSSpace';
 import { PrepPlanner } from './components/PrepPlanner';
 import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square, BarChart3 } from 'lucide-react';
+import { getSimUrl } from './utils/url';
 
 import { DEFAULT_DB } from './data/defaultDb';
 
@@ -820,7 +821,7 @@ export const App: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <a
-                  href="/ums-tracker/dashboard.html"
+                  href={getSimUrl('data/ums-dashboard/dashboard.html')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn-secondary"
@@ -837,7 +838,7 @@ export const App: React.FC = () => {
               </div>
             </div>
             <iframe
-              src="/ums-tracker/dashboard.html"
+              src={getSimUrl('data/ums-dashboard/dashboard.html')}
               style={{ width: '100%', height: '100%', border: '1px solid var(--border-glass)', borderRadius: '10px', background: '#07080d' }}
               title="UMS Tracker Dashboard"
             />
