@@ -44,18 +44,17 @@ export const SimViewer: React.FC<SimViewerProps> = ({
 
   const updateIframeSrc = (path: string) => {
     let clean = path ? path.trim() : '';
+    if (!clean || clean === '/') {
+      setIframeSrc('');
+      return;
+    }
+
     const queryIdx = clean.indexOf('?');
     let base = queryIdx !== -1 ? clean.substring(0, queryIdx) : clean;
     const query = queryIdx !== -1 ? clean.substring(queryIdx) : '';
 
-    if (base.startsWith('data/simulations/')) {
-      base = base.replace('data/simulations/', '/simulations/');
-    }
-    if (base === '/' || base === '') {
-      setIframeSrc('');
-    } else {
-      setIframeSrc(base + query);
-    }
+    const resolved = getSimUrl(base);
+    setIframeSrc(resolved + query);
   };
 
   const [panelOpen, setPanelOpen] = useState(true);
