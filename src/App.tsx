@@ -131,7 +131,11 @@ export const App: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
-        setApiKeyInput(data.apiKey || '');
+        const localKey = localStorage.getItem('gemini_api_key') || data.apiKey || '';
+        if (localKey) {
+          setApiKeyInput(localKey);
+          localStorage.setItem('gemini_api_key', localKey);
+        }
         setOptModel(data.optimizerModel || 'gemini-3.1-flash-lite');
         setGenModel(data.generatorModel || 'gemini-3.5-flash');
         setStyleProfile(data.styleProfile || 'universal_pedagogy');
@@ -172,6 +176,9 @@ export const App: React.FC = () => {
   // Save Settings
   const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (apiKeyInput) {
+      localStorage.setItem('gemini_api_key', apiKeyInput);
+    }
     try {
       const res = await fetch('/api/settings', {
         method: 'POST',
@@ -189,11 +196,19 @@ export const App: React.FC = () => {
       if (res.ok) {
         const data = await res.json();
         setSettings(data);
+        if (apiKeyInput) {
+          setSettings(prev => ({ ...prev, apiKeyConfigured: true }));
+        }
         setShowSettings(false);
         alert('Settings saved successfully!');
       }
     } catch (error) {
       console.error('Error saving settings:', error);
+      if (apiKeyInput) {
+        setSettings(prev => ({ ...prev, apiKeyConfigured: true }));
+        setShowSettings(false);
+        alert('API Key saved locally in browser!');
+      }
     }
   };
 
