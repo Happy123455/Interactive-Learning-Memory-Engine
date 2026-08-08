@@ -1,0 +1,1183 @@
+You are an expert full-stack web developer and an educational simulation specialist. Your task is to build a highly dynamic, interactive, and gamified HTML/JS web-based simulation for an Engineering Hydrology concept. The simulation must adhere strictly to the provided design guidelines and pedagogical profile.
+
+**Simulation Title:** "Rainfall Riddle Fun Zone! How Much Rain Fell, Really?"
+**Subject:** Engineering Hydrology, Unit 1: Surface water hydrology
+**Concept:** Mean Areal Precipitation
+**Target Question:** "Explain Various Methods of determining of average depth of rainfall."
+
+---
+
+### **Part 1: Global Setup & Core Aesthetic Guidelines**
+
+**1. Core HTML Structure (`index.html`):**
+    *   Set up a modern HTML5 document with `<!DOCTYPE html>`, `<html>`, `<head>`, `<body>`.
+    *   Link to `style.css` and `script.js`.
+    *   The `<body>` will contain a main `div` acting as the `dashboard-container`.
+    *   Inside `dashboard-container`:
+        *   A `div` for the `main-simulation-area` (left/center large panel).
+        *   A `div` for the `control-panel` (right sidebar).
+    *   Ensure all elements are within a `flex` or `grid` layout on the `dashboard-container` that strictly uses `100vh` for height containment, preventing any body scrollbars. The `main-simulation-area` should take significantly more horizontal space than `control-panel`.
+
+**2. Global Aesthetics (CSS - `style.css`):**
+    *   **Premium Cyber-Engineering Dark Dashboard:**
+        *   `body`: `font-family: 'Orbitron', sans-serif;` (or similar techy font), `background-color: #0A0A1F;` (very dark blue/purple), `color: #E0E0FF;`.
+        *   `dashboard-container`: `display: flex; height: 100vh; overflow: hidden; background: linear-gradient(135deg, #0A0A1F 0%, #1A0F33 100%);`
+        *   **Translucent Glass Panels:** Apply `background: rgba(30, 20, 50, 0.4); backdrop-filter: blur(10px); border: 1px solid rgba(100, 200, 255, 0.2); border-radius: 15px; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);` to `main-simulation-area` and `control-panel` and any major sub-panels.
+        *   **Glowing Neon Highlights:** Use `box-shadow: 0 0 10px #00FFFF, 0 0 20px #00FFFF;` (cyan), `0 0 10px #FF00FF, 0 0 20px #FF00FF;` (purple), `0 0 10px #00FF00, 0 0 20px #00FF00;` (green) for interactive elements (buttons, active drop zones, selected items). Animate these `box-shadows` with `keyframes` for subtle pulsing effects on hover/active states.
+        *   **Fluid CSS Animations:** Smooth `transition` effects (e.g., `all 0.3s ease-in-out`) on element states (hover, active, drag).
+        *   **Playful Bouncy Toy Visuals:** Elements like buttons, drag handles, and dropped items should have a slight `transform: scale(1.05);` and `transition: transform 0.1s ease-out;` on active/drop states, returning with a `spring` like animation.
+    *   **Robust Viewport & Resolution Rules:**
+        *   Ensure `canvas` elements inside `main-simulation-area` resize dynamically on `window.onresize` events, maintaining aspect ratio or scaling to fill available space.
+        *   Support high-DPI (Retina) scaling for all `canvas` elements by multiplying drawing contexts by `window.devicePixelRatio`.
+        *   Draw clean, filled translucent backdrop panels behind text annotations on the canvas.
+
+**3. Global Interaction (JavaScript - `script.js`):**
+    *   **Advanced Drag & Drop (Core Utility):** Implement a robust D&D utility that can:
+        *   Handle dragging of arbitrary HTML elements (e.g., `<div class="value-card">`, `<div class="method-card">`).
+        *   Detect drops onto specific *HTML elements* (e.g., a "calculation engine" slot) and *Canvas regions* (e.g., a rain gauge icon).
+        *   Provide visual feedback (ghost image of dragged item, highlight drop targets).
+        *   Trigger specific callbacks on `dragstart`, `drag`, `dragend`, `drop`.
+    *   **Sound & Narration:**
+        *   **Web Audio Synth:**
+            *   Initialize an `AudioContext`.
+            *   Create an `OscillatorNode` (e.g., `sine` wave) and a `GainNode`.
+            *   Define specific sound triggers:
+                *   `click_sound()`: A short, high-frequency beep for general clicks.
+                *   `drop_success_chime()`: A pleasant, slightly longer chime (e.g., two quick rising tones) for successful drops/actions.
+                *   `warning_buzz()`: A lower frequency, slightly dissonant tone for errors or invalid actions.
+                *   `cheer_sound()`: A joyful, higher-pitched, slightly complex synth sequence for completing a major step.
+            *   **Dynamic Pitch-Shifting Audio Synthesizer:** Connect the calculated *average rainfall value* to the pitch of a background drone or a continuous tone, where `higher average rainfall = higher pitched squeak/tone`. This provides live auditory feedback on the magnitude of the result.
+        *   **Native Web Speech Storytelling Voiceover (`window.speechSynthesis`):**
+            *   Create a `narrate(text)` function that uses `window.speechSynthesis` to speak.
+            *   Configure `SpeechSynthesisUtterance` for a friendly, encouraging, childlike voice (e.g., `pitch: 1.2`, `rate: 0.9`, specific `voice` if available and preferred).
+            *   Use this for concept introductions, step-by-step guidance, feedback, and final result explanations.
+
+**4. ELI5 Playful Sandbox Profile Integration:**
+    *   **5-Year-Old Simplified Analogies:** All narrative text (speech and on-screen) will use fun, everyday analogies:
+        *   "Imagine our catchment area is like a giant cookie, and these rain gauges are like little sprinkle catchers!"
+        *   "Rainfall is like sprinkling sugar on our cookie. How do we know how much sugar got on the whole cookie, even where we didn't sprinkle?"
+    *   **Playful Bouncy Toy Visuals:**
+        *   Rain gauge icons: cartoonish, bouncy when clicked/active.
+        *   Drag-and-drop handles: oversized, brightly colored, with slight `squash-and-stretch` animations.
+        *   Rewarding cheer sound effects on successful steps (use `cheer_sound()`).
+    *   **Hand/Mouse Motion Gesture Detection:**
+        *   Implement `mousemove` event listeners on the `main-simulation-area` canvas.
+        *   A subtle visual effect (e.g., a "magic finger" trail or a gentle ripple) should follow the mouse.
+        *   **Key Interaction:** Sweeping the mouse/hand left-to-right across the canvas (e.g., over the catchment) can trigger a visual "rainfall event" animation or initiate a calculation visually, providing a sense of direct control. This could also be used to 'paint' isohyetal lines (explained later).
+
+---
+
+### **Part 2: Simulation Components & Flow**
+
+**Problem Context:** We need to find the average rainfall over a catchment area using data from several rain gauges.
+
+**1. Main Simulation Area (`main-simulation-area`):**
+    *   **HTML5 Canvas (`catchmentCanvas`):** This will be the primary visual space.
+        *   Initial background: A stylized, slightly abstract map of a catchment area, perhaps in shades of green/brown with a subtle gradient, outlined with a neon cyan border.
+        *   Subtle "rainfall" animation: Gently falling, semi-transparent blue/white particles over the catchment, especially during calculation phases.
+    *   **Interactive Rain Gauges:**
+        *   Represented by bouncy, toy-like SVG icons (e.g., a stylized rain bucket) drawn on the canvas.
+        *   Each gauge (`G1`, `G2`, `G3`...) will have a predefined, draggable initial position within the catchment.
+        *   On-hover: gauge icon slightly brightens and scales up.
+        *   On-click: `click_sound()`, and the gauge highlights with a pulsing neon green glow.
+        *   Annotation: `text` labels (`G1`, `G2`...) next to each gauge.
+    *   **Catchment Boundary Manipulators (for Isohyetal Method):** Allow users to drag points defining the catchment boundary, dynamically redrawing the outline.
+
+**2. Control Panel (`control-panel`):**
+    *   **Current Goal/Narration Display:** A text area displaying the current pedagogical instruction or analogy from `window.speechSynthesis`.
+    *   **Rainfall Data Input Cards:**
+        *   Below the narration, present a series of draggable "Rainfall Value Cards." These are small, glowing `div` elements, each containing a numerical value (e.g., "12 mm", "18 mm", "25 mm", "10 mm", "20 mm", "15 mm").
+        *   Drag these cards and drop them directly onto the rain gauge icons on the `catchmentCanvas`.
+        *   On successful drop: The value text appears next to the gauge on the canvas, the gauge icon gives a bouncy reaction, and `drop_success_chime()` plays.
+        *   An invalid drop (outside a gauge) plays `warning_buzz()`.
+    *   **Method Selection Cards:**
+        *   Below the rainfall input, three draggable "Method Cards":
+            *   `Arithmetic Mean Method`
+            *   `Thiessen Polygon Method`
+            *   `Isohyetal Method`
+        *   These cards should have distinct neon highlight colors (e.g., cyan, purple, green).
+    *   **"Calculation Engine" Drop Zone:** A prominent, glowing rectangular `div` with text "Drop Method Here to Solve!" When a method card is successfully dropped here, it initiates the calculation. Plays `drop_success_chime()`.
+    *   **Results Display Panel:** A glass panel that shows the calculated average rainfall, method used, and any relevant intermediate values or graphs.
+
+---
+
+### **Part 3: Step-by-Step Simulation Flow & Logic**
+
+**Phase 1: Introduction & Data Entry**
+
+1.  **Welcome & Concept Introduction:**
+    *   `narrate("Hello, little Hydrology Explorer! Today, we're going on a fun adventure to find out how much rain fell over our big cookie-shaped land! It's super important for farmers and city planners!")`
+    *   Display the `catchmentCanvas` with an initial set of 5 draggable rain gauge icons (`G1` to `G5`) placed randomly within the catchment.
+    *   `narrate("These little buckets are our rain gauges! They catch sprinkles! Can you give each bucket some rain by dragging these number cards onto them?")`
+    *   Present 6-8 "Rainfall Value Cards" (e.g., 10mm, 12mm, 15mm, 18mm, 20mm, 22mm, 25mm) in the `control-panel`.
+
+2.  **User Data Assignment:**
+    *   User drags `value-card` onto `gauge-icon` on canvas.
+    *   **Logic:**
+        *   On `dragstart` of `value-card`: `click_sound()`.
+        *   On `drop` over `gauge-icon`:
+            *   If valid `gauge-icon` (check `x,y` coordinates proximity):
+                *   Associate the value with that gauge in an internal `gaugesData` array (e.g., `[{ id: 'G1', x: ..., y: ..., rainfall: 15 }, ...]`).
+                *   Update canvas: display rainfall value next to gauge.
+                *   Gauge icon performs `bouncy` animation and glows green.
+                *   `drop_success_chime()`.
+            *   Else (invalid drop):
+                *   `warning_buzz()`.
+                *   Value card returns to its original position with a fluid animation.
+    *   **Progression:** Once all 5 gauges have a value, `narrate("Yay! All our buckets are full! Now, how do we find the *average* rain for our whole cookie?")`
+    *   Highlight the "Method Selection Cards" section.
+
+**Phase 2: Method Selection & Calculation Trigger**
+
+1.  **Introduce Methods:**
+    *   `narrate("There are different ways to find the average, like choosing different flavors for our cookie! Can you pick a method card and drag it to the 'Calculation Engine' box?")`
+    *   Make the "Method Selection Cards" (Arithmetic, Thiessen, Isohyetal) draggable.
+    *   Make the "Calculation Engine" drop zone glow faintly.
+
+2.  **User Selects Method:**
+    *   User drags a `method-card` to the "Calculation Engine" drop zone.
+    *   **Logic:**
+        *   On `drop` over "Calculation Engine":
+            *   `drop_success_chime()`.
+            *   The dropped method card visually snaps into the slot and glows brightly.
+            *   `narrate("Great choice! Let's see how the <method-name> method works!")`
+            *   Trigger the calculation function specific to the chosen method.
+
+**Phase 3: Method-Specific Calculation & Visualization**
+
+***CRITICAL NOTE: As the problem is about Hydrology, the RCC Beam Design & Structural Engineering Style Guide (Point 8 in the prompt) is NOT applicable here. Do NOT generate any code or instructions related to beam design, concrete, rebar, stress-strain, IS 456, or camera zooms for this specific simulation.***
+
+**A. Arithmetic Mean Method (ELI5: "Simple Average Fun!")**
+
+1.  **Narrate:** `narrate("This is the simplest way! We just add up all the sprinkles from all our buckets and share them equally! Ready? Watch closely!")`
+2.  **Calculation:**
+    *   Sum all `rainfall` values from `gaugesData`.
+    *   Divide by the number of gauges.
+    *   `P_avg = (P1 + P2 + ... + Pn) / n`.
+3.  **Visual Animation:**
+    *   On canvas: Temporarily show each gauge's rainfall value visually "flowing" into a central, glowing "summation" circle.
+    *   The "summation" circle then visually "divides" its contents, and the entire catchment area changes to a uniform shade of blue, representing the average rainfall, with the value floating in the center.
+    *   **Real-time Updating Graph (Results Panel):** Display a simple bar chart: individual gauge rainfall values (small bars) vs. the average rainfall (a single, larger bar).
+4.  **Narrate Result:** `narrate("Wow! Our average rainfall using the Arithmetic Mean method is <P_avg> millimeters! See how all the sprinkles spread out evenly?")`
+
+**B. Thiessen Polygon Method (ELI5: "Fair Share Zones!")**
+
+1.  **Narrate:** `narrate("This method is like giving each sprinkle catcher its own special 'fair share' zone on our cookie! Some buckets have bigger zones!")`
+2.  **User Interaction (Optional, for advanced control):** Allow users to slightly drag rain gauge positions. As gauges move, the Thiessen polygons update dynamically.
+3.  **Calculation & Visualization:**
+    *   **Dynamic Polygon Generation:** On canvas, use Delaunay triangulation and Voronoi diagram (Thiessen polygons) to divide the catchment area. Each gauge should be the center of its polygon.
+    *   **Animation:** Slowly "grow" the Thiessen polygon boundaries outwards from the gauges with a neon purple glow.
+    *   Calculate the area of each polygon within the catchment (`A_i`).
+    *   Calculate `P_avg = Σ (P_i * A_i) / Σ A_i`.
+    *   On canvas: Each polygon segment takes on a shade of blue corresponding to its gauge's rainfall, with the polygon border highlighting.
+4.  **Narrate Result:** `narrate("Look! Each bucket has its own special zone! The average rainfall, considering these zones, is <P_avg> millimeters! Pretty cool, huh?")`
+5.  **Real-time Updating Graph (Results Panel):** Display a pie chart showing the percentage contribution of each gauge's rainfall *multiplied by its area* to the total, or a bar chart of `P_i * A_i`.
+
+**C. Isohyetal Method (ELI5: "Rainfall Contour Lines!")**
+
+1.  **Narrate:** `narrate("This is like drawing lines on our cookie to show where the rain was heavy and where it was light, just like hills and valleys!")`
+2.  **User Interaction (Gamified Drawing):**
+    *   **Hand Motion Gesture Control:** `narrate("Now, use your mouse like a magic crayon! Sweep your hand over the canvas to draw lines where you think the rainfall amounts are the same!")`
+    *   Allow users to `mousemove` while holding down the mouse button to "draw" approximate isohyetal lines. The line drawing should be bouncy and have a trailing particle effect.
+    *   **Assisted Isohyet Placement:** Alternatively, provide draggable "Isohyet Value" markers (e.g., a "15 mm Isohyet" marker) which, when dragged to a point on the canvas, draw a smooth contour line passing through nearby gauges with similar rainfall values, or create an interpolated line. The user must place at least 3-4 isohyets.
+    *   **Visual Feedback:** Isohyetal lines should be drawn on the canvas, perhaps with varying shades of blue/green to indicate different rainfall intensities, glowing neon green.
+3.  **Calculation & Visualization:**
+    *   **Area Calculation:** For each "band" between two isohyets (or between an isohyet and the catchment boundary), calculate its area (`a_i`).
+    *   The average rainfall for that band is the average of the two bounding isohyet values (`(P_i + P_i+1) / 2`).
+    *   `P_avg = Σ (a_i * (P_i + P_i+1) / 2) / Σ a_i`.
+    *   On canvas: Fill the areas between isohyets with color gradients corresponding to the rainfall range, creating a smooth visual transition.
+4.  **Narrate Result:** `narrate("Wow, you drew those rainfall lines beautifully! Our average rainfall using the Isohyetal method is <P_avg> millimeters! You're a rainfall artist!")`
+5.  **Real-time Updating Graph (Results Panel):** A gradient bar showing the range of rainfall values across the catchment, or a stacked bar showing the contribution of each isohyetal band's area-weighted rainfall.
+
+**Phase 4: Final Results & Exploration**
+
+1.  **Overall Result Presentation:**
+    *   `narrate("You did it! You've figured out the average rainfall!")`
+    *   Display the final calculated `P_avg` prominently in the `results-display-panel`.
+    *   Play `cheer_sound()`.
+2.  **Comparison (Optional):** If multiple methods were tried, display a simple bar chart comparing the `P_avg` from each method.
+3.  **Reset/Explore:** A prominent "Try Again!" button with a bouncy animation allows the user to clear all data and restart the simulation, `narrate("Want to try another rainfall riddle? Click here to play again!")`
+
+---
+
+### **Part 4: Code Generation Instructions (Detailed Logic for Gemini)**
+
+**HTML (`index.html`):**
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rainfall Riddle Fun Zone!</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="dashboard-container">
+        <div id="main-simulation-area" class="glass-panel">
+            <canvas id="catchmentCanvas"></canvas>
+            <div id="on-canvas-overlay">
+                <!-- Dynamic elements like gauge values, isohyets, etc. can be created here or directly on canvas -->
+            </div>
+        </div>
+        <div id="control-panel" class="glass-panel">
+            <div id="narration-display"></div>
+            <div id="rainfall-value-cards-container">
+                <!-- Draggable rainfall value cards generated here by JS -->
+            </div>
+            <div id="method-selection-container">
+                <div id="arithmetic-method-card" class="method-card draggable" data-method="arithmetic">Arithmetic Mean Method</div>
+                <div id="thiessen-method-card" class="method-card draggable" data-method="thiessen">Thiessen Polygon Method</div>
+                <div id="isohyetal-method-card" class="method-card draggable" data-method="isohyetal">Isohyetal Method</div>
+            </div>
+            <div id="calculation-engine-dropzone" class="dropzone glowing-neon">Drop Method Here to Solve!</div>
+            <div id="results-display-panel" class="glass-panel">
+                <h3>Average Rainfall: <span id="avg-rainfall-value">-- mm</span></h3>
+                <div id="results-graph-container">
+                    <!-- Dynamic graphs (bar/pie) will be rendered here by JS -->
+                </div>
+            </div>
+            <button id="reset-button" class="glowing-neon">Try Another Riddle!</button>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
+```
+
+**CSS (`style.css`):**
+
+```css
+:root {
+    --neon-cyan: #00FFFF;
+    --neon-purple: #FF00FF;
+    --neon-green: #00FF00;
+    --dark-bg: #0A0A1F;
+    --glass-bg: rgba(30, 20, 50, 0.4);
+    --glass-border: rgba(100, 200, 255, 0.2);
+}
+
+body {
+    margin: 0;
+    font-family: 'Orbitron', sans-serif;
+    background-color: var(--dark-bg);
+    color: #E0E0FF;
+    overflow: hidden; /* Prevent body scrollbars */
+}
+
+#dashboard-container {
+    display: flex;
+    height: 100vh;
+    background: linear-gradient(135deg, var(--dark-bg) 0%, #1A0F33 100%);
+    gap: 15px; /* Spacing between panels */
+    padding: 15px;
+    box-sizing: border-box;
+}
+
+.glass-panel {
+    background: var(--glass-bg);
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--glass-border);
+    border-radius: 15px;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    transition: all 0.3s ease-in-out;
+}
+
+#main-simulation-area {
+    flex-grow: 1; /* Takes most space */
+    position: relative; /* For canvas overlays */
+}
+
+#control-panel {
+    width: 350px; /* Fixed width for control panel */
+    flex-shrink: 0;
+}
+
+#catchmentCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    background-color: rgba(0,0,0,0.2); /* Canvas clear backdrop */
+    border-radius: 10px;
+}
+
+#on-canvas-overlay {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none; /* Allow mouse events to pass through to canvas */
+}
+
+.glowing-neon {
+    box-shadow: 0 0 5px var(--neon-cyan), 0 0 15px var(--neon-cyan);
+    transition: box-shadow 0.3s ease-in-out, transform 0.1s ease-out;
+}
+
+.glowing-neon:hover {
+    box-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+    transform: scale(1.02);
+}
+
+/* Draggable Cards */
+.rainfall-value-card, .method-card {
+    background: rgba(50, 40, 70, 0.7);
+    border: 1px solid var(--neon-purple);
+    border-radius: 8px;
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    cursor: grab;
+    text-align: center;
+    box-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+    transition: all 0.2s ease-out;
+}
+.rainfall-value-card:hover, .method-card:hover {
+    transform: translateY(-3px) scale(1.03);
+    box-shadow: 0 0 10px var(--neon-purple), 0 0 20px var(--neon-purple);
+}
+.dragging {
+    opacity: 0.7;
+    transform: scale(0.95);
+    cursor: grabbing;
+}
+
+.dropzone {
+    border: 2px dashed var(--neon-green);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    font-size: 1.2em;
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 255, 0, 0.05);
+    transition: border-color 0.3s ease, background 0.3s ease;
+}
+.dropzone.highlight {
+    border-color: var(--neon-green);
+    background: rgba(0, 255, 0, 0.2);
+    box-shadow: 0 0 15px var(--neon-green);
+}
+
+/* Bouncy animation utility */
+.bouncy-animation {
+    animation: bounce 0.5s ease-out;
+}
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+}
+
+#reset-button {
+    background: linear-gradient(45deg, #FF00FF, #00FFFF);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 8px;
+    font-size: 1.1em;
+    cursor: pointer;
+    margin-top: auto; /* Push to bottom */
+}
+#reset-button:hover {
+    background: linear-gradient(45deg, #00FFFF, #FF00FF);
+}
+
+/* Graphs */
+#results-graph-container {
+    height: 150px; /* Fixed height for graph */
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 10px;
+}
+```
+
+**JavaScript (`script.js`):**
+
+```javascript
+document.addEventListener('DOMContentLoaded', () => {
+    const canvas = document.getElementById('catchmentCanvas');
+    const ctx = canvas.getContext('2d');
+    const narrationDisplay = document.getElementById('narration-display');
+    const rainfallValueCardsContainer = document.getElementById('rainfall-value-cards-container');
+    const methodSelectionContainer = document.getElementById('method-selection-container');
+    const calculationEngineDropzone = document.getElementById('calculation-engine-dropzone');
+    const resultsDisplayPanel = document.getElementById('results-display-panel');
+    const avgRainfallValueSpan = document.getElementById('avg-rainfall-value');
+    const resultsGraphContainer = document.getElementById('results-graph-container');
+    const resetButton = document.getElementById('reset-button');
+
+    // --- Global State ---
+    let gauges = []; // [{ id: 'G1', x: 100, y: 150, rainfall: null, area: null }]
+    let rainfallValues = [10, 12, 15, 18, 20, 22, 25, 28, 30]; // Available rainfall values for cards
+    let currentMethod = null;
+    let audioContext;
+    let oscillator, gainNode;
+
+    // --- Canvas Setup & Responsiveness ---
+    const resizeCanvas = () => {
+        const dpr = window.devicePixelRatio || 1;
+        canvas.width = canvas.offsetWidth * dpr;
+        canvas.height = canvas.offsetHeight * dpr;
+        ctx.scale(dpr, dpr);
+        drawCatchment(); // Redraw everything on resize
+        drawGauges();
+    };
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas(); // Initial resize
+
+    // --- Audio Synthesis ---
+    const initAudio = () => {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        oscillator = audioContext.createOscillator();
+        gainNode = audioContext.createGain();
+
+        oscillator.type = 'sine'; // Or 'square', 'sawtooth', 'triangle'
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        oscillator.start();
+        gainNode.gain.value = 0; // Start muted
+    };
+    initAudio();
+
+    const playSound = (frequency, duration, volume = 0.5) => {
+        if (!audioContext) return;
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.00001, audioContext.currentTime + duration);
+    };
+
+    const click_sound = () => playSound(880, 0.1); // A4
+    const drop_success_chime = () => {
+        playSound(980, 0.08, 0.6); // B5
+        setTimeout(() => playSound(1100, 0.1, 0.6), 100); // C#6
+    };
+    const warning_buzz = () => playSound(220, 0.3, 0.7); // A3
+    const cheer_sound = () => {
+        // More complex synth sequence for cheering
+        playSound(1046.5, 0.1, 0.7); // C6
+        setTimeout(() => playSound(1318.5, 0.1, 0.7), 100); // E6
+        setTimeout(() => playSound(1568, 0.2, 0.7), 200); // G6
+    };
+
+    const updatePitchWithRainfall = (avgRain) => {
+        if (!audioContext || !oscillator) return;
+        // Map average rainfall (e.g., 0-50mm) to frequency range (e.g., 200-1000Hz)
+        const minRain = 0;
+        const maxRain = 50;
+        const minFreq = 200;
+        const maxFreq = 1000;
+        const freq = minFreq + (avgRain / (maxRain - minRain)) * (maxFreq - minFreq);
+        oscillator.frequency.setValueAtTime(Math.max(minFreq, Math.min(maxFreq, freq)), audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.1, audioContext.currentTime); // Keep a low background drone
+    };
+
+
+    // --- Speech Synthesis ---
+    const synth = window.speechSynthesis;
+    let currentUtterance = null; // To manage speech queue
+
+    const narrate = (text) => {
+        if (currentUtterance) {
+            synth.cancel(); // Stop previous speech
+        }
+        currentUtterance = new SpeechSynthesisUtterance(text);
+        currentUtterance.lang = 'en-US';
+        currentUtterance.pitch = 1.2; // Childlike pitch
+        currentUtterance.rate = 0.9;  // Slightly slower rate
+        synth.speak(currentUtterance);
+        narrationDisplay.textContent = text; // Also display text on screen
+    };
+
+    // --- Drawing Functions ---
+    const drawCatchment = () => {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        // Draw stylized catchment area
+        ctx.fillStyle = 'rgba(30, 60, 40, 0.6)'; // Dark green for land
+        ctx.strokeStyle = varRefs.neonCyan;
+        ctx.lineWidth = 3;
+        // Example: a simple polygon for the catchment boundary
+        const catchmentShape = [
+            { x: canvas.width * 0.1, y: canvas.height * 0.3 },
+            { x: canvas.width * 0.4, y: canvas.height * 0.1 },
+            { x: canvas.width * 0.9, y: canvas.height * 0.2 },
+            { x: canvas.width * 0.8, y: canvas.height * 0.7 },
+            { x: canvas.width * 0.5, y: canvas.height * 0.9 },
+            { x: canvas.width * 0.2, y: canvas.height * 0.6 }
+        ];
+        ctx.beginPath();
+        catchmentShape.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+
+        // Subtle rainfall animation overlay (can be a separate animation loop)
+        // For simplicity, this example just draws a static background, actual animation needs a dedicated loop.
+        ctx.fillStyle = 'rgba(100, 200, 255, 0.05)'; // Very light blue overlay
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+    };
+
+    const drawGauge = (gauge, isDragging = false, isActive = false) => {
+        const size = isDragging ? 25 : 20; // Slightly smaller when dragging
+        ctx.beginPath();
+        ctx.arc(gauge.x, gauge.y, size, 0, Math.PI * 2);
+        ctx.fillStyle = isActive ? 'rgb(100, 255, 100)' : 'rgb(120, 150, 200)'; // Blue-ish for gauge
+        ctx.shadowBlur = isActive ? 15 : 0;
+        ctx.shadowColor = isActive ? varRefs.neonGreen : 'transparent';
+        ctx.fill();
+        ctx.strokeStyle = isActive ? varRefs.neonGreen : 'rgba(255, 255, 255, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0; // Reset shadow
+
+        // Gauge ID
+        ctx.fillStyle = '#EEE';
+        ctx.font = '12px Orbitron';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(gauge.id, gauge.x, gauge.y - size - 5);
+
+        // Rainfall value
+        if (gauge.rainfall !== null) {
+            ctx.fillStyle = '#FFF';
+            ctx.font = '14px Orbitron';
+            ctx.fillText(`${gauge.rainfall} mm`, gauge.x, gauge.y + size + 15);
+        }
+    };
+
+    const drawGauges = () => {
+        gauges.forEach(gauge => drawGauge(gauge));
+    };
+
+    const animateRainfallUniformly = (avgRainfall) => {
+        const originalFillStyle = ctx.fillStyle;
+        const targetColor = `hsl(210, 80%, ${50 - avgRainfall * 0.5}%)`; // Darker blue for more rain
+
+        let start = null;
+        const duration = 1500; // milliseconds
+
+        const animate = (timestamp) => {
+            if (!start) start = timestamp;
+            const progress = (timestamp - start) / duration;
+
+            if (progress < 1) {
+                const alpha = progress * 0.7; // Fade in effect
+                ctx.fillStyle = `rgba(100, 200, 255, ${alpha})`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height); // Overlay the entire canvas
+                requestAnimationFrame(animate);
+            } else {
+                ctx.fillStyle = `rgba(100, 200, 255, 0.7)`; // Final opacity
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#FFF';
+                ctx.font = '30px Orbitron';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${avgRainfall.toFixed(2)} mm`, canvas.width / 2, canvas.height / 2);
+            }
+        };
+        requestAnimationFrame(animate);
+        ctx.fillStyle = originalFillStyle; // Restore context
+    };
+
+
+    // --- Drag & Drop Utility (simplified for brevity) ---
+    let draggedElement = null;
+    let offsetX, offsetY;
+
+    const startDrag = (e) => {
+        draggedElement = e.target.closest('.draggable');
+        if (draggedElement) {
+            click_sound();
+            draggedElement.classList.add('dragging');
+            const rect = draggedElement.getBoundingClientRect();
+            offsetX = e.clientX - rect.left;
+            offsetY = e.clientY - rect.top;
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', endDrag);
+        }
+    };
+
+    const onDrag = (e) => {
+        if (!draggedElement) return;
+        requestAnimationFrame(() => {
+            draggedElement.style.left = `${e.clientX - offsetX}px`;
+            draggedElement.style.top = `${e.clientY - offsetY}px`;
+            draggedElement.style.position = 'absolute';
+            draggedElement.style.zIndex = 1000;
+
+            // Highlight dropzones based on dragged type
+            document.querySelectorAll('.dropzone').forEach(zone => zone.classList.remove('highlight'));
+            if (draggedElement.classList.contains('method-card')) {
+                const rect = calculationEngineDropzone.getBoundingClientRect();
+                if (e.clientX > rect.left && e.clientX < rect.right && e.clientY > rect.top && e.clientY < rect.bottom) {
+                    calculationEngineDropzone.classList.add('highlight');
+                }
+            } else if (draggedElement.classList.contains('rainfall-value-card')) {
+                // Highlight active gauge on canvas
+                const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+                const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+                let activeGauge = gauges.find(g => Math.sqrt((g.x - mouseX)**2 + (g.y - mouseY)**2) < 25);
+                
+                // Clear existing highlights and redraw
+                drawCatchment();
+                gauges.forEach(g => drawGauge(g, false, g === activeGauge));
+            }
+        });
+    };
+
+    const endDrag = (e) => {
+        if (!draggedElement) return;
+        draggedElement.classList.remove('dragging');
+        document.removeEventListener('mousemove', onDrag);
+        document.removeEventListener('mouseup', endDrag);
+
+        // --- Drop Logic ---
+        if (draggedElement.classList.contains('method-card')) {
+            const rect = calculationEngineDropzone.getBoundingClientRect();
+            if (e.clientX > rect.left && e.clientX < rect.right && e.clientY > rect.top && e.clientY < rect.bottom) {
+                handleMethodDrop(draggedElement.dataset.method);
+                draggedElement.style.position = 'static'; // Snap back visually
+                draggedElement.style.left = '';
+                draggedElement.style.top = '';
+                // Optionally make the dropped card visually 'stick'
+                // For this sim, we'll revert its position and let the next phase take over.
+            } else {
+                warning_buzz();
+                // Revert position
+                draggedElement.style.position = 'static'; // Reset to flow
+                draggedElement.style.left = '';
+                draggedElement.style.top = '';
+            }
+        } else if (draggedElement.classList.contains('rainfall-value-card')) {
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+            let targetGauge = gauges.find(g => Math.sqrt((g.x - mouseX)**2 + (g.y - mouseY)**2) < 25);
+
+            if (targetGauge) {
+                const rainfall = parseInt(draggedElement.textContent);
+                targetGauge.rainfall = rainfall;
+                drop_success_chime();
+                drawCatchment();
+                drawGauges(); // Redraw gauges with new value
+                draggedElement.remove(); // Remove card after use
+                checkAllGaugesFilled();
+            } else {
+                warning_buzz();
+                // Revert position
+                draggedElement.style.position = 'static';
+                draggedElement.style.left = '';
+                draggedElement.style.top = '';
+            }
+        }
+        draggedElement = null;
+        document.querySelectorAll('.dropzone').forEach(zone => zone.classList.remove('highlight'));
+    };
+
+    document.addEventListener('mousedown', startDrag);
+
+    // --- Simulation Flow Control ---
+    const initSimulation = () => {
+        gauges = [];
+        // Initialize 5 gauges at random, but fixed for reproducibility, positions
+        for (let i = 1; i <= 5; i++) {
+            gauges.push({
+                id: `G${i}`,
+                x: canvas.width * (0.2 + Math.random() * 0.6),
+                y: canvas.height * (0.2 + Math.random() * 0.6),
+                rainfall: null,
+                area: null // For Thiessen
+            });
+        }
+        drawCatchment();
+        drawGauges();
+        generateRainfallValueCards();
+        resetUI();
+
+        narrate("Hello, little Hydrology Explorer! Today, we're going on a fun adventure to find out how much rain fell over our big cookie-shaped land! It's super important for farmers and city planners!");
+        setTimeout(() => narrate("These little buckets are our rain gauges! They catch sprinkles! Can you give each bucket some rain by dragging these number cards onto them?"), 5000);
+    };
+
+    const resetUI = () => {
+        avgRainfallValueSpan.textContent = '-- mm';
+        resultsGraphContainer.innerHTML = ''; // Clear graphs
+        rainfallValueCardsContainer.innerHTML = '';
+        generateRainfallValueCards();
+        methodSelectionContainer.style.opacity = 0.5; // Dim until gauges are full
+        methodSelectionContainer.style.pointerEvents = 'none';
+        calculationEngineDropzone.style.opacity = 0.5;
+        calculationEngineDropzone.style.pointerEvents = 'none';
+        currentMethod = null;
+        drawCatchment();
+        drawGauges();
+        gainNode.gain.value = 0; // Mute background tone
+    };
+
+    const generateRainfallValueCards = () => {
+        rainfallValueCardsContainer.innerHTML = '';
+        const uniqueValues = [...new Set(rainfallValues)].sort((a, b) => a - b); // Ensure unique and sorted
+        uniqueValues.forEach(value => {
+            const card = document.createElement('div');
+            card.classList.add('rainfall-value-card', 'draggable');
+            card.textContent = `${value} mm`;
+            rainfallValueCardsContainer.appendChild(card);
+        });
+    };
+
+    const checkAllGaugesFilled = () => {
+        if (gauges.every(g => g.rainfall !== null)) {
+            narrate("Yay! All our buckets are full! Now, how do we find the *average* rain for our whole cookie? Choose a method below!");
+            methodSelectionContainer.style.opacity = 1;
+            methodSelectionContainer.style.pointerEvents = 'auto';
+            calculationEngineDropzone.style.opacity = 1;
+            calculationEngineDropzone.style.pointerEvents = 'auto';
+        }
+    };
+
+    const handleMethodDrop = (method) => {
+        currentMethod = method;
+        drop_success_chime();
+        narrate(`Great choice! Let's see how the ${method} method works!`);
+        drawCatchment(); // Clear any previous method visualizations
+        drawGauges();
+
+        switch (method) {
+            case 'arithmetic':
+                calculateArithmeticMean();
+                break;
+            case 'thiessen':
+                calculateThiessenPolygon();
+                break;
+            case 'isohyetal':
+                calculateIsohyetal();
+                break;
+        }
+    };
+
+    // --- Calculation Methods ---
+
+    const calculateArithmeticMean = () => {
+        narrate("This is the simplest way! We just add up all the sprinkles from all our buckets and share them equally! Ready? Watch closely!");
+        const totalRainfall = gauges.reduce((sum, g) => sum + g.rainfall, 0);
+        const avgRainfall = totalRainfall / gauges.length;
+
+        avgRainfallValueSpan.textContent = `${avgRainfall.toFixed(2)} mm`;
+        updatePitchWithRainfall(avgRainfall);
+        animateRainfallUniformly(avgRainfall);
+        cheer_sound(); // Reward for calculation
+
+        // Graph
+        resultsGraphContainer.innerHTML = '<canvas id="arithmeticGraph"></canvas>';
+        const graphCtx = document.getElementById('arithmeticGraph').getContext('2d');
+        const labels = gauges.map(g => g.id);
+        const data = gauges.map(g => g.rainfall);
+        labels.push('Average');
+        data.push(avgRainfall);
+
+        new Chart(graphCtx, {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Rainfall (mm)',
+                    data: data,
+                    backgroundColor: ['#4BC0C0', '#FF6384', '#FFCE56', '#E7E9ED', '#36A2EB', '#00FFFF'], // Colors for gauges + average
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'Individual vs Average Rainfall', color: '#E0E0FF' }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#E0E0FF' } },
+                    x: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#E0E0FF' } }
+                }
+            }
+        });
+        setTimeout(() => narrate(`Wow! Our average rainfall using the Arithmetic Mean method is ${avgRainfall.toFixed(2)} millimeters! See how all the sprinkles spread out evenly?`), 2000);
+    };
+
+    const calculateThiessenPolygon = async () => {
+        narrate("This method is like giving each sprinkle catcher its own special 'fair share' zone on our cookie! Some buckets have bigger zones!");
+
+        // --- Thiessen Polygon Logic (requires a library or complex implementation) ---
+        // For this prompt, assume a simplified or placeholder implementation:
+        // 1. Generate Delaunay triangulation (e.g., using 'd3-delaunay' or custom algorithm)
+        // 2. Derive Voronoi diagram (Thiessen polygons) from triangulation
+        // 3. Clip polygons to the catchment boundary
+        // 4. Calculate area of each clipped polygon (A_i)
+        // 5. Calculate weighted average: P_avg = Σ (P_i * A_i) / Σ A_i
+
+        // Placeholder for visualization
+        drawCatchment(); // Clear and redraw
+        let polygonData = []; // [{ gauge: G1, points: [{x,y},...], area: X }]
+
+        // Simulate polygon generation for visualization
+        // In a real scenario, this would be computed
+        const catchmentArea = canvas.width * canvas.height * 0.5; // Placeholder area
+        let currentAreaSum = 0;
+        gauges.forEach((g, i) => {
+            // Assign dummy areas for demonstration
+            const dummyArea = catchmentArea * (0.1 + Math.random() * 0.1); // Roughly 10-20% each
+            g.area = dummyArea;
+            currentAreaSum += dummyArea;
+
+            // Draw a simplified "polygon" for each gauge as an expanding circle/blob for animation
+            const targetRadius = Math.sqrt(dummyArea / Math.PI) * 0.8; // Approximate radius from area
+            let currentRadius = 0;
+            const animDuration = 1000;
+            let startAnim = null;
+
+            const animPolygon = (timestamp) => {
+                if (!startAnim) startAnim = timestamp;
+                const progress = (timestamp - startAnim) / animDuration;
+                if (progress < 1) {
+                    currentRadius = targetRadius * progress;
+                    ctx.beginPath();
+                    ctx.arc(g.x, g.y, currentRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${50 + i * 30}, ${100 + i * 20}, 200, 0.4)`; // Unique color per gauge
+                    ctx.fill();
+                    ctx.strokeStyle = varRefs.neonPurple;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                    requestAnimationFrame(animPolygon);
+                } else {
+                    ctx.beginPath();
+                    ctx.arc(g.x, g.y, targetRadius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(${50 + i * 30}, ${100 + i * 20}, 200, 0.4)`;
+                    ctx.fill();
+                    ctx.strokeStyle = varRefs.neonPurple;
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+            };
+            requestAnimationFrame(animPolygon);
+        });
+        drawGauges(); // Draw gauges on top
+
+        // Final calculation after simulated areas are "assigned"
+        const totalWeightedRainfall = gauges.reduce((sum, g) => sum + (g.rainfall * g.area), 0);
+        const totalArea = gauges.reduce((sum, g) => sum + g.area, 0);
+        const avgRainfall = totalWeightedRainfall / totalArea;
+
+        avgRainfallValueSpan.textContent = `${avgRainfall.toFixed(2)} mm`;
+        updatePitchWithRainfall(avgRainfall);
+        cheer_sound();
+
+        // Graph: Pie chart of area contribution or weighted rainfall
+        resultsGraphContainer.innerHTML = '<canvas id="thiessenGraph"></canvas>';
+        const graphCtx = document.getElementById('thiessenGraph').getContext('2d');
+        new Chart(graphCtx, {
+            type: 'pie',
+            data: {
+                labels: gauges.map(g => `${g.id} (${g.rainfall}mm)`),
+                datasets: [{
+                    data: gauges.map(g => g.rainfall * g.area), // Contribution to total weighted rainfall
+                    backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF'],
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { color: '#E0E0FF' } },
+                    title: { display: true, text: 'Contribution to Average Rainfall', color: '#E0E0FF' }
+                }
+            }
+        });
+
+        setTimeout(() => narrate(`Look! Each bucket has its own special zone! The average rainfall, considering these zones, is ${avgRainfall.toFixed(2)} millimeters! Pretty cool, huh?`), 2500);
+    };
+
+    const calculateIsohyetal = () => {
+        narrate("This is like drawing lines on our cookie to show where the rain was heavy and where it was light, just like hills and valleys! Now, use your mouse like a magic crayon! Sweep your hand over the canvas to draw lines where you think the rainfall amounts are the same!");
+
+        // --- Isohyetal Method Logic ---
+        // 1. User draws isohyets on canvas (mouse movement with tracking)
+        // 2. Store isohyet lines as arrays of points, associated with a rainfall value
+        // 3. Define catchment boundary points (e.g., can be draggable)
+        // 4. Calculate areas between isohyets and catchment boundary
+        // 5. Calculate weighted average P_avg = Σ (a_i * (P_i + P_i+1) / 2) / Σ a_i
+
+        let isohyets = []; // [{ value: 15, points: [{x,y}, {x,y}, ...] }]
+        let drawingIsohyet = false;
+        let currentIsohyetValue = null;
+        let currentIsohyetPoints = [];
+
+        // Helper to find a suitable isohyet value near mouse or gauge
+        const getNearestIsohyetValue = (mouseX, mouseY) => {
+            const gaugeThreshold = 50; // Distance to consider a gauge for value suggestion
+            let suggestedValue = null;
+            let minDiff = Infinity;
+
+            gauges.forEach(g => {
+                const dist = Math.sqrt((g.x - mouseX)**2 + (g.y - mouseY)**2);
+                if (dist < gaugeThreshold && g.rainfall !== null) {
+                    const diff = Math.abs(g.rainfall - 0); // Placeholder for a target value, e.g., 10, 20, 30
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        // Suggest a rounded value near the gauge rainfall, e.g., 5mm increments
+                        suggestedValue = Math.round(g.rainfall / 5) * 5;
+                    }
+                }
+            });
+            return suggestedValue || 15; // Default if no gauge close
+        };
+
+        const startDrawingIsohyet = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (e.button === 0) { // Left mouse button
+                drawingIsohyet = true;
+                currentIsohyetValue = getNearestIsohyetValue(mouseX, mouseY); // Suggest value
+                currentIsohyetPoints = [{ x: mouseX, y: mouseY }];
+                // Play a drawing sound (e.g., continuous low frequency until mouse up)
+                playSound(300, 99999, 0.2); // Continuous
+            }
+        };
+
+        const drawIsohyet = (e) => {
+            if (!drawingIsohyet) return;
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+            currentIsohyetPoints.push({ x: mouseX, y: mouseY });
+
+            drawCatchment(); // Redraw background
+            isohyets.forEach(iso => drawIsohyetLine(iso.points, iso.value)); // Redraw existing
+            drawIsohyetLine(currentIsohyetPoints, currentIsohyetValue, true); // Draw current
+            drawGauges(); // Redraw gauges on top
+        };
+
+        const endDrawingIsohyet = () => {
+            if (drawingIsohyet) {
+                drawingIsohyet = false;
+                if (currentIsohyetPoints.length > 1) {
+                    isohyets.push({ value: currentIsohyetValue, points: currentIsohyetPoints });
+                    drop_success_chime();
+                    narrate(`You drew a ${currentIsohyetValue}mm rain line! Try drawing a few more!`);
+                } else {
+                    warning_buzz();
+                }
+                currentIsohyetPoints = [];
+                currentIsohyetValue = null;
+                // Stop drawing sound
+                gainNode.gain.setValueAtTime(0.00001, audioContext.currentTime + 0.1);
+            }
+        };
+
+        canvas.addEventListener('mousedown', startDrawingIsohyet);
+        canvas.addEventListener('mousemove', drawIsohyet);
+        canvas.addEventListener('mouseup', endDrawingIsohyet);
+
+        const drawIsohyetLine = (points, value, isCurrent = false) => {
+            if (points.length < 2) return;
+            ctx.beginPath();
+            ctx.moveTo(points[0].x, points[0].y);
+            points.forEach(p => ctx.lineTo(p.x, p.y));
+            ctx.strokeStyle = isCurrent ? varRefs.neonGreen : `hsl(${180 - value * 3}, 80%, 60%)`; // Color based on value
+            ctx.lineWidth = isCurrent ? 4 : 2;
+            ctx.shadowBlur = isCurrent ? 8 : 0;
+            ctx.shadowColor = isCurrent ? varRefs.neonGreen : 'transparent';
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+
+            // Label the isohyet
+            if (points.length > 0) {
+                const lastPoint = points[points.length - 1];
+                ctx.fillStyle = '#FFF';
+                ctx.font = '12px Orbitron';
+                ctx.textAlign = 'left';
+                ctx.fillText(`${value} mm`, lastPoint.x + 5, lastPoint.y);
+            }
+        };
+
+        // After user draws a few isohyets (e.g., after 3 are drawn), trigger calculation
+        let isohyetsDrawnCount = 0;
+        const checkIsohyetsDrawn = () => {
+            if (isohyets.length >= 3 && currentIsohyetPoints.length === 0) {
+                canvas.removeEventListener('mousedown', startDrawingIsohyet);
+                canvas.removeEventListener('mousemove', drawIsohyet);
+                canvas.removeEventListener('mouseup', endDrawingIsohyet);
+                calculateFinalIsohyetalAvg();
+            }
+        };
+
+        // This check needs to be called after each successful isohyet creation
+        // For simplicity, let's call a direct calculation function that simulates areas
+        const calculateFinalIsohyetalAvg = () => {
+            // Simplified Isohyetal Area Calculation (Placeholder)
+            // In a real implementation:
+            // 1. Polygonize the catchment and isohyets to define 'bands'
+            // 2. Use a library (e.g., 'clipper-js' or custom geometry) to find areas of these bands
+            // 3. Assign average rainfall to each band
+            // 4. Sum (band_area * band_avg_rainfall) / total_catchment_area
+
+            const dummyBands = [
+                { value1: 0, value2: 10, area: canvas.width * canvas.height * 0.1 },
+                { value1: 10, value2: 15, area: canvas.width * canvas.height * 0.2 },
+                { value1: 15, value2: 20, area: canvas.width * canvas.height * 0.3 },
+                { value1: 20, value2: 30, area: canvas.width * canvas.height * 0.2 }
+            ];
+
+            let totalWeightedRainfall = 0;
+            let totalArea = 0;
+
+            dummyBands.forEach(band => {
+                const avgBandRain = (band.value1 + band.value2) / 2;
+                totalWeightedRainfall += avgBandRain * band.area;
+                totalArea += band.area;
+            });
+
+            const avgRainfall = totalWeightedRainfall / totalArea;
+
+            avgRainfallValueSpan.textContent = `${avgRainfall.toFixed(2)} mm`;
+            updatePitchWithRainfall(avgRainfall);
+            cheer_sound();
+
+            // Visualization: Fill areas between simulated isohyets
+            drawCatchment(); // Clear
+            let currentY = canvas.height * 0.1;
+            dummyBands.forEach((band, i) => {
+                const bandHeight = band.area / canvas.width; // Simplified visualization
+                const color = `hsl(${220 - (band.value1 + band.value2) / 2 * 3}, 80%, 50%)`;
+                ctx.fillStyle = color;
+                ctx.fillRect(0, currentY, canvas.width, bandHeight);
+                currentY += bandHeight;
+            });
+            isohyets.forEach(iso => drawIsohyetLine(iso.points, iso.value)); // Redraw actual drawn lines
+            drawGauges();
+
+            // Graph: Stacked bar chart showing contribution of each band
+            resultsGraphContainer.innerHTML = '<canvas id="isohyetalGraph"></canvas>';
+            const graphCtx = document.getElementById('isohyetalGraph').getContext('2d');
+            new Chart(graphCtx, {
+                type: 'bar',
+                data: {
+                    labels: dummyBands.map(b => `${b.value1}-${b.value2}mm`),
+                    datasets: [{
+                        label: 'Area Weighted Rainfall Contribution',
+                        data: dummyBands.map(b => ((b.value1 + b.value2) / 2) * b.area),
+                        backgroundColor: dummyBands.map((b,i) => `hsl(${220 - (b.value1 + b.value2) / 2 * 3}, 80%, 50%)`),
+                        borderColor: 'rgba(255, 255, 255, 0.5)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y', // Horizontal bars
+                    plugins: {
+                        legend: { display: false },
+                        title: { display: true, text: 'Rainfall Band Contributions', color: '#E0E0FF' }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#E0E0FF' } },
+                        y: { grid: { color: 'rgba(255, 255, 255, 0.1)' }, ticks: { color: '#E0E0FF' } }
+                    }
+                }
+            });
+
+            setTimeout(() => narrate(`Wow, you drew those rainfall lines beautifully! Our average rainfall using the Isohyetal method is ${avgRainfall.toFixed(2)} millimeters! You're a rainfall artist!`), 2500);
+        };
+        // Add a temporary button to trigger final calculation, or automate after a few lines are drawn
+        const completeIsohyetButton = document.createElement('button');
+        completeIsohyetButton.textContent = 'I\'m Done Drawing!';
+        completeIsohyetButton.classList.add('glowing-neon');
+        completeIsohyetButton.style.marginTop = '15px';
+        completeIsohyetButton.onclick = () => {
+            completeIsohyetButton.remove();
+            calculateFinalIsohyetalAvg();
+        };
+        controlPanel.appendChild(completeIsohyetButton);
+    };
+
+    // --- Mouse Gesture for Canvas ---
+    let mouseTrail = [];
+    canvas.addEventListener('mousemove', (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        mouseTrail.push({ x: mouseX, y: mouseY });
+        if (mouseTrail.length > 30) { // Keep trail short
+            mouseTrail.shift();
+        }
+
+        // Redraw only for mouse trail effect, avoid full redraw if current method is active
+        if (!drawingIsohyet) { // Don't interfere with isohyetal drawing
+            drawCatchment();
+            drawGauges();
+            drawMouseTrail();
+        }
+    });
+
+    const drawMouseTrail = () => {
+        ctx.save();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; // Cyan trail
+        ctx.lineCap = 'round';
+        ctx.shadowBlur = 5;
+        ctx.shadowColor = varRefs.neonCyan;
+
+        if (mouseTrail.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(mouseTrail[0].x, mouseTrail[0].y);
+            for (let i = 1; i < mouseTrail.length; i++) {
+                ctx.lineTo(mouseTrail[i].x, mouseTrail[i].y);
+                ctx.strokeStyle = `rgba(0, 255, 255, ${i / mouseTrail.length * 0.5})`; // Fade trail
+            }
+            ctx.stroke();
+        }
+        ctx.restore();
+    };
+
+    // --- Reset Button Listener ---
+    resetButton.addEventListener('click', () => {
+        cheer_sound(); // Play a reset cheer
+        narrate("Alright, let's reset and try a new rainfall riddle!");
+        initSimulation();
+    });
+
+    // --- Initialize ---
+    initSimulation();
+
+    // Export any global constants (e.g., CSS variable refs) for JS use
+    const varRefs = {
+        neonCyan: getComputedStyle(document.documentElement).getPropertyValue('--neon-cyan'),
+        neonPurple: getComputedStyle(document.documentElement).getPropertyValue('--neon-purple'),
+        neonGreen: getComputedStyle(document.documentElement).getPropertyValue('--neon-green'),
+    };
+});
+```
+---
+
+**Final Check & Instructions for Gemini:**
+
+1.  **Read CRITICAL FOCUS GUIDELINES carefully.**
+2.  **Strictly adhere to the `RCC BEAM DESIGN & STRUCTURAL ENGINEERING STYLE GUIDE` exclusion:** The simulation is for Hydrology, **DO NOT** implement any features from this structural engineering section (e.g., IS 456, rebar, stress blocks, camera zooms). The prompt explicitly states this for *this specific simulation*.
+3.  **Implement `d3-delaunay` (or a similar lightweight library) for Thiessen Polygons:** For the Thiessen Polygon method, use an external library like `d3-delaunay` for accurate Voronoi diagram generation and area calculation, integrated into the `script.js`. You may need to provide CDN links for this.
+4.  **Implement Chart.js for Graphing:** Use `Chart.js` for the dynamic bar and pie charts in the results display panel. Provide necessary CDN links.
+5.  **Focus on Visual & Audio Feedback:** Ensure every interaction (drag, drop, calculation, result) has corresponding visual animations, bouncy effects, and the specified sound effects/narration.
+6.  **Canvas Drawing:** All rain gauges, catchment boundaries, Thiessen polygons, and Isohyet lines should be drawn dynamically on the HTML5 Canvas, respecting high-DPI scaling.
+7.  **Gamified Interaction:** Ensure the drag-and-drop of numerical values and method cards feels responsive and rewarding.
+8.  **ELI5 Narration:** Ensure the `narrate()` function is used consistently throughout the simulation to explain concepts and guide the user in a childlike, encouraging tone with analogies.
+9.  **Viewport & Responsiveness:** Validate the CSS layout maintains `100vh` and responsiveness across different window sizes without scrollbars.
+10. **Placeholder for Isohyetal Areas:** For the Isohyetal method, since precise polygonization of user-drawn lines is complex, a simplified area calculation (as provided in the JavaScript `calculateFinalIsohyetalAvg` function) is acceptable, but the drawing of lines and concept narration should be fully functional.
+11. **CSS Variables:** Utilize the CSS variables defined in `:root` for consistent theming.

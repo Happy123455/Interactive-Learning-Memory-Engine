@@ -9,9 +9,21 @@ export default defineConfig(({ command }) => {
     server: {
       host: true,
       proxy: {
-        '/api': 'http://localhost:3001',
-        '/simulations': 'http://localhost:3001',
-        '/ums-tracker': 'http://localhost:3001'
+        '/api': {
+          target: 'http://127.0.0.1:3001',
+          changeOrigin: true,
+          secure: false
+        },
+        '/simulations': {
+          target: 'http://127.0.0.1:3001',
+          changeOrigin: true,
+          secure: false
+        },
+        '/ums-tracker': {
+          target: 'http://127.0.0.1:3001',
+          changeOrigin: true,
+          secure: false
+        }
       }
     }
   }

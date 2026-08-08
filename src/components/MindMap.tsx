@@ -135,7 +135,11 @@ export const MindMap: React.FC<MindMapProps> = ({ db, onSelectQuestion }) => {
         });
       } else if (type === 'subject') {
         if (expandedSubjects[nodeId]) {
-          const units = originalData.units || [];
+          const units = [...(originalData.units || [])].sort((a: Unit, b: Unit) => {
+            const numA = typeof a.number === 'number' ? a.number : (parseInt(String(a.name).match(/\d+/)?.[0] || '99', 10));
+            const numB = typeof b.number === 'number' ? b.number : (parseInt(String(b.name).match(/\d+/)?.[0] || '99', 10));
+            return numA - numB;
+          });
           units.forEach((unit: Unit) => {
             const uId = `${nodeId}-${unit.id}`;
             layoutNode(uId, 'unit', x + 240, nodeId, `Unit ${unit.number}: ${unit.name}`, unit);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { Database, Subject, Unit, Assignment, Question } from '../types';
-import { Plus, Upload, BookOpen, Layers, FileText, BarChart2, AlertCircle, RefreshCw, Play, Loader, XCircle, GitBranch, ListOrdered, Sparkles } from 'lucide-react';
+import { Plus, Upload, BookOpen, Layers, FileText, BarChart2, AlertCircle, RefreshCw, Play, Loader, XCircle, GitBranch, ListOrdered, Sparkles, Copy } from 'lucide-react';
+import { safeJsonParse } from '../utils/json';
 
 interface DashboardProps {
   db: Database;
@@ -39,6 +40,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const [localPdfs, setLocalPdfs] = useState<any[]>([]);
   const [selectedLocalPdf, setSelectedLocalPdf] = useState<string>('');
   const [importMode, setImportMode] = useState<'local' | 'manual'>('local');
+  const [isPromptOnlyMode, setIsPromptOnlyMode] = useState<boolean>(false);
+  const [promptWordCounts, setPromptWordCounts] = useState<Record<string, number>>({});
 
   // Token usage state
   const [tokenStats, setTokenStats] = useState({ requestsToday: 0, tokensToday: 0, limitRequests: 1500 });
@@ -78,13 +81,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await fetch('/api/local-assignments');
       if (res.ok) {
-        const data = await res.json();
-        setLocalPdfs(data);
-        if (data.length > 0) {
-          setSelectedLocalPdf(data[0].filePath);
-          setImportMode('local');
-        } else {
-          setImportMode('manual');
+        const data = await safeJsonParse(res);
+        if (Array.isArray(data)) {
+          setLocalPdfs(data);
+          if (data.length > 0) {
+            setSelectedLocalPdf(data[0].filePath);
+            setImportMode('local');
+          } else {
+            setImportMode('manual');
+          }
         }
       }
     } catch (error) {
@@ -97,7 +102,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await fetch('/api/settings');
       if (res.ok) {
-        const data = await res.json();
+        const data = await safeJsonParse(res);
         setTokenStats({
           requestsToday: data.requestsToday || 0,
           tokensToday: data.tokensToday || 0,
@@ -114,8 +119,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await fetch('/api/auto-run-status');
       if (res.ok) {
-        const data = await res.json();
-        setAutoRunState(data);
+        const data = await safeJsonParse(res);
+        if (data && typeof data === 'object') {
+          setAutoRunState(data);
+        }
       }
     } catch (error) {
       console.error('Error fetching auto-run status:', error);
@@ -127,8 +134,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
     try {
       const res = await fetch('/api/auto-run-topics-status');
       if (res.ok) {
-        const data = await res.json();
-        setTopicAutoRunState(data);
+        const data = await safeJsonParse(res);
+        if (data && typeof data === 'object') {
+          setTopicAutoRunState(data);
+        }
       }
     } catch (error) {
       console.error('Error fetching topic auto-run status:', error);
@@ -152,6 +161,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
+  // Pre-fetch prompt word counts for all questions in active assignment
+  useEffect(() => {
+    if (!selectedAssignment || !selectedAssignment.questions) return;
+    selectedAssignment.questions.forEach(async (q) => {
+      if (promptWordCounts[q.id] !== undefined) return;
+      try {
+        const res = await fetch(`/api/simulation-prompt?questionId=${q.id}`);
+        if (res.ok) {
+          const data = await safeJsonParse(res);
+          if (data && data.prompt) {
+            const count = data.prompt.trim().split(/\s+/).filter(Boolean).length;
+            setPromptWordCounts(prev => ({ ...prev, [q.id]: count }));
+          }
+        }
+      } catch (err) {}
+    });
+  }, [selectedAssignment]);
+
   // Handle parsing text assignment
   const handleUploadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -171,7 +198,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to upload assignment.');
       }
 
@@ -201,7 +228,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to import local assignment.');
       }
 
@@ -225,28 +252,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
     );
 
     if (pendingQuestions.length === 0) {
-      alert('All simulations in this assignment are already ready!');
+      alert('✨ All simulations in this assignment are already ready!');
       return;
     }
 
-    const confirmRun = window.confirm(`Start background automatic generation for all ${pendingQuestions.length} pending simulations?`);
+    const confirmRun = window.confirm(`🚀 Start background automatic generation for all ${pendingQuestions.length} pending simulations?`);
     if (!confirmRun) return;
+
+    setAutoRunState(prev => ({
+      ...prev,
+      isAutoRunning: true,
+      activeAssignmentId: selectedAssignment.id,
+      progressCurrent: 0,
+      progressTotal: pendingQuestions.length,
+      estTimeRemaining: pendingQuestions.length * 15
+    }));
 
     try {
       const res = await fetch('/api/auto-run', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ assignmentId: selectedAssignment.id })
+        body: JSON.stringify({ assignmentId: selectedAssignment.id, promptOnly: isPromptOnlyMode })
       });
 
       if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to start auto-run queue.');
+        const err = await safeJsonParse(res);
+        console.warn('Auto-run status response:', err);
       }
 
       fetchAutoRunStatus();
     } catch (error: any) {
-      alert(error.message);
+      console.warn('Auto-run active in background:', error);
+      fetchAutoRunStatus();
     }
   };
 
@@ -279,7 +316,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to break down question steps.');
       }
 
@@ -306,7 +343,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to scan unit topics.');
       }
 
@@ -316,6 +353,56 @@ export const Dashboard: React.FC<DashboardProps> = ({
       alert(`Error scanning unit topics: ${err.message}`);
     } finally {
       setScanningUnitId(null);
+    }
+  };
+
+  // Copy Canvas Prompt to Clipboard with robust browser fallback
+  const handleCopyPrompt = async (qId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`/api/simulation-prompt?questionId=${qId}`);
+      let promptText = '';
+      if (res.ok) {
+        const data = await safeJsonParse(res);
+        promptText = data.prompt || '';
+      }
+      if (!promptText) {
+        alert('Could not load prompt blueprint for this question.');
+        return;
+      }
+
+      const wordCount = promptText.trim().split(/\s+/).filter(Boolean).length;
+      setPromptWordCounts(prev => ({ ...prev, [qId]: wordCount }));
+
+      // Dual clipboard copy strategy
+      let copySuccess = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(promptText);
+          copySuccess = true;
+        } catch (err) {}
+      }
+
+      if (!copySuccess) {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = promptText;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          copySuccess = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        } catch (err) {}
+      }
+
+      if (copySuccess) {
+        alert(`📋 Copied Gemini Canvas blueprint prompt (${wordCount} words) to clipboard!\n\nYou can now paste this prompt directly into Gemini Canvas to generate your simulation code.`);
+      } else {
+        alert(`Prompt ready (${wordCount} words), but automatic clipboard access was blocked by your browser. You can view or copy it directly in the prompt modal.`);
+      }
+    } catch (err) {
+      console.error('Failed to copy prompt:', err);
     }
   };
 
@@ -349,7 +436,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to generate topic simulation.');
       }
 
@@ -376,7 +463,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to decompose topic steps.');
       }
 
@@ -400,7 +487,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to start step auto-run.');
       }
 
@@ -422,7 +509,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
 
       if (!res.ok) {
-        const err = await res.json();
+        const err = await safeJsonParse(res);
         throw new Error(err.error || 'Failed to start topic auto-run.');
       }
 
@@ -537,7 +624,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
     };
   };
 
-  const currentUnits = db.subjects.find(s => s.id === selectedSubId)?.units || [];
+  const currentUnits = [...(db.subjects.find(s => s.id === selectedSubId)?.units || [])].sort((a, b) => {
+    const numA = typeof a.number === 'number' ? a.number : (parseInt(String(a.name).match(/\d+/)?.[0] || '99', 10));
+    const numB = typeof b.number === 'number' ? b.number : (parseInt(String(b.name).match(/\d+/)?.[0] || '99', 10));
+    return numA - numB;
+  });
   const selectedPdfInfo = localPdfs.find(p => p.filePath === selectedLocalPdf);
 
   // Filter pending questions count in current assignment
@@ -1235,14 +1326,25 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </div>
                   ) : (
                     pendingCount > 0 && (
-                      <button
-                        onClick={handleAutoRun}
-                        className="btn-accent"
-                        style={{ padding: '6px 14px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}
-                      >
-                        <Play size={10} fill="white" />
-                        Auto Run ({pendingCount} pending)
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '10px', color: isPromptOnlyMode ? '#38bdf8' : 'var(--text-secondary)', cursor: 'pointer', background: isPromptOnlyMode ? 'rgba(56, 189, 248, 0.15)' : 'rgba(255, 255, 255, 0.04)', padding: '4px 8px', borderRadius: '6px', border: isPromptOnlyMode ? '1px solid #38bdf8' : '1px solid var(--border-glass)', transition: 'all 0.2s', fontWeight: 'bold' }}>
+                          <input
+                            type="checkbox"
+                            checked={isPromptOnlyMode}
+                            onChange={(e) => setIsPromptOnlyMode(e.target.checked)}
+                            style={{ accentColor: '#38bdf8', cursor: 'pointer' }}
+                          />
+                          ⚡ Prompt-Only (Canvas)
+                        </label>
+                        <button
+                          onClick={handleAutoRun}
+                          className="btn-accent"
+                          style={{ padding: '6px 14px', fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: '6px' }}
+                        >
+                          <Play size={10} fill="white" />
+                          {isPromptOnlyMode ? `Generate Prompts (${pendingCount})` : `Auto Run (${pendingCount} pending)`}
+                        </button>
+                      </div>
                     )
                   )}
                   <div style={{ fontSize: '11px', color: 'var(--text-secondary)', fontFamily: 'var(--font-mono)' }}>
@@ -1347,6 +1449,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               )}
                             </button>
                           )}
+                          {(() => {
+                            const words = promptWordCounts[question.id] || (question.generatedPrompt ? question.generatedPrompt.trim().split(/\s+/).filter(Boolean).length : undefined);
+                            return (
+                              <button
+                                onClick={(e) => handleCopyPrompt(question.id, e)}
+                                className="btn-secondary"
+                                style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', background: 'rgba(56, 189, 248, 0.08)' }}
+                                title="Copy Gemini Canvas instruction blueprint to clipboard"
+                              >
+                                <Copy size={11} /> {words ? `Copy Canvas Prompt (${words} words)` : 'Copy Canvas Prompt (-- words)'}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
 

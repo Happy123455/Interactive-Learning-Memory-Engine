@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createRequire } from 'module';
 
@@ -341,6 +341,32 @@ const runTopicAutoRunBackground = async (subjectId, unitId, topics) => {
   topicAutoRunState.estTimeRemaining = 0;
 };
 
+// Helper to sort subjects, units, and assignments strictly sequentially
+const sortSequentially = (parsed) => {
+  if (parsed && parsed.subjects) {
+    parsed.subjects.forEach(s => {
+      if (s.units) {
+        s.units.sort((a, b) => {
+          const numA = typeof a.number === 'number' ? a.number : (parseInt(String(a.name).match(/\d+/)?.[0] || '99', 10));
+          const numB = typeof b.number === 'number' ? b.number : (parseInt(String(b.name).match(/\d+/)?.[0] || '99', 10));
+          return numA - numB;
+        });
+
+        s.units.forEach(u => {
+          if (u.assignments) {
+            u.assignments.sort((a, b) => {
+              const numA = parseInt(String(a.name).match(/(?:Tutorial|Assignment|Unit)\s*:?\s*(\d+)/i)?.[1] || '99', 10);
+              const numB = parseInt(String(b.name).match(/(?:Tutorial|Assignment|Unit)\s*:?\s*(\d+)/i)?.[1] || '99', 10);
+              return numA - numB;
+            });
+          }
+        });
+      }
+    });
+  }
+  return parsed;
+};
+
 // Helper to read DB
 const readDB = () => {
   try {
@@ -352,7 +378,7 @@ const readDB = () => {
     if (!parsed.fsrsItems) {
       parsed.fsrsItems = [];
     }
-    return parsed;
+    return sortSequentially(parsed);
   } catch (error) {
     console.error('Error reading DB:', error);
     return { subjects: [], fsrsItems: [] };
@@ -362,12 +388,13 @@ const readDB = () => {
 // Helper to write DB (writes locally & mirrors to backup)
 const writeDB = (data) => {
   try {
-    fs.writeFileSync(DB_PATH, JSON.stringify(data, null, 2));
+    const sortedData = sortSequentially(data);
+    fs.writeFileSync(DB_PATH, JSON.stringify(sortedData, null, 2));
     
     // Mirror to backup
     try {
       const backupDbPath = path.join(BACKUP_DIR, 'db.json');
-      fs.writeFileSync(backupDbPath, JSON.stringify(data, null, 2));
+      fs.writeFileSync(backupDbPath, JSON.stringify(sortedData, null, 2));
     } catch (e) {
       console.error('Failed to write backup of DB:', e.message);
     }
@@ -1043,15 +1070,134 @@ ${optimizedPrompt}`;
   }
 };
 
-// Background queue runner
-const runAutoRunBackground = async (assignmentId, questions) => {
+// Helper to build a guaranteed, high-quality Canvas blueprint prompt incorporating Prompt Tuning Engine
+const buildFallbackBlueprintPrompt = (foundTopic, foundSubject, foundUnit, isUnitTopic, settings) => {
+  const blueprintPromptTemplate = settings?.promptBlueprintSystem || DEFAULT_BLUEPRINT_PROMPT;
+  const activeProfileKey = settings?.styleProfile || 'universal_pedagogy';
+  const activeProfileText = STYLE_PROFILES[activeProfileKey] || STYLE_PROFILES['universal_pedagogy'];
+  
+  const titleText = isUnitTopic ? (foundTopic?.title || 'Topic') : (foundTopic?.text || 'Problem Statement');
+  const subName = foundSubject ? foundSubject.name : 'Engineering Course';
+  const unitNum = foundUnit ? foundUnit.number : 1;
+  const unitName = foundUnit ? foundUnit.name : '';
+  const conceptText = foundTopic?.concept || 'Engineering Fundamentals';
+
+  return `=====================================================
+GEMINI CANVAS INSTRUCTION BLUEPRINT (PROMPT TUNING ENGINE)
+=====================================================
+
+--- SYSTEM PROMPT / PROMPT TUNING ENGINE CONFIGURATION ---
+${blueprintPromptTemplate}
+
+--- ACTIVE PEDAGOGY STYLE PROFILE ---
+${activeProfileText}
+
+--- TARGET COURSE & PROBLEM SPECIFICATIONS ---
+Subject: ${subName}
+Unit: Unit ${unitNum} (${unitName})
+Target Concept: ${conceptText}
+Target Task / Problem Statement: "${titleText}"
+Assessed Difficulty: ${foundTopic?.difficulty || 3}/10
+
+--- DETAILED GEMINI CANVAS IMPLEMENTATION BLUEPRINT ---
+
+1. ARCHITECTURAL OVERVIEW & UI LAYOUT:
+- Create a single, self-contained HTML file containing HTML, CSS, and Vanilla JavaScript.
+- Layout: Modern cyber-engineering dark theme featuring background #0F172A, translucent glassmorphism panels (rgba(30, 41, 59, 0.7)), cyan (#00F2FE) & neon purple (#A855F7) glows.
+- Left Sidebar (320px): Parameter controls, sliders, numerical input fields, and interactive drag-and-drop value cards.
+- Central Canvas Viewport: Interactive HTML5 2D Canvas / SVG render zone showing vector graphics, free-body diagrams, or dynamic engineering figures.
+- Bottom Panel: Real-time telemetry graphs, IS codebook reference clauses, and live analytical formula outputs.
+
+2. INTERACTIVE SIMULATION MECHANICS:
+- Implement real-time drag-and-drop mechanics allowing users to adjust parameters or position physical loads/components directly on the visual figure.
+- Dynamic visual feedback: Trigger glowing vector arrows, deformation lines, stress distributions, or fluid flow animations instantly on parameter modification.
+- Include interactive sliders for key variables associated with "${conceptText}".
+
+3. AUDIO & SPEECH NARRATION SYSTEM:
+- Implement Web Audio API synthesizers for interactive SFX (click chimes, warning beeps, snap sounds).
+- Add a prominent "🔊 Listen / Narrate" button leveraging window.speechSynthesis to provide clear step-by-step audio explanations of the engineering concepts.
+
+4. STEP-BY-STEP SOLUTION & EXAM CHECKLIST:
+- Render a structured exam-writing checklist with formula derivations, parameter identification, and step-by-step verified numerical results.
+- Display IS codebook clause citations and structural/engineering design principles pertinent to ${conceptText}.
+
+Return ONLY the complete, executable HTML/CSS/JS code ready to be rendered in Gemini Canvas.`;
+};
+
+// Helper to generate dynamic blueprint prompt
+const generatePromptBlueprintInternal = async (questionId) => {
+  const db = readDB();
+  let foundTopic = null;
+  let foundSubject = null;
+  let foundUnit = null;
+  let isUnitTopic = false;
+
+  for (const s of db.subjects) {
+    for (const u of s.units) {
+      if (u.topics) {
+        const t = u.topics.find(top => top.id === questionId);
+        if (t) {
+          foundTopic = t;
+          foundSubject = s;
+          foundUnit = u;
+          isUnitTopic = true;
+          break;
+        }
+      }
+      if (!isUnitTopic && u.assignments) {
+        for (const a of u.assignments) {
+          const q = a.questions.find(que => que.id === questionId);
+          if (q) {
+            foundTopic = q;
+            foundSubject = s;
+            foundUnit = u;
+            break;
+          }
+        }
+      }
+      if (foundTopic) break;
+    }
+    if (foundTopic) break;
+  }
+
+  const settings = readSettings();
+  if (!foundTopic) {
+    return buildFallbackBlueprintPrompt({ text: 'Engineering Problem' }, null, null, false, settings);
+  }
+
+  try {
+    const ai = getGeminiClient();
+    const optimizerModel = settings.optimizerModel || 'gemini-3.1-flash-lite';
+    const activeProfileKey = settings.styleProfile || 'universal_pedagogy';
+    const activeProfileText = STYLE_PROFILES[activeProfileKey] || STYLE_PROFILES['universal_pedagogy'];
+    const blueprintPromptTemplate = settings.promptBlueprintSystem || DEFAULT_BLUEPRINT_PROMPT;
+
+    let stage1Prompt = '';
+    if (isUnitTopic) {
+      stage1Prompt = `${blueprintPromptTemplate}\n\nActive Pedagogy Style Profile:\n${activeProfileText}\n\nTarget Topic: "${foundTopic.title}"\nConcept: "${foundTopic.concept}"\nDescription: "${foundTopic.description}"`;
+    } else {
+      stage1Prompt = `${blueprintPromptTemplate}\n\nActive Pedagogy Style Profile:\n${activeProfileText}\n\nTarget Problem: "${foundTopic.text}"\nSubject: ${foundSubject?.name}\nUnit: Unit ${foundUnit?.number}\nConcept: ${foundTopic.concept}`;
+    }
+
+    const optInstance = ai.getGenerativeModel({ model: optimizerModel });
+    const stage1Resp = await generateContentWithRetry(optInstance, stage1Prompt, 3);
+    logTokenUsage(stage1Resp);
+    return stage1Resp.response.text();
+  } catch (e) {
+    console.warn(`[Prompt Generation Fallback] Gemini API unavailable (${e.message}). Returning guaranteed blueprint prompt.`);
+    return buildFallbackBlueprintPrompt(foundTopic, foundSubject, foundUnit, isUnitTopic, settings);
+  }
+};
+
+// Background queue runner (supports promptOnly mode)
+const runAutoRunBackground = async (assignmentId, questions, promptOnly = false) => {
   autoRunState.isAutoRunning = true;
   autoRunState.activeAssignmentId = assignmentId;
   autoRunState.progressTotal = questions.length;
   autoRunState.progressCurrent = 0;
   autoRunState.error = null;
 
-  console.log(`Starting background auto-run loop for ${assignmentId}. Questions count: ${questions.length}`);
+  console.log(`Starting background auto-run loop for ${assignmentId} (Prompt-Only: ${promptOnly}). Questions count: ${questions.length}`);
 
   for (let i = 0; i < questions.length; i++) {
     if (autoRunState.activeAssignmentId !== assignmentId) {
@@ -1061,23 +1207,48 @@ const runAutoRunBackground = async (assignmentId, questions) => {
 
     const q = questions[i];
     autoRunState.currentQuestionId = q.id;
-    autoRunState.estTimeRemaining = (questions.length - i) * 25;
+    autoRunState.estTimeRemaining = (questions.length - i) * (promptOnly ? 3 : 25);
 
     try {
-      console.log(`[Background Queue] Generating simulation ${i+1}/${questions.length}: ${q.id}`);
-      await generateSimulationInternal(q.id, [
-        "Drag and Drop Interaction",
-        "Vector/Force/Velocity Diagram Overlays",
-        "Real-time Equation Graphing/Plotting",
-        "Speech Synthesis Concept Narration voiceovers",
-        "Web Audio Synth Sound Effects"
-      ]);
+      if (promptOnly) {
+        console.log(`[Prompt-Only Queue] Generating blueprint prompt ${i+1}/${questions.length}: ${q.id}`);
+        const promptText = await generatePromptBlueprintInternal(q.id);
+        const promptFilePath = path.join(SIM_DIR, `sim-${q.id}-prompt.txt`);
+        fs.writeFileSync(promptFilePath, promptText, 'utf-8');
+        try {
+          fs.writeFileSync(path.join(BACKUP_SIM_DIR, `sim-${q.id}-prompt.txt`), promptText, 'utf-8');
+        } catch (e) {}
+
+        const db = readDB();
+        for (const s of db.subjects) {
+          for (const u of s.units) {
+            for (const a of u.assignments) {
+              const targetQ = a.questions.find(item => item.id === q.id);
+              if (targetQ) {
+                targetQ.status = 'prompt_ready';
+                targetQ.generatedPrompt = promptText;
+                break;
+              }
+            }
+          }
+        }
+        writeDB(db);
+      } else {
+        console.log(`[Background Queue] Generating simulation ${i+1}/${questions.length}: ${q.id}`);
+        await generateSimulationInternal(q.id, [
+          "Drag and Drop Interaction",
+          "Vector/Force/Velocity Diagram Overlays",
+          "Real-time Equation Graphing/Plotting",
+          "Speech Synthesis Concept Narration voiceovers",
+          "Web Audio Synth Sound Effects"
+        ]);
+      }
       autoRunState.progressCurrent = i + 1;
     } catch (err) {
       console.error(`[Background Queue] Error generating simulation for ${q.id}:`, err.message);
     }
 
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, promptOnly ? 500 : 3000));
   }
 
   console.log(`Background auto-run loop completed for assignment: ${assignmentId}`);
@@ -2023,111 +2194,7 @@ app.get('/api/simulation-prompt', async (req, res) => {
 
     // FALLBACK: Dynamically generate the blueprint if it is missing
     console.log(`[Prompt Fallback] Prompt blueprint not found at ${promptFileName}. Generating on the fly...`);
-    const db = readDB();
-    let foundTopic = null;
-    let foundSubject = null;
-    let foundUnit = null;
-    let isUnitTopic = false;
-
-    // Search Unit Topics
-    for (const s of db.subjects) {
-      for (const u of s.units) {
-        if (u.topics) {
-          const t = u.topics.find(top => top.id === questionId);
-          if (t) {
-            foundTopic = t;
-            foundSubject = s;
-            foundUnit = u;
-            isUnitTopic = true;
-            break;
-          }
-        }
-      }
-      if (foundTopic) break;
-    }
-
-    // Search Assignment Questions
-    if (!foundTopic) {
-      for (const s of db.subjects) {
-        for (const u of s.units) {
-          for (const a of u.assignments) {
-            const q = a.questions.find(que => que.id === questionId);
-            if (q) {
-              foundTopic = q;
-              foundSubject = s;
-              foundUnit = u;
-              break;
-            }
-          }
-          if (foundTopic) break;
-        }
-        if (foundTopic) break;
-      }
-    }
-
-    if (!foundTopic) {
-      return res.json({ prompt: 'No prompt blueprint available for this simulation.' });
-    }
-
-    const settings = readSettings();
-    const ai = getGeminiClient();
-    const optimizerModel = settings.optimizerModel || 'gemini-3.1-flash-lite';
-
-    let stage1Prompt = '';
-    const activeProfileKey = settings.styleProfile || 'universal_pedagogy';
-    const activeProfileText = STYLE_PROFILES[activeProfileKey] || STYLE_PROFILES['universal_pedagogy'];
-    const blueprintPromptTemplate = settings.promptBlueprintSystem || DEFAULT_BLUEPRINT_PROMPT;
-
-    if (isUnitTopic) {
-      const flashcardsContext = (foundTopic.flashcards && foundTopic.flashcards.length > 0)
-        ? `\n--- REVIEWED FLASHCARD INFO CARDS FOR THIS TOPIC ---\n` + foundTopic.flashcards.map(fc => `[${fc.type.toUpperCase()}] ${fc.questionOrConcept}: ${fc.answerOrDetails} (Importance: ${fc.importance}/10)`).join('\n')
-        : '';
-
-      stage1Prompt = `${blueprintPromptTemplate}
-
-Active Pedagogy Style Profile:
-${activeProfileText}
-
-Target Unit Topic Details:
-Topic Title: "${foundTopic.title}"
-Concept: "${foundTopic.concept}"
-Description & Exam Notes: "${foundTopic.description}"
-Assessed Importance Weight: ${foundTopic.importanceScore || 8}/10
-Assessed Difficulty: ${foundTopic.difficulty}/10
-${flashcardsContext}
-
-CRITICAL IMPORTANCE & FLASHCARD INTERACTION WEIGHTING:
-Include these requested interaction modules:
-- Interactive Sliders & Input Panel
-- 2D Canvas / Vector Graphics
-- Drag & Drop object placement
-- Real-time Equation Graphing
-- Speech Synthesis Concept Narration voiceovers
-- Web Audio Synth SFX
-- Tutorial Overlay Modal
-
-Output a very comprehensive, detailed, and long simulation blueprint instructions for the code compiler (between 800 to 1200 words). Explicitly detail step-by-step logic, if-else conditional branches, parameter controls, sound formulas, and SVG/Canvas drawing coordinates.`;
-    } else {
-      stage1Prompt = `${blueprintPromptTemplate}
-
-Active Pedagogy Style Profile:
-${activeProfileText}
-
-Target Problem Details:
-Full Problem Text: "${foundTopic.text}"
-Subject: ${foundSubject.name}
-Unit: Unit ${foundUnit.number} (${foundUnit.name})
-Concept: ${foundTopic.concept}
-Difficulty: ${foundTopic.difficulty}/10
-
-Output a very comprehensive, detailed, and long simulation blueprint instructions for the code compiler (between 800 to 1200 words). Explicitly detail step-by-step logic, if-else conditional branches, parameter controls, sound formulas, and SVG/Canvas drawing coordinates.`;
-    }
-
-    console.log(`[Prompt Fallback - Model: ${optimizerModel}] Compiling dynamic blueprint...`);
-    const optInstance = ai.getGenerativeModel({ model: optimizerModel });
-    const stage1Resp = await generateContentWithRetry(optInstance, stage1Prompt, 3);
-    logTokenUsage(stage1Resp);
-    const generatedBlueprint = stage1Resp.response.text();
+    const generatedBlueprint = await generatePromptBlueprintInternal(questionId);
 
     // Write file back to disk so next time it serves instantly
     fs.writeFileSync(promptFilePath, generatedBlueprint, 'utf-8');
@@ -2144,7 +2211,7 @@ Output a very comprehensive, detailed, and long simulation blueprint instruction
 
 // Start background Auto-Run queue
 app.post('/api/auto-run', (req, res) => {
-  const { assignmentId } = req.body;
+  const { assignmentId, promptOnly } = req.body;
   if (!assignmentId) {
     return res.status(400).json({ error: 'Assignment ID is required.' });
   }
@@ -2172,7 +2239,7 @@ app.post('/api/auto-run', (req, res) => {
     }
 
     const pendingQuestions = foundAssignment.questions.filter(
-      q => q.status === 'pending' || q.status === 'failed'
+      q => q.status === 'pending' || q.status === 'failed' || (promptOnly && q.status !== 'ready')
     );
 
     if (pendingQuestions.length === 0) {
@@ -2180,7 +2247,7 @@ app.post('/api/auto-run', (req, res) => {
     }
 
     // Trigger background process (non-blocking)
-    runAutoRunBackground(assignmentId, pendingQuestions);
+    runAutoRunBackground(assignmentId, pendingQuestions, !!promptOnly);
     res.json({ success: true, message: 'Auto-run successfully started in the background.', autoRunState });
   } catch (error) {
     console.error('Error starting auto-run:', error);
@@ -3719,10 +3786,23 @@ app.use('/ums-tracker', express.static(path.join(os.homedir(), '.gemini/antigrav
 // Helper to sync scraped UMS metadata (content.json) directly into db.json
 const syncScrapedContentToDB = () => {
   try {
-    const contentPath = fs.existsSync(path.join(DATA_DIR, 'content.json'))
-      ? path.join(DATA_DIR, 'content.json')
-      : path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/data/content.json');
+    const scratchDash = path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/dashboard.html');
+    const localDash = path.join(DATA_DIR, 'ums-dashboard/dashboard.html');
+    if (fs.existsSync(scratchDash) && fs.existsSync(path.dirname(localDash))) {
+      try {
+        fs.copyFileSync(scratchDash, localDash);
+      } catch (e) {}
+    }
 
+    const scratchContent = path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/data/content.json');
+    const localContent = path.join(DATA_DIR, 'content.json');
+    if (fs.existsSync(scratchContent)) {
+      try {
+        fs.copyFileSync(scratchContent, localContent);
+      } catch (e) {}
+    }
+
+    const contentPath = fs.existsSync(localContent) ? localContent : scratchContent;
     if (!fs.existsSync(contentPath)) return;
 
     const contentData = JSON.parse(fs.readFileSync(contentPath, 'utf-8'));
@@ -3805,10 +3885,13 @@ syncScrapedContentToDB();
 // Run UMS Scraper script from darshan-tracker
 let isUmsScraperRunning = false;
 let umsScraperLog = '';
+let activeScraperChild = null;
 
 app.post('/api/run-ums-scraper', (req, res) => {
-  if (isUmsScraperRunning) {
-    return res.status(409).json({ error: 'UMS Scraper is already running in background.' });
+  if (isUmsScraperRunning && activeScraperChild) {
+    try {
+      activeScraperChild.kill('SIGTERM');
+    } catch (e) {}
   }
 
   const settings = readSettings();
@@ -3819,32 +3902,77 @@ app.post('/api/run-ums-scraper', (req, res) => {
   const envPass = reqPass || settings.umsPassword || process.env.UMS_PASSWORD || '!123abcCBA';
 
   isUmsScraperRunning = true;
-  umsScraperLog = 'Starting Darshan UMS Scraper process...';
 
   const scriptPath = process.env.SCRAPER_SCRIPT_PATH || path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/run_scraper.sh');
+  umsScraperLog = `🚀 Spawning process: bash ${scriptPath}\n`;
+
   const env = {
     ...process.env,
+    PYTHONUNBUFFERED: '1',
     UMS_USERNAME: envUser,
     UMS_PASSWORD: envPass
   };
 
-  const child = exec(`bash "${scriptPath}"`, { env }, (error, stdout, stderr) => {
-    isUmsScraperRunning = false;
-    if (error) {
-      console.error('UMS Scraper error:', error);
-      umsScraperLog = `Error: ${error.message}`;
-    } else {
-      console.log('UMS Scraper finished successfully.');
-      umsScraperLog = stdout || 'Scraper completed successfully.';
-      try {
-        syncScrapedContentToDB();
-        const freshDb = readDB();
-        writeDB(freshDb);
-      } catch (e) {}
-    }
-  });
+  try {
+    const child = spawn('bash', [scriptPath], { env, cwd: path.dirname(scriptPath) });
+    activeScraperChild = child;
 
-  res.json({ success: true, message: 'UMS Scraper started in background.' });
+    child.stdout.on('data', (data) => {
+      const str = data.toString();
+      umsScraperLog += str;
+    });
+
+    child.stderr.on('data', (data) => {
+      const str = data.toString();
+      umsScraperLog += str;
+    });
+
+    child.on('close', (code) => {
+      isUmsScraperRunning = false;
+      if (code === 0) {
+        umsScraperLog += '\n✅ Process completed successfully (exit code 0). Refreshing database...\n';
+        try {
+          syncScrapedContentToDB();
+          const freshDb = readDB();
+          writeDB(freshDb);
+        } catch (e) {
+          console.error('Error syncing DB:', e);
+        }
+      } else {
+        umsScraperLog += `\n❌ Process exited with code ${code}.\n`;
+      }
+    });
+
+    child.on('error', (err) => {
+      isUmsScraperRunning = false;
+      umsScraperLog += `\n❌ Failed to start process: ${err.message}\n`;
+    });
+  } catch (err) {
+    isUmsScraperRunning = false;
+    umsScraperLog += `\n❌ Error spawning process: ${err.message}\n`;
+  }
+
+  res.json({ success: true, message: 'UMS Scraper process spawned in background.' });
+});
+
+// Live Scraper Status & Real-time Terminal Log Stream
+app.get('/api/ums-scraper-status', (req, res) => {
+  const logFile = path.join(os.homedir(), '.gemini/antigravity/scratch/darshan-tracker/data/scraper.log');
+  let fileLog = '';
+  if (fs.existsSync(logFile)) {
+    try {
+      const fullText = fs.readFileSync(logFile, 'utf8');
+      const lines = fullText.trim().split('\n');
+      fileLog = lines.slice(-50).join('\n');
+    } catch (e) {}
+  }
+  
+  const displayLog = umsScraperLog || fileLog || 'Initializing Darshan UMS Playwright scraper...';
+
+  res.json({
+    isRunning: isUmsScraperRunning,
+    log: displayLog
+  });
 });
 
 // Save original gemini canvas link endpoint

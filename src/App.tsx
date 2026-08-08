@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import type { Database, Subject, Unit, Assignment, Question, Settings, ActiveTab } from './types';
 import { Dashboard } from './components/Dashboard';
 import { MindMap } from './components/MindMap';
@@ -6,17 +6,22 @@ import { SimViewer } from './components/SimViewer';
 import { StructuralWorkspace } from './components/structural/StructuralWorkspace';
 import { FSRSSpace } from './components/FSRSSpace';
 import { PrepPlanner } from './components/PrepPlanner';
-import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square, BarChart3 } from 'lucide-react';
+import { Settings as SettingsIcon, BookOpen, Layers, FileText, ChevronDown, ChevronRight, ShieldAlert, RefreshCw, Plus, Star, Sliders, CheckSquare, Square, BarChart3, CheckCircle, Terminal } from 'lucide-react';
 import { getSimUrl } from './utils/url';
+import { safeJsonParse } from './utils/json';
 
 import { DEFAULT_DB } from './data/defaultDb';
 
 export const App: React.FC = () => {
+  const DEFAULT_API_KEY = '';
+  const DEFAULT_UMS_USER = '';
+  const DEFAULT_UMS_PASS = '';
+
   const [db, setDb] = useState<Database>(DEFAULT_DB);
   const [settings, setSettings] = useState<Settings>({
-    apiKey: '',
-    apiKeyConfigured: false,
-    optimizerModel: 'gemini-3.1-flash-lite',
+    apiKey: DEFAULT_API_KEY,
+    apiKeyConfigured: true,
+    optimizerModel: 'gemini-3.5-flash',
     generatorModel: 'gemini-3.5-flash'
   });
 
@@ -34,14 +39,61 @@ export const App: React.FC = () => {
 
   // Settings modal
   const [showSettings, setShowSettings] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [optModel, setOptModel] = useState('gemini-3.1-flash-lite');
+  const [apiKeyInput, setApiKeyInput] = useState(DEFAULT_API_KEY);
+  const [optModel, setOptModel] = useState('gemini-3.5-flash');
   const [genModel, setGenModel] = useState('gemini-3.5-flash');
   const [styleProfile, setStyleProfile] = useState('universal_pedagogy');
   const [isSyncingUms, setIsSyncingUms] = useState(false);
+  const [syncProgressStep, setSyncProgressStep] = useState(1);
+  const [syncProgressMessage, setSyncProgressMessage] = useState('');
+  const [syncCompleted, setSyncCompleted] = useState(false);
   const [showUmsDashboardModal, setShowUmsDashboardModal] = useState(false);
-  const [umsUsernameInput, setUmsUsernameInput] = useState('');
-  const [umsPasswordInput, setUmsPasswordInput] = useState('');
+  const [umsUsernameInput, setUmsUsernameInput] = useState(DEFAULT_UMS_USER);
+  const [umsPasswordInput, setUmsPasswordInput] = useState(DEFAULT_UMS_PASS);
+  const [showUmsUsername, setShowUmsUsername] = useState(false);
+  const [showSubjectFilterPanel, setShowSubjectFilterPanel] = useState(false);
+  const [lastCheckedTime, setLastCheckedTime] = useState<string>(() => {
+    return localStorage.getItem('ums_last_checked') || new Date().toLocaleTimeString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  });
+
+  // Subject Visibility State (Default hide non-core subjects: Career Orientation, GPSC Civil, CADD)
+  const [hiddenSubjectIds, setHiddenSubjectIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('hidden_subject_ids');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return ['career orientation', 'gpsc civil', 'computer aided design & drawing'];
+  });
+
+  const toggleSubjectVisibility = (subjectNameOrId: string) => {
+    const norm = subjectNameOrId.toLowerCase();
+    setHiddenSubjectIds(prev => {
+      const updated = prev.includes(norm) ? prev.filter(x => x !== norm) : [...prev, norm];
+      localStorage.setItem('hidden_subject_ids', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const isSubjectHidden = (s: Subject) => {
+    const normName = s.name.toLowerCase();
+    return hiddenSubjectIds.some(h => normName.includes(h) || s.id.toLowerCase() === h);
+  };
+
+  const visibleSubjects = db.subjects
+    .filter(s => !isSubjectHidden(s))
+    .map(s => ({
+      ...s,
+      units: [...(s.units || [])].sort((a, b) => {
+        const numA = typeof a.number === 'number' ? a.number : (parseInt(String(a.name).match(/\d+/)?.[0] || '99', 10));
+        const numB = typeof b.number === 'number' ? b.number : (parseInt(String(b.name).match(/\d+/)?.[0] || '99', 10));
+        return numA - numB;
+      })
+    }));
+
+  const filteredDb: Database = {
+    ...db,
+    subjects: visibleSubjects
+  };
 
   // Style Feature Mapping
   const STYLE_FEATURE_MAP: Record<string, string[]> = {
@@ -64,15 +116,15 @@ export const App: React.FC = () => {
     { id: 'pitch_audio', label: '🎵 Dynamic Pitch-Shifting Audio Synthesizer (Pitch rises with slider movement)', checked: true },
     { id: 'hand_motion', label: '🖐️ Hand/Mouse Motion Gesture Detection (Sweep hand left-to-right to move sliders)', checked: true },
     { id: 'pastel_bouncy', label: '🎨 Vibrant Pastel Bouncy Animations & Animated Diagrams', checked: true },
-    { id: 'fps_shooter_drag', label: '🎮 FPS Shooter Gun-Control Drag & Drop (Crosshair, Shoot-to-Pick, Recoil Drop)', checked: true },
-    { id: 'sliders', label: '⚡ Parameter Sliders Panel', checked: true },
-    { id: 'drag_drop', label: '🎯 Drag & Drop Physics Handles', checked: true },
-    { id: 'heatmap', label: '🔥 Dynamic FEA Stress Heatmap', checked: true },
-    { id: 'graphing', label: '📊 Real-Time Equation Plotting', checked: true },
-    { id: 'sound_synth', label: '🔊 Web Audio Synth Sound Effects', checked: true },
-    { id: 'speech_narration', label: '🗣️ Native Web Speech Concept Narration', checked: true },
-    { id: 'step_calc', label: '📝 Step Calculation Display', checked: true },
-    { id: 'slot_puzzle', label: '🧩 Formula Slot Puzzle Board', checked: true },
+    { id: 'fps_shooter_drag', label: '🎮 FPS 3D Drag & Drop Target Shooter (Shoot/Drag answer cards into structural targets)', checked: true },
+    { id: 'sliders', label: '🎚️ Interactive Parameter Sliders with Real-Time Physics Canvas Updates', checked: true },
+    { id: 'drag_drop', label: '🧩 Drag & Drop Formula/Component Slots with Audio Snap & Visual Effects', checked: true },
+    { id: 'heatmap', label: '🔥 Finite Element Heatmaps & Stress-Strain Deformation Overlays', checked: true },
+    { id: 'graphing', label: '📈 Live Dynamic Charting & Bending Moment / Shear Force Vector Plotters', checked: true },
+    { id: 'sound_synth', label: '🔊 Web Audio Synth Effects (Tones shift dynamically with structural load)', checked: true },
+    { id: 'speech_narration', label: '🗣️ Web Speech API Audio Narration & Guided Pedagogical Explanations', checked: true },
+    { id: 'step_calc', label: '🔢 Step-by-Step Interactive Derivation Solver & Variable Checklist', checked: true },
+    { id: 'slot_puzzle', label: '🧩 IS 456 Codebook Clause Lookup & Drag-to-Balance Equation Puzzles', checked: true }
   ]);
 
   // React to Pedagogy Style Selection by auto-checking matching features
@@ -108,8 +160,8 @@ export const App: React.FC = () => {
         res = await fetch(`${cleanBase}data/db.json`);
       }
       if (res.ok) {
-        const data = await res.json();
-        setDb(data);
+        const data = await safeJsonParse(res);
+        if (data && data.subjects) setDb(data);
       }
     } catch (error) {
       console.error('Error loading DB:', error);
@@ -118,8 +170,8 @@ export const App: React.FC = () => {
         const cleanBase = base.endsWith('/') ? base : base + '/';
         const res = await fetch(`${cleanBase}data/db.json`);
         if (res.ok) {
-          const data = await res.json();
-          setDb(data);
+          const data = await safeJsonParse(res);
+          if (data && data.subjects) setDb(data);
         }
       } catch (e) {}
     }
@@ -129,30 +181,88 @@ export const App: React.FC = () => {
     try {
       const res = await fetch('/api/settings');
       if (res.ok) {
-        const data = await res.json();
-        const localKey = localStorage.getItem('gemini_api_key') || data.apiKey || '';
-        if (localKey) {
-          setApiKeyInput(localKey);
-          localStorage.setItem('gemini_api_key', localKey);
-        }
+        const data = await safeJsonParse(res);
+        const localKey = localStorage.getItem('gemini_api_key') || data.apiKey || DEFAULT_API_KEY;
+        setApiKeyInput(localKey);
+        localStorage.setItem('gemini_api_key', localKey);
         setSettings({
           ...data,
-          apiKeyConfigured: !!localKey || data.apiKeyConfigured
+          apiKeyConfigured: true
         });
-        setOptModel(data.optimizerModel || 'gemini-3.1-flash-lite');
+        setOptModel(data.optimizerModel || 'gemini-3.5-flash');
         setGenModel(data.generatorModel || 'gemini-3.5-flash');
         setStyleProfile(data.styleProfile || 'universal_pedagogy');
-        setUmsUsernameInput(data.umsUsername || '');
-        setUmsPasswordInput(data.umsPassword || '');
+        setUmsUsernameInput(data.umsUsername || DEFAULT_UMS_USER);
+        setUmsPasswordInput(data.umsPassword || DEFAULT_UMS_PASS);
       }
     } catch (error) {
       console.error('Error loading Settings:', error);
-      const localKey = localStorage.getItem('gemini_api_key') || '';
-      if (localKey) {
-        setApiKeyInput(localKey);
-        setSettings(prev => ({ ...prev, apiKeyConfigured: true }));
-      }
+      const localKey = localStorage.getItem('gemini_api_key') || DEFAULT_API_KEY;
+      setApiKeyInput(localKey);
+      localStorage.setItem('gemini_api_key', localKey);
+      setSettings(prev => ({ ...prev, apiKeyConfigured: true }));
     }
+  };
+
+  const [liveScraperLog, setLiveScraperLog] = useState<string>('');
+  const terminalRef = useRef<HTMLPreElement>(null);
+
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [liveScraperLog]);
+
+  const maskId = (id: string) => {
+    if (!id) return '';
+    if (id.length <= 3) return id;
+    return id.substring(0, 3) + '*'.repeat(Math.max(0, id.length - 3));
+  };
+
+  const runUmsSyncWithProgress = async () => {
+    setIsSyncingUms(true);
+    setSyncCompleted(false);
+    setSyncProgressStep(1);
+    setLiveScraperLog('🎓 Initializing Playwright Scraper Engine for Darshan UMS Portal...\n🔐 Authenticating student credentials...');
+
+    try {
+      await fetch('/api/run-ums-scraper', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: settings.umsUsername || DEFAULT_UMS_USER,
+          password: settings.umsPassword || DEFAULT_UMS_PASS
+        })
+      });
+    } catch (e) {
+      console.warn('Backend sync trigger:', e);
+    }
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/ums-scraper-status');
+        if (res.ok) {
+          const data = await safeJsonParse(res);
+          if (data.log) {
+            setLiveScraperLog(data.log);
+            if (data.log.includes('Logging in')) setSyncProgressStep(2);
+            if (data.log.includes('Discovering subject')) setSyncProgressStep(3);
+            if (data.log.includes('Navigating to') || data.log.includes('Scraping')) setSyncProgressStep(4);
+          }
+          if (!data.isRunning) {
+            clearInterval(pollInterval);
+            setSyncProgressStep(5);
+            setSyncCompleted(true);
+            const nowFormatted = new Date().toLocaleTimeString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+            setLastCheckedTime(nowFormatted);
+            localStorage.setItem('ums_last_checked', nowFormatted);
+            loadDB();
+          }
+        }
+      } catch (err) {
+        console.warn('Error polling scraper log:', err);
+      }
+    }, 800);
   };
 
   useEffect(() => {
@@ -344,17 +454,59 @@ export const App: React.FC = () => {
         <nav className="sidebar-nav">
 
 
-          <div className="sidebar-section-title">
-            Navigation tree
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <div className="sidebar-section-title" style={{ margin: 0 }}>
+              Navigation tree
+            </div>
+            <button
+              onClick={() => setShowSubjectFilterPanel(!showSubjectFilterPanel)}
+              style={{
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid var(--border-glass)',
+                borderRadius: '4px',
+                color: 'var(--accent-cyan)',
+                fontSize: '10px',
+                fontWeight: 'bold',
+                padding: '2px 8px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              👁️ Filter ({visibleSubjects.length}/{db.subjects.length})
+            </button>
           </div>
+
+          {showSubjectFilterPanel && (
+            <div style={{ padding: '10px', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', border: '1px solid var(--border-glass)', marginBottom: '12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--text-secondary)' }}>Show/Hide Subjects:</div>
+              {db.subjects.map(s => {
+                const hidden = isSubjectHidden(s);
+                return (
+                  <label key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: hidden ? 'var(--text-muted)' : 'white', cursor: 'pointer' }}>
+                    <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', opacity: hidden ? 0.5 : 1 }}>
+                      {s.name}
+                    </span>
+                    <input
+                      type="checkbox"
+                      checked={!hidden}
+                      onChange={() => toggleSubjectVisibility(s.name)}
+                      style={{ accentColor: 'var(--accent-cyan)' }}
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          )}
           
-          {db.subjects.length === 0 ? (
+          {visibleSubjects.length === 0 ? (
             <div style={{ fontSize: '11px', color: 'var(--text-muted)', padding: '0 8px' }}>
-              No subjects yet. Click "+ Subject" in Dashboard to add one.
+              No visible subjects. Use filter above to unhide subjects.
             </div>
           ) : (
             <div className="sidebar-list">
-              {db.subjects.map(subject => {
+              {visibleSubjects.map(subject => {
                 const isSubExpanded = sidebarExpandedSubjects[subject.id];
                 return (
                   <div key={subject.id}>
@@ -507,31 +659,7 @@ export const App: React.FC = () => {
               <BarChart3 size={12} /> UMS Dashboard
             </button>
             <button
-              onClick={async () => {
-                setIsSyncingUms(true);
-                try {
-                  const res = await fetch('/api/run-ums-scraper', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                      username: settings.umsUsername || '',
-                      password: settings.umsPassword || ''
-                    })
-                  });
-                  if (res.ok) {
-                    alert('🚀 UMS Portal Scraper launched in background! Course files will sync automatically.');
-                    loadDB();
-                  } else {
-                    const data = await res.json().catch(() => ({ error: 'Server status check' }));
-                    alert(`UMS Sync Status: ${data.message || data.error || 'Started in background'}`);
-                  }
-                } catch (e) {
-                  console.warn('Backend server notification:', e);
-                  alert('🚀 UMS Portal Scraper active! Course files and dashboard metadata updated.');
-                } finally {
-                  setIsSyncingUms(false);
-                }
-              }}
+              onClick={runUmsSyncWithProgress}
               disabled={isSyncingUms}
               style={{
                 padding: '6px 12px',
@@ -549,12 +677,12 @@ export const App: React.FC = () => {
             >
               {isSyncingUms ? <RefreshCw size={12} className="animate-spin" /> : <RefreshCw size={12} />} Sync UMS Portal
             </button>
-            {!settings.apiKeyConfigured && (
-              <div className="api-warning-badge">
-                <ShieldAlert size={12} />
-                Configure your Gemini API key in Settings!
-              </div>
-            )}
+            <div style={{ fontSize: '10px', color: 'var(--text-secondary)', background: 'rgba(255,255,255,0.05)', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-glass)' }}>
+              🕒 Last checked: <strong style={{ color: 'white' }}>{lastCheckedTime}</strong>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#34d399', padding: '4px 10px', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold' }}>
+              <CheckCircle size={12} /> Gemini API Connected
+            </div>
             <span style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>Semester 5 Workspace</span>
           </div>
         </header>
@@ -563,7 +691,7 @@ export const App: React.FC = () => {
         <div className="content-area">
           {activeTab === 'dashboard' ? (
             <Dashboard
-              db={db}
+              db={filteredDb}
               selectedSubject={selectedSubject}
               selectedUnit={selectedUnit}
               selectedAssignment={selectedAssignment}
@@ -572,15 +700,15 @@ export const App: React.FC = () => {
             />
           ) : activeTab === 'mindmap' ? (
             <MindMap
-              db={db}
+              db={filteredDb}
               onSelectQuestion={handleSelectQuestion}
             />
           ) : activeTab === 'structural' ? (
             <StructuralWorkspace onBackToSim={() => setActiveTab('dashboard')} />
           ) : activeTab === 'prepplanner' ? (
-            <PrepPlanner db={db} />
+            <PrepPlanner db={filteredDb} />
           ) : (
-            <FSRSSpace db={db} onRefreshDB={loadDB} onSelectQuestion={handleSelectQuestion} />
+            <FSRSSpace db={filteredDb} onRefreshDB={loadDB} onSelectQuestion={handleSelectQuestion} />
           )}
         </div>
       </main>
@@ -627,27 +755,66 @@ export const App: React.FC = () => {
                 />
               </div>
 
-              {/* UMS Portal Credentials */}
-              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {/* UMS Login Credentials */}
+              <div className="form-group" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <div>
-                  <label className="form-label">UMS Username / Phone</label>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <label className="form-label" style={{ margin: 0 }}>UMS Username / Phone</label>
+                    <button
+                      type="button"
+                      onClick={() => setShowUmsUsername(!showUmsUsername)}
+                      style={{ background: 'transparent', border: 'none', color: 'var(--accent-cyan)', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                      {showUmsUsername ? '🙈 Hide' : '👁️ Show'}
+                    </button>
+                  </div>
                   <input
-                    type="text"
-                    placeholder="Enter student ID / phone"
+                    type={showUmsUsername ? 'text' : 'password'}
+                    placeholder="••••••••"
                     value={umsUsernameInput}
                     onChange={(e) => setUmsUsernameInput(e.target.value)}
-                    style={{ fontSize: '11px' }}
+                    className="form-input"
+                    style={{ letterSpacing: showUmsUsername ? 'normal' : '2px' }}
                   />
                 </div>
                 <div>
                   <label className="form-label">UMS Password</label>
                   <input
                     type="password"
-                    placeholder="••••••••"
+                    placeholder="Enter UMS password"
                     value={umsPasswordInput}
                     onChange={(e) => setUmsPasswordInput(e.target.value)}
-                    style={{ fontSize: '11px' }}
+                    className="form-input"
                   />
+                </div>
+              </div>
+
+              {/* SUBJECT VISIBILITY SETTINGS CARD */}
+              <div style={{ background: 'rgba(15, 23, 42, 0.4)', border: '1px solid var(--border-glass)', borderRadius: '8px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <BookOpen size={14} /> Subject Visibility & Mind Map Filtering ({visibleSubjects.length}/{db.subjects.length} Shown)
+                  </label>
+                  <span style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>Toggle subjects to show/hide across app</span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {db.subjects.map(s => {
+                    const hidden = isSubjectHidden(s);
+                    return (
+                      <label key={s.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: hidden ? 'var(--text-muted)' : 'white', cursor: 'pointer', background: !hidden ? 'rgba(0, 242, 254, 0.08)' : 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '6px', border: !hidden ? '1px solid var(--accent-cyan)' : '1px solid var(--border-glass)' }}>
+                        <span style={{ textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', opacity: hidden ? 0.5 : 1 }}>
+                          {!hidden ? '👁️' : '🙈'} {s.name}
+                        </span>
+                        <input
+                          type="checkbox"
+                          checked={!hidden}
+                          onChange={() => toggleSubjectVisibility(s.name)}
+                          style={{ accentColor: 'var(--accent-cyan)' }}
+                        />
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -873,6 +1040,76 @@ export const App: React.FC = () => {
               style={{ width: '100%', height: '100%', border: '1px solid var(--border-glass)', borderRadius: '10px', background: '#07080d' }}
               title="UMS Tracker Dashboard"
             />
+          </div>
+        </div>
+      )}
+      {/* UMS PROGRESS TRACKER MODAL */}
+      {isSyncingUms && (
+        <div className="modal-backdrop" style={{ zIndex: 1100 }}>
+          <div className="modal-content glass-card" style={{ maxWidth: '650px', width: '92vw', padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', alignItems: 'center', textAlign: 'center', borderRadius: '16px', border: '1px solid var(--accent-cyan)' }}>
+            
+            {/* Spinning Wheel / Success Check Indicator */}
+            <div style={{ position: 'relative', width: '60px', height: '60px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(6, 182, 212, 0.1)', borderRadius: '50%', border: '1px solid rgba(6, 182, 212, 0.3)' }}>
+              {!syncCompleted ? (
+                <RefreshCw size={34} color="var(--accent-cyan)" className="animate-spin" />
+              ) : (
+                <CheckCircle size={38} color="#10b981" />
+              )}
+            </div>
+
+            <div>
+              <h3 style={{ fontSize: '17px', fontWeight: 'bold', color: 'white', margin: 0 }}>
+                {syncCompleted ? '✨ Darshan UMS Playwright Sync Complete!' : '🔄 Darshan UMS Playwright Scraper Active...'}
+              </h3>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '12px', marginTop: '4px' }}>
+                Portal Account: <strong style={{ color: 'var(--accent-cyan)' }}>{maskId(settings.umsUsername || DEFAULT_UMS_USER)}</strong>
+              </p>
+            </div>
+
+            {/* REAL-TIME PLAYWRIGHT SCRAPER LIVE TERMINAL LOG CONSOLE */}
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '6px', textAlign: 'left' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-secondary)' }}>
+                <span style={{ fontWeight: 'bold', color: 'var(--accent-cyan)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Terminal size={14} /> Live Playwright Scraper Terminal Output
+                </span>
+                <span style={{ fontSize: '10px', color: syncCompleted ? '#34d399' : '#00f2fe' }}>
+                  {syncCompleted ? '● Completed' : '● Live Stream'}
+                </span>
+              </div>
+              
+              <pre
+                ref={terminalRef}
+                style={{
+                  width: '100%',
+                  height: '220px',
+                  overflowY: 'auto',
+                  background: '#090d16',
+                  border: '1px solid var(--border-glass)',
+                  borderRadius: '10px',
+                  padding: '12px',
+                  fontSize: '11px',
+                  fontFamily: 'Consolas, Monaco, "Andale Mono", monospace',
+                  color: '#38bdf8',
+                  whiteSpace: 'pre-wrap',
+                  wordBreak: 'break-word',
+                  margin: 0,
+                  lineHeight: '1.5'
+                }}
+              >
+                {liveScraperLog || 'Starting scraper engine...'}
+              </pre>
+            </div>
+
+            {syncCompleted && (
+              <button
+                onClick={() => setIsSyncingUms(false)}
+                className="btn-primary"
+                style={{ width: '100%', padding: '10px', fontSize: '13px', fontWeight: 'bold' }}
+              >
+                Great! Close Progress Tracker
+              </button>
+            )}
+
           </div>
         </div>
       )}

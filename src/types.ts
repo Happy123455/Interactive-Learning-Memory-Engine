@@ -38,6 +38,7 @@ export interface Question {
   comments?: string; // Query comments field
   styleProfileUsed?: string;
   styleRating?: number;
+  generatedPrompt?: string;
 
   // Detailed Step-by-Step Exam Calculation Mode
   hasSteps?: boolean;
