@@ -4,6 +4,39 @@
 
 ---
 
+## 🍌 Gemini Nano & Multimodal AI Pipeline Infographic
+
+SynapseLab AI implements a **Dual-Tier Hybrid AI Architecture**, pairing **On-Device Local Gemini Nano (Banana Engine)** for ultra-fast blueprint prompt generation, instant clipboard copying, and FSRS memory metrics with **Gemini 3.5 Flash Cloud** for heavy multimodal document parsing and HTML5 physics compilation.
+
+```mermaid
+flowchart LR
+    subgraph LocalEdge["🍌 Local Edge & Gemini Nano (On-Device Engine)"]
+        direction TB
+        N1["📱 On-Device Prompt Tuning System"]
+        N2["⚡ Fast Prompt-Only Blueprint Compiler (-- words)"]
+        N3["📋 Instant Canvas Prompt Clipboard Sync"]
+        N4["🧠 Local FSRS Memory Metrics Calculation"]
+    end
+
+    subgraph CloudMultimodal["☁️ Gemini 3.5 Flash Cloud Engine"]
+        direction TB
+        C1["📄 PDF / PPTX Vision & Multimodal Extraction"]
+        C2["🎯 Automated 30-MCQ Courseware Generation"]
+        C3["🎬 HTML5 Physics Canvas Simulation Compiler"]
+        C4["🔊 Web Audio SFX & Speech Synthesis Engine"]
+    end
+
+    LocalEdge <===> |"Dual-Routing Realtime Bridge"| CloudMultimodal
+```
+
+### 🍌 Gemini Nano & Prompt Tuning Engine Highlights:
+- **⚡ Prompt-Only Fast Auto-Run Mode**: Generates Gemini Canvas instruction prompts in 2–3 seconds per question, completely bypassing heavy code compilation limits.
+- **📋 Exact Word Count Display**: Every question card displays exact blueprint length before copying: `Copy Canvas Prompt (845 words)`.
+- **🛡️ Guaranteed Blueprint Fallback**: Incorporates your custom **Prompt Tuning Engine (System Prompt)** from Settings into every generated prompt.
+- **🔢 Sequential Unit Progression**: Automatic 1-to-N numerical unit ordering across Mind Maps, Sidebar Navigation, Dashboard, and Prep Planner.
+
+---
+
 ## 🔄 Automated UMS Portal Sync & Incremental Scraper Architecture
 
 SynapseLab AI features a seamless, one-click integration with University LMS/UMS Portals. When you click **"Sync UMS Portal"** in the top bar, the engine triggers an automated, incremental scraping and simulation compiling pipeline:
