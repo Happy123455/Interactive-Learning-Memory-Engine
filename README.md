@@ -4,9 +4,9 @@
 
 ---
 
-## 🎨 SynapseLab AI & Gemini Nano System Infographic
+## 🎨 SynapseLab AI Platform Infographic
 
-![SynapseLab AI & Gemini Nano Intelligent Workflow](public/gemini_nano_infographic.jpg)
+![SynapseLab AI Advanced Learning & Simulation Platform Overview](public/infographic_option_3.jpg)
 
 ### 🚀 Key System Capabilities:
 - **⚡ Fast Prompt-Only Auto-Run Mode**: Rapid blueprint prompt compiler (2–3 seconds per question) for Gemini Canvas.
@@ -14,6 +14,14 @@
 - **🛡️ Guaranteed Prompt Tuning Engine Blueprint**: Integrates your custom System Prompt from Settings into every prompt blueprint with automatic fallback.
 - **🔢 Sequential 1-to-N Unit Ordering**: Automatic numerical ordering across Mind Maps, Sidebar Navigation, Dashboard, and Prep Planner.
 - **🔒 Privacy Credentials Masking**: Obfuscated login input fields with toggle buttons and live unbuffered terminal logs.
+
+---
+
+### 📊 System Workflow & Architecture Diagrams
+
+![SynapseLab AI 4-Step Sequential Workflow](public/infographic_option_2.jpg)
+
+![SynapseLab AI 6-Block Architecture Poster](public/infographic_option_1.jpg)
 
 ---
 
