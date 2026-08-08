@@ -14,6 +14,73 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
   const [subTab, setSubTab] = useState<'queue' | 'mindmap' | 'forecast' | 'learning_curve'>('queue');
   const [activeItemView, setActiveItemView] = useState<'sim' | 'quiz'>('sim');
 
+  // Prompt Word Counts & Copy helper
+  const [fsrsPromptWordCounts, setFsrsPromptWordCounts] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    if (!activeItemId) return;
+    const fetchWordCount = async () => {
+      if (fsrsPromptWordCounts[activeItemId] !== undefined) return;
+      try {
+        const res = await fetch(`/api/simulation-prompt?questionId=${activeItemId}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.prompt) {
+            const count = data.prompt.trim().split(/\s+/).filter(Boolean).length;
+            setFsrsPromptWordCounts(prev => ({ ...prev, [activeItemId]: count }));
+          }
+        }
+      } catch (e) {}
+    };
+    fetchWordCount();
+  }, [activeItemId]);
+
+  const handleCopyFsrsPrompt = async (itemId: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    try {
+      const res = await fetch(`/api/simulation-prompt?questionId=${itemId}`);
+      let promptText = '';
+      if (res.ok) {
+        const data = await res.json();
+        promptText = data.prompt || '';
+      }
+      if (!promptText) {
+        alert('Could not retrieve prompt blueprint for this item.');
+        return;
+      }
+      const count = promptText.trim().split(/\s+/).filter(Boolean).length;
+      setFsrsPromptWordCounts(prev => ({ ...prev, [itemId]: count }));
+
+      let copySuccess = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(promptText);
+          copySuccess = true;
+        } catch (e) {}
+      }
+      if (!copySuccess) {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = promptText;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          copySuccess = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        } catch (e) {}
+      }
+
+      if (copySuccess) {
+        alert(`📋 Copied Gemini Canvas blueprint prompt (${count} words) to clipboard!\n\nYou can paste this prompt directly into Gemini Canvas.`);
+      } else {
+        alert(`Prompt ready (${count} words). Copying directly was blocked by your browser.`);
+      }
+    } catch (err: any) {
+      console.error('Failed to copy FSRS prompt:', err);
+    }
+  };
+
   // Custom Code Paste state
   const [showPasteModal, setShowPasteModal] = useState(false);
   const [variantNameInput, setVariantNameInput] = useState('');
@@ -611,6 +678,45 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
                 <Layers size={13} color="var(--accent-cyan)" /> Interactive Scenario Canvas
               </span>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                <button
+                  onClick={(e) => handleCopyFsrsPrompt(item.id, e)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(56, 189, 248, 0.1)',
+                    border: '1px solid rgba(56, 189, 248, 0.3)',
+                    color: '#38bdf8',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                  title="Copy Gemini Canvas instruction blueprint to clipboard"
+                >
+                  <Copy size={11} /> {fsrsPromptWordCounts[item.id] ? `Copy Canvas Prompt (${fsrsPromptWordCounts[item.id]} words)` : 'Copy Canvas Prompt (-- words)'}
+                </button>
+
+                <button
+                  onClick={() => setShowPasteModal(true)}
+                  style={{
+                    padding: '4px 10px',
+                    borderRadius: '6px',
+                    background: 'rgba(30, 41, 59, 0.6)',
+                    border: '1px solid var(--border-glass)',
+                    color: 'white',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <ClipboardList size={11} color="#38bdf8" /> Paste Custom HTML
+                </button>
+
                 <button
                   onClick={handleToggleFsrsFullscreen}
                   title="Fullscreen"
@@ -1213,10 +1319,7 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
                                                   <div
                                                     key={card.id}
                                                     onClick={() => {
-                                                      if (card.sourceType === 'mcq') {
-                                                        setActiveItemId(card.id);
-                                                        setActiveItemView('sim');
-                                                      } else if (onSelectQuestion) {
+                                                      if (onSelectQuestion) {
                                                         onSelectQuestion({
                                                           id: card.id,
                                                           text: card.queryText,
@@ -1567,10 +1670,7 @@ export const FSRSSpace: React.FC<FSRSSpaceProps> = ({ db, onRefreshDB, onSelectQ
                           <div style={{ display: 'flex', gap: '8px' }}>
                             <button
                               onClick={() => {
-                                if (item.sourceType === 'mcq') {
-                                  setActiveItemId(item.id);
-                                  setActiveItemView('sim');
-                                } else if (onSelectQuestion) {
+                                if (onSelectQuestion) {
                                   onSelectQuestion({
                                     id: item.id,
                                     text: item.queryText,

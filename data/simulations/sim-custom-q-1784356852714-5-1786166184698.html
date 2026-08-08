@@ -1,0 +1,1079 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-slate-950 text-slate-100 select-none">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Horizontal Alignment Widening Simulator</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            cyber: {
+              bg: '#080c14',
+              card: 'rgba(15, 23, 42, 0.75)',
+              border: 'rgba(56, 189, 248, 0.2)',
+              cyan: '#00f0ff',
+              purple: '#a855f7',
+              green: '#10b981',
+              amber: '#f59e0b',
+              rose: '#f43f5e'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    /* Custom Scrollbar and UI Tweaks */
+    body {
+      overflow: hidden;
+      background-color: #060911;
+      background-image: 
+        radial-gradient(circle at 50% 0%, rgba(0, 240, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(circle at 0% 100%, rgba(168, 85, 247, 0.05) 0%, transparent 40%);
+    }
+
+    .glass-panel {
+      background: rgba(13, 20, 36, 0.65);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(56, 189, 248, 0.15);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-panel-glow {
+      box-shadow: 0 0 25px rgba(0, 240, 255, 0.12), inset 0 0 15px rgba(0, 240, 255, 0.05);
+    }
+
+    .glow-cyan {
+      box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+    }
+
+    .glow-purple {
+      box-shadow: 0 0 15px rgba(168, 85, 247, 0.4);
+    }
+
+    /* Target Slot Snap Animation */
+    .slot-highlight {
+      animation: pulse-ring 1.5s infinite ease-in-out;
+    }
+
+    @keyframes pulse-ring {
+      0% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.6); }
+      70% { box-shadow: 0 0 0 8px rgba(0, 240, 255, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(0, 240, 255, 0); }
+    }
+
+    .chip-draggable {
+      cursor: grab;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .chip-draggable:active {
+      cursor: grabbing;
+      transform: scale(1.05);
+    }
+
+    /* Custom Input Range Styling */
+    input[type=range] {
+      -webkit-appearance: none;
+      background: rgba(30, 41, 59, 0.8);
+      border-radius: 6px;
+      height: 6px;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 18px;
+      width: 18px;
+      border-radius: 50%;
+      background: #00f0ff;
+      box-shadow: 0 0 10px #00f0ff;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+  </style>
+</head>
+
+<body class="h-screen w-screen flex flex-col font-sans text-slate-200 antialiased overflow-hidden">
+
+  <!-- Top Navigation Command Bar -->
+  <header class="h-14 px-6 glass-panel border-b border-slate-800/80 flex items-center justify-between z-30 shrink-0">
+    <div class="flex items-center space-x-3">
+      <div class="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-400/40 flex items-center justify-center glow-cyan">
+        <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l6-16m-7 4l6 16M6 16l-3-3 3-3m12 0l3 3-3 3"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="text-sm font-extrabold tracking-wider text-cyan-400 uppercase font-mono flex items-center gap-2">
+          HORIZON-X <span class="text-xs font-normal px-2 py-0.5 rounded bg-cyan-950/80 border border-cyan-800 text-cyan-300">ENG-SIM v2.4</span>
+        </h1>
+        <p class="text-[10px] text-slate-400 font-mono">HORIZONTAL ALIGNMENT WIDENING SANDBOX</p>
+      </div>
+    </div>
+
+    <!-- Center Control Toggles -->
+    <div class="flex items-center space-x-3">
+      <button id="modeToggleBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold font-mono bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition flex items-center gap-1.5 text-cyan-300">
+        <span class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
+        <span id="modeText">MODE: ENGINEERING ENGINE</span>
+      </button>
+
+      <button id="zoomToggleBtn" class="px-3 py-1.5 rounded-lg text-xs font-semibold font-mono bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 transition flex items-center gap-1.5 text-purple-300">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
+        <span id="zoomText">FOCUS: OVERVIEW</span>
+      </button>
+    </div>
+
+    <!-- Audio & Voice Controls -->
+    <div class="flex items-center space-x-2">
+      <button id="audioFxBtn" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 border border-slate-700 transition" title="Toggle Audio Synth">
+        <svg id="audioFxIcon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/></svg>
+      </button>
+
+      <button id="voiceNarratorBtn" class="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-400 border border-slate-700 transition flex items-center gap-1.5 text-xs font-mono" title="Toggle AI Narrator Voice">
+        <svg id="voiceIcon" class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 016 0v6a3 3 0 01-3 3z"/></svg>
+        <span>VOICE</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Grid Workspace (100vh minus header) -->
+  <main class="flex-1 grid grid-cols-12 gap-3 p-3 overflow-hidden relative">
+
+    <!-- LEFT COLUMN: Problem Card & Variable Workbench (3 Cols) -->
+    <section class="col-span-12 lg:col-span-3 flex flex-col gap-3 overflow-y-auto pr-1">
+      
+      <!-- Draggable Problem Card -->
+      <div id="problemCard" class="glass-panel glass-panel-glow rounded-xl p-4 border-l-4 border-l-cyan-400 relative group transition-all">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-[11px] font-mono font-bold tracking-wider text-cyan-400 uppercase flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            PROBLEM SPECIFICATION
+          </span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 font-mono">IRC:73-1980</span>
+        </div>
+        
+        <p id="problemStatementText" class="text-xs leading-relaxed text-slate-300 font-sans">
+          Calculate the extra width of pavement required on a horizontal curve of radius <strong class="text-cyan-300">700 m</strong> on a two-lane highway, design speed <strong class="text-purple-300">80 kmph</strong>. Wheel base = <strong class="text-amber-300">6 m</strong>.
+        </p>
+
+        <!-- Variable Chips Source Container -->
+        <div class="mt-3 pt-3 border-t border-slate-800/80">
+          <div class="text-[10px] font-mono text-slate-400 mb-2 uppercase">Drag / Click Variables into Formulas:</div>
+          <div class="flex flex-wrap gap-2" id="chipPool">
+            <div draggable="true" id="chip-R" data-var="R" data-val="700" class="chip-draggable px-2.5 py-1 rounded-md bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 text-xs font-mono font-bold flex items-center gap-1 hover:border-cyan-400">
+              <span>R = 700 m</span>
+            </div>
+            <div draggable="true" id="chip-V" data-var="V" data-val="80" class="chip-draggable px-2.5 py-1 rounded-md bg-purple-950/80 border border-purple-500/50 text-purple-300 text-xs font-mono font-bold flex items-center gap-1 hover:border-purple-400">
+              <span>V = 80 km/h</span>
+            </div>
+            <div draggable="true" id="chip-l" data-var="l" data-val="6" class="chip-draggable px-2.5 py-1 rounded-md bg-amber-950/80 border border-amber-500/50 text-amber-300 text-xs font-mono font-bold flex items-center gap-1 hover:border-amber-400">
+              <span>l = 6 m</span>
+            </div>
+            <div draggable="true" id="chip-n" data-var="n" data-val="2" class="chip-draggable px-2.5 py-1 rounded-md bg-emerald-950/80 border border-emerald-500/50 text-emerald-300 text-xs font-mono font-bold flex items-center gap-1 hover:border-emerald-400">
+              <span>n = 2 lanes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step-by-Step Execution Checklist -->
+      <div class="glass-panel rounded-xl p-4 flex flex-col gap-2.5">
+        <h3 class="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          ENGINEERING WORKFLOW
+        </h3>
+
+        <ul class="space-y-2 text-xs font-mono" id="checklist">
+          <li id="step1" class="p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-slate-400 transition-all">
+            <span>1. Identify Design Variables</span>
+            <span class="status-badge px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">PENDING</span>
+          </li>
+          <li id="step2" class="p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-slate-400 transition-all">
+            <span>2. Calculate Mechanical ($W_m$)</span>
+            <span class="status-badge px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">PENDING</span>
+          </li>
+          <li id="step3" class="p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-slate-400 transition-all">
+            <span>3. Calculate Psychological ($W_{ps}$)</span>
+            <span class="status-badge px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">PENDING</span>
+          </li>
+          <li id="step4" class="p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-slate-400 transition-all">
+            <span>4. Determine Total Extra Width ($W_e$)</span>
+            <span class="status-badge px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400">PENDING</span>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Formula Workbench Panel -->
+      <div class="glass-panel rounded-xl p-4 flex flex-col gap-3 flex-1">
+        <h3 class="text-xs font-mono font-bold tracking-wider text-cyan-400 uppercase flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+          FORMULA WORKBENCH
+        </h3>
+
+        <!-- Mechanical Widening Slot Engine -->
+        <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-mono text-emerald-400 font-semibold">1. Mechanical Widening ($W_m$)</span>
+            <span id="wmResultText" class="text-xs font-mono font-bold text-emerald-300">0.000 m</span>
+          </div>
+          <div class="flex items-center justify-center gap-1 py-1 text-xs font-mono bg-slate-950/70 rounded border border-slate-800/80">
+            <span>$W_m =$</span>
+            <!-- Slot n -->
+            <div data-accept="n" class="slot-target w-12 h-7 rounded border-2 border-dashed border-emerald-500/40 bg-emerald-950/30 flex items-center justify-center text-[11px] font-bold text-emerald-300 transition-all">
+              <span class="placeholder font-normal text-slate-500">n</span>
+            </div>
+            <span>×</span>
+            <!-- Slot l -->
+            <div data-accept="l" class="slot-target w-12 h-7 rounded border-2 border-dashed border-amber-500/40 bg-amber-950/30 flex items-center justify-center text-[11px] font-bold text-amber-300 transition-all">
+              <span class="placeholder font-normal text-slate-500">l²</span>
+            </div>
+            <span>/ ( 2 ×</span>
+            <!-- Slot R1 -->
+            <div data-accept="R" class="slot-target w-14 h-7 rounded border-2 border-dashed border-cyan-500/40 bg-cyan-950/30 flex items-center justify-center text-[11px] font-bold text-cyan-300 transition-all">
+              <span class="placeholder font-normal text-slate-500">R</span>
+            </div>
+            <span>)</span>
+          </div>
+        </div>
+
+        <!-- Psychological Widening Slot Engine -->
+        <div class="p-3 rounded-lg bg-slate-900/80 border border-slate-800 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-mono text-purple-400 font-semibold">2. Psychological ($W_{ps}$)</span>
+            <span id="wpsResultText" class="text-xs font-mono font-bold text-purple-300">0.000 m</span>
+          </div>
+          <div class="flex items-center justify-center gap-1 py-1 text-xs font-mono bg-slate-950/70 rounded border border-slate-800/80">
+            <span>$W_{ps} =$</span>
+            <!-- Slot V -->
+            <div data-accept="V" class="slot-target w-12 h-7 rounded border-2 border-dashed border-purple-500/40 bg-purple-950/30 flex items-center justify-center text-[11px] font-bold text-purple-300 transition-all">
+              <span class="placeholder font-normal text-slate-500">V</span>
+            </div>
+            <span>/ ( 9.5 × √</span>
+            <!-- Slot R2 -->
+            <div data-accept="R" class="slot-target w-14 h-7 rounded border-2 border-dashed border-cyan-500/40 bg-cyan-950/30 flex items-center justify-center text-[11px] font-bold text-cyan-300 transition-all">
+              <span class="placeholder font-normal text-slate-500">R</span>
+            </div>
+            <span>)</span>
+          </div>
+        </div>
+
+        <!-- Total Widening Box -->
+        <div class="p-3 rounded-lg bg-cyan-950/40 border border-cyan-500/40 flex items-center justify-between">
+          <span class="text-xs font-mono font-bold text-cyan-300">TOTAL EXTRA WIDTH ($W_e$)</span>
+          <span id="weTotalResultText" class="text-base font-mono font-extrabold text-cyan-400 glow-cyan px-2 py-0.5 bg-cyan-950 rounded border border-cyan-400">0.00 m</span>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- CENTER COLUMN: Interactive Canvas Sandbox & Telemetry (6 Cols) -->
+    <section class="col-span-12 lg:col-span-6 flex flex-col gap-3 relative overflow-hidden">
+      
+      <!-- Canvas Canvas Wrapper -->
+      <div class="flex-1 glass-panel rounded-xl relative overflow-hidden flex flex-col border border-cyan-500/20">
+        
+        <!-- Live Telemetry HUD Overlay -->
+        <div class="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none z-10">
+          <!-- Left Telemetry Badges -->
+          <div class="flex gap-2">
+            <div class="px-2.5 py-1 rounded bg-slate-950/80 border border-slate-800 backdrop-blur text-[11px] font-mono">
+              <span class="text-slate-400">SPEED:</span>
+              <span id="hudSpeed" class="text-purple-400 font-bold ml-1">80 km/h</span>
+            </div>
+            <div class="px-2.5 py-1 rounded bg-slate-950/80 border border-slate-800 backdrop-blur text-[11px] font-mono">
+              <span class="text-slate-400">RADIUS:</span>
+              <span id="hudRadius" class="text-cyan-400 font-bold ml-1">700 m</span>
+            </div>
+          </div>
+
+          <!-- Right Telemetry Badges -->
+          <div class="flex gap-2">
+            <div class="px-2.5 py-1 rounded bg-slate-950/80 border border-slate-800 backdrop-blur text-[11px] font-mono">
+              <span class="text-slate-400">OFF-TRACKING ($W_m$):</span>
+              <span id="hudWm" class="text-emerald-400 font-bold ml-1">0.05 m</span>
+            </div>
+            <div class="px-2.5 py-1 rounded bg-slate-950/80 border border-slate-800 backdrop-blur text-[11px] font-mono">
+              <span class="text-slate-400">FORCE P:</span>
+              <span id="hudForce" class="text-rose-400 font-bold ml-1">0.07 g</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Main Physics Simulation Canvas -->
+        <canvas id="simCanvas" class="w-full h-full cursor-grab active:cursor-grabbing block"></canvas>
+
+        <!-- Gesture Drag Sweep Overlay Indicator -->
+        <div class="absolute bottom-16 right-4 px-3 py-1 rounded-full bg-slate-900/80 border border-slate-700/80 text-[10px] font-mono text-slate-400 pointer-events-none flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5 text-cyan-400 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"/></svg>
+          <span>DRAG CANVAS TO SWEEP ALONG CURVE</span>
+        </div>
+
+        <!-- Bottom Simulation Controls Bar -->
+        <div class="p-3 bg-slate-950/90 border-t border-slate-800/90 grid grid-cols-12 gap-3 items-center z-10">
+          
+          <!-- Speed Slider -->
+          <div class="col-span-4 flex flex-col gap-1">
+            <div class="flex justify-between text-[10px] font-mono">
+              <span class="text-purple-400 font-bold">DESIGN SPEED (V)</span>
+              <span id="speedValText" class="text-slate-300">80 km/h</span>
+            </div>
+            <input id="speedSlider" type="range" min="30" max="130" value="80" step="1" class="w-full">
+          </div>
+
+          <!-- Radius Slider -->
+          <div class="col-span-4 flex flex-col gap-1">
+            <div class="flex justify-between text-[10px] font-mono">
+              <span class="text-cyan-400 font-bold">CURVE RADIUS (R)</span>
+              <span id="radiusValText" class="text-slate-300">700 m</span>
+            </div>
+            <input id="radiusSlider" type="range" min="100" max="1000" value="700" step="10" class="w-full">
+          </div>
+
+          <!-- Wheelbase Slider -->
+          <div class="col-span-4 flex flex-col gap-1">
+            <div class="flex justify-between text-[10px] font-mono">
+              <span class="text-amber-400 font-bold">WHEELBASE (l)</span>
+              <span id="wheelbaseValText" class="text-slate-300">6.0 m</span>
+            </div>
+            <input id="wheelbaseSlider" type="range" min="3" max="10" value="6" step="0.5" class="w-full">
+          </div>
+
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- RIGHT COLUMN: Dynamic Graph, Live Breakdown & ELI5 Sandbox (3 Cols) -->
+    <section class="col-span-12 lg:col-span-3 flex flex-col gap-3 overflow-y-auto pl-1">
+      
+      <!-- Dynamic Graph: Widening vs Radius -->
+      <div class="glass-panel rounded-xl p-3 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-[11px] font-mono font-bold text-cyan-400 uppercase flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+            WIDENING VS RADIUS
+          </span>
+          <span class="text-[9px] font-mono text-slate-400">REAL-TIME CURVE</span>
+        </div>
+
+        <div class="w-full h-32 relative bg-slate-950/80 rounded-lg border border-slate-800 p-1">
+          <canvas id="graphCanvas" class="w-full h-full block"></canvas>
+        </div>
+
+        <div class="flex justify-between text-[9px] font-mono text-slate-400 px-1">
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-400 inline-block"></span> Total $W_e$</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Mech $W_m$</span>
+          <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-purple-400 inline-block"></span> Psych $W_{ps}$</span>
+        </div>
+      </div>
+
+      <!-- ELI5 Sandbox Insight / Pedagogical Panel -->
+      <div id="eli5Card" class="glass-panel rounded-xl p-4 border-l-4 border-l-amber-400 flex flex-col gap-2">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-mono font-bold text-amber-400 uppercase flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span id="insightTitle">ELI5 CONCEPT SANDBOX</span>
+          </span>
+          <span class="text-[10px] px-2 py-0.5 rounded bg-amber-950/80 border border-amber-800 text-amber-300 font-mono">PEDAGOGY</span>
+        </div>
+
+        <p id="insightBody" class="text-xs text-slate-300 leading-relaxed font-sans">
+          <strong>Why do roads need extra width on sharp curves?</strong><br>
+          1. <strong class="text-emerald-300">Off-Tracking ($W_m$):</strong> Rear wheels don't steer—they cut corners inside the front wheels!<br>
+          2. <strong class="text-purple-300">Psychological ($W_{ps}$):</strong> Drivers naturally swing outward at higher speeds to maintain a safety buffer from edges.
+        </p>
+      </div>
+
+      <!-- Live Physics Formula Breakdown -->
+      <div class="glass-panel rounded-xl p-4 flex flex-col gap-3 flex-1">
+        <h3 class="text-xs font-mono font-bold tracking-wider text-slate-300 uppercase flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m-6 4h6m-6 4h6M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          EXACT CALCULATIONS
+        </h3>
+
+        <div class="space-y-2 text-xs font-mono">
+          <div class="p-2 rounded bg-slate-900/80 border border-slate-800 flex justify-between items-center">
+            <span class="text-slate-400">Mechanical Off-Track:</span>
+            <span id="breakdownWm" class="text-emerald-400 font-bold">0.051 m</span>
+          </div>
+
+          <div class="p-2 rounded bg-slate-900/80 border border-slate-800 flex justify-between items-center">
+            <span class="text-slate-400">Psychological Buffer:</span>
+            <span id="breakdownWps" class="text-purple-400 font-bold">0.318 m</span>
+          </div>
+
+          <div class="p-2 rounded bg-cyan-950/40 border border-cyan-800/80 flex justify-between items-center">
+            <span class="text-cyan-300 font-bold">Total Extra Widening:</span>
+            <span id="breakdownWe" class="text-cyan-400 font-extrabold text-sm">0.370 m</span>
+          </div>
+
+          <div class="p-2 rounded bg-slate-900/80 border border-slate-800 flex justify-between items-center">
+            <span class="text-slate-400">Normal Road Width (2L):</span>
+            <span class="text-slate-300">7.000 m</span>
+          </div>
+
+          <div class="p-2 rounded bg-slate-900/80 border border-slate-800 flex justify-between items-center">
+            <span class="text-slate-400">Total Curve Width:</span>
+            <span id="breakdownWtotal" class="text-amber-400 font-bold">7.370 m</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    // --- SIMULATION STATE ---
+    const state = {
+      n: 2,           // Number of lanes
+      l: 6.0,         // Wheelbase (meters)
+      R: 700,         // Curve Radius (meters)
+      V: 80,          // Design Speed (km/h)
+      
+      // Slot drag-and-drop state
+      slots: {
+        n: null,
+        l: null,
+        R: null,
+        V: null
+      },
+
+      // Toggles & Modes
+      isToyMode: false,
+      isZoomed: false,
+      audioEnabled: true,
+      voiceEnabled: true,
+
+      // Vehicle Kinematics Pathing
+      carProgress: 0,   // 0 to 1 along curve arc
+      sweepOffset: 0,   // Manual drag sweep angle offset
+      isDraggingCanvas: false,
+      dragStartX: 0,
+
+      // Calculations
+      Wm: 0,
+      Wps: 0,
+      We: 0
+    };
+
+    // --- AUDIO SYNTHESIZER ENGINE (Web Audio API) ---
+    let audioCtx = null;
+    let oscNode = null;
+    let gainNode = null;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContext();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playChime() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.exponentialRampToValueAtTime(659.25, now + 0.15); // E5
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function playThrum() {
+      if (!state.audioEnabled) return;
+      initAudio();
+      try {
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(60, now);
+        osc.frequency.exponentialRampToValueAtTime(40, now + 0.25);
+
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.3);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // --- VOICE NARRATOR (SpeechSynthesis) ---
+    function speak(text) {
+      if (!state.voiceEnabled || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel(); // Cancel active speech
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      window.speechSynthesis.speak(utterance);
+    }
+
+    // --- FORMULA CALCULATIONS ---
+    function recalculate() {
+      // Mechanical Widening: Wm = (n * l^2) / (2 * R)
+      state.Wm = (state.n * Math.pow(state.l, 2)) / (2 * state.R);
+      
+      // Psychological Widening: Wps = V / (9.5 * sqrt(R))
+      state.Wps = state.V / (9.5 * Math.sqrt(state.R));
+      
+      // Total Extra Width: We = Wm + Wps
+      state.We = state.Wm + state.Wps;
+
+      // Update DOM Text Displays
+      document.getElementById('breakdownWm').innerText = state.Wm.toFixed(3) + ' m';
+      document.getElementById('breakdownWps').innerText = state.Wps.toFixed(3) + ' m';
+      document.getElementById('breakdownWe').innerText = state.We.toFixed(3) + ' m';
+      document.getElementById('breakdownWtotal').innerText = (7.0 + state.We).toFixed(3) + ' m';
+
+      document.getElementById('hudWm').innerText = state.Wm.toFixed(2) + ' m';
+      document.getElementById('hudSpeed').innerText = state.V + ' km/h';
+      document.getElementById('hudRadius').innerText = state.R + ' m';
+
+      // Centrifugal Force factor: Fc = V^2 / (g * R), V in m/s
+      const V_mps = state.V / 3.6;
+      const forceG = (Math.pow(V_mps, 2) / (9.81 * state.R)).toFixed(2);
+      document.getElementById('hudForce').innerText = forceG + ' g';
+
+      // Live formula workbench displays
+      document.getElementById('wmResultText').innerText = state.Wm.toFixed(3) + ' m';
+      document.getElementById('wpsResultText').innerText = state.Wps.toFixed(3) + ' m';
+      document.getElementById('weTotalResultText').innerText = state.We.toFixed(2) + ' m';
+
+      // Check checklist criteria
+      updateChecklist();
+    }
+
+    function updateChecklist() {
+      // Step 1: Variable Identification
+      const step1Done = state.slots.R && state.slots.V && state.slots.l && state.slots.n;
+      setChecklistStep('step1', step1Done);
+
+      // Step 2: Mechanical Widening
+      const step2Done = state.slots.n && state.slots.l && state.slots.R;
+      setChecklistStep('step2', step2Done);
+
+      // Step 3: Psychological Widening
+      const step3Done = state.slots.V && state.slots.R;
+      setChecklistStep('step3', step3Done);
+
+      // Step 4: Total Width
+      const step4Done = step1Done && step2Done && step3Done;
+      setChecklistStep('step4', step4Done);
+    }
+
+    function setChecklistStep(id, done) {
+      const el = document.getElementById(id);
+      const badge = el.querySelector('.status-badge');
+      if (done) {
+        el.className = 'p-2 rounded-lg bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between text-emerald-300 font-mono transition-all';
+        badge.className = 'status-badge px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300 font-bold';
+        badge.innerText = 'CALCULATED';
+      } else {
+        el.className = 'p-2 rounded-lg bg-slate-900/60 border border-slate-800 flex items-center justify-between text-slate-400 font-mono transition-all';
+        badge.className = 'status-badge px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400';
+        badge.innerText = 'PENDING';
+      }
+    }
+
+    // --- DRAG & DROP MECHANICS ---
+    function setupDragAndDrop() {
+      const chips = document.querySelectorAll('.chip-draggable');
+      const slots = document.querySelectorAll('.slot-target');
+
+      chips.forEach(chip => {
+        chip.addEventListener('dragstart', (e) => {
+          e.dataTransfer.setData('text/plain', chip.dataset.var);
+        });
+
+        // Click-to-assign fallback for ease of touch
+        chip.addEventListener('click', () => {
+          const varType = chip.dataset.var;
+          // Find first unfilled slot matching varType
+          const targetSlot = Array.from(slots).find(s => s.dataset.accept === varType && !s.classList.contains('filled'));
+          if (targetSlot) {
+            fillSlot(targetSlot, varType);
+          }
+        });
+      });
+
+      slots.forEach(slot => {
+        slot.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          slot.classList.add('border-cyan-400', 'bg-cyan-900/40');
+        });
+
+        slot.addEventListener('dragleave', () => {
+          slot.classList.remove('border-cyan-400', 'bg-cyan-900/40');
+        });
+
+        slot.addEventListener('drop', (e) => {
+          e.preventDefault();
+          slot.classList.remove('border-cyan-400', 'bg-cyan-900/40');
+          const varType = e.dataTransfer.getData('text/plain');
+          
+          if (slot.dataset.accept === varType) {
+            fillSlot(slot, varType);
+          } else {
+            playThrum();
+          }
+        });
+      });
+    }
+
+    function fillSlot(slot, varType) {
+      slot.classList.add('filled', 'bg-cyan-500/20', 'border-cyan-400', 'slot-highlight');
+      slot.innerHTML = `<span class="text-cyan-300 font-mono font-bold">${varType}</span>`;
+      
+      state.slots[varType] = true;
+      playChime();
+
+      // Trigger narration feedback
+      if (varType === 'R') {
+        speak("Great job! Curve radius locked in. Radius governs both mechanical off-tracking and psychological speed clearance!");
+      } else if (varType === 'V') {
+        speak("Speed parameter snapped! Notice how higher speeds exponentially expand psychological widening!");
+      } else if (varType === 'l') {
+        speak("Wheelbase confirmed! Longer vehicle wheelbases produce larger off-tracking vectors inside turns!");
+      } else if (varType === 'n') {
+        speak("Lane count set! Multi-lane highways require multiplied mechanical widening allowance.");
+      }
+
+      recalculate();
+    }
+
+    // --- MAIN PHYSICS & CANVAS RENDERING ENGINE ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function resizeCanvas() {
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.scale(dpr, dpr);
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function renderSimulation() {
+      const width = canvas.width / (window.devicePixelRatio || 1);
+      const height = canvas.height / (window.devicePixelRatio || 1);
+
+      ctx.clearRect(0, 0, width, height);
+
+      // Draw Grid Background
+      ctx.strokeStyle = 'rgba(30, 41, 59, 0.3)';
+      ctx.lineWidth = 1;
+      const gridSize = 30;
+      for (let x = 0; x < width; x += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < height; y += gridSize) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+
+      // Curve Arc Parameters
+      // Center point of arc located at bottom-left or off-screen depending on zoom
+      const scale = state.isZoomed ? 1.8 : 1.0;
+      const cx = width * 0.15;
+      const cy = height * 1.1;
+
+      // Convert physical meters to pixels
+      const pxPerMeter = (Math.min(width, height) * 0.45 / state.R) * scale;
+      const visualR = state.R * pxPerMeter;
+
+      const roadWidthPx = (7.0 + state.We) * pxPerMeter * 2.5; // Scaled for clarity
+      const normalWidthPx = 7.0 * pxPerMeter * 2.5;
+      const mechExtraPx = state.Wm * pxPerMeter * 2.5;
+      const psychExtraPx = state.Wps * pxPerMeter * 2.5;
+
+      const startAngle = -Math.PI * 0.45;
+      const endAngle = -Math.PI * 0.05;
+
+      ctx.save();
+      ctx.translate(cx, cy);
+
+      // --- DRAW ROAD ALIGNMENT ---
+      
+      // Outer Road Boundary
+      ctx.beginPath();
+      ctx.arc(0, 0, visualR + normalWidthPx/2 + psychExtraPx, startAngle, endAngle);
+      ctx.strokeStyle = 'rgba(168, 85, 247, 0.6)'; // Psychological widening highlight
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Normal Road Pavement Body
+      ctx.beginPath();
+      ctx.arc(0, 0, visualR + normalWidthPx/2, startAngle, endAngle);
+      ctx.arc(0, 0, visualR - normalWidthPx/2, endAngle, startAngle, true);
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.fill();
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Mechanical Widening Extra Pavement Strip (Inner Curve)
+      ctx.beginPath();
+      ctx.arc(0, 0, visualR - normalWidthPx/2, startAngle, endAngle);
+      ctx.arc(0, 0, visualR - normalWidthPx/2 - mechExtraPx, endAngle, startAngle, true);
+      ctx.fillStyle = 'rgba(16, 185, 129, 0.25)';
+      ctx.fill();
+      ctx.strokeStyle = '#10b981';
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Center Line Marking (Dashed Cyan)
+      ctx.beginPath();
+      ctx.arc(0, 0, visualR, startAngle, endAngle);
+      ctx.strokeStyle = 'rgba(0, 240, 255, 0.6)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([12, 12]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // --- VEHICLE KINEMATICS & OFF-TRACKING ANIMATION ---
+      state.carProgress = (state.carProgress + 0.002 * (state.V / 80)) % 1;
+      const currentAngle = startAngle + (endAngle - startAngle) * state.carProgress + state.sweepOffset;
+
+      // Front axle center position on main curve arc
+      const fx = Math.cos(currentAngle) * visualR;
+      const fy = Math.sin(currentAngle) * visualR;
+
+      // Tangent angle at front axle
+      const tangentAngle = currentAngle + Math.PI / 2;
+
+      // Wheelbase offset in pixels
+      const wheelbasePx = state.l * pxPerMeter * 4.0; // Scaled for visible off-tracking
+
+      // Rear axle position (off-tracking cuts corner inside!)
+      // Mathematical rear axle radius R_rear = sqrt(R^2 - l^2)
+      const rearRadius = Math.sqrt(Math.pow(visualR, 2) - Math.pow(wheelbasePx, 2));
+      const rx = Math.cos(currentAngle - (wheelbasePx / visualR)) * rearRadius;
+      const ry = Math.sin(currentAngle - (wheelbasePx / visualR)) * rearRadius;
+
+      // Draw Rear Wheel Off-Tracking Trace Path (Amber Dash)
+      ctx.beginPath();
+      ctx.arc(0, 0, rearRadius, startAngle, endAngle);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // --- DRAW VEHICLE BODY ---
+      const carHeading = Math.atan2(fy - ry, fx - rx);
+
+      ctx.save();
+      ctx.translate(fx, fy);
+      ctx.rotate(carHeading);
+
+      // Vehicle Chassis Box
+      const carLength = wheelbasePx * 1.3;
+      const carWidth = 18 * scale;
+
+      ctx.fillStyle = state.isToyMode ? '#f59e0b' : '#00f0ff';
+      ctx.shadowColor = state.isToyMode ? '#f59e0b' : '#00f0ff';
+      ctx.shadowBlur = 12;
+      
+      ctx.beginPath();
+      ctx.roundRect(-carLength + wheelbasePx*0.2, -carWidth/2, carLength, carWidth, 4);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Front & Rear Wheels
+      ctx.fillStyle = '#f8fafc';
+      // Front Wheels
+      ctx.fillRect(0, -carWidth/2 - 2, 8, 4);
+      ctx.fillRect(0, carWidth/2 - 2, 8, 4);
+      // Rear Wheels
+      ctx.fillRect(-wheelbasePx, -carWidth/2 - 2, 8, 4);
+      ctx.fillRect(-wheelbasePx, carWidth/2 - 2, 8, 4);
+
+      // Centrifugal Force Vector Arrow (Glow Red Arrow Outward)
+      const V_mps = state.V / 3.6;
+      const forceMag = (Math.pow(V_mps, 2) / (9.81 * state.R)) * 120 * scale;
+
+      ctx.restore(); // Back to curve center origin
+
+      // Vector outward from curve center
+      ctx.beginPath();
+      ctx.moveTo(fx, fy);
+      const vecX = fx + Math.cos(currentAngle) * forceMag;
+      const vecY = fy + Math.sin(currentAngle) * forceMag;
+      ctx.lineTo(vecX, vecY);
+      ctx.strokeStyle = '#f43f5e';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Arrowhead
+      const arrowAngle = Math.atan2(vecY - fy, vecX - fx);
+      ctx.beginPath();
+      ctx.moveTo(vecX, vecY);
+      ctx.lineTo(vecX - 8 * Math.cos(arrowAngle - 0.4), vecY - 8 * Math.sin(arrowAngle - 0.4));
+      ctx.lineTo(vecX - 8 * Math.cos(arrowAngle + 0.4), vecY - 8 * Math.sin(arrowAngle + 0.4));
+      ctx.fillStyle = '#f43f5e';
+      ctx.fill();
+
+      // Vector Text Label
+      ctx.fillStyle = '#f43f5e';
+      ctx.font = '10px "JetBrains Mono", monospace';
+      ctx.fillText(`P (Force) = ${(forceMag/120).toFixed(2)}g`, vecX + 8, vecY);
+
+      // Off-tracking Dimension Label (Mechanical Widening Wm)
+      if (state.isZoomed || mechExtraPx > 5) {
+        ctx.beginPath();
+        ctx.moveTo(rx, ry);
+        ctx.lineTo(fx, fy);
+        ctx.strokeStyle = 'rgba(245, 158, 11, 0.6)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+
+        ctx.fillStyle = '#emerald-300';
+        ctx.font = '11px font-mono';
+        ctx.fillText(`Wm = ${state.Wm.toFixed(3)}m`, rx - 40, ry - 10);
+      }
+
+      ctx.restore();
+
+      requestAnimationFrame(renderSimulation);
+    }
+
+    // --- SIDEBAR DYNAMIC GRAPH (Widening vs Radius) ---
+    const graphCanvas = document.getElementById('graphCanvas');
+    const gCtx = graphCanvas.getContext('2d');
+
+    function renderGraph() {
+      const rect = graphCanvas.getBoundingClientRect();
+      graphCanvas.width = rect.width;
+      graphCanvas.height = rect.height;
+
+      const w = graphCanvas.width;
+      const h = graphCanvas.height;
+
+      gCtx.clearRect(0, 0, w, h);
+
+      // Draw Grid Lines
+      gCtx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+      gCtx.lineWidth = 1;
+      gCtx.beginPath();
+      for (let x = 0; x <= w; x += 30) { gCtx.moveTo(x, 0); gCtx.lineTo(x, h); }
+      for (let y = 0; y <= h; y += 20) { gCtx.moveTo(0, y); gCtx.lineTo(w, y); }
+      gCtx.stroke();
+
+      // Plot curves from R = 100 to R = 1000
+      const minR = 100, maxR = 1000;
+      const maxWidening = 2.0; // Y-axis max meters
+
+      function getX(r) { return ((r - minR) / (maxR - minR)) * w; }
+      function getY(val) { return h - (val / maxWidening) * h; }
+
+      // 1. Draw Mechanical Curve (Green)
+      gCtx.beginPath();
+      for (let r = minR; r <= maxR; r += 10) {
+        const wm = (state.n * Math.pow(state.l, 2)) / (2 * r);
+        const x = getX(r), y = getY(wm);
+        if (r === minR) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+      }
+      gCtx.strokeStyle = '#10b981';
+      gCtx.lineWidth = 1.5;
+      gCtx.stroke();
+
+      // 2. Draw Psychological Curve (Purple)
+      gCtx.beginPath();
+      for (let r = minR; r <= maxR; r += 10) {
+        const wps = state.V / (9.5 * Math.sqrt(r));
+        const x = getX(r), y = getY(wps);
+        if (r === minR) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+      }
+      gCtx.strokeStyle = '#a855f7';
+      gCtx.lineWidth = 1.5;
+      gCtx.stroke();
+
+      // 3. Draw Total Extra Width Curve (Cyan)
+      gCtx.beginPath();
+      for (let r = minR; r <= maxR; r += 10) {
+        const wm = (state.n * Math.pow(state.l, 2)) / (2 * r);
+        const wps = state.V / (9.5 * Math.sqrt(r));
+        const x = getX(r), y = getY(wm + wps);
+        if (r === minR) gCtx.moveTo(x, y); else gCtx.lineTo(x, y);
+      }
+      gCtx.strokeStyle = '#00f0ff';
+      gCtx.lineWidth = 2;
+      gCtx.stroke();
+
+      // Active Radius Marker Dot
+      const currentX = getX(state.R);
+      const currentY = getY(state.We);
+
+      gCtx.beginPath();
+      gCtx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+      gCtx.fillStyle = '#00f0ff';
+      gCtx.shadowColor = '#00f0ff';
+      gCtx.shadowBlur = 10;
+      gCtx.fill();
+      gCtx.shadowBlur = 0;
+    }
+
+    // --- EVENT LISTENERS & USER INPUT BINDINGS ---
+    function setupEventListeners() {
+      // Sliders
+      const speedSlider = document.getElementById('speedSlider');
+      const radiusSlider = document.getElementById('radiusSlider');
+      const wheelbaseSlider = document.getElementById('wheelbaseSlider');
+
+      speedSlider.addEventListener('input', (e) => {
+        state.V = parseFloat(e.target.value);
+        document.getElementById('speedValText').innerText = state.V + ' km/h';
+        recalculate();
+        renderGraph();
+      });
+
+      radiusSlider.addEventListener('input', (e) => {
+        state.R = parseFloat(e.target.value);
+        document.getElementById('radiusValText').innerText = state.R + ' m';
+        recalculate();
+        renderGraph();
+      });
+
+      wheelbaseSlider.addEventListener('input', (e) => {
+        state.l = parseFloat(e.target.value);
+        document.getElementById('wheelbaseValText').innerText = state.l.toFixed(1) + ' m';
+        recalculate();
+        renderGraph();
+      });
+
+      // Canvas Gesture Dragging
+      canvas.addEventListener('mousedown', (e) => {
+        state.isDraggingCanvas = true;
+        state.dragStartX = e.clientX;
+      });
+
+      window.addEventListener('mouseup', () => {
+        state.isDraggingCanvas = false;
+      });
+
+      canvas.addEventListener('mousemove', (e) => {
+        if (state.isDraggingCanvas) {
+          const deltaX = e.clientX - state.dragStartX;
+          state.sweepOffset += deltaX * 0.002;
+          state.dragStartX = e.clientX;
+        }
+      });
+
+      // Mode Toggle Button (Engineering Engine vs ELI5 Sandbox)
+      document.getElementById('modeToggleBtn').addEventListener('click', () => {
+        state.isToyMode = !state.isToyMode;
+        const modeText = document.getElementById('modeText');
+        const insightTitle = document.getElementById('insightTitle');
+        const insightBody = document.getElementById('insightBody');
+
+        if (state.isToyMode) {
+          modeText.innerText = "MODE: TOY SANDBOX MODE";
+          insightTitle.innerText = "RUBBER BAND ANALOGY";
+          insightBody.innerHTML = `
+            <strong>Think of turning as stretching a giant rubber band!</strong><br>
+            When cars turn tight corners, their back wheels cut inside like a short-cut (Mechanical Widening). At high speeds, drivers naturally drift outward to feel safe from slipping off the edge (Psychological Widening)!
+          `;
+          speak("Toy Sandbox mode activated! Think of the road as a tight rubber band. Cars need extra space to stretch when curving!");
+        } else {
+          modeText.innerText = "MODE: ENGINEERING ENGINE";
+          insightTitle.innerText = "ELI5 CONCEPT SANDBOX";
+          insightBody.innerHTML = `
+            <strong>Why do roads need extra width on sharp curves?</strong><br>
+            1. <strong class="text-emerald-300">Off-Tracking ($W_m$):</strong> Rear wheels don't steer—they cut corners inside the front wheels!<br>
+            2. <strong class="text-purple-300">Psychological ($W_{ps}$):</strong> Drivers naturally swing outward at higher speeds to maintain a safety buffer from edges.
+          `;
+          speak("Engineering Command Center active. Monitoring mechanical off-tracking and psychological speed clearance.");
+        }
+        playChime();
+      });
+
+      // Zoom Toggle Button
+      document.getElementById('zoomToggleBtn').addEventListener('click', () => {
+        state.isZoomed = !state.isZoomed;
+        document.getElementById('zoomText').innerText = state.isZoomed ? "FOCUS: OFF-TRACKING ZOOM" : "FOCUS: OVERVIEW";
+        playChime();
+        if (state.isZoomed) {
+          speak("Zooming in on inner curve off-tracking. Observe how the rear axle trajectory cuts inside the front wheel path.");
+        }
+      });
+
+      // Audio FX Button
+      document.getElementById('audioFxBtn').addEventListener('click', () => {
+        state.audioEnabled = !state.audioEnabled;
+        document.getElementById('audioFxIcon').classList.toggle('text-slate-500');
+        document.getElementById('audioFxIcon').classList.toggle('text-cyan-400');
+      });
+
+      // Voice Narrator Button
+      document.getElementById('voiceNarratorBtn').addEventListener('click', () => {
+        state.voiceEnabled = !state.voiceEnabled;
+        const voiceIcon = document.getElementById('voiceIcon');
+        voiceIcon.classList.toggle('text-emerald-400');
+        voiceIcon.classList.toggle('text-slate-500');
+        if (state.voiceEnabled) {
+          speak("Voice guidance enabled.");
+        }
+      });
+    }
+
+    // --- APPLICATION INIT ---
+    window.onload = function() {
+      resizeCanvas();
+      setupDragAndDrop();
+      setupEventListeners();
+      recalculate();
+      renderGraph();
+      renderSimulation();
+
+      // Initial friendly voice introduction
+      setTimeout(() => {
+        speak("Welcome to Horizon X Transportation Engineering Sandbox! Drag design variables into the formula slots to calculate pavement widening.");
+      }, 800);
+    };
+  </script>
+</body>
+</html>
