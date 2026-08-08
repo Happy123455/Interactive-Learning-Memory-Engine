@@ -87,6 +87,7 @@ export interface UnitTopic {
   comments?: string; // Query comments field
   styleProfileUsed?: string;
   styleRating?: number;
+  generatedPrompt?: string;
 }
 
 export interface Unit {

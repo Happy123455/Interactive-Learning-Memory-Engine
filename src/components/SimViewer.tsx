@@ -1104,6 +1104,27 @@ Please guide me through this calculation/concept step-by-step. Break it down int
 
   const [promptModalText, setPromptModalText] = useState<string | null>(null);
   const [copiedPromptStatus, setCopiedPromptStatus] = useState(false);
+  const [promptWordCount, setPromptWordCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const prefetchPromptCount = async () => {
+      if (!question.id) return;
+      try {
+        const activeVarId = question.activeVariantId || 'original';
+        const activeStepId = question.activeStepId || 'overview';
+        const url = `/api/simulation-prompt?questionId=${question.id}&variantId=${activeVarId}&stepId=${activeStepId}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.prompt) {
+            const count = data.prompt.trim().split(/\s+/).filter(Boolean).length;
+            setPromptWordCount(count);
+          }
+        }
+      } catch (e) {}
+    };
+    prefetchPromptCount();
+  }, [question.id, question.activeVariantId, question.activeStepId]);
 
   const handleCopyPromptBlueprint = async () => {
     try {
@@ -1111,12 +1132,42 @@ Please guide me through this calculation/concept step-by-step. Break it down int
       const activeStepId = question.activeStepId || 'overview';
       const url = `/api/simulation-prompt?questionId=${question.id}&variantId=${activeVarId}&stepId=${activeStepId}`;
       const res = await fetch(url);
+      let text = '';
       if (res.ok) {
         const data = await res.json();
-        setPromptModalText(data.prompt || 'No prompt blueprint available for this simulation.');
-        setCopiedPromptStatus(false);
-      } else {
+        text = data.prompt || '';
+      }
+      if (!text) {
         alert('Could not retrieve prompt blueprint.');
+        return;
+      }
+      setPromptModalText(text);
+      const count = text.trim().split(/\s+/).filter(Boolean).length;
+      setPromptWordCount(count);
+
+      // Clipboard copy with fallback
+      let copySuccess = false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          await navigator.clipboard.writeText(text);
+          copySuccess = true;
+        } catch (e) {}
+      }
+      if (!copySuccess) {
+        try {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.select();
+          copySuccess = document.execCommand('copy');
+          document.body.removeChild(textarea);
+        } catch (e) {}
+      }
+      setCopiedPromptStatus(copySuccess);
+      if (copySuccess) {
+        alert(`📋 Copied Gemini Canvas blueprint prompt (${count} words) to clipboard!`);
       }
     } catch (err: any) {
       alert(`Error reading prompt: ${err.message}`);
@@ -1539,17 +1590,7 @@ Please guide me through this calculation/concept step-by-step. Break it down int
 
                         {/* 📋 COPY PROMPT BUTTON */}
                         <button
-                          onClick={() => {
-                            const text = `You are an Expert Interactive Simulation Architect.
-Build a high-fidelity 2D/3D interactive canvas simulation for:
-TARGET CONCEPT: "${question.concept}"
-QUERY: "${question.text || question.concept}"
-
-REQUIREMENTS:
-- Responsive dark cyber-themed HTML5 canvas simulation.
-- Real-time parameter sliders, live math calculations, stress heatmaps, and speech synthesis narrations.`;
-                            copyTextToClipboard(text, '📋 Simulation Prompt copied to clipboard!');
-                          }}
+                          onClick={handleCopyPromptBlueprint}
                           style={{
                             padding: '8px 12px',
                             borderRadius: '6px',
@@ -1564,8 +1605,9 @@ REQUIREMENTS:
                             gap: '8px',
                             textAlign: 'left',
                           }}
+                          title="Copy Gemini Canvas instruction blueprint to clipboard"
                         >
-                          <Copy size={14} color="var(--accent-cyan)" /> Copy Prompt
+                          <Copy size={14} color="var(--accent-cyan)" /> {promptWordCount ? `Copy Canvas Prompt (${promptWordCount} words)` : 'Copy Canvas Prompt (-- words)'}
                         </button>
 
                         {/* 📝 PASTE HTML BUTTON */}

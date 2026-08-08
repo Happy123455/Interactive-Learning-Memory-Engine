@@ -161,23 +161,31 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Pre-fetch prompt word counts for all questions in active assignment
+  // Pre-fetch prompt word counts for questions & unit topics
   useEffect(() => {
-    if (!selectedAssignment || !selectedAssignment.questions) return;
-    selectedAssignment.questions.forEach(async (q) => {
-      if (promptWordCounts[q.id] !== undefined) return;
+    const listToFetch: string[] = [];
+    if (selectedAssignment && selectedAssignment.questions) {
+      selectedAssignment.questions.forEach(q => listToFetch.push(q.id));
+    }
+    if (selectedUnit && selectedUnit.topics) {
+      selectedUnit.topics.forEach(t => listToFetch.push(t.id));
+    }
+    if (listToFetch.length === 0) return;
+
+    listToFetch.forEach(async (id) => {
+      if (promptWordCounts[id] !== undefined) return;
       try {
-        const res = await fetch(`/api/simulation-prompt?questionId=${q.id}`);
+        const res = await fetch(`/api/simulation-prompt?questionId=${id}`);
         if (res.ok) {
           const data = await safeJsonParse(res);
           if (data && data.prompt) {
             const count = data.prompt.trim().split(/\s+/).filter(Boolean).length;
-            setPromptWordCounts(prev => ({ ...prev, [q.id]: count }));
+            setPromptWordCounts(prev => ({ ...prev, [id]: count }));
           }
         }
       } catch (err) {}
     });
-  }, [selectedAssignment]);
+  }, [selectedAssignment, selectedUnit]);
 
   // Handle parsing text assignment
   const handleUploadSubmit = async (e: React.FormEvent) => {
@@ -1278,6 +1286,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                               )}
                             </button>
                           )}
+
+                          {(() => {
+                            const words = promptWordCounts[topic.id] || (topic.generatedPrompt ? topic.generatedPrompt.trim().split(/\s+/).filter(Boolean).length : undefined);
+                            return (
+                              <button
+                                onClick={(e) => handleCopyPrompt(topic.id, e)}
+                                className="btn-secondary"
+                                style={{ padding: '4px 10px', fontSize: '10px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '4px', color: '#38bdf8', borderColor: 'rgba(56, 189, 248, 0.3)', background: 'rgba(56, 189, 248, 0.08)' }}
+                                title="Copy Gemini Canvas instruction blueprint to clipboard"
+                              >
+                                <Copy size={11} /> {words ? `Copy Canvas Prompt (${words} words)` : 'Copy Canvas Prompt (-- words)'}
+                              </button>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
