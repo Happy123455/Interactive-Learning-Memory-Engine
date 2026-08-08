@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precipitation Playground: Weather Wizard Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Rajdhani:wght@400;600&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --text-light: #e0e0e0;
+            --glass-bg: rgba(25, 25, 40, 0.7);
+            --glass-border: rgba(80, 80, 100, 0.3);
+            --neon-cyan: rgba(0, 200, 200, 0.7);
+            --neon-cyan-strong: rgba(0, 255, 255, 0.9);
+            --neon-purple: rgba(180, 0, 200, 0.7);
+            --neon-green: rgba(0, 200, 0, 0.7);
+            --neon-orange: rgba(255, 120, 0, 0.7);
+            --neon-red: rgba(255, 0, 0, 0.7);
+            --neon-blue: rgba(0, 100, 255, 0.7);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Rajdhani', sans-serif;
+            color: var(--text-light);
+            background: var(--bg-dark);
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* CRITICAL RULE 1 */
+            display: grid;
+            place-items: center;
+            position: relative;
+        }
+
+        /* Animated starfield/atmospheric particle effect */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(#e0e0e0 1px, transparent 1px);
+            background-size: 50px 50px;
+            opacity: 0.05;
+            animation: starfield 200s linear infinite;
+        }
+
+        @keyframes starfield {
+            from { background-position: 0 0; }
+            to { background-position: 100% 100%; }
+        }
+
+        #dashboard {
+            display: grid;
+            grid-template-columns: minmax(200px, 0.2fr) 1fr minmax(250px, 0.25fr); /* Responsive grid columns */
+            grid-template-areas: "left-panel canvas right-panel";
+            width: 98vw;
+            height: 96vh;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px); /* For Safari */
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            box-shadow: 0 0 40px rgba(0, 255, 255, 0.2);
+            overflow: hidden; /* Ensure content inside dashboard doesn't overflow */
+            gap: 15px;
+            padding: 15px;
+            transition: all 0.5s ease;
+        }
+
+        /* Responsive adjustments for smaller screens */
+        @media (max-width: 1200px) {
+            #dashboard {
+                grid-template-columns: 1fr 1fr;
+                grid-template-rows: auto 1fr;
+                grid-template-areas:
+                    "left-panel right-panel"
+                    "canvas canvas";
+                height: 98vh; /* Allow a bit more vertical space */
+                width: 98vw;
+                gap: 10px;
+            }
+            #left-panel, #right-panel {
+                padding: 15px;
+                max-height: unset; /* Remove max height constraint */
+                overflow-y: hidden;
+            }
+            #right-panel .precipitation-checklist { overflow-y: hidden; } /* Let the whole panel scroll if needed */
+            #right-panel .condition-cards-container { overflow-y: hidden; max-height: unset; }
+        }
+
+        @media (max-width: 768px) {
+            #dashboard {
+                grid-template-columns: 1fr;
+                grid-template-rows: auto auto 1fr;
+                grid-template-areas:
+                    "left-panel"
+                    "right-panel"
+                    "canvas";
+                height: 98vh;
+                width: 98vw;
+                padding: 10px;
+                gap: 10px;
+            }
+            #left-panel, #right-panel {
+                max-height: 40vh; /* Limit height to prevent taking too much vertical space */
+                overflow-y: auto; /* Allow scrolling within panels if content exceeds max-height */
+            }
+            #right-panel .precipitation-checklist { overflow-y: auto; }
+            #right-panel .condition-cards-container { overflow-y: auto; max-height: 120px; }
+        }
+
+        .panel {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid var(--glass-border);
+            box-shadow: inset 0 0 10px rgba(0, 200, 200, 0.1), 0 0 5px rgba(0, 200, 200, 0.1);
+            transition: all 0.3s ease;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .panel h2 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan-strong);
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 20px;
+            text-shadow: 0 0 10px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+            font-size: 1.4em;
+            letter-spacing: 1px;
+        }
+
+        #left-panel {
+            grid-area: left-panel;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 15px;
+            position: relative;
+            padding-bottom: 5px; /* Reduced padding-bottom */
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.95em;
+            color: var(--text-light);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+        }
+
+        .slider-value {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            font-weight: bold;
+            text-shadow: 0 0 8px var(--neon-cyan-strong);
+            min-width: 40px;
+            text-align: right;
+            font-size: 1.1em;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 10px;
+            background: rgba(50, 50, 70, 0.8);
+            border-radius: 5px;
+            outline: none;
+            margin: 5px 0;
+            transition: all 0.2s ease;
+            box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: 0 0 10px var(--neon-cyan-strong), 0 0 20px var(--neon-cyan);
+            transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+            border: 2px solid rgba(0, 0, 0, 0.4);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: 0 0 10px var(--neon-cyan-strong), 0 0 20px var(--neon-cyan);
+            transition: background 0.2s ease, box-shadow 0.2s ease, transform 0.1s ease;
+            border: 2px solid rgba(0, 0, 0, 0.4);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            box-shadow: 0 0 15px var(--neon-cyan-strong), 0 0 25px var(--neon-cyan-strong);
+            transform: scale(1.1);
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            background: linear-gradient(to right, var(--neon-cyan) var(--value, 0%), rgba(50, 50, 70, 0.8) var(--value, 0%));
+            border-radius: 5px;
+        }
+        /* Firefox specific for track fill */
+        input[type="range"]::-moz-range-progress {
+            background-color: var(--neon-cyan);
+            border-radius: 5px;
+        }
+        input[type="range"]::-moz-range-track {
+            background-color: rgba(50, 50, 70, 0.8);
+            border-radius: 5px;
+        }
+
+        #canvas-container {
+            grid-area: canvas;
+            position: relative;
+            background: linear-gradient(to bottom, #001f3f, #0a0a1a);
+            border-radius: 15px;
+            overflow: hidden; /* CRITICAL RULE 1 */
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 0 20px rgba(0, 200, 200, 0.3);
+            cursor: grab; /* Indicate interaction */
+        }
+
+        #weatherCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        #right-panel {
+            grid-area: right-panel;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            padding-bottom: 0; /* Adjust for scrollable content inside */
+        }
+
+        .precipitation-checklist {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            flex-grow: 1; /* Allow checklist to take available space */
+            overflow-y: auto; /* Allow scrolling for many items */
+            padding-right: 5px; /* Account for scrollbar width */
+            margin-right: -5px; /* Pull back to hide scrollbar */
+        }
+
+        .checklist-item {
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            border: 1px solid rgba(80, 80, 100, 0.3);
+            box-shadow: 0 0 8px rgba(0, 255, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .checklist-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 0 15px var(--neon-cyan), 0 0 25px rgba(0, 255, 255, 0.2);
+        }
+
+        .status-light {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background-color: #888; /* Default grey */
+            box-shadow: 0 0 5px #888;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .status-light.pending {
+            background-color: var(--neon-orange);
+            box-shadow: 0 0 8px var(--neon-orange), 0 0 15px var(--neon-orange);
+        }
+
+        .status-light.identified {
+            background-color: var(--neon-green);
+            box-shadow: 0 0 8px var(--neon-green), 0 0 15px var(--neon-green-strong);
+        }
+
+        .condition-cards-container {
+            border-top: 1px solid rgba(80, 80, 100, 0.3);
+            padding-top: 15px;
+            margin-top: auto; /* Push to the bottom */
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            overflow-y: auto; /* Allow scrolling for cards if too many */
+            max-height: 200px; /* Limit height */
+            padding-bottom: 10px;
+        }
+
+        .condition-card {
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 8px;
+            padding: 10px 15px;
+            border: 1px solid rgba(80, 80, 100, 0.3);
+            cursor: grab;
+            user-select: none;
+            transition: all 0.2s ease;
+            font-size: 0.9em;
+            text-align: center;
+            box-shadow: 0 0 8px rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .condition-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 0 15px var(--neon-cyan), 0 0 25px rgba(0, 255, 255, 0.2);
+        }
+
+        .condition-card.warm-air { box-shadow: 0 0 10px var(--neon-orange); border-color: rgba(255, 120, 0, 0.5); }
+        .condition-card.cold-air { box-shadow: 0 0 10px var(--neon-blue); border-color: rgba(0, 100, 255, 0.5); }
+        .condition-card.nuclei { box-shadow: 0 0 10px var(--neon-purple); border-color: rgba(180, 0, 200, 0.5); }
+        .condition-card.ice-crystals { box-shadow: 0 0 10px var(--neon-cyan); border-color: rgba(0, 200, 200, 0.5); }
+        .condition-card.updraft { box-shadow: 0 0 10px var(--neon-red); border-color: rgba(255, 0, 0, 0.5); }
+
+        .condition-card i {
+            font-size: 1.2em;
+        }
+
+        /* Hydrology Secrets Overlay */
+        #hydrology-secrets-btn {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--glass-border);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--neon-purple);
+            color: var(--neon-purple);
+            font-size: 1.8em;
+            transition: all 0.3s ease;
+            z-index: 100;
+        }
+
+        #hydrology-secrets-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 20px var(--neon-purple), 0 0 30px rgba(180, 0, 200, 0.5);
+        }
+
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal-content {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.3), 0 0 50px rgba(0, 255, 255, 0.2);
+            position: relative;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.3s ease, opacity 0.3s ease;
+        }
+
+        .modal-overlay.visible .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        .modal-content h3 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan-strong);
+            text-align: center;
+            margin-top: 0;
+            margin-bottom: 25px;
+            text-shadow: 0 0 10px var(--neon-cyan);
+            font-size: 1.6em;
+        }
+
+        .modal-content p {
+            margin-bottom: 15px;
+            line-height: 1.6;
+            font-size: 1.05em;
+        }
+
+        .modal-content .precipitation-hint {
+            border: 1px solid rgba(80, 80, 100, 0.3);
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 15px;
+            box-shadow: inset 0 0 8px rgba(0, 255, 255, 0.05);
+        }
+
+        .modal-content .precipitation-hint strong {
+            color: var(--neon-cyan);
+            text-shadow: 0 0 5px var(--neon-cyan-strong);
+            font-size: 1.1em;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 1.8em;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            padding: 5px;
+            line-height: 1;
+        }
+
+        .close-btn:hover {
+            color: var(--neon-red);
+            transform: rotate(90deg) scale(1.1);
+            text-shadow: 0 0 10px var(--neon-red);
+        }
+
+        /* Initial Audio/Start button */
+        #start-audio-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            gap: 30px;
+        }
+
+        #start-audio-overlay h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan-strong);
+            text-shadow: 0 0 20px var(--neon-cyan);
+            font-size: 2.5em;
+            text-align: center;
+            margin: 0;
+        }
+
+        #start-audio-button {
+            background: linear-gradient(45deg, var(--neon-cyan), var(--neon-purple));
+            border: none;
+            color: white;
+            padding: 18px 40px;
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.5em;
+            border-radius: 10px;
+            cursor: pointer;
+            box-shadow: 0 0 25px var(--neon-cyan), 0 0 40px var(--neon-purple);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        #start-audio-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 35px var(--neon-cyan-strong), 0 0 50px var(--neon-purple);
+        }
+
+        /* Temp drop zones for D&D on canvas */
+        .drop-zone {
+            position: absolute;
+            border: 2px dashed rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            pointer-events: none; /* Allows mouse events to pass through to canvas when not active */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.9em;
+            text-align: center;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5) inset;
+            opacity: 0; /* Hidden by default */
+            transition: opacity 0.3s ease, border-color 0.3s ease, background 0.3s ease;
+            z-index: 10;
+        }
+
+        .drop-zone.active { /* For when a drag is over the zone */
+            opacity: 1;
+            border-color: var(--neon-cyan-strong);
+            background: rgba(0, 200, 200, 0.1);
+            box-shadow: 0 0 20px var(--neon-cyan-strong) inset;
+            pointer-events: auto; /* Enable pointer events when active */
+        }
+
+        .drop-zone.valid {
+            border-color: var(--neon-green);
+            background: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 20px var(--neon-green) inset;
+            pointer-events: auto;
+        }
+
+        .drop-zone.invalid {
+            border-color: var(--neon-red);
+            background: rgba(255, 0, 0, 0.1);
+            box-shadow: 0 0 20px var(--neon-red) inset;
+            pointer-events: auto;
+        }
+
+        #drop-zone-warm { top: 10%; left: 5%; width: 150px; height: 80px; }
+        #drop-zone-cold { top: 10%; right: 5%; width: 150px; height: 80px; }
+        #drop-zone-nuclei { bottom: 10%; left: 5%; width: 150px; height: 80px; }
+        #drop-zone-ice { bottom: 10%; right: 5%; width: 150px; height: 80px; }
+        #drop-zone-updraft { top: 50%; left: 50%; transform: translate(-50%, -50%); width: 150px; height: 80px;}
+
+    </style>
+</head>
+<body>
+
+    <div id="start-audio-overlay">
+        <h1>Welcome, Weather Wizard!</h1>
+        <button id="start-audio-button">Start Simulation</button>
+    </div>
+
+    <div id="dashboard">
+        <div id="left-panel" class="panel">
+            <h2>Atmospheric Dial-Up!</h2>
+
+            <div class="slider-group">
+                <label class="slider-label" for="temp-slider">Sunbeam Heater (Ground Temp)
+                    <span id="temp-value" class="slider-value">10 °C</span>
+                </label>
+                <input type="range" id="temp-slider" min="-10" max="30" value="10" step="1">
+            </div>
+
+            <div class="slider-group">
+                <label class="slider-label" for="humidity-slider">Cloudy Sponge Factor (Humidity)
+                    <span id="humidity-value" class="slider-value">50 %</span>
+                </label>
+                <input type="range" id="humidity-slider" min="0" max="100" value="50" step="1">
+            </div>
+
+            <div class="slider-group">
+                <label class="slider-label" for="wind-slider">Windy Whirler (Wind Speed)
+                    <span id="wind-value" class="slider-value">10 km/h</span>
+                </label>
+                <input type="range" id="wind-slider" min="0" max="50" value="10" step="1">
+            </div>
+
+            <div class="slider-group">
+                <label class="slider-label" for="cloud-alt-slider">Cloudy Tower Height
+                    <span id="cloud-alt-value" class="slider-value">3 km</span>
+                </label>
+                <input type="range" id="cloud-alt-slider" min="1" max="10" value="3" step="0.5">
+            </div>
+
+            <!-- Precipitation Power-Up! Visualizer -->
+            <div id="power-up-visualizer" style="margin-top: auto; display: none; flex-direction: column; gap: 8px; border-top: 1px solid var(--glass-border); padding-top: 15px;">
+                <h3 style="font-family: 'Orbitron', sans-serif; color: var(--neon-green); text-align: center; text-shadow: 0 0 8px var(--neon-green);">Precipitation Power-Up!</h3>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.9em; min-width: 60px;">Humidity:</span>
+                    <div class="power-bar-container" style="flex-grow: 1; height: 15px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden;">
+                        <div id="power-bar-humidity" style="width: 0%; height: 100%; background: linear-gradient(to right, #0af, #00c); transition: width 0.5s ease-out;"></div>
+                    </div>
+                </div>
+                 <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.9em; min-width: 60px;">Temperature:</span>
+                    <div class="power-bar-container" style="flex-grow: 1; height: 15px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden;">
+                        <div id="power-bar-temperature" style="width: 0%; height: 100%; background: linear-gradient(to right, #f80, #c00); transition: width 0.5s ease-out;"></div>
+                    </div>
+                </div>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-size: 0.9em; min-width: 60px;">Conditions:</span>
+                    <div class="power-bar-container" style="flex-grow: 1; height: 15px; background: rgba(0,0,0,0.5); border-radius: 5px; overflow: hidden;">
+                        <div id="power-bar-conditions" style="width: 0%; height: 100%; background: linear-gradient(to right, #80f, #c0c); transition: width 0.5s ease-out;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="weatherCanvas"></canvas>
+            <!-- Drop zones for condition cards -->
+            <div class="drop-zone" id="drop-zone-warm" data-accepts="Warm Air Parcel">Warm Air Parcel</div>
+            <div class="drop-zone" id="drop-zone-cold" data-accepts="Cold Air Parcel">Cold Air Parcel</div>
+            <div class="drop-zone" id="drop-zone-nuclei" data-accepts="Condensation Nuclei">Condensation Nuclei</div>
+            <div class="drop-zone" id="drop-zone-ice" data-accepts="Ice Crystals">Ice Crystals</div>
+            <div class="drop-zone" id="drop-zone-updraft" data-accepts="Strong Updraft">Strong Updraft</div>
+        </div>
+
+        <div id="right-panel" class="panel">
+            <h2>Precipitation Crafting Kit!</h2>
+            <div class="precipitation-checklist">
+                <div class="checklist-item" data-precip-type="Rain">
+                    <span class="status-light pending"></span> Rain
+                </div>
+                <div class="checklist-item" data-precip-type="Drizzle">
+                    <span class="status-light pending"></span> Drizzle
+                </div>
+                <div class="checklist-item" data-precip-type="Snow">
+                    <span class="status-light pending"></span> Snow
+                </div>
+                <div class="checklist-item" data-precip-type="Sleet">
+                    <span class="status-light pending"></span> Sleet
+                </div>
+                <div class="checklist-item" data-precip-type="Hail">
+                    <span class="status-light pending"></span> Hail
+                </div>
+                <div class="checklist-item" data-precip-type="Freezing Rain">
+                    <span class="status-light pending"></span> Freezing Rain
+                </div>
+            </div>
+
+            <div class="condition-cards-container">
+                <div class="condition-card warm-air" draggable="true" data-card-type="Warm Air Parcel">
+                    <i class="fas fa-sun"></i> Warm Air Parcel
+                </div>
+                <div class="condition-card cold-air" draggable="true" data-card-type="Cold Air Parcel">
+                    <i class="fas fa-snowflake"></i> Cold Air Parcel
+                </div>
+                <div class="condition-card nuclei" draggable="true" data-card-type="Condensation Nuclei">
+                    <i class="fas fa-atom"></i> Condensation Nuclei
+                </div>
+                <div class="condition-card ice-crystals" draggable="true" data-card-type="Ice Crystals">
+                    <i class="fas fa-icicles"></i> Ice Crystals
+                </div>
+                <div class="condition-card updraft" draggable="true" data-card-type="Strong Updraft">
+                    <i class="fas fa-wind"></i> Strong Updraft
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hydrology Secrets Modal -->
+    <div id="hydrology-secrets-overlay" class="modal-overlay">
+        <div class="modal-content">
+            <button class="close-btn" aria-label="Close">&times;</button>
+            <h3>Hydrology Secrets: Page 7 - Precipitation Forms & Types</h3>
+            <div class="precipitation-hint">
+                <strong>Rain:</strong> It's when warm air makes cloud-sponges squeeze out water, and it's not too cold down below!
+            </div>
+            <div class="precipitation-hint">
+                <strong>Drizzle:</strong> Just like rain, but super tiny drops that gently mist down from thin clouds. Still needs warmish air!
+            </div>
+            <div class="precipitation-hint">
+                <strong>Snow:</strong> Wow, fluffy snow! When the sky gets super chilly (below freezing!) all the way from the cloud to the ground, water turns into tiny ice fairies that dance down! Needs cold air and ice crystals.
+            </div>
+            <div class="precipitation-hint">
+                <strong>Sleet:</strong> Imagine tiny ice pellets! This happens when rain falls from a warm cloud, but then freezes into little ice balls as it passes through a really cold layer of air close to the ground.
+            </div>
+            <div class="precipitation-hint">
+                <strong>Hail:</strong> Uh oh, bouncy hail! That's when ice goes on a rollercoaster ride inside a super stormy cloud, getting bigger and bigger with strong winds pushing it up, before it drops as hard ice chunks! Needs super cold air, ice crystals, and strong updrafts.
+            </div>
+            <div class="precipitation-hint">
+                <strong>Freezing Rain:</strong> Tricky stuff! Rain falls from a warm cloud, passes through a cold layer, but doesn't quite freeze into sleet. Instead, it gets supercooled and turns into ice *only when it hits* cold surfaces on the ground!
+            </div>
+            <p>Consult these secrets to craft the perfect weather!</p>
+        </div>
+    </div>
+
+    <button id="hydrology-secrets-btn" aria-label="Open Hydrology Secrets">
+        <i class="fas fa-book"></i>
+    </button>
+
+    <script>
+        // CRITICAL RULE: Ensure Web Audio API is started by a user gesture.
+        document.addEventListener('DOMContentLoaded', () => {
+            const startAudioOverlay = document.getElementById('start-audio-overlay');
+            const startAudioButton = document.getElementById('start-audio-button');
+
+            startAudioButton.addEventListener('click', () => {
+                initializeAudioContext();
+                startAudioOverlay.style.opacity = '0';
+                startAudioOverlay.style.visibility = 'hidden';
+                setTimeout(() => startAudioOverlay.remove(), 500); // Remove after transition
+                speak("Hello, little weather wizard! Let's make some clouds and see what falls down!");
+            });
+        });
+
+        const canvas = document.getElementById('weatherCanvas');
+        const ctx = canvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // CRITICAL RULE 2: High-DPI (Retina) Canvas Scaling
+        let dpr = window.devicePixelRatio || 1;
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            dpr = window.devicePixelRatio || 1; // Re-check DPR on resize
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+            // Ensure elements are redrawn after resize
+            drawCanvas();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+
+        // Global State Management
+        let currentConditions = {
+            temperature: 10, // °C
+            humidity: 50,    // %
+            windSpeed: 10,   // km/h
+            cloudAltitude: 3 // km
+        };
+
+        let activePrecipitation = null;
+        let identifiedPrecipitation = {
+            "Rain": false,
+            "Drizzle": false,
+            "Snow": false,
+            "Sleet": false,
+            "Hail": false,
+            "Freezing Rain": false
+        };
+
+        let droppedCards = {
+            "Warm Air Parcel": false,
+            "Cold Air Parcel": false,
+            "Condensation Nuclei": false,
+            "Ice Crystals": false,
+            "Strong Updraft": false
+        };
+
+        let precipitationParticles = [];
+        let animationFrameId;
+        let lastFrameTime = 0;
+        const PARTICLE_LIFESPAN = 3000; // ms
+        const MAX_PARTICLES = 500;
+        let isSimulating = false; // To control particle generation
+        let cameraZoom = { x: 0, y: 0, scale: 1 }; // For dynamic camera zooms
+
+        // Web Audio API
+        let audioCtx;
+        const sliderOscillators = {};
+        let successChimeBuffer;
+        let failBuzzBuffer;
+        let dropSoundBuffer;
+
+        let rainAmbienceSource = null;
+        let snowAmbienceSource = null;
+        let hailAmbienceSource = null;
+
+        async function initializeAudioContext() {
+            if (audioCtx) return; // Already initialized
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Initialize oscillators for sliders
+            const sliders = document.querySelectorAll('input[type="range"]');
+            sliders.forEach(slider => {
+                const osc = audioCtx.createOscillator();
+                osc.type = 'sine'; // or 'triangle', 'sawtooth'
+                const gainNode = audioCtx.createGain();
+                gainNode.gain.value = 0; // Start muted
+                osc.connect(gainNode).connect(audioCtx.destination);
+                osc.start();
+                sliderOscillators[slider.id] = { osc, gainNode };
+            });
+
+            // Load sound effects (dummy URLs, in a real scenario these would be actual files)
+            await loadSound('https://www.soundjay.com/buttons/sounds/button-10.mp3', 'successChimeBuffer');
+            await loadSound('https://www.soundjay.com/misc/sounds/fail-buzzer-02.mp3', 'failBuzzBuffer');
+            await loadSound('https://www.soundjay.com/buttons/sounds/button-29.mp3', 'dropSoundBuffer');
+            await loadSound('https://www.soundjay.com/nature/sounds/rain-06.mp3', 'rainAmbienceBuffer', true);
+            await loadSound('https://www.soundjay.com/nature/sounds/snowball-01.mp3', 'snowAmbienceBuffer', true);
+            await loadSound('https://www.soundjay.com/nature/sounds/hail-01.mp3', 'hailAmbienceBuffer', true);
+
+            // Trigger initial slider pitch updates after audio context is active
+            updateOscillatorPitch();
+        }
+
+        // Helper to load audio files
+        const audioBuffers = {};
+        async function loadSound(url, bufferName, loop = false) {
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                audioCtx.decodeAudioData(arrayBuffer, (buffer) => {
+                    audioBuffers[bufferName] = buffer;
+                });
+            } catch (error) {
+                console.warn(`Could not load audio file ${url}:`, error);
+                // Fallback to synthesized sounds if audio files fail to load
+                if (bufferName === 'successChimeBuffer') {
+                    audioBuffers[bufferName] = createSynthesizedChime();
+                } else if (bufferName === 'failBuzzBuffer') {
+                    audioBuffers[bufferName] = createSynthesizedBuzz();
+                } else if (bufferName === 'dropSoundBuffer') {
+                    audioBuffers[bufferName] = createSynthesizedClick();
+                }
+            }
+        }
+
+        // Synthesized sounds (fallbacks)
+        function createSynthesizedChime() {
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            const frequencies = [523, 659, 784, 1046]; // C5, E5, G5, C6
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.sin(2 * Math.PI * frequencies[Math.floor(i / (audioCtx.sampleRate * 0.125)) % 4] * i / audioCtx.sampleRate) * Math.exp(-i / (audioCtx.sampleRate * 0.2));
+            }
+            return buffer;
+        }
+
+        function createSynthesizedBuzz() {
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.5, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = (Math.random() * 2 - 1) * Math.exp(-i / (audioCtx.sampleRate * 0.1)); // White noise decay
+            }
+            return buffer;
+        }
+
+        function createSynthesizedClick() {
+            const buffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 0.1, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) {
+                data[i] = Math.sin(2 * Math.PI * 1000 * i / audioCtx.sampleRate) * Math.exp(-i / (audioCtx.sampleRate * 0.02));
+            }
+            return buffer;
+        }
+
+        function playSound(bufferName, volume = 1, loop = false) {
+            if (!audioCtx || !audioBuffers[bufferName]) return;
+
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffers[bufferName];
+            source.loop = loop;
+            const gainNode = audioCtx.createGain();
+            gainNode.gain.value = volume;
+            source.connect(gainNode).connect(audioCtx.destination);
+            source.start(0);
+
+            return source; // Return source for stopping ambient sounds
+        }
+
+        function stopAmbience(source) {
+            if (source) {
+                source.stop();
+                source.disconnect();
+            }
+        }
+
+        // Speech Synthesis API
+        const synth = window.speechSynthesis;
+        let synthesisVoice = null;
+        let voices = [];
+
+        function populateVoiceList() {
+            voices = synth.getVoices();
+            synthesisVoice = voices.find(voice => voice.name.includes('Google US English') || voice.lang === 'en-US') || voices[0];
+        }
+
+        populateVoiceList();
+        if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = populateVoiceList;
+        }
+
+        function speak(text) {
+            if (synth.speaking) {
+                synth.cancel();
+            }
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.voice = synthesisVoice;
+            utterance.pitch = 1.2; // Slightly higher for childlike voice
+            utterance.rate = 0.9;  // Slightly slower for clarity
+            synth.speak(utterance);
+        }
+
+        // Helper function to map a value from one range to another
+        function mapValue(value, inMin, inMax, outMin, outMax) {
+            return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+        }
+
+        // Slider Event Listeners
+        const tempSlider = document.getElementById('temp-slider');
+        const humiditySlider = document.getElementById('humidity-slider');
+        const windSlider = document.getElementById('wind-slider');
+        const cloudAltSlider = document.getElementById('cloud-alt-slider');
+
+        const tempValueSpan = document.getElementById('temp-value');
+        const humidityValueSpan = document.getElementById('humidity-value');
+        const windValueSpan = document.getElementById('wind-value');
+        const cloudAltValueSpan = document.getElementById('cloud-alt-value');
+
+        function updateSliderDisplay(slider, valueSpan, unit, val) {
+            valueSpan.textContent = `${val} ${unit}`;
+            // Update custom CSS property for range track fill
+            const percentage = ((val - parseFloat(slider.min)) / (parseFloat(slider.max) - parseFloat(slider.min))) * 100;
+            slider.style.setProperty('--value', `${percentage}%`);
+        }
+
+        function handleSliderInput(event) {
+            const slider = event.target;
+            const value = parseFloat(slider.value);
+
+            if (slider.id === 'temp-slider') {
+                currentConditions.temperature = value;
+                updateSliderDisplay(slider, tempValueSpan, '°C', value);
+            } else if (slider.id === 'humidity-slider') {
+                currentConditions.humidity = value;
+                updateSliderDisplay(slider, humidityValueSpan, '%', value);
+            } else if (slider.id === 'wind-slider') {
+                currentConditions.windSpeed = value;
+                updateSliderDisplay(slider, windValueSpan, 'km/h', value);
+            } else if (slider.id === 'cloud-alt-slider') {
+                currentConditions.cloudAltitude = value;
+                updateSliderDisplay(slider, cloudAltValueSpan, 'km', value);
+            }
+            updateOscillatorPitch();
+            updateSimulation();
+            checkPrecipitationConditions(); // Re-check conditions whenever sliders change
+        }
+
+        function updateOscillatorPitch() {
+            if (!audioCtx) return;
+
+            // Temperature: 200 Hz (cold) to 800 Hz (hot)
+            const tempOsc = sliderOscillators['temp-slider'];
+            if (tempOsc) {
+                const freq = mapValue(currentConditions.temperature, -10, 30, 200, 800);
+                tempOsc.osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                tempOsc.gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime); // Keep subtle
+            }
+
+            // Humidity: 100 Hz (low) to 500 Hz (high)
+            const humOsc = sliderOscillators['humidity-slider'];
+            if (humOsc) {
+                const freq = mapValue(currentConditions.humidity, 0, 100, 100, 500);
+                humOsc.osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                humOsc.gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            }
+
+            // Wind Speed: 50 Hz (low) to 300 Hz (high) (more noise-like or lower freq pulse)
+            const windOsc = sliderOscillators['wind-slider'];
+            if (windOsc) {
+                const freq = mapValue(currentConditions.windSpeed, 0, 50, 50, 300);
+                windOsc.osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                windOsc.gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            }
+
+            // Cloud Altitude: 600 Hz (low) to 1200 Hz (high)
+            const altOsc = sliderOscillators['cloud-alt-slider'];
+            if (altOsc) {
+                const freq = mapValue(currentConditions.cloudAltitude, 1, 10, 600, 1200);
+                altOsc.osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                altOsc.gainNode.gain.setValueAtTime(0.07, audioCtx.currentTime);
+            }
+        }
+
+        // Initialize sliders
+        tempSlider.addEventListener('input', handleSliderInput);
+        humiditySlider.addEventListener('input', handleSliderInput);
+        windSlider.addEventListener('input', handleSliderInput);
+        cloudAltSlider.addEventListener('input', handleSliderInput);
+
+        // Set initial slider display
+        updateSliderDisplay(tempSlider, tempValueSpan, '°C', currentConditions.temperature);
+        updateSliderDisplay(humiditySlider, humidityValueSpan, '%', currentConditions.humidity);
+        updateSliderDisplay(windSlider, windValueSpan, 'km/h', currentConditions.windSpeed);
+        updateSliderDisplay(cloudAltSlider, cloudAltValueSpan, 'km', currentConditions.cloudAltitude);
+
+        // Drag & Drop Logic
+        let draggedCardType = null;
+        const conditionCards = document.querySelectorAll('.condition-card');
+        const dropZones = document.querySelectorAll('.drop-zone');
+
+        conditionCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                draggedCardType = e.target.dataset.cardType;
+                e.dataTransfer.setData('text/plain', draggedCardType);
+                e.target.style.opacity = '0.5';
+                dropZones.forEach(zone => zone.classList.add('active')); // Show drop zones
+            });
+
+            card.addEventListener('dragend', (e) => {
+                e.target.style.opacity = '1';
+                dropZones.forEach(zone => {
+                    zone.classList.remove('active', 'valid', 'invalid');
+                });
+            });
+        });
+
+        dropZones.forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault(); // Necessary to allow drop
+                const cardType = e.dataTransfer.getData('text/plain');
+                if (zone.dataset.accepts === cardType) {
+                    zone.classList.add('valid');
+                    zone.classList.remove('invalid');
+                } else {
+                    zone.classList.add('invalid');
+                    zone.classList.remove('valid');
+                }
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('valid', 'invalid');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const cardType = e.dataTransfer.getData('text/plain');
+                zone.classList.remove('active', 'valid', 'invalid');
+                
+                if (zone.dataset.accepts === cardType) {
+                    playSound('dropSoundBuffer', 0.5);
+                    droppedCards[cardType] = true;
+                    // Provide temporary visual feedback on drop zone
+                    zone.classList.add('valid');
+                    const originalText = zone.textContent;
+                    zone.textContent = `Applied: ${cardType}`;
+                    setTimeout(() => {
+                        zone.textContent = originalText;
+                        zone.classList.remove('valid');
+                    }, 1500);
+
+                    checkPrecipitationConditions();
+                } else {
+                    playSound('failBuzzBuffer', 0.8);
+                    zone.classList.add('invalid');
+                    setTimeout(() => zone.classList.remove('invalid'), 500);
+                }
+            });
+        });
+
+        // Precipitation Logic
+        function checkPrecipitationConditions() {
+            const { temperature, humidity, windSpeed, cloudAltitude } = currentConditions;
+            const { "Warm Air Parcel": warmAir, "Cold Air Parcel": coldAir, "Condensation Nuclei": nuclei, "Ice Crystals": iceCrystals, "Strong Updraft": updraft } = droppedCards;
+
+            let newActivePrecipitation = null;
+
+            // ELI5 Logic:
+            if (warmAir && nuclei && temperature > 5 && humidity > 70) {
+                newActivePrecipitation = "Rain";
+            } else if (warmAir && nuclei && temperature > 5 && humidity > 40 && humidity <= 70) {
+                newActivePrecipitation = "Drizzle";
+            } else if (coldAir && iceCrystals && temperature < 0 && humidity > 60) {
+                newActivePrehipitation = "Snow";
+            } else if (iceCrystals && temperature >= 0 && temperature < 5 && humidity > 60 && coldAir) { // Assume coldAir aloft for freezing
+                 // Sleet: rain that freezes into ice pellets as it falls through a layer of sub-freezing air
+                newActivePrecipitation = "Sleet";
+            } else if (warmAir && coldAir && temperature < 0 && humidity > 50) { // Assume warm air aloft, cold ground
+                // Freezing Rain: rain that falls through cold air near ground but only freezes on contact
+                newActivePrecipitation = "Freezing Rain";
+            } else if (updraft && iceCrystals && coldAir && temperature < 0 && humidity > 80 && cloudAltitude > 7 && windSpeed > 30) {
+                newActivePrecipitation = "Hail";
+            }
+
+            if (newActivePrecipitation && newActivePrecipitation !== activePrecipitation) {
+                activePrecipitation = newActivePrecipitation;
+                if (!identifiedPrecipitation[activePrecipitation]) {
+                    identifiedPrecipitation[activePrecipitation] = true;
+                    updateChecklistStatus(activePrecipitation, true);
+                    playSound('successChimeBuffer', 0.6);
+                    speakAboutPrecipitation(activePrecipitation);
+                }
+                updateSimulation(); // Update canvas with new precipitation
+                startAmbience(activePrecipitation);
+                showPowerUpVisualizer();
+            } else if (!newActivePrecipitation && activePrecipitation) {
+                // If conditions are no longer met for the *current* active precipitation, stop it
+                activePrecipitation = null;
+                updateSimulation();
+                stopAmbience(rainAmbienceSource);
+                stopAmbience(snowAmbienceSource);
+                stopAmbience(hailAmbienceSource);
+                hidePowerUpVisualizer();
+            }
+            // If activePrecipitation is already newActivePrecipitation, do nothing.
+            // If newActivePrecipitation is null, and activePrecipitation was already null, do nothing.
+        }
+
+        function resetDroppedCards() {
+            for (const cardType in droppedCards) {
+                droppedCards[cardType] = false;
+            }
+            // Visually reset drop zones if needed, but they hide automatically
+        }
+
+        function updateChecklistStatus(type, identified) {
+            const item = document.querySelector(`.checklist-item[data-precip-type="${type}"]`);
+            if (item) {
+                const statusLight = item.querySelector('.status-light');
+                statusLight.classList.remove('pending', 'identified');
+                statusLight.classList.add(identified ? 'identified' : 'pending');
+            }
+        }
+
+        function speakAboutPrecipitation(type) {
+            let text = "";
+            switch (type) {
+                case "Rain": text = "Hooray! It's raining! See those little drops? That happens when warm air makes the cloud-sponge full of water, and then it squeezes it out!"; break;
+                case "Drizzle": text = "Look, tiny drizzle! These are super small rain drops from thin clouds. It's like the cloud is just gently misting!"; break;
+                case "Snow": text = "Wow, fluffy snow! When the sky gets super chilly all the way to the ground, water turns into tiny ice fairies that dance down from the clouds!"; break;
+                case "Sleet": text = "Brrr, it's sleet! That's when rain from a warmer cloud falls, but then freezes into little ice pellets as it passes through a cold layer near the ground!"; break;
+                case "Hail": text = "Uh oh, bouncy hail! That's when ice goes on a rollercoaster ride inside a super stormy cloud, getting bigger and bigger before it drops!"; break;
+                case "Freezing Rain": text = "Watch out, it's freezing rain! It starts as rain from warm clouds, but then gets super-cooled and freezes only when it hits chilly ground or objects!"; break;
+                default: text = "Something new is happening!";
+            }
+            speak(text);
+        }
+
+        function startAmbience(type) {
+            stopAmbience(rainAmbienceSource);
+            stopAmbience(snowAmbienceSource);
+            stopAmbience(hailAmbienceSource);
+
+            switch (type) {
+                case "Rain": rainAmbienceSource = playSound('rainAmbienceBuffer', 0.2, true); break;
+                case "Snow": snowAmbienceSource = playSound('snowAmbienceBuffer', 0.2, true); break;
+                case "Hail": hailAmbienceSource = playSound('hailAmbienceBuffer', 0.3, true); break;
+                // Drizzle, Sleet, Freezing Rain can use simpler sounds or just be silent
+            }
+        }
+
+        // Hydrology Secrets Modal
+        const hydrologySecretsBtn = document.getElementById('hydrology-secrets-btn');
+        const hydrologySecretsOverlay = document.getElementById('hydrology-secrets-overlay');
+        const hydrologySecretsCloseBtn = hydrologySecretsOverlay.querySelector('.close-btn');
+
+        hydrologySecretsBtn.addEventListener('click', () => {
+            hydrologySecretsOverlay.classList.add('visible');
+        });
+
+        hydrologySecretsCloseBtn.addEventListener('click', () => {
+            hydrologySecretsOverlay.classList.remove('visible');
+        });
+
+        hydrologySecretsOverlay.addEventListener('click', (e) => {
+            if (e.target === hydrologySecretsOverlay) {
+                hydrologySecretsOverlay.classList.remove('visible');
+            }
+        });
+
+        // Canvas Drawing Functions
+        function drawCanvas(timestamp) {
+            if (!lastFrameTime) lastFrameTime = timestamp;
+            const deltaTime = timestamp - lastFrameTime;
+            lastFrameTime = timestamp;
+
+            ctx.clearRect(0, 0, canvas.width / dpr, canvas.height / dpr); // Clear for current DPR
+            const effectiveWidth = canvas.width / dpr;
+            const effectiveHeight = canvas.height / dpr;
+
+            // Apply camera zoom/pan
+            ctx.save();
+            ctx.translate(cameraZoom.x, cameraZoom.y);
+            ctx.scale(cameraZoom.scale, cameraZoom.scale);
+
+            // Sky/Atmosphere Gradient
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, effectiveHeight);
+            skyGradient.addColorStop(0, '#001f3f'); // Dark blue at top
+            skyGradient.addColorStop(0.5, '#0a0a1a'); // Darker in middle
+            skyGradient.addColorStop(1, '#1a1a2e'); // Deep dark at bottom
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, effectiveWidth, effectiveHeight);
+
+            // Ground
+            const groundHeight = 50;
+            const groundY = effectiveHeight - groundHeight;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY);
+            ctx.lineTo(effectiveWidth, groundY);
+            ctx.lineTo(effectiveWidth, effectiveHeight);
+            ctx.lineTo(0, effectiveHeight);
+            ctx.closePath();
+            ctx.fillStyle = '#5c4b3a'; // Earthy brown
+            ctx.fill();
+            ctx.strokeStyle = '#3a2b1a'; // Darker border
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Ground Level Label (CRITICAL RULE 3: Legible Canvas Text)
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Background for text
+            ctx.fillRect(effectiveWidth / 2 - 60, groundY - 25, 120, 20);
+            ctx.font = '14px Rajdhani';
+            ctx.fillStyle = var_to_rgb('--text-light');
+            ctx.textAlign = 'center';
+            ctx.fillText('Ground Level', effectiveWidth / 2, groundY - 10);
+
+            // Cloud Visualization
+            const cloudBaseY = effectiveHeight - currentConditions.cloudAltitude * (effectiveHeight / 12) - groundHeight; // Map km to canvas height
+            const cloudTopY = cloudBaseY - (effectiveHeight / 8);
+            const cloudOpacity = mapValue(currentConditions.humidity, 0, 100, 0.1, 0.9);
+            const cloudColor = currentConditions.temperature < 0 ? `rgba(200, 220, 255, ${cloudOpacity})` : `rgba(220, 220, 220, ${cloudOpacity})`;
+
+            if (currentConditions.humidity > 40) {
+                // Draw a simple cloud shape
+                ctx.fillStyle = cloudColor;
+                ctx.beginPath();
+                ctx.moveTo(effectiveWidth * 0.2, cloudBaseY);
+                ctx.bezierCurveTo(effectiveWidth * 0.1, cloudBaseY - 50, effectiveWidth * 0.15, cloudTopY + 50, effectiveWidth * 0.25, cloudTopY);
+                ctx.bezierCurveTo(effectiveWidth * 0.35, cloudTopY - 70, effectiveWidth * 0.5, cloudTopY - 50, effectiveWidth * 0.6, cloudTopY);
+                ctx.bezierCurveTo(effectiveWidth * 0.75, cloudTopY - 30, effectiveWidth * 0.8, cloudTopY + 30, effectiveWidth * 0.9, cloudTopY);
+                ctx.bezierCurveTo(effectiveWidth, cloudTopY + 70, effectiveWidth * 0.9, cloudBaseY + 20, effectiveWidth * 0.7, cloudBaseY);
+                ctx.bezierCurveTo(effectiveWidth * 0.5, cloudBaseY + 30, effectiveWidth * 0.3, cloudBaseY + 20, effectiveWidth * 0.2, cloudBaseY);
+                ctx.closePath();
+                ctx.fill();
+
+                // Cloud Base Label
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(effectiveWidth * 0.75 - 60, cloudBaseY + 5, 120, 20);
+                ctx.font = '14px Rajdhani';
+                ctx.fillStyle = var_to_rgb('--text-light');
+                ctx.textAlign = 'center';
+                ctx.fillText(`Cloud Base (${currentConditions.cloudAltitude}km)`, effectiveWidth * 0.75, cloudBaseY + 20);
+            }
+
+            // Draw Precipitation Particles
+            if (activePrecipitation && isSimulating) {
+                generatePrecipitationParticles(effectiveWidth, cloudBaseY, cloudTopY, groundY, deltaTime);
+            }
+
+            precipitationParticles = precipitationParticles.filter(p => p.y < effectiveHeight);
+
+            precipitationParticles.forEach(p => {
+                p.x += p.velocityX * deltaTime / 1000;
+                p.y += p.velocityY * deltaTime / 1000;
+                
+                // Special effect for Freezing Rain on ground impact
+                if (p.type === "Freezing Rain" && p.y >= groundY - 5 && !p.frozen) {
+                    p.frozen = true;
+                    // Draw a small ice patch
+                    ctx.beginPath();
+                    ctx.arc(p.x, groundY, p.size * 1.5, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(150, 200, 255, 0.7)';
+                    ctx.fill();
+                    // Stop further falling for this particle
+                    p.velocityY = 0;
+                    p.velocityX = 0;
+                    p.lifespan = 200; // Freeze quickly then disappear
+                }
+
+                p.lifespan -= deltaTime;
+                if (p.lifespan > 0) {
+                    drawPrecipitationParticle(p, ctx, groundY);
+                }
+            });
+            precipitationParticles = precipitationParticles.filter(p => p.lifespan > 0);
+
+
+            // Atmospheric Temperature Profile (Overlay on left side of canvas)
+            drawTemperatureProfile(effectiveWidth, effectiveHeight, groundHeight);
+
+            ctx.restore(); // Restore canvas state (undo zoom/pan)
+
+            animationFrameId = requestAnimationFrame(drawCanvas);
+        }
+
+        function drawTemperatureProfile(effectiveWidth, effectiveHeight, groundHeight) {
+            const profileWidth = 120;
+            const profileHeight = effectiveHeight - groundHeight - 100; // Up to where clouds might be
+            const profileX = 20;
+            const profileY = 50;
+
+            // Background box
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(profileX, profileY, profileWidth, profileHeight);
+            ctx.strokeStyle = var_to_rgb('--glass-border');
+            ctx.lineWidth = 1;
+            ctx.strokeRect(profileX, profileY, profileWidth, profileHeight);
+
+            // Title
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(profileX, profileY - 20, profileWidth, 20);
+            ctx.font = '12px Rajdhani';
+            ctx.fillStyle = var_to_rgb('--neon-cyan');
+            ctx.textAlign = 'center';
+            ctx.fillText('Temp Profile', profileX + profileWidth / 2, profileY - 5);
+
+            // Draw temp lines
+            ctx.beginPath();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = 0.5;
+            for (let i = 0; i <= 5; i++) { // Lines for altitude
+                const y = profileY + i * (profileHeight / 5);
+                ctx.moveTo(profileX, y);
+                ctx.lineTo(profileX + profileWidth, y);
+                //ctx.fillText(`${(10 - i*2)}km`, profileX + profileWidth + 15, y); // Altitude labels (simplified)
+            }
+            ctx.stroke();
+
+            // 0°C Isotherm (Freezing Level)
+            const groundTemp = currentConditions.temperature;
+            const lapseRate = 6.5; // °C per km (typical average)
+            // Calculate height of 0C isotherm from ground: 0 = groundTemp - (lapseRate * altitude)
+            // altitude_0C = groundTemp / lapseRate (in km)
+            const altitude0C = groundTemp / lapseRate;
+            // Map altitude_0C from km (0-10) to profileY range
+            const y0C = mapValue(altitude0C, 0, 10, profileY + profileHeight, profileY);
+
+            if (altitude0C >= 0 && altitude0C <= 10) { // Ensure it's within displayable altitude
+                ctx.beginPath();
+                ctx.strokeStyle = var_to_rgb('--neon-red');
+                ctx.lineWidth = 2;
+                ctx.moveTo(profileX, y0C);
+                ctx.lineTo(profileX + profileWidth, y0C);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                ctx.fillRect(profileX + profileWidth + 5, y0C - 10, 40, 20);
+                ctx.font = '12px Rajdhani';
+                ctx.fillStyle = var_to_rgb('--neon-red');
+                ctx.textAlign = 'left';
+                ctx.fillText('0°C', profileX + profileWidth + 8, y0C + 5);
+            }
+
+            // Temperature Profile Line
+            ctx.beginPath();
+            ctx.strokeStyle = var_to_rgb('--neon-green');
+            ctx.lineWidth = 2;
+            const groundTempX = profileX + mapValue(groundTemp, -10, 30, 0, profileWidth);
+            ctx.moveTo(groundTempX, profileY + profileHeight);
+            // Rough approximation: temp decreases linearly with altitude
+            const topAltitudeTemp = groundTemp - (lapseRate * 10); // Temperature at 10km
+            const topTempX = profileX + mapValue(topAltitudeTemp, -10, 30, 0, profileWidth);
+            ctx.lineTo(topTempX, profileY);
+            ctx.stroke();
+
+            // Ground temp indicator on profile
+            ctx.fillStyle = var_to_rgb('--neon-orange');
+            ctx.beginPath();
+            ctx.arc(groundTempX, profileY + profileHeight, 4, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Cloud base on profile
+            const cloudAltitudeInKm = currentConditions.cloudAltitude;
+            const tempAtCloudBase = groundTemp - (lapseRate * cloudAltitudeInKm);
+            const cloudBaseX = profileX + mapValue(tempAtCloudBase, -10, 30, 0, profileWidth);
+            const cloudBaseYInProfile = mapValue(cloudAltitudeInKm, 0, 10, profileY + profileHeight, profileY);
+
+            if (cloudBaseYInProfile > profileY && cloudBaseYInProfile < profileY + profileHeight) {
+                 ctx.fillStyle = var_to_rgb('--neon-cyan-strong');
+                 ctx.beginPath();
+                 ctx.arc(cloudBaseX, cloudBaseYInProfile, 5, 0, Math.PI * 2);
+                 ctx.fill();
+            }
+
+            // Altitude labels
+            for (let i = 0; i <= 10; i+=2) { // 0km to 10km
+                const yPos = mapValue(i, 0, 10, profileY + profileHeight, profileY);
+                if (yPos >= profileY && yPos <= profileY + profileHeight) {
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+                    ctx.fillRect(profileX - 35, yPos - 10, 30, 20);
+                    ctx.font = '12px Rajdhani';
+                    ctx.fillStyle = var_to_rgb('--text-light');
+                    ctx.textAlign = 'right';
+                    ctx.fillText(`${i}km`, profileX - 8, yPos + 5);
+                }
+            }
+        }
+
+        function generatePrecipitationParticles(effectiveWidth, cloudBaseY, cloudTopY, groundY, deltaTime) {
+            const numToGenerate = Math.floor(deltaTime / 1000 * 5); // About 5 particles per second
+            if (precipitationParticles.length < MAX_PARTICLES) {
+                for (let i = 0; i < numToGenerate; i++) {
+                    const x = Math.random() * effectiveWidth;
+                    const y = mapValue(Math.random(), 0, 1, cloudTopY, cloudBaseY); // Start within cloud
+                    let size = Math.random() * 3 + 2; // Default size
+                    let velocityY = mapValue(currentConditions.windSpeed, 0, 50, 0.5, 3); // Faster falling with wind (simplified)
+                    let velocityX = mapValue(currentConditions.windSpeed, 0, 50, 0, 0.5) * (Math.random() > 0.5 ? 1 : -1);
+
+                    // Adjust for camera zoom scale
+                    velocityY /= cameraZoom.scale;
+                    velocityX /= cameraZoom.scale;
+
+                    switch (activePrecipitation) {
+                        case "Rain":
+                            size = Math.random() * 2 + 3; // 3-5px
+                            velocityY *= 1.5;
+                            break;
+                        case "Drizzle":
+                            size = Math.random() * 1 + 1; // 1-2px
+                            velocityY *= 0.8;
+                            break;
+                        case "Snow":
+                            size = Math.random() * 3 + 4; // 4-7px
+                            velocityY *= 0.5;
+                            velocityX = mapValue(currentConditions.windSpeed, 0, 50, 0, 0.2); // Snow drifts more
+                            break;
+                        case "Sleet":
+                            size = Math.random() * 1.5 + 2.5; // 2.5-4px
+                            velocityY *= 2;
+                            break;
+                        case "Hail":
+                            size = Math.random() * 5 + 6; // 6-11px
+                            velocityY *= 3;
+                            velocityX = mapValue(currentConditions.windSpeed, 0, 50, 0, 0.8) * (Math.random() > 0.5 ? 1 : -1);
+                            break;
+                        case "Freezing Rain":
+                            size = Math.random() * 2 + 3; // 3-5px
+                            velocityY *= 1.5;
+                            break;
+                    }
+
+                    precipitationParticles.push({
+                        x, y,
+                        type: activePrecipitation,
+                        size,
+                        velocityX, velocityY,
+                        lifespan: PARTICLE_LIFESPAN
+                    });
+                }
+            }
+        }
+
+        function drawPrecipitationParticle(p, ctx, groundY) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'; // Default for snowflakes
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = 1;
+
+            switch (p.type) {
+                case "Rain":
+                case "Drizzle":
+                case "Freezing Rain": // Visually, before impact, looks like rain
+                    ctx.fillStyle = `rgba(100, 150, 255, ${p.type === "Drizzle" ? 0.6 : 0.8})`;
+                    ctx.beginPath();
+                    if (p.type === "Drizzle") {
+                        ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+                    } else {
+                        // Teardrop shape
+                        ctx.moveTo(p.x, p.y - p.size);
+                        ctx.bezierCurveTo(p.x + p.size/2, p.y - p.size, p.x + p.size, p.y, p.x, p.y + p.size);
+                        ctx.bezierCurveTo(p.x - p.size, p.y, p.x - p.size/2, p.y - p.size, p.x, p.y - p.size);
+                    }
+                    ctx.fill();
+                    break;
+                case "Snow":
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+                    drawSnowflake(ctx, p.x, p.y, p.size);
+                    break;
+                case "Sleet":
+                    ctx.fillStyle = 'rgba(200, 220, 255, 0.8)';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeStyle = 'rgba(150, 180, 255, 0.5)';
+                    ctx.stroke();
+                    break;
+                case "Hail":
+                    ctx.fillStyle = 'rgba(200, 200, 200, 0.9)';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p.size / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.lineWidth = 1;
+                    ctx.strokeStyle = 'rgba(150, 150, 150, 0.8)';
+                    ctx.stroke();
+                    break;
+            }
+        }
+
+        function drawSnowflake(ctx, x, y, size) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(Math.random() * Math.PI * 2); // Random rotation
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, size);
+                ctx.moveTo(0, size / 2);
+                ctx.lineTo(-size / 3, size * 0.75);
+                ctx.moveTo(0, size / 2);
+                ctx.lineTo(size / 3, size * 0.75);
+                ctx.rotate(Math.PI / 3);
+            }
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // Mouse/Hand Gesture Detection on Canvas
+        let isDraggingCloud = false;
+        let lastMouseY = 0;
+        let lastMouseX = 0;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = (e.clientX - rect.left) / dpr;
+            const mouseY = (e.clientY - rect.top) / dpr;
+
+            const effectiveHeight = canvas.height / dpr;
+            const cloudBaseY = effectiveHeight - currentConditions.cloudAltitude * (effectiveHeight / 12) - 50;
+            const cloudTopY = cloudBaseY - (effectiveHeight / 8);
+
+            // Check if mouse is over the cloud
+            if (mouseY > cloudTopY && mouseY < cloudBaseY && currentConditions.humidity > 40) {
+                isDraggingCloud = true;
+                lastMouseY = mouseY;
+                lastMouseX = mouseX;
+                canvas.style.cursor = 'grabbing';
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDraggingCloud) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const currentMouseY = (e.clientX - rect.left) / dpr;
+            const currentMouseX = (e.clientY - rect.top) / dpr;
+            const deltaY = currentMouseY - lastMouseY;
+            const deltaX = currentMouseX - lastMouseX;
+
+            // "Pushing Clouds" (adjusting cloud altitude)
+            let newCloudAltitude = currentConditions.cloudAltitude - (deltaY * 0.01); // Scale sensitivity
+            newCloudAltitude = Math.max(1, Math.min(10, newCloudAltitude)); // Clamp between 1 and 10 km
+            cloudAltSlider.value = newCloudAltitude.toFixed(1);
+            cloudAltSlider.dispatchEvent(new Event('input')); // Trigger slider event
+
+            // "Stirring the Atmosphere" (adjusting wind speed)
+            const windSpeedChangeThreshold = 10; // pixels
+            if (Math.abs(deltaX) > windSpeedChangeThreshold) {
+                let newWindSpeed = currentConditions.windSpeed + (deltaX * 0.1);
+                newWindSpeed = Math.max(0, Math.min(50, newWindSpeed));
+                windSlider.value = newWindSpeed.toFixed(0);
+                windSlider.dispatchEvent(new Event('input'));
+            }
+
+            lastMouseY = currentMouseY;
+            lastMouseX = currentMouseX;
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDraggingCloud = false;
+            canvas.style.cursor = 'grab';
+        });
+        canvas.addEventListener('mouseleave', () => { // Stop drag if mouse leaves canvas
+            isDraggingCloud = false;
+            canvas.style.cursor = 'grab';
+        });
+
+        function updateSimulation() {
+            // Manage particle generation based on activePrecipitation
+            isSimulating = activePrecipitation !== null;
+            if (!isSimulating) {
+                precipitationParticles = []; // Clear particles if no precipitation
+            }
+
+            // Dynamic Camera Zooms - apply based on activePrecipitation
+            let targetScale = 1;
+            let targetX = 0;
+            let targetY = 0;
+
+            const effectiveWidth = canvas.width / dpr;
+            const effectiveHeight = canvas.height / dpr;
+            const groundY = effectiveHeight - 50;
+
+            if (activePrecipitation === "Snow") {
+                targetScale = 1.2;
+                // Zoom into the cloud center
+                targetX = -(effectiveWidth * 0.5 * (targetScale - 1));
+                targetY = -(effectiveHeight * 0.25 * (targetScale - 1)); // Slightly above center
+            } else if (activePrecipitation === "Freezing Rain" || activePrecipitation === "Sleet") {
+                targetScale = 1.3;
+                // Zoom onto the ground level
+                targetX = -(effectiveWidth * 0.5 * (targetScale - 1));
+                targetY = -(groundY * targetScale - effectiveHeight * 0.9); // Keep ground visible at bottom
+            }
+
+            // Smooth transition for camera zoom
+            cameraZoom.scale += (targetScale - cameraZoom.scale) * 0.05;
+            cameraZoom.x += (targetX - cameraZoom.x) * 0.05;
+            cameraZoom.y += (targetY - cameraZoom.y) * 0.05;
+
+            // Update power up visualizer
+            updatePowerUpVisualizer();
+        }
+
+        // Precipitation Power-Up Visualizer
+        const powerUpVisualizer = document.getElementById('power-up-visualizer');
+        const powerBarHumidity = document.getElementById('power-bar-humidity');
+        const powerBarTemperature = document.getElementById('power-bar-temperature');
+        const powerBarConditions = document.getElementById('power-bar-conditions');
+
+        function showPowerUpVisualizer() {
+            powerUpVisualizer.style.display = 'flex';
+            updatePowerUpVisualizer();
+        }
+
+        function hidePowerUpVisualizer() {
+            powerUpVisualizer.style.display = 'none';
+        }
+
+        function updatePowerUpVisualizer() {
+            if (!activePrecipitation) {
+                powerBarHumidity.style.width = '0%';
+                powerBarTemperature.style.width = '0%';
+                powerBarConditions.style.width = '0%';
+                return;
+            }
+
+            const { temperature, humidity, windSpeed, cloudAltitude } = currentConditions;
+            let humidityPower = 0;
+            let temperaturePower = 0;
+            let conditionsPower = 0; // Represents specific card conditions and wind/altitude
+
+            switch (activePrecipitation) {
+                case "Rain":
+                    humidityPower = mapValue(humidity, 70, 100, 50, 100);
+                    temperaturePower = mapValue(temperature, 5, 30, 50, 100);
+                    conditionsPower = (droppedCards["Warm Air Parcel"] && droppedCards["Condensation Nuclei"]) ? 100 : 0;
+                    break;
+                case "Drizzle":
+                    humidityPower = mapValue(humidity, 40, 70, 50, 100);
+                    temperaturePower = mapValue(temperature, 5, 30, 50, 100);
+                    conditionsPower = (droppedCards["Warm Air Parcel"] && droppedCards["Condensation Nuclei"]) ? 100 : 0;
+                    break;
+                case "Snow":
+                    humidityPower = mapValue(humidity, 60, 100, 50, 100);
+                    temperaturePower = mapValue(temperature, -10, 0, 100, 50); // Colder is higher power
+                    conditionsPower = (droppedCards["Cold Air Parcel"] && droppedCards["Ice Crystals"]) ? 100 : 0;
+                    break;
+                case "Sleet":
+                    humidityPower = mapValue(humidity, 60, 100, 50, 100);
+                    temperaturePower = mapValue(temperature, 0, 5, 100, 50); // Mix of cold and warm
+                    conditionsPower = (droppedCards["Ice Crystals"] && droppedCards["Cold Air Parcel"]) ? 100 : 0;
+                    break;
+                case "Hail":
+                    humidityPower = mapValue(humidity, 80, 100, 70, 100);
+                    temperaturePower = mapValue(temperature, -10, 0, 100, 70);
+                    conditionsPower = (droppedCards["Strong Updraft"] && droppedCards["Ice Crystals"] && droppedCards["Cold Air Parcel"] && cloudAltitude > 7 && windSpeed > 30) ? 100 : 0;
+                    break;
+                case "Freezing Rain":
+                    humidityPower = mapValue(humidity, 50, 100, 50, 100);
+                    temperaturePower = mapValue(temperature, -10, 0, 100, 50); // Cold ground temp
+                    conditionsPower = (droppedCards["Warm Air Parcel"] && droppedCards["Cold Air Parcel"]) ? 100 : 0; // Warm aloft, cold ground
+                    break;
+            }
+
+            // Clamp values to 0-100%
+            humidityPower = Math.max(0, Math.min(100, humidityPower));
+            temperaturePower = Math.max(0, Math.min(100, temperaturePower));
+            conditionsPower = Math.max(0, Math.min(100, conditionsPower));
+
+
+            powerBarHumidity.style.width = `${humidityPower}%`;
+            powerBarTemperature.style.width = `${temperaturePower}%`;
+            powerBarConditions.style.width = `${conditionsPower}%`;
+        }
+
+        // Helper to convert CSS variable to RGB string for canvas fills
+        function var_to_rgb(cssVar) {
+            const style = getComputedStyle(document.documentElement);
+            const value = style.getPropertyValue(cssVar).trim();
+            // Remove 'rgba' or 'rgb' wrapper and parse numbers. Simpler for solid colors.
+            if (value.startsWith('rgba(')) {
+                const parts = value.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)/);
+                return `rgba(${parts[1]}, ${parts[2]}, ${parts[3]}, ${parts[4]})`;
+            } else if (value.startsWith('rgb(')) {
+                 const parts = value.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                 return `rgb(${parts[1]}, ${parts[2]}, ${parts[3]})`;
+            }
+            return value; // Return as is if not rgba/rgb format
+        }
+
+        // Initial setup
+        resizeCanvas();
+        requestAnimationFrame(drawCanvas);
+        // Initial precipitation status (all pending)
+        document.querySelectorAll('.checklist-item').forEach(item => {
+            updateChecklistStatus(item.dataset.precipType, false);
+        });
+
+    </script>
+</body>
+</html>

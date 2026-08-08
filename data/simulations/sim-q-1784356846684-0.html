@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hydrological Cycle Cyber-Sandbox Simulation</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Share+Tech+Mono&display=swap');
+
+        :root {
+            --bg-color: #1A1A1A;
+            --glass-bg: rgba(30, 30, 30, 0.6);
+            --glass-border: rgba(80, 80, 80, 0.4);
+            --neon-cyan: #00FFFF; /* Water */
+            --neon-purple: #EE00FF; /* Atmosphere */
+            --neon-green: #00FF00; /* Terrestrial */
+            --text-color: #E0E0E0;
+            --glow-strength: 0 0 8px;
+            --transition-speed: 0.3s ease-in-out;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Share Tech Mono', monospace;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* CRITICAL RULE 1 */
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #app-container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden; /* CRITICAL RULE 1 */
+            box-sizing: border-box;
+        }
+
+        /* Glassmorphism Styling for Panels */
+        .glass-panel {
+            backdrop-filter: blur(10px); /* CRITICAL RULE 11 */
+            background-color: var(--glass-bg); /* CRITICAL RULE 11 */
+            border: 1px solid var(--glass-border); /* CRITICAL RULE 11 */
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: var(--glow-strength) rgba(0, 0, 0, 0.5);
+            transition: all var(--transition-speed);
+            position: absolute; /* Default for overlays, overridden by flex positioning if needed */
+        }
+
+        #control-panel {
+            width: 300px;
+            min-width: 250px;
+            max-width: 350px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+            overflow-y: auto; /* CRITICAL RULE 1: Allow internal scrolling if content exceeds height */
+            box-sizing: border-box;
+            z-index: 10;
+        }
+
+        #main-simulation-area {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden; /* CRITICAL RULE 1 */
+        }
+
+        #hydrologyCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+        }
+
+        .panel-header {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 1.2em;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-strength) var(--neon-cyan);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-color);
+            font-size: 0.9em;
+        }
+
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            position: relative;
+            padding: 8px 0;
+            background-color: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+        }
+
+        .slider-container input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: calc(100% - 70px);
+            height: 8px;
+            background: rgba(var(--neon-cyan, 0, 255, 255), 0.3);
+            outline: none;
+            border-radius: 5px;
+            margin: 0 10px;
+            flex-grow: 1;
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: var(--glow-strength) var(--neon-cyan);
+            transition: background var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        .slider-container input[type="range"]::-webkit-slider-thumb:active {
+            cursor: grabbing;
+            box-shadow: var(--glow-strength) var(--neon-cyan), 0 0 15px var(--neon-cyan);
+        }
+
+        .slider-container input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: grab;
+            box-shadow: var(--glow-strength) var(--neon-cyan);
+            transition: background var(--transition-speed), box-shadow var(--transition-speed);
+        }
+        .slider-container input[type="range"]::-moz-range-thumb:active {
+            cursor: grabbing;
+            box-shadow: var(--glow-strength) var(--neon-cyan), 0 0 15px var(--neon-cyan);
+        }
+
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-size: 0.9em;
+            color: var(--neon-cyan);
+            text-shadow: var(--glow-strength) var(--neon-cyan);
+        }
+
+        .draggable-card {
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid rgba(80, 80, 80, 0.6);
+            border-radius: 10px;
+            padding: 10px 15px;
+            margin-bottom: 10px;
+            cursor: grab;
+            box-shadow: var(--glow-strength) rgba(0, 0, 0, 0.5);
+            transition: all var(--transition-speed);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .draggable-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: var(--glow-strength) var(--neon-purple);
+            border-color: var(--neon-purple);
+        }
+
+        .draggable-card span {
+            color: var(--text-color);
+            font-size: 0.95em;
+        }
+
+        .draggable-card .card-value {
+            color: var(--neon-green);
+            font-family: 'Orbitron', sans-serif;
+            margin-left: 10px;
+            text-shadow: var(--glow-strength) var(--neon-green);
+        }
+
+        #drag-sources .draggable-card {
+            position: relative; /* Make sure these cards are positionable as sources */
+            opacity: 1;
+            pointer-events: all;
+            min-height: 40px;
+        }
+
+        #narration-box {
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            min-height: 80px;
+            text-align: center;
+            font-size: 1.1em;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 15px 25px;
+            z-index: 20;
+            opacity: 0; /* Hidden initially */
+            pointer-events: none;
+            box-shadow: var(--glow-strength) var(--neon-purple);
+            border-color: var(--neon-purple);
+        }
+        #narration-box.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+
+        #water-budget-meter {
+            top: 20px;
+            right: 20px;
+            width: 250px;
+            height: 100px;
+            z-index: 20;
+            padding: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            box-shadow: var(--glow-strength) var(--neon-cyan);
+            border-color: var(--neon-cyan);
+        }
+
+        .budget-segment {
+            height: 15px;
+            border-radius: 5px;
+            background-color: rgba(var(--neon-cyan, 0, 255, 255), 0.3);
+            text-align: right;
+            padding-right: 5px;
+            color: var(--text-color);
+            font-size: 0.8em;
+            line-height: 15px;
+            box-shadow: var(--glow-strength) rgba(var(--neon-cyan, 0, 255, 255), 0.5);
+            transition: width var(--transition-speed);
+        }
+
+        #hydrology-checklist {
+            top: 20px;
+            left: 20px;
+            width: 220px;
+            z-index: 20;
+            box-shadow: var(--glow-strength) var(--neon-green);
+            border-color: var(--neon-green);
+        }
+
+        .checklist-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .checklist-item .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 10px;
+            background-color: rgba(100, 100, 100, 0.5);
+            border: 1px solid rgba(150, 150, 150, 0.5);
+            transition: all var(--transition-speed);
+        }
+
+        .checklist-item.identified .status-indicator {
+            background-color: var(--neon-green);
+            box-shadow: var(--glow-strength) var(--neon-green);
+            border-color: var(--neon-green);
+        }
+
+        .checklist-item.identified span {
+            color: var(--neon-green);
+            text-shadow: var(--glow-strength) var(--neon-green);
+        }
+
+        .drop-target-highlight {
+            position: absolute;
+            border: 3px solid transparent;
+            border-radius: 50%;
+            box-sizing: border-box;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.2s ease-out;
+            z-index: 15;
+            animation: pulse-glow 1.5s infinite alternate;
+        }
+        .drop-target-highlight.active {
+            opacity: 1;
+            border-color: var(--neon-purple);
+            box-shadow: var(--glow-strength) var(--neon-purple);
+        }
+        .drop-target-highlight.success {
+            border-color: var(--neon-green);
+            box-shadow: var(--glow-strength) var(--neon-green);
+            animation: none;
+            transform: scale(1.1);
+        }
+        .drop-target-highlight.error {
+            border-color: #FF0000;
+            box-shadow: var(--glow-strength) #FF0000;
+            animation: none;
+            transform: scale(0.9);
+        }
+
+        @keyframes pulse-glow {
+            from { box-shadow: 0 0 5px var(--neon-purple); }
+            to { box-shadow: 0 0 20px var(--neon-purple), 0 0 10px var(--neon-purple) inset; }
+        }
+
+        /* Hidden draggable sources */
+        #drag-sources {
+            display: none; /* Hide the container for the source elements */
+        }
+
+        /* Overlay for initial state / modals */
+        #overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+        }
+
+        #overlay.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        #start-panel {
+            background-color: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.5);
+            max-width: 500px;
+            width: 80%;
+        }
+
+        #start-panel h1 {
+            font-family: 'Orbitron', sans-serif;
+            color: var(--neon-cyan);
+            text-shadow: 0 0 15px var(--neon-cyan);
+            margin-bottom: 20px;
+            font-size: 2.5em;
+        }
+
+        #start-panel p {
+            font-size: 1.1em;
+            line-height: 1.6;
+            color: var(--text-color);
+            margin-bottom: 30px;
+        }
+
+        #start-button {
+            background-color: var(--neon-cyan);
+            color: var(--bg-color);
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 1.2em;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 0 15px var(--neon-cyan);
+            transition: all var(--transition-speed);
+        }
+
+        #start-button:hover {
+            background-color: var(--neon-green);
+            box-shadow: 0 0 25px var(--neon-green);
+            transform: scale(1.05);
+        }
+
+        /* Gamified Challenge UI */
+        #challenge-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 25;
+            background-color: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 0 20px rgba(255, 0, 255, 0.7);
+            width: 400px;
+            max-width: 90%;
+            display: none; /* Hidden by default */
+        }
+
+        #challenge-modal.active {
+            display: block;
+            animation: bounceIn 0.5s ease-out;
+        }
+
+        @keyframes bounceIn {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            50% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            70% { transform: translate(-50%, -50%) scale(0.9); }
+            100% { transform: translate(-50%, -50%) scale(1); }
+        }
+
+        #challenge-modal h3 {
+            color: var(--neon-purple);
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: var(--glow-strength) var(--neon-purple);
+            margin-bottom: 15px;
+        }
+
+        .challenge-info {
+            color: var(--text-color);
+            margin-bottom: 20px;
+        }
+
+        .challenge-drop-zone {
+            width: 100%;
+            height: 70px;
+            border: 2px dashed var(--neon-cyan);
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-style: italic;
+            color: rgba(var(--neon-cyan, 0, 255, 255), 0.7);
+            background-color: rgba(0, 0, 0, 0.3);
+            transition: all var(--transition-speed);
+        }
+        .challenge-drop-zone.hover {
+            border-color: var(--neon-green);
+            box-shadow: var(--glow-strength) var(--neon-green);
+        }
+        .challenge-drop-zone.correct {
+            border-color: var(--neon-green);
+            background-color: rgba(var(--neon-green, 0, 255, 0), 0.2);
+        }
+        .challenge-drop-zone.incorrect {
+            border-color: #FF0000;
+            background-color: rgba(255, 0, 0, 0.2);
+        }
+
+        .hydrology-fact-scroll {
+            margin-top: 20px;
+            border-top: 1px solid var(--glass-border);
+            padding-top: 15px;
+        }
+
+        .fact-card {
+            background-color: rgba(30, 30, 30, 0.8);
+            border: 1px solid rgba(80, 80, 80, 0.6);
+            border-radius: 8px;
+            padding: 8px 12px;
+            margin-bottom: 8px;
+            cursor: grab;
+            box-shadow: var(--glow-strength) rgba(0, 0, 0, 0.5);
+            transition: all var(--transition-speed);
+            color: var(--text-color);
+            font-size: 0.85em;
+            text-align: center;
+        }
+        .fact-card:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--glow-strength) var(--neon-green);
+            border-color: var(--neon-green);
+        }
+
+        #close-challenge {
+            margin-top: 20px;
+            background-color: var(--neon-purple);
+            color: var(--bg-color);
+            border: none;
+            padding: 8px 15px;
+            border-radius: 5px;
+            font-family: 'Orbitron', sans-serif;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-purple);
+            transition: all var(--transition-speed);
+        }
+        #close-challenge:hover {
+            background-color: var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="control-panel" class="glass-panel">
+            <h2 class="panel-header">Cyber-Hydrology Controls</h2>
+
+            <div id="drag-sources">
+                <div id="sun-energy-card" class="draggable-card" draggable="true" data-type="param" data-param="sunEnergy" data-value="50">
+                    <span>Sun's Warm Hug Power:</span> <span class="card-value">50%</span>
+                </div>
+                <div id="rain-cloud-card" class="draggable-card" draggable="true" data-type="param" data-param="rainIntensity" data-value="0.5">
+                    <span>Rain Cloud Intensity:</span> <span class="card-value">Moderate</span>
+                </div>
+                <div id="sandy-soil-card" class="draggable-card" draggable="true" data-type="param" data-param="soilType" data-value="sandy">
+                    <span>Soil Type:</span> <span class="card-value">Sandy</span>
+                </div>
+                 <div id="clayey-soil-card" class="draggable-card" draggable="true" data-type="param" data-param="soilType" data-value="clayey">
+                    <span>Soil Type:</span> <span class="card-value">Clayey</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="sunEnergySlider">Sun's Warm Hug Power:</label>
+                <div class="slider-container">
+                    <input type="range" id="sunEnergySlider" min="0" max="100" value="50">
+                    <span class="slider-value" id="sunEnergyValue">50</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="windSpeedSlider">Wind's Playful Push:</label>
+                <div class="slider-container">
+                    <input type="range" id="windSpeedSlider" min="0" max="10" value="5">
+                    <span class="slider-value" id="windSpeedValue">5</span>
+                </div>
+            </div>
+
+            <div class="control-group hydrology-fact-scroll">
+                <h3 class="panel-header">Hydrology Fact Scroll</h3>
+                <div id="fact-card-water-distribution" class="fact-card" draggable="true" data-type="fact" data-fact="water-distribution">
+                    Water Distribution Facts
+                </div>
+                <div id="fact-card-infiltration-rates" class="fact-card" draggable="true" data-type="fact" data-fact="infiltration-rates">
+                    Infiltration Rates Table
+                </div>
+                <div id="fact-card-evaporation-def" class="fact-card" draggable="true" data-type="fact" data-fact="evaporation-definition">
+                    What is Evaporation?
+                </div>
+            </div>
+        </div>
+
+        <div id="main-simulation-area">
+            <canvas id="hydrologyCanvas"></canvas>
+
+            <div id="narration-box" class="glass-panel active">
+                Welcome! Let's explore the amazing journey of water!
+            </div>
+
+            <div id="water-budget-meter" class="glass-panel">
+                <h3 class="panel-header" style="font-size:1em; margin-bottom: 5px;">Water Budget</h3>
+                <div class="budget-segment" id="budget-ocean">Ocean: 97.2%</div>
+                <div class="budget-segment" id="budget-atmosphere">Atmosphere: 0.001%</div>
+                <div class="budget-segment" id="budget-groundwater">Groundwater: 0.32%</div>
+                <div class="budget-segment" id="budget-surface">Surface Water: 0.33%</div>
+            </div>
+
+            <div id="hydrology-checklist" class="glass-panel">
+                <h3 class="panel-header" style="font-size:1em; margin-bottom: 5px;">Cycle Checklist</h3>
+                <div class="checklist-item" data-item="Evaporation"><span class="status-indicator"></span><span>Evaporation</span></div>
+                <div class="checklist-item" data-item="Transpiration"><span class="status-indicator"></span><span>Transpiration</span></div>
+                <div class="checklist-item" data-item="Condensation"><span class="status-indicator"></span><span>Condensation</span></div>
+                <div class="checklist-item" data-item="Precipitation"><span class="status-indicator"></span><span>Precipitation</span></div>
+                <div class="checklist-item" data-item="Infiltration"><span class="status-indicator"></span><span>Infiltration</span></div>
+                <div class="checklist-item" data-item="Runoff"><span class="status-indicator"></span><span>Runoff</span></div>
+                <div class="checklist-item" data-item="Surface Detention"><span class="status-indicator"></span><span>Surface Detention</span></div>
+                <div class="checklist-item" data-item="Subsurface Flow"><span class="status-indicator"></span><span>Subsurface Flow</span></div>
+            </div>
+
+            <!-- Generic drop target highlight for canvas elements -->
+            <div id="canvas-drop-target-highlight" class="drop-target-highlight"></div>
+
+            <!-- Gamified Challenge Modal -->
+            <div id="challenge-modal" class="glass-panel">
+                <h3>Challenge Time!</h3>
+                <p id="challenge-info" class="challenge-info"></p>
+                <div id="challenge-drop-zone" class="challenge-drop-zone"
+                     ondragover="event.preventDefault(); this.classList.add('hover');"
+                     ondragleave="this.classList.remove('hover');"
+                     ondrop="handleChallengeDrop(event);">
+                    Drag a Fact Card here!
+                </div>
+                <button id="close-challenge">Close Challenge</button>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Start Overlay -->
+    <div id="overlay">
+        <div id="start-panel">
+            <h1>Welcome, Little Scientist!</h1>
+            <p>Ready to explore the amazing journey of water in our Cyber-Sandbox? Click 'Start' to begin your adventure and hear our friendly guide!</p>
+            <button id="start-button">Start Simulation</button>
+        </div>
+    </div>
+
+    <script>
+        // CRITICAL RULE 10: Web Audio API and Speech Synthesis API implemented natively in JavaScript with manual trigger buttons.
+        // AudioContext needs to be resumed on user gesture.
+        let audioContext;
+        let speechSynth = window.speechSynthesis;
+        let activeOscillators = {}; // Store oscillators to control pitch dynamically
+        let currentChallenge = null;
+
+        const simulationPhases = [
+            { id: 'start', speech: "Hello there, little scientist! Welcome to our super fun Water Cycle Cyber-Sandbox! Let's make some water magic happen!", text: "Welcome! Let's explore the amazing journey of water!" },
+            { id: 'evaporation_intro', speech: "First, find the big, shiny sun. Can you make it give the water a warm hug? Drag the 'Sun Energy' dial from the control panel onto the sun!", text: "Phase 1: Evaporation - Drag 'Sun Energy' card to the Sun!" },
+            { id: 'evaporation_active', speech: "Whoosh! See how the sun's warm hug turns water into invisible mist, like magic, making it float up, up, up into the sky!", text: "Evaporation is happening! Water is turning into vapor!" },
+            { id: 'transpiration_intro', speech: "Now look at our happy green trees! Even plants 'breathe' out water! Use your mouse to sweep across the trees and see them puff out water!", text: "Phase 2: Transpiration - Sweep your mouse over the trees!" },
+            { id: 'transpiration_active', speech: "Wow! Plants drink water from the ground and then 'puff' it out as tiny water clouds, just like we breathe out steam on a cold day! Super cool!", text: "Trees are 'breathing' out water vapor! Go plants!" },
+            { id: 'condensation_intro', speech: "All that mist from the ocean and plants needs to cuddle up and make clouds! Watch as the vapor gathers!", text: "Phase 3: Condensation - Vapor is gathering to form clouds!" },
+            { id: 'condensation_active', speech: "Up in the sky, all the tiny water mist gets together and makes cozy clouds, cuddling up tightly, getting ready to sprinkle some magic!", text: "Clouds are forming and growing, getting ready for a shower!" },
+            { id: 'precipitation_intro', speech: "Uh oh, the clouds are getting heavy with all that water! It's time for a refreshing shower! Drag a 'Rain Cloud' card onto the sky wherever you want rain!", text: "Phase 4: Precipitation - Drag 'Rain Cloud' card to a cloud!" },
+            { id: 'precipitation_active', speech: "Splash! Splish! Spash! The clouds are getting heavy, and here comes a refreshing shower! The little water droplets are rushing down to say hello to the ground!", text: "Rain is falling! Woohoo!" },
+            { id: 'infiltration_intro', speech: "Wow, the ground is like a thirsty sponge! Can you help it drink the water? Drag a 'Soil Type' card (like 'Sandy Soil' or 'Clayey Soil') onto the land where it's raining!", text: "Phase 5: Infiltration - Drag 'Soil Type' card to the raining land!" },
+            { id: 'infiltration_active', speech: "Gulp, gulp, gulp! The ground is like a super thirsty sponge, drinking up the rain! Different soils drink faster or slower. Sandy soil is like a quick drinker, but clay soil takes its time!", text: "The ground is drinking the water! Look at it seep!" },
+            { id: 'runoff_intro', speech: "Oh no, if the ground gets too full, the water can't drink anymore! It'll have to make tiny rivers on top! Try putting a 'Clayey Soil' card and lots of rain!", text: "Phase 6: Runoff - If ground is full, water flows on top!" },
+            { id: 'runoff_active', speech: "Whoosh! Splishy-splashy! Look! The ground is too full, so the water is making tiny rivers on top, flowing super fast towards the big ocean!", text: "Water is running off the surface into streams!" },
+            { id: 'surface_detention_intro', speech: "Sometimes, water likes to rest in little puddles, like mini bathtubs! Sweep your hand over the land to find the dips where water gathers!", text: "Phase 7: Surface Detention - Sweep mouse over land to find puddles!" },
+            { id: 'surface_detention_active', speech: "Look! Some water likes to rest in little puddles, like mini bathtubs! It's taking a little break before continuing its journey!", text: "Puddles are forming! Water is taking a short break." },
+            { id: 'subsurface_flow_intro', speech: "Even underground, water is on a secret journey! It's flowing quietly towards bigger water bodies! Watch closely below the ground!", text: "Phase 8: Subsurface Flow - Water is flowing secretly underground!" },
+            { id: 'subsurface_flow_active', speech: "Shhh... listen closely! Even underground, water is on a secret journey, flowing quietly towards bigger water bodies! It's like a secret underground river!", text: "Secret underground rivers are moving water!" },
+            { id: 'cycle_complete', speech: "You've done it! You've seen the amazing journey of water through the entire Hydrological Cycle! Great job, little scientist!", text: "Congratulations! You completed the Hydrological Cycle!" }
+        ];
+
+        let currentPhaseIndex = 0;
+        let simulationReady = false;
+        let animationFrameId;
+
+        // CRITICAL RULE 12: Initial Water Budget Distribution
+        const waterBudget = {
+            ocean: 97.2,
+            atmosphere: 0.001,
+            groundwater: 0.32,
+            surface: 0.33,
+            glaciers: 2.15, // Not explicitly visualised, but for accurate total
+            total: 100 // Sum of above will not be exactly 100, these are proportions of total
+        };
+
+        const canvas = document.getElementById('hydrologyCanvas');
+        const ctx = canvas.getContext('2d');
+        let dpr = window.devicePixelRatio || 1; // CRITICAL RULE 2
+        let canvasWidth, canvasHeight;
+
+        const narrationBox = document.getElementById('narration-box');
+        const sunEnergySlider = document.getElementById('sunEnergySlider');
+        const sunEnergyValue = document.getElementById('sunEnergyValue');
+        const windSpeedSlider = document.getElementById('windSpeedSlider');
+        const windSpeedValue = document.getElementById('windSpeedValue');
+        const hydrologyChecklist = document.getElementById('hydrology-checklist');
+        const waterBudgetMeter = document.getElementById('water-budget-meter');
+        const canvasDropTargetHighlight = document.getElementById('canvas-drop-target-highlight');
+        const startOverlay = document.getElementById('overlay');
+        const startButton = document.getElementById('start-button');
+        const challengeModal = document.getElementById('challenge-modal');
+        const challengeInfo = document.getElementById('challenge-info');
+        const challengeDropZone = document.getElementById('challenge-drop-zone');
+        const closeChallengeButton = document.getElementById('close-challenge');
+
+        let simulationParams = {
+            sunEnergy: 50, // 0-100
+            windSpeed: 5,  // 0-10
+            rainIntensity: 0, // 0-1 (0 = no rain, 1 = heavy)
+            soilPermeability: 0.5, // 0-1 (0=clay, 1=sandy)
+            soilSaturation: 0.1, // 0-1
+            plantHealth: 1.0, // 0-1 (impacts transpiration)
+            zoomLevel: 1.0,
+            offsetX: 0,
+            offsetY: 0
+        };
+
+        let activeZones = {
+            sun: { x: 0, y: 0, radius: 0 },
+            ocean: { x: 0, y: 0, width: 0, height: 0 },
+            land: { x: 0, y: 0, width: 0, height: 0 },
+            trees: [], // Array of { x, y, width, height }
+            clouds: [], // Array of { x, y, radius }
+            puddles: [], // Array of { x, y, radius, waterLevel }
+        };
+
+        let particles = {
+            vapor: [],
+            rain: [],
+            infiltration: [],
+            runoff: [],
+            subsurface: []
+        };
+
+        // --- Utility Functions ---
+        function speak(text, rate = 1.0, pitch = 1.0) {
+            if (!speechSynth || !simulationReady) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = rate;
+            utterance.pitch = pitch;
+            speechSynth.speak(utterance);
+        }
+
+        function playSynthTone(frequency, type = 'sine', duration = 0.1, volume = 0.5) {
+            if (!audioContext || audioContext.state === 'suspended') return;
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + duration);
+        }
+
+        function playContinuousSynth(id, frequency, type = 'sine', volume = 0.5) {
+            if (!audioContext || audioContext.state === 'suspended') return;
+            if (activeOscillators[id]) {
+                activeOscillators[id].oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                activeOscillators[id].gain.gain.setValueAtTime(volume, audioContext.currentTime);
+                return;
+            }
+
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.type = type;
+            oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+            gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            oscillator.start();
+
+            activeOscillators[id] = { oscillator, gain: gainNode };
+        }
+
+        function stopContinuousSynth(id) {
+            if (activeOscillators[id]) {
+                activeOscillators[id].gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
+                activeOscillators[id].oscillator.stop(audioContext.currentTime + 0.5);
+                delete activeOscillators[id];
+            }
+        }
+
+        function updateSliderAudio(slider, oscillatorId, minFreq, maxFreq) {
+            if (!audioContext || audioContext.state === 'suspended') return;
+            const value = parseFloat(slider.value);
+            const normalizedValue = (value - slider.min) / (slider.max - slider.min);
+            const frequency = minFreq + (maxFreq - minFreq) * normalizedValue;
+            playContinuousSynth(oscillatorId, frequency, 'sine', 0.2);
+        }
+
+        function setNarration(phaseId) {
+            const phase = simulationPhases.find(p => p.id === phaseId);
+            if (phase) {
+                narrationBox.textContent = phase.text;
+                narrationBox.classList.add('active'); // Show narration box
+                speak(phase.speech);
+            }
+        }
+
+        function updateChecklist(item, status = 'identified') {
+            const listItem = hydrologyChecklist.querySelector(`.checklist-item[data-item="${item}"]`);
+            if (listItem) {
+                listItem.classList.add(status);
+            }
+        }
+
+        function updateWaterBudget() {
+            const totalPercentage = Object.values(waterBudget).reduce((sum, val) => sum + val, 0) - waterBudget.total; // Exclude 'total' itself
+            const budgetElements = {
+                ocean: document.getElementById('budget-ocean'),
+                atmosphere: document.getElementById('budget-atmosphere'),
+                groundwater: document.getElementById('budget-groundwater'),
+                surface: document.getElementById('budget-surface')
+            };
+
+            for (const key in budgetElements) {
+                const percentage = waterBudget[key] / totalPercentage * 100; // Calculate actual percentage
+                budgetElements[key].style.width = `${Math.max(0, Math.min(100, percentage))}%`;
+                budgetElements[key].textContent = `${key.charAt(0).toUpperCase() + key.slice(1)}: ${percentage.toFixed(2)}%`;
+            }
+        }
+
+        // --- Canvas Drawing Functions ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            dpr = window.devicePixelRatio || 1; // CRITICAL RULE 2
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            canvasWidth = rect.width; // Use CSS pixels for logical drawing
+            canvasHeight = rect.height; // CRITICAL RULE 2
+            ctx.scale(dpr, dpr); // CRITICAL RULE 2
+
+            // Re-calculate active zone positions after resize
+            updateActiveZones();
+        }
+
+        function drawTextWithBackdrop(text, x, y, color = 'var(--text-color)', font = '16px Share Tech Mono', bgColor = 'rgba(30,30,30,0.7)', padding = 5) {
+            ctx.save();
+            ctx.font = font;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            const textHeight = parseInt(font, 10); // Approximation for height
+
+            ctx.fillStyle = bgColor; // CRITICAL RULE 3
+            ctx.fillRect(x - textWidth / 2 - padding, y - textHeight / 2 - padding, textWidth + padding * 2, textHeight + padding * 2);
+
+            ctx.fillStyle = color;
+            ctx.fillText(text, x, y);
+            ctx.restore();
+        }
+
+        function drawBackground() {
+            // Sky
+            ctx.fillStyle = '#88CCEE';
+            ctx.fillRect(0, 0, canvasWidth, canvasHeight * 0.6);
+
+            // Ocean
+            const oceanHeight = canvasHeight * 0.3;
+            ctx.fillStyle = '#004466';
+            ctx.fillRect(0, canvasHeight - oceanHeight, canvasWidth, oceanHeight);
+            activeZones.ocean = { x: 0, y: canvasHeight - oceanHeight, width: canvasWidth, height: oceanHeight };
+
+            // Land
+            const landHeight = canvasHeight * 0.3;
+            ctx.fillStyle = '#337744';
+            ctx.fillRect(0, canvasHeight - oceanHeight - landHeight, canvasWidth, landHeight);
+            activeZones.land = { x: 0, y: canvasHeight - oceanHeight - landHeight, width: canvasWidth, height: landHeight };
+
+            // Mountains
+            ctx.fillStyle = '#666666';
+            ctx.beginPath();
+            ctx.moveTo(canvasWidth * 0.6, canvasHeight - oceanHeight - landHeight);
+            ctx.lineTo(canvasWidth * 0.75, canvasHeight - oceanHeight - landHeight - 100);
+            ctx.lineTo(canvasWidth * 0.9, canvasHeight - oceanHeight - landHeight);
+            ctx.fill();
+            ctx.fillStyle = '#FFFFFF'; // Snow caps
+            ctx.beginPath();
+            ctx.moveTo(canvasWidth * 0.72, canvasHeight - oceanHeight - landHeight - 85);
+            ctx.lineTo(canvasWidth * 0.75, canvasHeight - oceanHeight - landHeight - 100);
+            ctx.lineTo(canvasWidth * 0.78, canvasHeight - oceanHeight - landHeight - 85);
+            ctx.fill();
+
+            // Sun
+            const sunX = canvasWidth * 0.85;
+            const sunY = canvasHeight * 0.15;
+            const sunRadius = 40;
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, sunRadius, 0, Math.PI * 2);
+            ctx.fillStyle = 'gold';
+            ctx.shadowColor = `rgba(255, 215, 0, ${simulationParams.sunEnergy / 100 * 0.8 + 0.2})`;
+            ctx.shadowBlur = 10 + simulationParams.sunEnergy / 100 * 20;
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadow
+            activeZones.sun = { x: sunX, y: sunY, radius: sunRadius };
+
+            // Trees
+            activeZones.trees = [];
+            const treeHeight = 80;
+            const treeWidth = 40;
+            const treeYBase = canvasHeight - oceanHeight - landHeight + treeHeight / 2 + 10;
+            const drawTree = (x, y) => {
+                ctx.fillStyle = '#8B4513'; // Trunk
+                ctx.fillRect(x - treeWidth / 8, y + treeHeight / 2 - 20, treeWidth / 4, 30);
+                ctx.fillStyle = 'var(--neon-green)'; // Leaves
+                ctx.beginPath();
+                ctx.arc(x, y - 10, treeWidth / 2, 0, Math.PI * 2);
+                ctx.arc(x - 10, y + 10, treeWidth / 2.5, 0, Math.PI * 2);
+                ctx.arc(x + 10, y + 10, treeWidth / 2.5, 0, Math.PI * 2);
+                ctx.fill();
+                activeZones.trees.push({ x: x - treeWidth / 2, y: y - treeWidth / 2 - 10, width: treeWidth, height: treeHeight });
+            };
+            drawTree(canvasWidth * 0.2, treeYBase - 40);
+            drawTree(canvasWidth * 0.4, treeYBase - 50);
+        }
+
+        function drawClouds() {
+            activeZones.clouds = [];
+            particles.vapor.forEach(p => {
+                // Simplified aggregation logic: if vapor particles are in upper sky, "become" part of a cloud
+                if (p.y < canvasHeight * 0.4 && p.y > canvasHeight * 0.1) {
+                    let foundCloud = false;
+                    for (let cloud of activeZones.clouds) {
+                        const dist = Math.sqrt((p.x - cloud.x) ** 2 + (p.y - cloud.y) ** 2);
+                        if (dist < cloud.radius * 1.5) { // Add to existing cloud
+                            cloud.radius = Math.min(80, cloud.radius + 0.1); // Grow cloud
+                            cloud.vaporCount++;
+                            foundCloud = true;
+                            break;
+                        }
+                    }
+                    if (!foundCloud && particles.vapor.filter(vp => Math.abs(vp.x - p.x) < 50 && Math.abs(vp.y - p.y) < 50).length > 10) {
+                        // Create new cloud if enough vapor particles are nearby
+                        activeZones.clouds.push({ x: p.x, y: p.y, radius: 20, vaporCount: 1, lastRainTime: 0 });
+                    }
+                }
+            });
+
+            activeZones.clouds.forEach(cloud => {
+                ctx.beginPath();
+                ctx.arc(cloud.x, cloud.y, cloud.radius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+                ctx.shadowColor = 'var(--neon-purple)';
+                ctx.shadowBlur = 10; // Subtle glow
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+        }
+
+        function updateActiveZones() {
+            // This function recalculates and updates the bounding boxes for interactive elements
+            // Called on canvas resize and initial setup
+            // (Most of this is done inline in drawBackground for simplicity, but for complex zones,
+            // separate calculations here would be better)
+        }
+
+        // --- Particle System ---
+        class Particle {
+            constructor(x, y, color, vx, vy, life = 100, size = 3) {
+                this.x = x;
+                this.y = y;
+                this.color = color;
+                this.vx = vx;
+                this.vy = vy;
+                this.life = life;
+                this.maxLife = life;
+                this.size = size;
+                this.opacity = 1;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.life--;
+                this.opacity = this.life / this.maxLife;
+                if (this.color.startsWith('rgba')) {
+                     const parts = this.color.match(/rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d\.]+)\)/);
+                     if (parts) {
+                        this.drawColor = `rgba(${parts[1]}, ${parts[2]}, ${parts[3]}, ${this.opacity * parseFloat(parts[4])})`;
+                     } else { // Fallback for some non-standard rgba
+                        this.drawColor = `rgba(${this.color.substring(5, this.color.length - 1).split(',').slice(0,3).join(',')}, ${this.opacity})`;
+                     }
+                } else {
+                    this.drawColor = this.color;
+                }
+            }
+
+            draw() {
+                ctx.fillStyle = this.drawColor;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function createVaporParticles(sourceX, sourceY, count, color, speedScale = 1) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI / 2 + Math.PI / 4; // Upwards fan
+                const speed = (0.5 + Math.random() * 1.5) * speedScale;
+                const vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1);
+                const vy = -Math.sin(angle) * speed;
+                particles.vapor.push(new Particle(sourceX + (Math.random() - 0.5) * 20, sourceY, color, vx, vy, 150));
+            }
+        }
+
+        function createRainParticles(sourceX, sourceY, count, intensity = 1) {
+            for (let i = 0; i < count; i++) {
+                const vx = (Math.random() - 0.5) * 2 * simulationParams.windSpeed * 0.5;
+                const vy = 5 * intensity + Math.random() * 3;
+                particles.rain.push(new Particle(sourceX + (Math.random() - 0.5) * 50, sourceY, 'var(--neon-cyan)', vx, vy, 60, 2));
+            }
+        }
+
+        function createInfiltrationParticles(sourceX, sourceY, count, rate = 1) {
+             for (let i = 0; i < count; i++) {
+                const vx = (Math.random() - 0.5) * 0.5;
+                const vy = 1 * rate + Math.random() * 0.5;
+                particles.infiltration.push(new Particle(sourceX + (Math.random() - 0.5) * 10, sourceY, 'var(--neon-green)', vx, vy, 80, 2));
+            }
+        }
+
+        function createRunoffParticles(sourceX, sourceY, count, speed = 1) {
+            for (let i = 0; i < count; i++) {
+                const angle = (Math.random() * Math.PI/4) - Math.PI/8; // Slightly downhill
+                const vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1);
+                const vy = Math.sin(angle) * speed * (Math.random() > 0.5 ? 1 : -1);
+                particles.runoff.push(new Particle(sourceX + (Math.random() - 0.5) * 10, sourceY, 'var(--neon-cyan)', vx, vy, 100, 2));
+            }
+        }
+
+        function createSubsurfaceParticles(sourceX, sourceY, count, speed = 1) {
+            for (let i = 0; i < count; i++) {
+                const vx = speed * (Math.random() > 0.5 ? 1 : -1) * 0.5;
+                const vy = (Math.random() - 0.5) * 0.2;
+                particles.subsurface.push(new Particle(sourceX + (Math.random() - 0.5) * 50, sourceY + (Math.random() - 0.5) * 20, 'rgba(0,100,200,0.5)', vx, vy, 200, 1.5));
+            }
+        }
+
+        function updateParticles() {
+            for (const type in particles) {
+                particles[type] = particles[type].filter(p => p.life > 0);
+                particles[type].forEach(p => p.update());
+            }
+        }
+
+        function drawParticles() {
+            for (const type in particles) {
+                particles[type].forEach(p => p.draw());
+            }
+        }
+
+        // --- Simulation Logic ---
+        function updateSimulationState() {
+            // Evaporation
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'evaporation_active')) {
+                const sunEnergy = simulationParams.sunEnergy / 100;
+                if (sunEnergy > 0.1) {
+                    const oceanVaporRate = sunEnergy * 0.5;
+                    createVaporParticles(canvasWidth / 2, activeZones.ocean.y, oceanVaporRate, 'var(--neon-purple)');
+                    waterBudget.ocean -= 0.0001 * oceanVaporRate;
+                    waterBudget.atmosphere += 0.0001 * oceanVaporRate;
+                    updateChecklist('Evaporation');
+                }
+            }
+
+            // Transpiration
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'transpiration_active')) {
+                activeZones.trees.forEach(tree => {
+                    const transpirationRate = simulationParams.plantHealth * 0.3;
+                    createVaporParticles(tree.x + tree.width / 2, tree.y + tree.height / 2, transpirationRate, 'var(--neon-green)');
+                    waterBudget.groundwater -= 0.00005 * transpirationRate; // Plants use groundwater
+                    waterBudget.atmosphere += 0.00005 * transpirationRate;
+                    updateChecklist('Transpiration');
+                });
+            }
+
+            // Condensation
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'condensation_active')) {
+                // Clouds are automatically drawn based on vapor particles, their growth is the visual
+                updateChecklist('Condensation');
+            }
+
+            // Precipitation
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'precipitation_active')) {
+                activeZones.clouds.forEach(cloud => {
+                    if (simulationParams.rainIntensity > 0 && cloud.lastRainTime + 1000 < Date.now()) { // Rain only every second for each cloud
+                        createRainParticles(cloud.x, cloud.y + cloud.radius, simulationParams.rainIntensity * 5, simulationParams.rainIntensity);
+                        cloud.lastRainTime = Date.now();
+                        waterBudget.atmosphere -= 0.0001 * simulationParams.rainIntensity * 5; // Rain comes from atmosphere
+                    }
+                });
+                 updateChecklist('Precipitation');
+            }
+
+            // Infiltration
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'infiltration_active')) {
+                particles.rain.forEach(rainP => {
+                    if (rainP.y > activeZones.land.y && rainP.y < activeZones.land.y + activeZones.land.height && rainP.opacity > 0.5) {
+                        const infiltrationRate = simulationParams.soilPermeability * 0.1; // Slower than rain
+                        if (Math.random() < infiltrationRate && simulationParams.soilSaturation < 0.9) { // Only if not saturated
+                            createInfiltrationParticles(rainP.x, rainP.y, 1, infiltrationRate * 2);
+                            simulationParams.soilSaturation += 0.0001 * infiltrationRate;
+                            waterBudget.groundwater += 0.00005 * infiltrationRate;
+                            waterBudget.surface -= 0.00005 * infiltrationRate; // Water on surface infiltrates
+                        }
+                    }
+                });
+                updateChecklist('Infiltration');
+            }
+
+            // Runoff
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'runoff_active')) {
+                const landBottom = activeZones.land.y + activeZones.land.height;
+                particles.rain.forEach(rainP => {
+                    if (rainP.y > activeZones.land.y && rainP.y < landBottom && rainP.opacity > 0.5) {
+                         // If soil is saturated OR soil permeability is very low (clayey soil)
+                        if (simulationParams.soilSaturation >= 0.9 || simulationParams.soilPermeability < 0.2) {
+                            if (Math.random() < (1 - simulationParams.soilPermeability) * 0.5) { // More runoff with low permeability
+                                createRunoffParticles(rainP.x, rainP.y, 1, 1);
+                                waterBudget.surface += 0.00008;
+                                waterBudget.groundwater -= 0.00001; // Less infiltration
+                            }
+                        }
+                    }
+                });
+                particles.runoff.forEach(p => {
+                    if (p.x < 0 || p.x > canvasWidth || p.y > landBottom) { // If runoff reaches ocean/off screen
+                         p.life = 0;
+                         waterBudget.ocean += 0.00001;
+                         waterBudget.surface -= 0.00001;
+                    }
+                });
+                updateChecklist('Runoff');
+            }
+
+            // Surface Detention - Puddles
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'surface_detention_active')) {
+                 // Simplified: Puddles form where runoff particles are dense
+                let puddleCandidates = {};
+                particles.runoff.forEach(p => {
+                    const gridX = Math.floor(p.x / 50);
+                    const gridY = Math.floor(p.y / 50);
+                    const key = `${gridX}-${gridY}`;
+                    puddleCandidates[key] = (puddleCandidates[key] || 0) + 1;
+                });
+
+                activeZones.puddles = []; // Clear and re-evaluate
+                for (const key in puddleCandidates) {
+                    if (puddleCandidates[key] > 10) { // If enough runoff particles gather
+                        const [gridX, gridY] = key.split('-').map(Number);
+                        const puddleX = gridX * 50 + 25;
+                        const puddleY = gridY * 50 + 25;
+                        if (puddleY > activeZones.land.y && puddleY < activeZones.land.y + activeZones.land.height) {
+                            activeZones.puddles.push({ x: puddleX, y: puddleY, radius: Math.min(20, puddleCandidates[key] / 5), waterLevel: puddleCandidates[key] });
+                        }
+                    }
+                }
+
+                // Make puddles glow
+                activeZones.puddles.forEach(puddle => {
+                    ctx.beginPath();
+                    ctx.arc(puddle.x, puddle.y, puddle.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(0,200,255,${puddle.waterLevel / 200})`;
+                    ctx.shadowColor = 'var(--neon-cyan)';
+                    ctx.shadowBlur = 5;
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                });
+                updateChecklist('Surface Detention');
+            }
+
+            // Subsurface Flow
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'subsurface_flow_active')) {
+                // Generate subsurface particles from existing groundwater
+                if (waterBudget.groundwater > 0.05 && Math.random() < 0.2) {
+                    const groundwaterX = Math.random() * canvasWidth;
+                    const groundwaterY = activeZones.land.y + activeZones.land.height + Math.random() * (activeZones.ocean.y - (activeZones.land.y + activeZones.land.height));
+                    createSubsurfaceParticles(groundwaterX, groundwaterY, 1, 1);
+                }
+                particles.subsurface.forEach(p => {
+                    if (p.x > canvasWidth * 0.8 && p.y > activeZones.ocean.y - 20) { // If subsurface flow reaches near ocean
+                        p.life = 0;
+                        waterBudget.ocean += 0.000005;
+                        waterBudget.groundwater -= 0.000005;
+                    }
+                });
+                updateChecklist('Subsurface Flow');
+            }
+
+
+            updateWaterBudget();
+        }
+
+        // --- Main Animation Loop ---
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the entire canvas
+            ctx.save();
+            ctx.translate(simulationParams.offsetX, simulationParams.offsetY);
+            ctx.scale(simulationParams.zoomLevel, simulationParams.zoomLevel);
+
+            drawBackground();
+            drawClouds(); // Clouds are drawn on top of the sky
+
+            updateParticles();
+            drawParticles();
+
+            updateSimulationState();
+
+            ctx.restore(); // Restore context for overlay elements
+
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Handlers ---
+        let draggedCard = null;
+        let dropTargetRect = null;
+        let currentDropZoneType = null; // 'sun', 'cloud', 'land', 'challenge'
+
+        document.querySelectorAll('.draggable-card, .fact-card').forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                draggedCard = e.target;
+                e.dataTransfer.setData('text/plain', e.target.id);
+                e.dataTransfer.effectAllowed = 'move';
+            });
+        });
+
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+
+            // Check for Sun drop target
+            const sunDist = Math.sqrt((mouseX - activeZones.sun.x) ** 2 + (mouseY - activeZones.sun.y) ** 2);
+            if (sunDist < activeZones.sun.radius * 1.5 && draggedCard.dataset.param === 'sunEnergy') {
+                showCanvasDropTargetHighlight(activeZones.sun.x, activeZones.sun.y, activeZones.sun.radius * 2, 'var(--neon-purple)');
+                currentDropZoneType = 'sun';
+                return;
+            }
+
+            // Check for Cloud drop target
+            const targetCloud = activeZones.clouds.find(cloud => {
+                const cloudDist = Math.sqrt((mouseX - cloud.x) ** 2 + (mouseY - cloud.y) ** 2);
+                return cloudDist < cloud.radius * 1.5 && draggedCard.dataset.param === 'rainIntensity';
+            });
+            if (targetCloud) {
+                showCanvasDropTargetHighlight(targetCloud.x, targetCloud.y, targetCloud.radius * 2, 'var(--neon-cyan)');
+                currentDropZoneType = 'cloud';
+                return;
+            }
+
+            // Check for Land drop target
+            if (mouseX > activeZones.land.x && mouseX < activeZones.land.x + activeZones.land.width &&
+                mouseY > activeZones.land.y && mouseY < activeZones.land.y + activeZones.land.height && draggedCard.dataset.param === 'soilType') {
+                showCanvasDropTargetHighlight(activeZones.land.x + activeZones.land.width / 2, activeZones.land.y + activeZones.land.height / 2, Math.min(activeZones.land.width, activeZones.land.height) * 0.8, 'var(--neon-green)');
+                currentDropZoneType = 'land';
+                return;
+            }
+
+            hideCanvasDropTargetHighlight();
+            currentDropZoneType = null;
+        });
+
+        canvas.addEventListener('dragleave', () => {
+            hideCanvasDropTargetHighlight();
+            currentDropZoneType = null;
+        });
+
+        canvas.addEventListener('drop', (e) => {
+            e.preventDefault();
+            hideCanvasDropTargetHighlight();
+            const data = e.dataTransfer.getData('text/plain');
+            const droppedCard = document.getElementById(data);
+
+            if (!droppedCard || !draggedCard) return;
+
+            if (currentDropZoneType === 'sun' && droppedCard.dataset.param === 'sunEnergy') {
+                const sunEnergy = parseFloat(droppedCard.dataset.value);
+                simulationParams.sunEnergy = sunEnergy;
+                sunEnergySlider.value = sunEnergy;
+                sunEnergyValue.textContent = sunEnergy;
+                playSynthTone(600, 'sine', 0.2); // Chime sound
+                setNarration(simulationPhases.find(p => p.id === 'evaporation_active').id);
+                advancePhase();
+                canvasDropTargetHighlight.classList.add('success');
+            } else if (currentDropZoneType === 'cloud' && droppedCard.dataset.param === 'rainIntensity') {
+                const rainIntensity = parseFloat(droppedCard.dataset.value);
+                simulationParams.rainIntensity = rainIntensity;
+                playSynthTone(700, 'triangle', 0.2); // Chime
+                setNarration(simulationPhases.find(p => p.id === 'precipitation_active').id);
+                advancePhase();
+                canvasDropTargetHighlight.classList.add('success');
+            } else if (currentDropZoneType === 'land' && droppedCard.dataset.param === 'soilType') {
+                const soilType = droppedCard.dataset.value;
+                simulationParams.soilPermeability = (soilType === 'sandy' ? 0.8 : 0.2); // Sandy high perm, Clayey low perm
+                playSynthTone(750, 'sine', 0.2); // Chime
+                setNarration(simulationPhases.find(p => p.id === 'infiltration_active').id);
+                advancePhase();
+                canvasDropTargetHighlight.classList.add('success');
+            } else {
+                playSynthTone(100, 'sawtooth', 0.2); // Buzz sound for incorrect drop
+                canvasDropTargetHighlight.classList.add('error');
+            }
+
+            draggedCard = null;
+            currentDropZoneType = null;
+            setTimeout(() => {
+                canvasDropTargetHighlight.classList.remove('success', 'error');
+            }, 500);
+        });
+
+        function showCanvasDropTargetHighlight(x, y, size, color) {
+            canvasDropTargetHighlight.style.left = `${x - size / 2}px`;
+            canvasDropTargetHighlight.style.top = `${y - size / 2}px`;
+            canvasDropTargetHighlight.style.width = `${size}px`;
+            canvasDropTargetHighlight.style.height = `${size}px`;
+            canvasDropTargetHighlight.style.borderColor = color;
+            canvasDropTargetHighlight.style.boxShadow = `var(--glow-strength) ${color}`;
+            canvasDropTargetHighlight.classList.add('active');
+        }
+
+        function hideCanvasDropTargetHighlight() {
+            canvasDropTargetHighlight.classList.remove('active');
+        }
+
+        canvas.addEventListener('mousemove', (e) => {
+            const mouseX = e.clientX - canvas.getBoundingClientRect().left;
+            const mouseY = e.clientY - canvas.getBoundingClientRect().top;
+
+            // Transpiration hover
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'transpiration_intro') &&
+                currentPhaseIndex < simulationPhases.findIndex(p => p.id === 'condensation_intro')) {
+                let overTree = false;
+                activeZones.trees.forEach(tree => {
+                    if (mouseX > tree.x && mouseX < tree.x + tree.width &&
+                        mouseY > tree.y && mouseY < tree.y + tree.height) {
+                        overTree = true;
+                        createVaporParticles(tree.x + tree.width / 2, tree.y + tree.height / 2, 1, 'var(--neon-green)', 0.5);
+                        playSynthTone(1000 + Math.random() * 200, 'square', 0.05, 0.1); // Puff sound
+                        setNarration(simulationPhases.find(p => p.id === 'transpiration_active').id);
+                        updateChecklist('Transpiration');
+                        // Advance phase only once for transpiration
+                        if (currentPhaseIndex === simulationPhases.findIndex(p => p.id === 'transpiration_intro')) {
+                            advancePhase();
+                        }
+                    }
+                });
+            }
+
+            // Surface Detention hover
+            if (currentPhaseIndex >= simulationPhases.findIndex(p => p.id === 'surface_detention_intro')) {
+                activeZones.puddles.forEach(puddle => {
+                    const dist = Math.sqrt((mouseX - puddle.x) ** 2 + (mouseY - puddle.y) ** 2);
+                    if (dist < puddle.radius + 10) { // Hover slightly outside
+                        playSynthTone(300 + Math.random() * 50, 'sine', 0.1, 0.2); // Gentle splash sound
+                        setNarration(simulationPhases.find(p => p.id === 'surface_detention_active').id);
+                        updateChecklist('Surface Detention');
+                        if (currentPhaseIndex === simulationPhases.findIndex(p => p.id === 'surface_detention_intro')) {
+                             advancePhase();
+                        }
+                    }
+                });
+            }
+        });
+
+
+        // Slider event listeners
+        sunEnergySlider.addEventListener('input', () => {
+            const value = sunEnergySlider.value;
+            sunEnergyValue.textContent = value;
+            simulationParams.sunEnergy = value;
+            updateSliderAudio(sunEnergySlider, 'sunEnergyTone', 150, 600);
+        });
+
+        sunEnergySlider.addEventListener('mouseup', () => stopContinuousSynth('sunEnergyTone'));
+        sunEnergySlider.addEventListener('touchend', () => stopContinuousSynth('sunEnergyTone'));
+
+        windSpeedSlider.addEventListener('input', () => {
+            const value = windSpeedSlider.value;
+            windSpeedValue.textContent = value;
+            simulationParams.windSpeed = value;
+            updateSliderAudio(windSpeedSlider, 'windSpeedTone', 50, 300);
+        });
+        windSpeedSlider.addEventListener('mouseup', () => stopContinuousSynth('windSpeedTone'));
+        windSpeedSlider.addEventListener('touchend', () => stopContinuousSynth('windSpeedTone'));
+
+
+        function advancePhase() {
+            currentPhaseIndex++;
+            if (currentPhaseIndex < simulationPhases.length) {
+                const nextPhase = simulationPhases[currentPhaseIndex];
+                setNarration(nextPhase.id);
+                // Trigger challenges or specific UI elements based on phase
+                switch (nextPhase.id) {
+                    case 'evaporation_active':
+                        // Show draggable card
+                        document.getElementById('sun-energy-card').style.display = 'block';
+                        break;
+                    case 'condensation_active':
+                        // Zoom effect for condensation
+                        simulationParams.zoomLevel = 1.2;
+                        simulationParams.offsetX = -canvasWidth * 0.1;
+                        simulationParams.offsetY = -canvasHeight * 0.1;
+                        break;
+                    case 'precipitation_intro':
+                         // Zoom out and reset
+                        simulationParams.zoomLevel = 1.0;
+                        simulationParams.offsetX = 0;
+                        simulationParams.offsetY = 0;
+                        document.getElementById('rain-cloud-card').style.display = 'block';
+                        break;
+                    case 'precipitation_active':
+                        showChallenge('precipitation_challenge');
+                        break;
+                    case 'infiltration_intro':
+                        document.getElementById('sandy-soil-card').style.display = 'block';
+                        document.getElementById('clayey-soil-card').style.display = 'block';
+                        // Zoom in for infiltration
+                        simulationParams.zoomLevel = 1.5;
+                        simulationParams.offsetX = -canvasWidth * 0.3;
+                        simulationParams.offsetY = canvasHeight * 0.2;
+                        break;
+                    case 'infiltration_active':
+                        showChallenge('infiltration_challenge');
+                        break;
+                    case 'runoff_intro':
+                        // Zoom out for runoff visualization
+                        simulationParams.zoomLevel = 1.0;
+                        simulationParams.offsetX = 0;
+                        simulationParams.offsetY = 0;
+                        break;
+                    case 'runoff_active':
+                        showChallenge('runoff_challenge');
+                        break;
+                    case 'subsurface_flow_active':
+                        simulationParams.zoomLevel = 1.8; // Zoom into subsurface
+                        simulationParams.offsetX = -canvasWidth * 0.2;
+                        simulationParams.offsetY = canvasHeight * 0.5;
+                        showChallenge('subsurface_challenge');
+                        break;
+                    case 'cycle_complete':
+                        cancelAnimationFrame(animationFrameId);
+                        break;
+                }
+            }
+        }
+
+        // Gamified Challenge Logic
+        const challenges = {
+            'precipitation_challenge': {
+                question: "Great job with precipitation! Now, can you find out how much of Earth's water is in the oceans? Drag the 'Water Distribution Facts' card onto this challenge slot!",
+                correctFact: 'water-distribution',
+                successSpeech: "That's right! Over 97% of Earth's water is in the oceans!",
+                failSpeech: "Oops, that's not quite right. Try again!"
+            },
+            'infiltration_challenge': {
+                question: "Amazing infiltration! Can you tell me what makes some soils drink water faster? Drag the 'Infiltration Rates Table' card here!",
+                correctFact: 'infiltration-rates',
+                successSpeech: "You got it! Soil type and its permeability greatly affect infiltration rates!",
+                failSpeech: "Hmm, not quite. This fact tells us about how fast water sinks into the ground. Give it another go!"
+            },
+            'runoff_challenge': {
+                question: "Superb runoff! But what really is evaporation, where the water first starts its journey? Drag the 'What is Evaporation?' card here!",
+                correctFact: 'evaporation-definition',
+                successSpeech: "Excellent! Evaporation is when the sun's energy turns liquid water into vapor!",
+                failSpeech: "Not that one! Think about how the water goes up into the sky. Try again!"
+            },
+             'subsurface_challenge': {
+                question: "Fantastic subsurface flow! One last challenge: how much of Earth's freshwater is actually groundwater? Drag the 'Water Distribution Facts' card here again!",
+                correctFact: 'water-distribution', // Reusing the fact for a specific detail
+                successSpeech: "Exactly! Most of the usable freshwater is locked away as groundwater. You're a true hydrologist!",
+                failSpeech: "Close, but let's re-check that fact about where water is found. Try again!"
+            }
+        };
+
+        function showChallenge(challengeId) {
+            currentChallenge = challenges[challengeId];
+            if (currentChallenge) {
+                challengeInfo.textContent = currentChallenge.question;
+                challengeModal.classList.add('active');
+                narrationBox.classList.remove('active'); // Hide narration during challenge
+                speak(currentChallenge.question, 0.9, 1.1); // Slightly faster, higher pitch for challenge
+            }
+        }
+
+        function handleChallengeDrop(e) {
+            e.preventDefault();
+            const data = e.dataTransfer.getData('text/plain');
+            const droppedCard = document.getElementById(data);
+
+            if (!droppedCard || droppedCard.dataset.type !== 'fact') {
+                challengeDropZone.classList.add('incorrect');
+                playSynthTone(100, 'sawtooth', 0.5); // Buzz
+                speak("That's not a fact card, little scientist. Try dragging one from the 'Hydrology Fact Scroll' section!", 0.9, 1.0);
+                setTimeout(() => challengeDropZone.classList.remove('incorrect'), 1000);
+                return;
+            }
+
+            if (currentChallenge && droppedCard.dataset.fact === currentChallenge.correctFact) {
+                challengeDropZone.classList.add('correct');
+                playSynthTone(800, 'sine', 0.5); // Chime
+                speak(currentChallenge.successSpeech, 0.9, 1.1);
+                setTimeout(() => {
+                    challengeDropZone.classList.remove('correct');
+                    challengeModal.classList.remove('active');
+                    narrationBox.classList.add('active'); // Show narration again
+                    currentChallenge = null;
+                    advancePhase(); // Advance simulation after challenge
+                }, 1500);
+            } else {
+                challengeDropZone.classList.add('incorrect');
+                playSynthTone(100, 'sawtooth', 0.5); // Buzz
+                speak(currentChallenge.failSpeech, 0.9, 1.0);
+                setTimeout(() => challengeDropZone.classList.remove('incorrect'), 1000);
+            }
+        }
+
+        closeChallengeButton.addEventListener('click', () => {
+            challengeModal.classList.remove('active');
+            narrationBox.classList.add('active');
+            currentChallenge = null; // Reset challenge
+        });
+
+
+        // --- Initialization ---
+        function initSimulation() {
+            resizeCanvas();
+            updateWaterBudget();
+            animate();
+            setNarration(simulationPhases[currentPhaseIndex].id);
+            document.querySelectorAll('.draggable-card').forEach(card => card.style.display = 'none'); // Hide draggable cards initially
+            document.getElementById('sun-energy-card').style.display = 'block'; // Only sun card visible at start
+
+            // Resume audio context on first interaction
+            if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    console.log('AudioContext resumed!');
+                    simulationReady = true;
+                    advancePhase(); // Start actual simulation phases after user interaction
+                });
+            } else {
+                 simulationReady = true;
+                 advancePhase();
+            }
+
+            // Hide overlay
+            startOverlay.classList.add('hidden');
+        }
+
+        startButton.addEventListener('click', () => {
+             audioContext = new (window.AudioContext || window.webkitAudioContext)(); // Initialize audio context
+             initSimulation();
+        });
+
+
+        // Initial setup
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas(); // Initial canvas sizing
+
+        // CRITICAL RULE 10: Web Audio API and Speech Synthesis API are implemented natively in JavaScript.
+        // The start button acts as the manual trigger/user gesture to resume AudioContext.
+    </script>
+</body>
+</html>

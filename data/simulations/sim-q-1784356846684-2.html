@@ -1,0 +1,1527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Precipitation Playground: Cloud Creator</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&family=Roboto+Mono&display=swap');
+
+        :root {
+            --color-bg-dark: #1a1a2e;
+            --color-bg-light: #0f0f1f;
+            --color-panel-bg: rgba(30, 30, 50, 0.4);
+            --color-panel-border: rgba(150, 150, 200, 0.2);
+            --color-neon-cyan: #00ffff;
+            --color-neon-purple: #ff00ff;
+            --color-neon-green: #00ff00;
+            --color-text-primary: #e0e0e0;
+            --color-text-secondary: #a0a0b0;
+            --font-primary: 'Orbitron', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            --font-secondary: 'Roboto Mono', monospace;
+        }
+
+        body, html {
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            font-family: var(--font-primary);
+            color: var(--color-text-primary);
+            background: linear-gradient(to bottom right, var(--color-bg-dark), var(--color-bg-light));
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            box-sizing: border-box;
+        }
+
+        #header, #footer {
+            background: rgba(15, 15, 30, 0.6);
+            color: var(--color-neon-cyan);
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 1.8em;
+            font-weight: 700;
+            letter-spacing: 2px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            text-shadow: 0 0 8px rgba(0, 255, 255, 0.7);
+            z-index: 10;
+        }
+
+        #header {
+            border-bottom: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        #footer {
+            border-top: 1px solid rgba(0, 255, 255, 0.3);
+            font-size: 0.8em;
+            color: var(--color-text-secondary);
+            letter-spacing: 0.5px;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+            text-shadow: none;
+        }
+
+        #main-content {
+            display: flex;
+            flex-grow: 1;
+            overflow: hidden;
+            padding: 10px;
+            gap: 10px;
+        }
+
+        .glass-panel {
+            background: var(--color-panel-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--color-panel-border);
+            border-radius: 10px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            overflow-y: auto; /* Allow scrolling for content within panels */
+            min-width: 250px;
+            max-width: 300px;
+            flex-shrink: 0;
+        }
+
+        #control-panel-left, #control-panel-right {
+            flex-basis: 250px;
+            flex-grow: 0;
+            overflow-y: auto; /* Ensure panel content can scroll if too tall */
+        }
+
+        #simulation-area {
+            flex-grow: 1;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #1a1a2e, #0f0f1f);
+            border-radius: 10px;
+            border: 1px solid var(--color-panel-border);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        #weatherCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            border-radius: 10px;
+        }
+
+        #narration-bubble {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(50, 50, 80, 0.7);
+            border: 2px solid var(--color-neon-cyan);
+            border-radius: 20px;
+            padding: 15px 25px;
+            max-width: 400px;
+            text-align: center;
+            color: #fff;
+            font-size: 1.2em;
+            z-index: 100;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease, visibility 0.5s ease;
+            font-family: var(--font-secondary);
+        }
+
+        #narration-bubble.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .control-group {
+            background: rgba(50, 50, 80, 0.3);
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid rgba(100, 100, 150, 0.2);
+        }
+
+        h3 {
+            color: var(--color-neon-cyan);
+            font-size: 1.1em;
+            margin-top: 0;
+            margin-bottom: 10px;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        button {
+            background: rgba(0, 255, 255, 0.2);
+            border: 1px solid var(--color-neon-cyan);
+            color: var(--color-neon-cyan);
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: var(--font-primary);
+            font-size: 1em;
+            transition: all 0.2s ease;
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        button:hover {
+            background: rgba(0, 255, 255, 0.4);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.7);
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        .precipitation-card {
+            background: rgba(50, 50, 80, 0.5);
+            border: 1px solid var(--color-panel-border);
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .precipitation-card.active {
+            border-color: var(--color-neon-green);
+            box-shadow: 0 0 15px rgba(0, 255, 0, 0.7);
+        }
+
+        .precipitation-card h4 {
+            color: var(--color-neon-purple);
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+            text-shadow: 0 0 5px rgba(255, 0, 255, 0.5);
+        }
+
+        .checklist label {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+            font-family: var(--font-secondary);
+            color: var(--color-text-primary);
+            font-size: 0.9em;
+        }
+
+        .checklist input[type="checkbox"] {
+            margin-right: 8px;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border: 1px solid var(--color-neon-cyan);
+            border-radius: 3px;
+            background-color: rgba(0, 255, 255, 0.1);
+            position: relative;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .checklist input[type="checkbox"]:checked {
+            background-color: var(--color-neon-green);
+            border-color: var(--color-neon-green);
+            box-shadow: 0 0 5px rgba(0, 255, 0, 0.7);
+        }
+
+        .checklist input[type="checkbox"]:checked::after {
+            content: '✓';
+            color: #fff;
+            font-size: 12px;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .graph-container {
+            position: relative;
+            width: 100%;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--color-panel-border);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .graph-container canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* Hydrology Handbook Modal */
+        #handbook-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 200;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        #handbook-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .handbook-content {
+            background: var(--color-panel-bg);
+            border: 1px solid var(--color-neon-purple);
+            border-radius: 15px;
+            padding: 30px;
+            max-width: 600px;
+            box-shadow: 0 0 25px rgba(255, 0, 255, 0.7);
+            position: relative;
+            animation: modalPop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            color: var(--color-text-primary);
+            font-family: var(--font-secondary);
+        }
+
+        @keyframes modalPop {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .handbook-content h2 {
+            color: var(--color-neon-purple);
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(255, 0, 255, 0.5);
+            font-family: var(--font-primary);
+        }
+
+        .handbook-content p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+
+        .handbook-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 2em;
+            color: var(--color-neon-cyan);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+        }
+
+        .handbook-close:hover {
+            color: #fff;
+            transform: rotate(90deg);
+            text-shadow: 0 0 10px rgba(0, 255, 255, 1);
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            #main-content {
+                flex-direction: column;
+                padding: 5px;
+                gap: 5px;
+            }
+
+            #control-panel-left, #control-panel-right {
+                flex-basis: auto;
+                max-height: 30vh; /* Adjust max height for smaller screens */
+                min-width: unset;
+                max-width: unset;
+                width: calc(100% - 20px);
+                margin: 0 10px;
+                flex-direction: row; /* Make controls flow horizontally if space allows */
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 10px;
+            }
+
+            .glass-panel .control-group, .precipitation-card {
+                flex: 1 1 calc(50% - 10px); /* Allow items to share row */
+                min-width: 180px;
+            }
+
+            #simulation-area {
+                flex-grow: 1;
+                margin: 0 10px;
+            }
+
+            #header, #footer {
+                font-size: 1.2em;
+                padding: 8px 10px;
+            }
+
+            #narration-bubble {
+                font-size: 1em;
+                max-width: 90%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            #control-panel-left, #control-panel-right {
+                max-height: 25vh;
+            }
+            .glass-panel .control-group, .precipitation-card {
+                flex: 1 1 100%; /* Stack elements vertically */
+            }
+            #header { font-size: 1.1em; }
+            #footer { font-size: 0.7em; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <header id="header">Precipitation Playground: Cloud Creator</header>
+
+        <div id="main-content">
+            <aside id="control-panel-left" class="glass-panel">
+                <div class="control-group">
+                    <h3>Tools & Controls</h3>
+                    <button id="reset-button">Reset Simulation</button>
+                    <button id="help-button">Hydrology Handbook</button>
+                </div>
+
+                <div class="precipitation-card" id="convective-card">
+                    <h4>Convective Precipitation</h4>
+                    <div class="checklist">
+                        <label><input type="checkbox" id="convective-checklist-1"> High Ground Heat</label>
+                        <label><input type="checkbox" id="convective-checklist-2"> Rising Air</label>
+                        <label><input type="checkbox" id="convective-checklist-3"> Flat Surface</label>
+                    </div>
+                </div>
+
+                <div class="precipitation-card" id="orographic-card">
+                    <h4>Orographic Precipitation</h4>
+                    <div class="checklist">
+                        <label><input type="checkbox" id="orographic-checklist-1"> Mountain Barrier</label>
+                        <label><input type="checkbox" id="orographic-checklist-2"> Moisture-Laden Wind</label>
+                        <label><input type="checkbox" id="orographic-checklist-3"> Forced Ascent</label>
+                    </div>
+                </div>
+            </aside>
+
+            <main id="simulation-area">
+                <canvas id="weatherCanvas"></canvas>
+                <div id="narration-bubble"></div>
+            </main>
+
+            <aside id="control-panel-right" class="glass-panel">
+                <div class="control-group">
+                    <h3>Real-time Data</h3>
+                    <p>Ground Temp: <span id="ground-temp-display" style="font-family: var(--font-secondary); color: var(--color-neon-cyan);">0°C</span></p>
+                    <p>Wind Speed: <span id="wind-speed-display" style="font-family: var(--font-secondary); color: var(--color-neon-cyan);">0 m/s</span></p>
+                    <p>Precipitation Rate: <span id="precipitation-rate-display" style="font-family: var(--font-secondary); color: var(--color-neon-green);">0 mm/hr</span></p>
+                </div>
+                <div class="control-group">
+                    <h3>Precipitation Graph</h3>
+                    <div class="graph-container">
+                        <canvas id="precipitationGraphCanvas"></canvas>
+                    </div>
+                </div>
+            </aside>
+        </div>
+
+        <footer id="footer">
+            Developed by an expert frontend developer and UI/UX designer. &copy; 2023 Precipitation Playground.
+        </footer>
+    </div>
+
+    <!-- Hydrology Handbook Modal -->
+    <div id="handbook-modal">
+        <div class="handbook-content">
+            <button class="handbook-close">&times;</button>
+            <h2 id="handbook-title">Hydrology Handbook Snippet</h2>
+            <p id="handbook-text"></p>
+        </div>
+    </div>
+
+    <script>
+        // --- Global State and Constants ---
+        const simState = {
+            groundTemperature: 0, // 0-100, impacts convection
+            windSpeed: 0,       // 0-100, impacts orography
+            windDirection: 1,   // -1 (left), 1 (right)
+            mountainHeight: 0,  // 0-100, impacts orography
+            precipitationRate: 0,
+            precipitationType: 'none', // 'none', 'convective', 'orographic'
+            convectiveActive: false,
+            orographicActive: false,
+            narrating: false,
+            lastNarratedPrompt: '', // To prevent repeated narration for same event
+            narrationQueue: [],
+            animationFrameId: null,
+            cameraZoom: 1.0,
+            cameraTargetZoom: 1.0,
+            cameraPanX: 0,
+            cameraPanY: 0,
+            cameraTargetPanX: 0,
+            cameraTargetPanY: 0,
+            graphData: [],
+            graphMaxPoints: 100,
+        };
+
+        const draggableElements = {
+            sun: { x: 100, y: 100, radius: 30, isDragging: false, targetX: 100, targetY: 100 },
+            mountain: { x: 400, y: 0, width: 200, height: 100, isDragging: false, targetX: 400, targetY: 0 },
+            wind: { x: 150, y: 250, length: 100, angle: 0, isDragging: false, targetX: 150, targetY: 250, targetLength: 100 },
+            moisture: { x: 100, y: 350, radius: 25, isDragging: false, targetX: 100, targetY: 350 },
+        };
+
+        const clouds = []; // Array to hold active cloud objects (convective/orographic)
+        const rainParticles = []; // Array to hold falling rain particles
+
+        // --- DOM Elements ---
+        const weatherCanvas = document.getElementById('weatherCanvas');
+        const ctx = weatherCanvas.getContext('2d');
+        const narrationBubble = document.getElementById('narration-bubble');
+        const resetButton = document.getElementById('reset-button');
+        const helpButton = document.getElementById('help-button');
+        const groundTempDisplay = document.getElementById('ground-temp-display');
+        const windSpeedDisplay = document.getElementById('wind-speed-display');
+        const precipitationRateDisplay = document.getElementById('precipitation-rate-display');
+
+        const convectiveCard = document.getElementById('convective-card');
+        const orographicCard = document.getElementById('orographic-card');
+        const convectiveChecklist = {
+            heat: document.getElementById('convective-checklist-1'),
+            rising: document.getElementById('convective-checklist-2'),
+            flat: document.getElementById('convective-checklist-3')
+        };
+        const orographicChecklist = {
+            mountain: document.getElementById('orographic-checklist-1'),
+            wind: document.getElementById('orographic-checklist-2'),
+            ascent: document.getElementById('orographic-checklist-3')
+        };
+
+        const handbookModal = document.getElementById('handbook-modal');
+        const handbookTitle = document.getElementById('handbook-title');
+        const handbookText = document.getElementById('handbook-text');
+        const handbookCloseButton = document.querySelector('.handbook-close');
+
+        const precipitationGraphCanvas = document.getElementById('precipitationGraphCanvas');
+        const graphCtx = precipitationGraphCanvas.getContext('2d');
+
+        // --- Audio Context & Speech Synthesis ---
+        let audioCtx;
+        let masterGain;
+        let sunOscillator, windOscillator;
+        let sfxBuffers = {};
+
+        // Speech Synthesis voice
+        let synthesisVoice = null;
+        const preferredVoiceName = 'Google US English'; // Or 'Karen' (iOS), 'Samantha' (macOS)
+
+        function initializeAudio() {
+            if (!audioCtx) {
+                try {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    masterGain = audioCtx.createGain();
+                    masterGain.connect(audioCtx.destination);
+                    masterGain.gain.value = 0.5; // Default volume
+
+                    sunOscillator = audioCtx.createOscillator();
+                    sunOscillator.type = 'sine';
+                    sunOscillator.frequency.value = 0; // Starts silent
+                    sunOscillator.connect(masterGain);
+                    sunOscillator.start();
+
+                    windOscillator = audioCtx.createOscillator();
+                    windOscillator.type = 'triangle';
+                    windOscillator.frequency.value = 0; // Starts silent
+                    windOscillator.connect(masterGain);
+                    windOscillator.start();
+
+                    // Generate simple SFX
+                    createSFXBuffer('click', 440, 0.05); // A4, short
+                    createSFXBuffer('chime', 880, 0.1, 0.05); // A5, short with decay
+                    createSFXBuffer('boing', [100, 200, 100], 0.2, 0.1); // Pitch bend
+                    createSFXBuffer('cheer', [600, 700, 800], 0.3, 0.1); // Ascending tone
+                    console.log("Audio Context initialized.");
+                } catch (e) {
+                    console.error("Web Audio API not supported or failed to initialize:", e);
+                }
+            }
+        }
+
+        function createSFXBuffer(name, frequencies, duration, decayTime = 0.01) {
+            if (!audioCtx) return;
+            const sampleRate = audioCtx.sampleRate;
+            const numFrames = sampleRate * duration;
+            const audioBuffer = audioCtx.createBuffer(1, numFrames, sampleRate);
+            const channelData = audioBuffer.getChannelData(0);
+
+            if (!Array.isArray(frequencies)) {
+                frequencies = [frequencies];
+            }
+
+            for (let i = 0; i < numFrames; i++) {
+                let t = i / sampleRate;
+                let freqIndex = Math.floor(t / duration * frequencies.length);
+                let freq = frequencies[Math.min(freqIndex, frequencies.length - 1)];
+
+                let envelope = 1;
+                if (t < decayTime) {
+                    envelope = t / decayTime; // Attack
+                } else if (t > duration - decayTime) {
+                    envelope = (duration - t) / decayTime; // Release
+                }
+                channelData[i] = Math.sin(2 * Math.PI * freq * t) * 0.5 * envelope;
+            }
+            sfxBuffers[name] = audioBuffer;
+        }
+
+        function playSFX(name) {
+            if (!audioCtx || !sfxBuffers[name]) return;
+            const source = audioCtx.createBufferSource();
+            source.buffer = sfxBuffers[name];
+            source.connect(masterGain);
+            source.start(0);
+        }
+
+        function setSunSound(frequency) {
+            if (sunOscillator) sunOscillator.frequency.value = frequency;
+        }
+
+        function setWindSound(frequency) {
+            if (windOscillator) windOscillator.frequency.value = frequency;
+        }
+
+        function getSpeechVoices() {
+            const voices = window.speechSynthesis.getVoices();
+            synthesisVoice = voices.find(voice => voice.name === preferredVoiceName && voice.lang.startsWith('en')) ||
+                             voices.find(voice => voice.lang.startsWith('en-US')) ||
+                             voices[0]; // Fallback to first available voice
+            console.log("Speech Synthesis Voice:", synthesisVoice ? synthesisVoice.name : "None found, using default.");
+        }
+        window.speechSynthesis.onvoiceschanged = getSpeechVoices; // Event fires when voices are loaded
+
+        function speak(text, pitch = 1.0, rate = 1.0, volume = 1.0) {
+            if (!window.speechSynthesis || simState.narrating) {
+                simState.narrationQueue.push({ text, pitch, rate, volume });
+                return;
+            }
+
+            const utterThis = new SpeechSynthesisUtterance(text);
+            utterThis.voice = synthesisVoice;
+            utterThis.pitch = pitch;
+            utterThis.rate = rate;
+            utterThis.volume = volume;
+
+            utterThis.onstart = () => {
+                simState.narrating = true;
+                showNarrationBubble(text);
+            };
+            utterThis.onend = () => {
+                simState.narrating = false;
+                hideNarrationBubble();
+                processNarrationQueue();
+            };
+            utterThis.onerror = (event) => {
+                console.error('SpeechSynthesisUtterance.onerror', event);
+                simState.narrating = false;
+                hideNarrationBubble();
+                processNarrationQueue();
+            };
+
+            window.speechSynthesis.cancel(); // Stop any current speech
+            window.speechSynthesis.speak(utterThis);
+        }
+
+        function processNarrationQueue() {
+            if (simState.narrationQueue.length > 0 && !simState.narrating) {
+                const nextUtterance = simState.narrationQueue.shift();
+                speak(nextUtterance.text, nextUtterance.pitch, nextUtterance.rate, nextUtterance.volume);
+            }
+        }
+
+        function showNarrationBubble(text) {
+            narrationBubble.textContent = text;
+            narrationBubble.classList.add('active');
+        }
+
+        function hideNarrationBubble() {
+            narrationBubble.classList.remove('active');
+        }
+
+        // --- Canvas Resizing & High-DPI ---
+        let dpr = window.devicePixelRatio || 1;
+        function resizeCanvas() {
+            const rect = weatherCanvas.getBoundingClientRect();
+            weatherCanvas.width = rect.width * dpr;
+            weatherCanvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+
+            // Resize graph canvas too
+            const graphRect = precipitationGraphCanvas.getBoundingClientRect();
+            precipitationGraphCanvas.width = graphRect.width * dpr;
+            precipitationGraphCanvas.height = graphRect.height * dpr;
+            graphCtx.scale(dpr, dpr);
+
+            // Update mountain position to be at the bottom
+            draggableElements.mountain.y = weatherCanvas.clientHeight / simState.cameraZoom - draggableElements.mountain.height;
+            // Update sun/wind/moisture target positions if they are out of bounds due to resize
+            ['sun', 'wind', 'moisture'].forEach(key => {
+                const element = draggableElements[key];
+                if (element.targetX > weatherCanvas.clientWidth) element.targetX = weatherCanvas.clientWidth - element.radius * 2;
+                if (element.targetY > weatherCanvas.clientHeight) element.targetY = weatherCanvas.clientHeight - element.radius * 2;
+                if (element.targetX < 0) element.targetX = element.radius * 2;
+                if (element.targetY < 0) element.targetY = element.radius * 2;
+            });
+        }
+
+        // --- Drawing Functions ---
+        function drawBackground() {
+            const { clientWidth: w, clientHeight: h } = weatherCanvas;
+
+            // Sky gradient (adjust based on cloudiness/temperature)
+            const skyGradient = ctx.createLinearGradient(0, 0, 0, h * 0.7);
+            const cloudinessFactor = (clouds.length > 0 && simState.precipitationRate > 0) ? Math.min(1, simState.precipitationRate / 20) : 0;
+            skyGradient.addColorStop(0, `hsl(210, 50%, ${60 - cloudinessFactor * 30}%)`); // Lighter blue
+            skyGradient.addColorStop(1, `hsl(210, 50%, ${30 - cloudinessFactor * 20}%)`); // Darker blue
+            ctx.fillStyle = skyGradient;
+            ctx.fillRect(0, 0, w, h);
+
+            // Ground (dynamic color based on temperature)
+            const groundColorTempFactor = simState.groundTemperature / 100;
+            const groundGradient = ctx.createLinearGradient(0, h * 0.7, 0, h);
+            groundGradient.addColorStop(0, `hsl(80, ${50 + groundColorTempFactor * 30}%, ${30 + groundColorTempFactor * 20}%)`);
+            groundGradient.addColorStop(1, `hsl(80, ${50 + groundColorTempFactor * 20}%, ${20 + groundColorTempFactor * 10}%)`);
+            ctx.fillStyle = groundGradient;
+            ctx.fillRect(0, h * 0.7, w, h * 0.3);
+
+            // Water (optional, for visual variety)
+            ctx.fillStyle = 'rgba(0, 100, 180, 0.4)';
+            ctx.fillRect(0, h * 0.85, w, h * 0.15);
+        }
+
+        function drawSun(sun) {
+            ctx.save();
+            ctx.translate(sun.x, sun.y);
+
+            // Glow
+            ctx.shadowColor = 'rgba(255, 200, 0, 0.8)';
+            ctx.shadowBlur = 20;
+            ctx.fillStyle = 'yellow';
+            ctx.beginPath();
+            ctx.arc(0, 0, sun.radius, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Core
+            ctx.fillStyle = 'orange';
+            ctx.beginPath();
+            ctx.arc(0, 0, sun.radius * 0.7, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Rays
+            ctx.strokeStyle = 'rgba(255, 230, 0, 0.6)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 8; i++) {
+                const angle = i * (Math.PI / 4) + performance.now() * 0.0001; // subtle rotation
+                ctx.beginPath();
+                ctx.moveTo(Math.cos(angle) * sun.radius * 0.8, Math.sin(angle) * sun.radius * 0.8);
+                ctx.lineTo(Math.cos(angle) * sun.radius * 1.5, Math.sin(angle) * sun.radius * 1.5);
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function drawMountain(mountain) {
+            ctx.save();
+            ctx.translate(mountain.x, mountain.y);
+
+            const baseWidth = mountain.width;
+            const peakHeight = mountain.height;
+            const midHeight = peakHeight * 0.5;
+
+            ctx.beginPath();
+            ctx.moveTo(0, peakHeight); // Left base
+            ctx.lineTo(baseWidth * 0.25, midHeight * 0.8);
+            ctx.lineTo(baseWidth * 0.5, 0); // Peak
+            ctx.lineTo(baseWidth * 0.75, midHeight * 1.2);
+            ctx.lineTo(baseWidth, peakHeight); // Right base
+            ctx.closePath();
+
+            const mountainGradient = ctx.createLinearGradient(0, 0, 0, peakHeight);
+            mountainGradient.addColorStop(0, '#8B4513'); // SaddleBrown
+            mountainGradient.addColorStop(0.5, '#A0522D'); // Sienna
+            mountainGradient.addColorStop(1, '#CD853F'); // Peru
+            ctx.fillStyle = mountainGradient;
+            ctx.fill();
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.2)';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // Snow cap if high enough? (Future enhancement)
+            // ctx.fillStyle = 'white';
+            // ctx.beginPath();
+            // ctx.moveTo(baseWidth * 0.45, peakHeight * 0.1);
+            // ctx.lineTo(baseWidth * 0.5, 0);
+            // ctx.lineTo(baseWidth * 0.55, peakHeight * 0.1);
+            // ctx.closePath();
+            // ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawWind(wind) {
+            ctx.save();
+            ctx.translate(wind.x, wind.y);
+            ctx.rotate(wind.angle);
+
+            const arrowLength = wind.length;
+            const arrowHeadSize = Math.min(20, arrowLength * 0.2);
+
+            ctx.strokeStyle = var(--color-neon-cyan);
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.shadowColor = var(--color-neon-cyan);
+            ctx.shadowBlur = 15;
+
+            // Arrow body
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(arrowLength, 0);
+            ctx.stroke();
+
+            // Arrow head
+            ctx.beginPath();
+            ctx.moveTo(arrowLength, 0);
+            ctx.lineTo(arrowLength - arrowHeadSize, -arrowHeadSize / 2);
+            ctx.moveTo(arrowLength, 0);
+            ctx.lineTo(arrowLength - arrowHeadSize, arrowHeadSize / 2);
+            ctx.stroke();
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
+
+            // Draw animated wind lines
+            const numLines = Math.floor(simState.windSpeed / 10);
+            for (let i = 0; i < numLines; i++) {
+                const lineLength = 20 + Math.random() * 30;
+                const speed = 2 + simState.windSpeed / 20;
+                const offset = (performance.now() * 0.01 * speed + i * 50) % (weatherCanvas.clientWidth + lineLength);
+                const y = wind.y + (i - numLines / 2) * 15 + Math.sin(performance.now() * 0.005 + i) * 10;
+                const x = -lineLength + offset;
+
+                ctx.save();
+                ctx.globalAlpha = 0.3 + Math.sin(performance.now() * 0.005 + i) * 0.2;
+                ctx.strokeStyle = var(--color-neon-cyan);
+                ctx.lineWidth = 2;
+                ctx.lineCap = 'round';
+                ctx.beginPath();
+                ctx.moveTo(x, y);
+                ctx.lineTo(x + lineLength, y);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        function drawMoisturePacket(moisture) {
+            ctx.save();
+            ctx.translate(moisture.x, moisture.y);
+
+            // Fluffy cloud shape
+            ctx.fillStyle = 'rgba(200, 230, 255, 0.8)';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+            ctx.shadowBlur = 10;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, moisture.radius, 0, Math.PI * 2);
+            ctx.arc(moisture.radius * 0.6, moisture.radius * 0.3, moisture.radius * 0.7, 0, Math.PI * 2);
+            ctx.arc(-moisture.radius * 0.5, moisture.radius * 0.2, moisture.radius * 0.8, 0, Math.PI * 2);
+            ctx.arc(moisture.radius * 0.2, -moisture.radius * 0.5, moisture.radius * 0.6, 0, Math.PI * 2);
+            ctx.arc(-moisture.radius * 0.7, -moisture.radius * 0.3, moisture.radius * 0.5, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.shadowBlur = 0;
+            ctx.restore();
+        }
+
+        function drawHeatWaves(sun) {
+            if (simState.groundTemperature < 20) return; // Only draw if hot
+            const numWaves = Math.floor(simState.groundTemperature / 10);
+            const waveOpacity = simState.groundTemperature / 100 * 0.6;
+            const waveSpeed = simState.groundTemperature / 100 * 5;
+
+            ctx.save();
+            ctx.strokeStyle = `rgba(255, 150, 0, ${waveOpacity})`;
+            ctx.lineWidth = 2;
+            for (let i = 0; i < numWaves; i++) {
+                ctx.beginPath();
+                const startX = sun.x - sun.radius * 2 + i * 15;
+                const startY = weatherCanvas.clientHeight * 0.7 + Math.sin(performance.now() * 0.005 + i) * 10;
+                const waveHeight = 50 + simState.groundTemperature * 0.5;
+
+                for (let j = 0; j < 5; j++) {
+                    const x = startX + j * 5;
+                    const y = startY - (j * 10) - (performance.now() * 0.05 * waveSpeed % waveHeight) + (i * 5);
+                    ctx.moveTo(x, y);
+                    ctx.quadraticCurveTo(x + 5, y - 5, x + 10, y);
+                }
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function drawClouds() {
+            clouds.forEach(cloud => {
+                ctx.save();
+                ctx.translate(cloud.x, cloud.y);
+                const growthFactor = cloud.size / cloud.initialRadius;
+                const currentRadius = cloud.initialRadius * growthFactor;
+
+                // Cloud body
+                const cloudColor = cloud.type === 'convective' ?
+                    `rgba(150, 180, 200, ${0.6 + growthFactor * 0.2})` : // Light blue to grey for convective
+                    `rgba(120, 150, 180, ${0.6 + growthFactor * 0.2})`; // Cooler blue for orographic
+                ctx.fillStyle = cloudColor;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
+                ctx.shadowBlur = 15;
+
+                ctx.beginPath();
+                ctx.arc(0, 0, currentRadius, 0, Math.PI * 2);
+                ctx.arc(currentRadius * 0.6, currentRadius * 0.3, currentRadius * 0.7, 0, Math.PI * 2);
+                ctx.arc(-currentRadius * 0.5, currentRadius * 0.2, currentRadius * 0.8, 0, Math.PI * 2);
+                ctx.arc(currentRadius * 0.2, -currentRadius * 0.5, currentRadius * 0.6, 0, Math.PI * 2);
+                ctx.arc(-currentRadius * 0.7, -currentRadius * 0.3, currentRadius * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.shadowBlur = 0;
+
+                // Rising air arrows for convective clouds
+                if (cloud.type === 'convective' && cloud.raining) {
+                    ctx.strokeStyle = 'rgba(255, 255, 255, 0.7)';
+                    ctx.lineWidth = 2;
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = 'rgba(255, 255, 255, 0.8)';
+                    ctx.shadowBlur = 5;
+                    for (let i = 0; i < 3; i++) {
+                        const arrowBaseX = -currentRadius * 0.3 + i * currentRadius * 0.3;
+                        const arrowBaseY = currentRadius * 0.8;
+                        const arrowHeight = 20 + Math.sin(performance.now() * 0.01 + i) * 5;
+                        const animOffset = (performance.now() * 0.05 + i * 20) % (currentRadius * 2);
+
+                        ctx.beginPath();
+                        ctx.moveTo(arrowBaseX, arrowBaseY - animOffset);
+                        ctx.lineTo(arrowBaseX, arrowBaseY - arrowHeight - animOffset);
+                        ctx.moveTo(arrowBaseX, arrowBaseY - arrowHeight - animOffset);
+                        ctx.lineTo(arrowBaseX - 5, arrowBaseY - arrowHeight + 5 - animOffset);
+                        ctx.moveTo(arrowBaseX, arrowBaseY - arrowHeight - animOffset);
+                        ctx.lineTo(arrowBaseX + 5, arrowBaseY - arrowHeight + 5 - animOffset);
+                        ctx.stroke();
+                    }
+                    ctx.shadowBlur = 0;
+                }
+
+                ctx.restore();
+            });
+        }
+
+        function drawRainParticles() {
+            rainParticles.forEach(p => {
+                ctx.save();
+                ctx.globalAlpha = p.alpha;
+                ctx.fillStyle = p.color;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+        }
+
+        function drawPrecipitationGraph() {
+            const { clientWidth: w, clientHeight: h } = precipitationGraphCanvas;
+            const padding = 10;
+            const graphWidth = w - padding * 2;
+            const graphHeight = h - padding * 2;
+
+            graphCtx.clearRect(0, 0, w, h);
+
+            // Draw grid
+            graphCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            graphCtx.lineWidth = 0.5;
+            for (let i = 0; i <= 5; i++) { // Horizontal lines
+                graphCtx.beginPath();
+                graphCtx.moveTo(padding, padding + i * (graphHeight / 5));
+                graphCtx.lineTo(padding + graphWidth, padding + i * (graphHeight / 5));
+                graphCtx.stroke();
+            }
+            for (let i = 0; i <= 10; i++) { // Vertical lines
+                graphCtx.beginPath();
+                graphCtx.moveTo(padding + i * (graphWidth / 10), padding);
+                graphCtx.lineTo(padding + i * (graphWidth / 10), padding + graphHeight);
+                graphCtx.stroke();
+            }
+
+            // Draw axes
+            graphCtx.strokeStyle = var(--color-text-secondary);
+            graphCtx.lineWidth = 1;
+            graphCtx.beginPath();
+            graphCtx.moveTo(padding, padding);
+            graphCtx.lineTo(padding, padding + graphHeight); // Y-axis
+            graphCtx.lineTo(padding + graphWidth, padding + graphHeight); // X-axis
+            graphCtx.stroke();
+
+            // Draw labels
+            graphCtx.fillStyle = var(--color-text-secondary);
+            graphCtx.font = `10px ${var(--font-secondary)}`;
+            graphCtx.fillText('Rate (mm/hr)', padding + 5, padding - 5);
+            graphCtx.fillText('Time', padding + graphWidth - 25, padding + graphHeight + 15);
+
+            // Plot data
+            if (simState.graphData.length > 1) {
+                graphCtx.strokeStyle = var(--color-neon-green);
+                graphCtx.lineWidth = 2;
+                graphCtx.shadowColor = var(--color-neon-green);
+                graphCtx.shadowBlur = 5;
+
+                graphCtx.beginPath();
+                const maxRate = Math.max(1, ...simState.graphData.map(d => d.rate)); // Ensure maxRate is at least 1
+                simState.graphData.forEach((point, i) => {
+                    const x = padding + (i / (simState.graphMaxPoints - 1)) * graphWidth;
+                    const y = padding + graphHeight - (point.rate / maxRate) * graphHeight;
+                    if (i === 0) {
+                        graphCtx.moveTo(x, y);
+                    } else {
+                        graphCtx.lineTo(x, y);
+                    }
+                });
+                graphCtx.stroke();
+                graphCtx.shadowBlur = 0;
+            }
+        }
+
+        function drawTextBackground(x, y, text, font, color, bgColor, padding = 5) {
+            ctx.font = font;
+            const metrics = ctx.measureText(text);
+            const textWidth = metrics.width;
+            const textHeight = parseInt(font, 10); // Approximation
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(x - padding, y - textHeight - padding, textWidth + padding * 2, textHeight + padding * 2);
+            ctx.fillStyle = color;
+            ctx.fillText(text, x, y);
+        }
+
+        // --- Draggable Element Logic ---
+        let isDragging = false;
+        let activeDraggable = null;
+        let dragOffsetX, dragOffsetY;
+
+        weatherCanvas.addEventListener('mousedown', startDrag);
+        weatherCanvas.addEventListener('touchstart', startDrag);
+        weatherCanvas.addEventListener('mousemove', drag);
+        weatherCanvas.addEventListener('touchmove', drag);
+        weatherCanvas.addEventListener('mouseup', endDrag);
+        weatherCanvas.addEventListener('touchend', endDrag);
+        weatherCanvas.addEventListener('mouseleave', endDrag); // End drag if mouse leaves canvas
+
+        function getEventCoords(e) {
+            const rect = weatherCanvas.getBoundingClientRect();
+            const clientX = e.clientX || e.touches[0].clientX;
+            const clientY = e.clientY || e.touches[0].clientY;
+            return {
+                x: (clientX - rect.left) / dpr,
+                y: (clientY - rect.top) / dpr
+            };
+        }
+
+        function isPointInCircle(px, py, cx, cy, r) {
+            return (px - cx) * (px - cx) + (py - cy) * (py - cy) < r * r;
+        }
+
+        function isPointInRect(px, py, rx, ry, rw, rh) {
+            return px > rx && px < rx + rw && py > ry && py < ry + rh;
+        }
+
+        function startDrag(e) {
+            e.preventDefault();
+            initializeAudio(); // Ensure audio context is started on user interaction
+
+            const { x, y } = getEventCoords(e);
+            const { sun, mountain, wind, moisture } = draggableElements;
+
+            if (isPointInCircle(x, y, sun.x, sun.y, sun.radius)) {
+                activeDraggable = sun;
+            } else if (isPointInRect(x, y, mountain.x, mountain.y, mountain.width, mountain.height)) {
+                activeDraggable = mountain;
+            } else if (isPointInRect(x, y, wind.x, wind.y - 10, wind.length, 20)) { // Bounding box for wind arrow
+                activeDraggable = wind;
+            } else if (isPointInCircle(x, y, moisture.x, moisture.y, moisture.radius)) {
+                activeDraggable = moisture;
+            }
+
+            if (activeDraggable) {
+                isDragging = true;
+                activeDraggable.isDragging = true;
+                dragOffsetX = x - activeDraggable.x;
+                dragOffsetY = y - activeDraggable.y;
+                playSFX('click');
+            }
+        }
+
+        function drag(e) {
+            if (!isDragging || !activeDraggable) return;
+
+            e.preventDefault();
+            const { x, y } = getEventCoords(e);
+
+            activeDraggable.targetX = x - dragOffsetX;
+            activeDraggable.targetY = y - dragOffsetY;
+
+            // Specific constraints/logic for draggable elements
+            if (activeDraggable === draggableElements.sun) {
+                // Sun influences ground temperature based on its Y position
+                simState.groundTemperature = Math.max(0, 100 - (activeDraggable.y / weatherCanvas.clientHeight) * 150);
+                setSunSound(50 + simState.groundTemperature * 5); // Pitch increases with temp
+            } else if (activeDraggable === draggableElements.mountain) {
+                // Mountain snaps to bottom, only horizontal drag
+                activeDraggable.targetY = weatherCanvas.clientHeight - activeDraggable.height;
+                // Ensure mountain stays within canvas bounds
+                activeDraggable.targetX = Math.max(0, Math.min(weatherCanvas.clientWidth - activeDraggable.width, activeDraggable.targetX));
+                simState.mountainHeight = activeDraggable.height; // Always full height for now
+            } else if (activeDraggable === draggableElements.wind) {
+                // Wind speed based on length of drag from initial point (or fixed length)
+                // For simplicity, let's say dragging the wind icon sets its "strength"
+                // Dragging horizontally adjusts wind speed
+                // This will be a simplified model where position changes 'strength'
+                const relativeX = x - (weatherCanvas.clientWidth / 2); // Center of canvas
+                simState.windSpeed = Math.max(0, Math.min(100, Math.abs(relativeX) * 0.2));
+                simState.windDirection = relativeX > 0 ? 1 : -1;
+                activeDraggable.angle = simState.windDirection === 1 ? 0 : Math.PI; // Point right or left
+                activeDraggable.length = 50 + simState.windSpeed;
+                setWindSound(50 + simState.windSpeed * 4); // Pitch increases with speed
+            } else if (activeDraggable === draggableElements.moisture) {
+                // Moisture packet just moves around
+            }
+        }
+
+        function endDrag(e) {
+            if (!isDragging) return;
+
+            isDragging = false;
+            if (activeDraggable) {
+                activeDraggable.isDragging = false;
+                playSFX('chime');
+                // Stop sound generation specific to that element if appropriate
+                if (activeDraggable === draggableElements.sun) setSunSound(0);
+                if (activeDraggable === draggableElements.wind) setWindSound(0);
+            }
+            activeDraggable = null;
+        }
+
+        // --- Simulation Logic ---
+        function updateSimulation() {
+            const { sun, mountain, wind, moisture } = draggableElements;
+            const { clientWidth: w, clientHeight: h } = weatherCanvas;
+
+            // Smoothly move draggable elements to target positions
+            for (const key in draggableElements) {
+                const el = draggableElements[key];
+                if (el.isDragging) {
+                    el.x = el.targetX;
+                    el.y = el.targetY;
+                } else {
+                    el.x += (el.targetX - el.x) * 0.1;
+                    el.y += (el.targetY - el.y) * 0.1;
+                    if (el.length !== undefined) el.length += (el.targetLength - el.length) * 0.1;
+                }
+            }
+
+            // --- Precipitation Conditions ---
+            let newPrecipitationRate = 0;
+            let currentPrecipitationType = 'none';
+
+            // Reset checklist
+            Object.values(convectiveChecklist).forEach(cb => cb.checked = false);
+            Object.values(orographicChecklist).forEach(cb => cb.checked = false);
+            convectiveCard.classList.remove('active');
+            orographicCard.classList.remove('active');
+
+            // Convective Precipitation Logic
+            const isMoistureOverFlatGround = moisture.y > h * 0.7 && !isPointInRect(moisture.x, moisture.y, mountain.x, mountain.y, mountain.width, mountain.height);
+            const highGroundHeat = simState.groundTemperature > 60; // Threshold
+
+            if (highGroundHeat && isMoistureOverFlatGround) {
+                convectiveChecklist.heat.checked = true;
+                convectiveChecklist.flat.checked = true;
+
+                // Create/grow convective cloud
+                let convectiveCloud = clouds.find(c => c.type === 'convective');
+                if (!convectiveCloud) {
+                    convectiveCloud = {
+                        x: moisture.x,
+                        y: moisture.y,
+                        initialRadius: moisture.radius,
+                        size: moisture.radius,
+                        maxSize: 100,
+                        type: 'convective',
+                        density: 0, // 0-1
+                        raining: false,
+                        growthRate: 0.5 + simState.groundTemperature / 200, // Faster growth with more heat
+                    };
+                    clouds.push(convectiveCloud);
+                    if (simState.lastNarratedPrompt !== 'convective-start') {
+                        speak("Look! The sun made the ground super warm, like a big hot plate! The air and water vapor are getting bouncy and zooming up to make a cloud.", 1.2);
+                        simState.lastNarratedPrompt = 'convective-start';
+                    }
+                }
+
+                convectiveCloud.size = Math.min(convectiveCloud.maxSize, convectiveCloud.size + convectiveCloud.growthRate);
+                convectiveCloud.density = Math.min(1, convectiveCloud.density + convectiveCloud.growthRate * 0.01);
+                convectiveCloud.y -= (convectiveCloud.growthRate * 0.1); // Cloud rises
+
+                if (convectiveCloud.size >= convectiveCloud.maxSize * 0.8 && convectiveCloud.density >= 0.8) {
+                    convectiveChecklist.rising.checked = true;
+                    newPrecipitationRate += simState.groundTemperature / 10;
+                    currentPrecipitationType = 'convective';
+                    convectiveCloud.raining = true;
+                    convectiveCard.classList.add('active');
+                    simState.convectiveActive = true;
+
+                    if (simState.lastNarratedPrompt !== 'convective-rain') {
+                        playSFX('cheer');
+                        speak("Boing! This is called Convective Precipitation, like steam from your hot chocolate! You did it!", 1.2);
+                        simState.lastNarratedPrompt = 'convective-rain';
+                    }
+                    // Trigger rain particles
+                    if (Math.random() < convectiveCloud.density * 0.2) { // More particles with higher density
+                        rainParticles.push({
+                            x: convectiveCloud.x + (Math.random() - 0.5) * convectiveCloud.size * 0.8,
+                            y: convectiveCloud.y + convectiveCloud.size * 0.5,
+                            vy: 2 + Math.random() * 3,
+                            radius: 2 + Math.random() * 2,
+                            alpha: 1,
+                            color: `rgba(180, 200, 255, ${0.7 + Math.random() * 0.3})`
+                        });
+                    }
+                }
+
+                // If moisture packet is dragged away, dissipate cloud
+                if (!isMoistureOverFlatGround && convectiveCloud && !convectiveCloud.isDragging) {
+                     convectiveCloud.density -= 0.02; // Start dissipating
+                     if(convectiveCloud.density <= 0) {
+                         clouds.splice(clouds.indexOf(convectiveCloud), 1);
+                         simState.convectiveActive = false;
+                     }
+                }
+
+            } else {
+                // Dissipate convective clouds if conditions are no longer met
+                clouds.forEach(cloud => {
+                    if (cloud.type === 'convective') {
+                        cloud.density -= 0.01;
+                        if (cloud.density <= 0) {
+                            clouds.splice(clouds.indexOf(cloud), 1);
+                            simState.convectiveActive = false;
+                            simState.lastNarratedPrompt = '';
+                        }
+                    }
+                });
+            }
+
+
+            // Orographic Precipitation Logic
+            const isMoistureNearMountain = isPointInRect(moisture.x, moisture.y, mountain.x - 50, mountain.y - 50, mountain.width + 100, mountain.height + 100);
+            const strongWindTowardsMountain = simState.windSpeed > 50 && simState.windDirection === 1 && moisture.x < mountain.x + mountain.width/2; // Wind pushing right
+            const moistureUpWindwardSlope = isMoistureNearMountain && moisture.x < mountain.x + mountain.width * 0.5;
+
+            if (strongWindTowardsMountain && moistureUpWindwardSlope) {
+                orographicChecklist.mountain.checked = true;
+                orographicChecklist.wind.checked = true;
+
+                // Create/grow orographic cloud
+                let orographicCloud = clouds.find(c => c.type === 'orographic');
+                if (!orographicCloud) {
+                    orographicCloud = {
+                        x: moisture.x,
+                        y: moisture.y,
+                        initialRadius: moisture.radius,
+                        size: moisture.radius,
+                        maxSize: 120,
+                        type: 'orographic',
+                        density: 0,
+                        raining: false,
+                        growthRate: 0.5 + simState.windSpeed / 200, // Faster growth with more wind
+                    };
+                    clouds.push(orographicCloud);
+                    if (simState.lastNarratedPrompt !== 'orographic-start') {
+                        speak("Whee! The wind is like a big pusher, making the cloud climb the mountain like a slide!", 1.2);
+                        simState.lastNarratedPrompt = 'orographic-start';
+                    }
+                }
+
+                orographicCloud.size = Math.min(orographicCloud.maxSize, orographicCloud.size + orographicCloud.growthRate);
+                orographicCloud.density = Math.min(1, orographicCloud.density + orographicCloud.growthRate * 0.01);
+                orographicCloud.y -= (orographicCloud.growthRate * 0.05); // Cloud rises slightly with mountain
+                orographicCloud.x += (moisture.x < mountain.x + mountain.width * 0.3) ? (simState.windSpeed / 200) : 0; // Moves with wind up mountain
+
+                if (orographicCloud.size >= orographicCloud.maxSize * 0.8 && orographicCloud.density >= 0.8) {
+                    orographicChecklist.ascent.checked = true;
+                    newPrecipitationRate += simState.windSpeed / 10;
+                    currentPrecipitationType = 'orographic';
+                    orographicCloud.raining = true;
+                    orographicCard.classList.add('active');
+                    simState.orographicActive = true;
+
+                    if (simState.lastNarratedPrompt !== 'orographic-rain') {
+                        playSFX('cheer');
+                        speak("As it goes up, it gets chilly and makes rain! This is Orographic Precipitation, like clouds trying to get over a giant speed bump! Amazing!", 1.2);
+                        simState.lastNarratedPrompt = 'orographic-rain';
+                    }
+
+                    // Trigger rain particles on windward side
+                    if (Math.random() < orographicCloud.density * 0.2) {
+                        rainParticles.push({
+                            x: orographicCloud.x + (Math.random() - 0.8) * orographicCloud.size * 0.8, // More on left (windward)
+                            y: orographicCloud.y + orographicCloud.size * 0.5,
+                            vy: 2 + Math.random() * 3,
+                            radius: 2 + Math.random() * 2,
+                            alpha: 1,
+                            color: `rgba(180, 200, 255, ${0.7 + Math.random() * 0.3})`
+                        });
+                    }
+                }
+            } else {
+                // Dissipate orographic clouds
+                clouds.forEach(cloud => {
+                    if (cloud.type === 'orographic') {
+                        cloud.density -= 0.01;
+                        if (cloud.density <= 0) {
+                            clouds.splice(clouds.indexOf(cloud), 1);
+                            simState.orographicActive = false;
+                            simState.lastNarratedPrompt = '';
+                        }
+                    }
+                });
+            }
+
+            simState.precipitationRate = Math.round(newPrecipitationRate);
+            simState.precipitationType = currentPrecipitationType;
+
+
+            // Update rain particles
+            for (let i = rainParticles.length - 1; i >= 0; i--) {
+                const p = rainParticles[i];
+                p.y += p.vy;
+                p.alpha -= 0.02; // Fade out
+
+                // Splash effect when hitting ground/mountain
+                const groundLevel = h * 0.7;
+                const mountainLevel = mountain.y + mountain.height;
+                const hitGround = p.y > groundLevel;
+                const hitMountain = isPointInRect(p.x, p.y, mountain.x, mountain.y, mountain.width, mountain.height);
+
+                if (p.alpha <= 0 || hitGround || hitMountain) {
+                    if ((hitGround || hitMountain) && p.alpha > 0.5) { // Only splash if visible
+                        // Create a tiny splash animation (e.g., 2-3 small ephemeral circles)
+                        // For simplicity, just remove it or add a very short delay
+                    }
+                    rainParticles.splice(i, 1);
+                }
+            }
+
+            // Update displays
+            groundTempDisplay.textContent = `${Math.round(simState.groundTemperature)}°C`;
+            windSpeedDisplay.textContent = `${Math.round(simState.windSpeed)} m/s`;
+            precipitationRateDisplay.textContent = `${simState.precipitationRate} mm/hr`;
+
+            // Update graph data
+            if (Date.now() % 100 < 10) { // Update graph every ~100ms
+                simState.graphData.push({ time: Date.now(), rate: simState.precipitationRate });
+                if (simState.graphData.length > simState.graphMaxPoints) {
+                    simState.graphData.shift();
+                }
+            }
+
+            // Camera zoom/pan logic
+            simState.cameraZoom += (simState.cameraTargetZoom - simState.cameraZoom) * 0.1;
+            simState.cameraPanX += (simState.cameraTargetPanX - simState.cameraPanX) * 0.1;
+            simState.cameraPanY += (simState.cameraTargetPanY - simState.cameraPanY) * 0.1;
+
+            if (simState.convectiveActive) {
+                const cloud = clouds.find(c => c.type === 'convective');
+                if (cloud) {
+                    simState.cameraTargetZoom = 1.5;
+                    simState.cameraTargetPanX = w / 2 - cloud.x * 1.5;
+                    simState.cameraTargetPanY = h / 2 - cloud.y * 1.5;
+                }
+            } else if (simState.orographicActive) {
+                const cloud = clouds.find(c => c.type === 'orographic');
+                if (cloud) {
+                    simState.cameraTargetZoom = 1.5;
+                    simState.cameraTargetPanX = w / 2 - (cloud.x + mountain.width * 0.25) * 1.5; // Focus slightly on windward
+                    simState.cameraTargetPanY = h / 2 - (cloud.y + mountain.height * 0.25) * 1.5;
+                }
+            } else {
+                simState.cameraTargetZoom = 1.0;
+                simState.cameraTargetPanX = 0;
+                simState.cameraTargetPanY = 0;
+            }
+        }
+
+
+        // --- Main Animation Loop ---
+        function animate() {
+            const { clientWidth: w, clientHeight: h } = weatherCanvas;
+            ctx.clearRect(0, 0, w, h);
+
+            // Apply camera transform
+            ctx.save();
+            ctx.translate(w / 2, h / 2); // Center of canvas
+            ctx.scale(simState.cameraZoom, simState.cameraZoom);
+            ctx.translate(-w / 2 + simState.cameraPanX / simState.cameraZoom, -h / 2 + simState.cameraPanY / simState.cameraZoom); // Pan relative to zoomed content
+
+            drawBackground();
+            drawHeatWaves(draggableElements.sun);
+            drawMountain(draggableElements.mountain);
+            drawSun(draggableElements.sun);
+            drawWind(draggableElements.wind);
+            drawMoisturePacket(draggableElements.moisture);
+            drawClouds();
+            drawRainParticles();
+
+            ctx.restore(); // Restore camera transform
+
+
+            updateSimulation();
+            drawPrecipitationGraph(); // Draw graph separately without camera zoom
+
+            simState.animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners and Initial Setup ---
+        window.addEventListener('resize', resizeCanvas);
+        resetButton.addEventListener('click', resetSimulation);
+        helpButton.addEventListener('click', () => showHandbookModal('main'));
+        handbookCloseButton.addEventListener('click', hideHandbookModal);
+        handbookModal.addEventListener('click', (e) => {
+            if (e.target === handbookModal) hideHandbookModal();
+        });
+
+
+        function resetSimulation() {
+            if (simState.animationFrameId) {
+                cancelAnimationFrame(simState.animationFrameId);
+            }
+            if (window.speechSynthesis) {
+                window.speechSynthesis.cancel();
+            }
+            simState.narrationQueue = [];
+            hideNarrationBubble();
+            playSFX('boing');
+
+            Object.assign(simState, {
+                groundTemperature: 0,
+                windSpeed: 0,
+                windDirection: 1,
+                mountainHeight: 0,
+                precipitationRate: 0,
+                precipitationType: 'none',
+                convectiveActive: false,
+                orographicActive: false,
+                narrating: false,
+                lastNarratedPrompt: '',
+                cameraZoom: 1.0,
+                cameraTargetZoom: 1.0,
+                cameraPanX: 0,
+                cameraPanY: 0,
+                cameraTargetPanX: 0,
+                cameraTargetPanY: 0,
+                graphData: [],
+            });
+
+            draggableElements.sun = { x: 100, y: 100, radius: 30, isDragging: false, targetX: 100, targetY: 100 };
+            draggableElements.mountain = { x: 400, y: weatherCanvas.clientHeight - 100, width: 200, height: 100, isDragging: false, targetX: 400, targetY: weatherCanvas.clientHeight - 100 };
+            draggableElements.wind = { x: 150, y: 250, length: 100, angle: 0, isDragging: false, targetX: 150, targetY: 250, targetLength: 100 };
+            draggableElements.moisture = { x: 100, y: 350, radius: 25, isDragging: false, targetX: 100, targetY: 350 };
+
+            clouds.length = 0;
+            rainParticles.length = 0;
+
+            setSunSound(0);
+            setWindSound(0);
+
+            // Reset checklist UI
+            Object.values(convectiveChecklist).forEach(cb => cb.checked = false);
+            Object.values(orographicChecklist).forEach(cb => cb.checked = false);
+            convectiveCard.classList.remove('active');
+            orographicCard.classList.remove('active');
+
+            // Re-initialize for next animation loop
+            startSimulation();
+        }
+
+        function showHandbookModal(type) {
+            let title = "Hydrology Handbook Snippet";
+            let text = "";
+
+            if (type === 'convective') {
+                title = "Page 69: Convection!";
+                text = "When the ground gets super hot, the air above it heats up too, gets light, and goes whoosh! Up, up, up! If it has enough moisture, it makes a storm cloud! This process creates Convective Precipitation, often seen as thunderstorms.";
+            } else if (type === 'orographic') {
+                title = "Page 70: Orography!";
+                text = "Imagine wind pushing clouds up a big hill! As they climb, the air gets cooler, and the water vapor turns into rain! The other side of the hill stays dry, creating a 'rain shadow'! This is Orographic Precipitation, common near mountain ranges.";
+            } else { // 'main' or default help
+                title = "Precipitation Playground Help";
+                text = "Welcome to the Cloud Creator! Drag the sun to heat the ground, the wind tool to make breezes, the mountain to create barriers, and the moisture packet to add water vapor. Experiment to create Convective or Orographic Precipitation! Check the boxes on the left to learn about the conditions.";
+            }
+
+            handbookTitle.textContent = title;
+            handbookText.textContent = text;
+            handbookModal.classList.add('active');
+        }
+
+        function hideHandbookModal() {
+            handbookModal.classList.remove('active');
+        }
+
+        function startSimulation() {
+            // Initial call to resize canvas and set initial mountain position
+            resizeCanvas();
+            draggableElements.mountain.y = weatherCanvas.clientHeight - draggableElements.mountain.height;
+            draggableElements.mountain.targetY = weatherCanvas.clientHeight - draggableElements.mountain.height;
+
+            initializeAudio();
+            getSpeechVoices(); // Ensure voices are loaded
+
+            // Initial greeting
+            setTimeout(() => {
+                speak("Hello, little cloud creator! Let's make some rain!", 1.2, 1.0);
+                playSFX('chime');
+            }, 1000); // Small delay for audio context to be ready
+
+            simState.animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', startSimulation);
+
+    </script>
+</body>
+</html>

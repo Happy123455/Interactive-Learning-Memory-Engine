@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Engineering Hydrology - Symon's Rain Gauge Simulator</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            bg: '#0a0d14',
+                            panel: 'rgba(16, 23, 38, 0.75)',
+                            border: '#1e293b',
+                            cyan: '#06b6d4',
+                            magenta: '#e11d48',
+                            neon: '#22c55e',
+                            purple: '#a855f7'
+                        }
+                    },
+                    animation: {
+                        'pulse-glow': 'pulseGlow 2s infinite ease-in-out',
+                        'bounce-subtle': 'bounceSubtle 2s infinite',
+                        'shimmer': 'shimmer 1.5s infinite linear'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Google Fonts & FontAwesome Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;400;600;700;800&family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Exo 2', sans-serif;
+            background-color: #07090e;
+            background-image: 
+                radial-gradient(at 10% 10%, rgba(6, 182, 212, 0.12) 0px, transparent 50%),
+                radial-gradient(at 90% 90%, rgba(168, 85, 247, 0.1) 0px, transparent 50%),
+                radial-gradient(at 50% 50%, rgba(15, 23, 42, 0.8) 0px, transparent 100%);
+            color: #f1f5f9;
+            user-select: none;
+        }
+
+        .font-playful {
+            font-family: 'Fredoka', cursive;
+        }
+
+        /* Glassmorphism Panel */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(56, 189, 248, 0.15);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+        }
+
+        .glass-panel-neon {
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(6, 182, 212, 0.4);
+            box-shadow: 0 0 15px rgba(6, 182, 212, 0.25);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(6, 182, 212, 0.4);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(6, 182, 212, 0.7);
+        }
+
+        /* Drag & Drop Visual Effects */
+        .drag-item {
+            transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+            cursor: grab;
+        }
+        .drag-item:active {
+            cursor: grabbing;
+            transform: scale(1.05);
+        }
+        .drag-item.dragging {
+            opacity: 0.4;
+            transform: scale(0.95);
+        }
+
+        /* Bouncy Button Effects */
+        .btn-bounce {
+            transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-bounce:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 0 0 12px rgba(6, 182, 212, 0.5);
+        }
+        .btn-bounce:active {
+            transform: translateY(1px) scale(0.98);
+        }
+
+        @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 0 10px rgba(6, 182, 212, 0.3); border-color: rgba(6, 182, 212, 0.4); }
+            50% { box-shadow: 0 0 22px rgba(6, 182, 212, 0.7); border-color: rgba(6, 182, 212, 0.9); }
+        }
+
+        @keyframes bounceSubtle {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-4px); }
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: rgba(30, 41, 59, 0.8);
+            border-radius: 8px;
+            height: 8px;
+            border: 1px solid rgba(56, 189, 248, 0.2);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 20px;
+            width: 20px;
+            border-radius: 50%;
+            background: #06b6d4;
+            box-shadow: 0 0 10px #06b6d4;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #38bdf8;
+            box-shadow: 0 0 16px #38bdf8;
+        }
+
+        /* Speech Bubble Arrow */
+        .speech-arrow::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: rgba(15, 23, 42, 0.9) transparent;
+            display: block;
+            width: 0;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col justify-between">
+
+    <!-- TOP NAVBAR -->
+    <header class="h-16 border-b border-slate-800/80 px-6 flex items-center justify-between glass-panel z-20 shrink-0">
+        <div class="flex items-center space-x-3">
+            <div class="p-2 bg-cyan-500/10 border border-cyan-500/30 rounded-xl text-cyan-400 animate-pulse-glow">
+                <i class="fa-solid fa-cloud-showers-heavy text-xl"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold bg-gradient-to-r from-cyan-400 via-sky-300 to-purple-400 bg-clip-text text-transparent">
+                    Symon's Rain Gauge Simulator
+                </h1>
+                <p class="text-xs text-slate-400">Engineering Hydrology • Non-Recording Precipitation Measurement</p>
+            </div>
+        </div>
+
+        <!-- Interactive Stepper / Phase Tracker -->
+        <div class="hidden md:flex items-center space-x-1 bg-slate-900/90 p-1.5 rounded-2xl border border-slate-800">
+            <button id="step-btn-1" class="phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 flex items-center gap-1.5 transition">
+                <span class="w-4 h-4 rounded-full bg-cyan-500 text-slate-950 text-[10px] font-bold flex items-center justify-center">1</span> Intro
+            </button>
+            <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+            <button id="step-btn-2" class="phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+                <span class="w-4 h-4 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold flex items-center justify-center">2</span> Assembly
+            </button>
+            <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+            <button id="step-btn-3" class="phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+                <span class="w-4 h-4 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold flex items-center justify-center">3</span> Rain Test
+            </button>
+            <i class="fa-solid fa-chevron-right text-[10px] text-slate-600"></i>
+            <button id="step-btn-4" class="phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition">
+                <span class="w-4 h-4 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold flex items-center justify-center">4</span> Measure & Quiz
+            </button>
+        </div>
+
+        <!-- Simulation Controls & Audio Controls -->
+        <div class="flex items-center space-x-3">
+            <!-- Global Next Phase Navigation Button -->
+            <button id="btn-next-phase" class="btn-bounce px-3.5 py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-cyan-500/20 flex items-center gap-2">
+                <span>Next Step</span> <i class="fa-solid fa-arrow-right"></i>
+            </button>
+
+            <!-- Voice Narration Toggle -->
+            <button id="btn-toggle-voice" class="btn-bounce p-2.5 bg-slate-800 border border-cyan-500/30 rounded-xl text-cyan-400 hover:bg-cyan-950/40" title="Toggle ELI5 Voice Narration">
+                <i id="icon-voice" class="fa-solid fa-volume-high"></i>
+            </button>
+
+            <!-- Sound Effects Toggle -->
+            <button id="btn-toggle-sound" class="btn-bounce p-2.5 bg-slate-800 border border-purple-500/30 rounded-xl text-purple-400 hover:bg-purple-950/40" title="Toggle Synth Sound Effects">
+                <i id="icon-sound" class="fa-solid fa-music"></i>
+            </button>
+
+            <!-- Global Reset Button -->
+            <button id="btn-reset-sim" class="btn-bounce p-2.5 bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 rounded-xl text-rose-300 text-xs font-semibold" title="Reset Simulation">
+                <i class="fa-solid fa-rotate-left"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN APPLICATION WORKSPACE -->
+    <main class="flex-1 grid grid-cols-12 gap-4 p-4 min-h-0 overflow-hidden">
+
+        <!-- LEFT CONTROL PANEL (3 COLS) -->
+        <aside id="left-panel" class="col-span-12 lg:col-span-3 flex flex-col gap-4 overflow-y-auto pr-1">
+            
+            <!-- PHASE 1: Gauge Types Card -->
+            <section id="card-gauge-types" class="glass-panel p-4 rounded-2xl border-cyan-500/30 flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check"></i> Rain Gauge Classification
+                    </h2>
+                    <span class="text-[10px] bg-cyan-950 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full">Unit 1</span>
+                </div>
+                <p class="text-xs text-slate-300">Click to explore Symon's Non-Recording Gauge:</p>
+
+                <div class="space-y-2">
+                    <!-- Symon's Gauge (Active Interactive) -->
+                    <div id="select-symons-gauge" class="btn-bounce p-3 bg-cyan-950/40 border-2 border-cyan-400 rounded-xl cursor-pointer shadow-lg shadow-cyan-950/50 flex items-center justify-between">
+                        <div>
+                            <div class="font-bold text-sm text-cyan-200">1. Symon's Rain Gauge</div>
+                            <div class="text-[11px] text-cyan-400/80">Non-Recording Standard Gauge</div>
+                        </div>
+                        <i class="fa-solid fa-circle-play text-cyan-400 text-lg"></i>
+                    </div>
+
+                    <!-- Tipping Bucket Gauge (Info) -->
+                    <div class="p-3 bg-slate-900/40 border border-slate-800 rounded-xl opacity-60 flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-xs text-slate-300">2. Tipping Bucket Gauge</div>
+                            <div class="text-[10px] text-slate-500">Recording Continuous Gauge</div>
+                        </div>
+                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Recording</span>
+                    </div>
+
+                    <!-- Weighing Bucket Gauge (Info) -->
+                    <div class="p-3 bg-slate-900/40 border border-slate-800 rounded-xl opacity-60 flex items-center justify-between">
+                        <div>
+                            <div class="font-semibold text-xs text-slate-300">3. Weighing Bucket Gauge</div>
+                            <div class="text-[10px] text-slate-500">Recording Mass Curve Gauge</div>
+                        </div>
+                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded">Recording</span>
+                    </div>
+                </div>
+
+                <!-- Phase 1 Next Button -->
+                <button id="btn-phase1-next" class="btn-bounce w-full py-2.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 mt-2 shadow-lg shadow-cyan-600/30">
+                    <span>Start Assembly (Next Step)</span> <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </section>
+
+            <!-- PHASE 2: Assembly Checklist Panel -->
+            <section id="card-assembly-checklist" class="glass-panel p-4 rounded-2xl flex flex-col gap-3 hidden">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-purple-300 flex items-center gap-2">
+                        <i class="fa-solid fa-screwdriver-wrench"></i> Assembly Checklist
+                    </h2>
+                    <span id="assembly-progress" class="text-xs font-mono font-bold text-purple-400">0/4 Parts</span>
+                </div>
+                <p class="text-xs text-slate-300">Drag components from the right inventory into the highlight outlines on the canvas:</p>
+
+                <ul id="checklist-items" class="space-y-2 text-xs">
+                    <li id="chk-base-plate" class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-300"><i class="fa-solid fa-layer-group text-slate-500 mr-2"></i>Concrete Base Block</span>
+                        <i class="chk-icon fa-regular fa-circle text-slate-500"></i>
+                    </li>
+                    <li id="chk-outer-casing" class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-300"><i class="fa-solid fa-filter-circle-xmark text-slate-500 mr-2"></i>Metal Outer Casing</span>
+                        <i class="chk-icon fa-regular fa-circle text-slate-500"></i>
+                    </li>
+                    <li id="chk-receiver-bottle" class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-300"><i class="fa-solid fa-wine-bottle text-slate-500 mr-2"></i>Glass Receiver Bottle</span>
+                        <i class="chk-icon fa-regular fa-circle text-slate-500"></i>
+                    </li>
+                    <li id="chk-collecting-funnel" class="p-2.5 bg-slate-900/60 rounded-xl border border-slate-800 flex items-center justify-between">
+                        <span class="text-slate-300"><i class="fa-solid fa-funnel-dollar text-slate-500 mr-2"></i>127mm Collecting Funnel</span>
+                        <i class="chk-icon fa-regular fa-circle text-slate-500"></i>
+                    </li>
+                </ul>
+
+                <!-- Phase 2 Controls: Auto Assemble & Next -->
+                <div class="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-800">
+                    <button id="btn-auto-assemble" class="btn-bounce py-2 px-2 bg-purple-950/60 border border-purple-500/40 text-purple-300 text-[11px] font-semibold rounded-xl flex items-center justify-center gap-1.5">
+                        <i class="fa-solid fa-magic"></i> Auto Assemble
+                    </button>
+                    <button id="btn-phase2-next" class="btn-bounce py-2 px-2 bg-purple-600 hover:bg-purple-500 text-white text-[11px] font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-lg shadow-purple-600/30">
+                        <span>Proceed to Rain</span> <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            </section>
+
+            <!-- PHASE 3: Rainfall Controls & Real-Time Graph Panel -->
+            <section id="card-rain-controls" class="glass-panel p-4 rounded-2xl flex flex-col gap-3 hidden">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders"></i> Rainfall Simulation Controls
+                    </h2>
+                    <span id="rain-status-tag" class="text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full">Ready</span>
+                </div>
+
+                <!-- Slider 1: Intensity -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">Rainfall Intensity</span>
+                        <span id="label-intensity" class="font-mono text-cyan-400 font-bold">5.0 mm/hr</span>
+                    </div>
+                    <input id="slider-intensity" type="range" min="0" max="10" step="0.5" value="5.0" class="w-full">
+                </div>
+
+                <!-- Slider 2: Duration -->
+                <div class="space-y-1">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-300 font-medium">Rainfall Duration</span>
+                        <span id="label-duration" class="font-mono text-cyan-400 font-bold">20 sec</span>
+                    </div>
+                    <input id="slider-duration" type="range" min="5" max="60" step="5" value="20" class="w-full">
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button id="btn-start-rain" class="btn-bounce py-2 px-3 bg-gradient-to-r from-cyan-500 to-blue-600 rounded-xl text-white font-bold text-xs shadow-lg shadow-cyan-500/20 flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-cloud-showers-water"></i> Start Rain
+                    </button>
+                    <button id="btn-stop-rain" class="btn-bounce py-2 px-3 bg-slate-800 border border-slate-700 rounded-xl text-slate-300 font-bold text-xs flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-circle-stop"></i> Stop Rain
+                    </button>
+                </div>
+
+                <!-- Real-Time Accumulation Graph -->
+                <div class="border-t border-slate-800 pt-3 flex flex-col gap-1">
+                    <div class="flex justify-between items-center text-[11px] text-slate-300">
+                        <span class="font-bold flex items-center gap-1.5 text-cyan-400">
+                            <i class="fa-solid fa-chart-line"></i> Precipitation Accumulation Graph
+                        </span>
+                        <span id="graph-val-total" class="font-mono font-bold text-cyan-400 bg-slate-900 px-2 py-0.5 rounded border border-cyan-500/30">0.0 mm</span>
+                    </div>
+                    <!-- Visible Graph Container -->
+                    <div class="h-36 bg-slate-950/90 border border-cyan-500/30 rounded-xl overflow-hidden relative shadow-inner p-1">
+                        <canvas id="accumulation-graph" class="w-full h-full block"></canvas>
+                    </div>
+                </div>
+
+                <!-- Phase 3 Next Button -->
+                <button id="btn-phase3-next" class="btn-bounce w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl flex items-center justify-center gap-2 mt-1 shadow-lg shadow-emerald-600/30">
+                    <span>Next: Measurement Tools & Quiz</span> <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </section>
+        </aside>
+
+        <!-- CENTER INTERACTIVE CANVAS AREA (6 COLS) -->
+        <section class="col-span-12 lg:col-span-6 flex flex-col gap-3 relative">
+            
+            <!-- ELI5 Dynamic Speech Bubble Overlay -->
+            <div id="speech-bubble" class="absolute top-4 left-1/2 -translate-x-1/2 z-10 max-w-lg w-11/12 glass-panel-neon px-4 py-3 rounded-2xl speech-arrow transition-all duration-300 flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400/50 flex items-center justify-center text-cyan-300 shrink-0 text-lg font-playful font-bold">
+                    👶
+                </div>
+                <div class="flex-1">
+                    <div class="text-[10px] uppercase font-bold text-cyan-400 tracking-wider">Hydrology Assistant</div>
+                    <p id="speech-text" class="text-xs font-medium text-slate-200 leading-snug">
+                        Hello young engineer! Welcome! Click on Symon's Rain Gauge on the left to start building!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="flex-1 glass-panel rounded-3xl overflow-hidden relative border border-cyan-500/30 flex items-center justify-center shadow-2xl">
+                <canvas id="simulation-canvas" class="w-full h-full block cursor-crosshair"></canvas>
+
+                <!-- Mouse Gesture Wind Indicator -->
+                <div id="wind-gesture-hint" class="absolute bottom-3 left-3 bg-slate-900/80 border border-slate-700/60 px-3 py-1.5 rounded-full text-[10px] text-slate-300 flex items-center gap-2 pointer-events-none opacity-0 transition-opacity duration-500">
+                    <i class="fa-solid fa-hand-pointer text-cyan-400 animate-bounce-subtle"></i>
+                    <span>Sweep mouse left/right across canvas to simulate wind drift!</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- RIGHT INVENTORY & MEASUREMENT PANEL (3 COLS) -->
+        <aside id="right-panel" class="col-span-12 lg:col-span-3 flex flex-col gap-4 overflow-y-auto pl-1">
+            
+            <!-- PHASE 2: Component Drag Inventory -->
+            <section id="card-inventory" class="glass-panel p-4 rounded-2xl flex flex-col gap-3 hidden">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-cyan-300 flex items-center gap-2">
+                        <i class="fa-solid fa-boxes-stacked"></i> Assembly Parts
+                    </h2>
+                    <span class="text-[10px] text-slate-400">Drag to Canvas</span>
+                </div>
+
+                <!-- Draggable Component Cards Grid -->
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Base Block -->
+                    <div id="drag-base-plate" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-cyan-500/30 rounded-xl hover:border-cyan-400 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-cubes text-slate-400 text-2xl group-hover:text-cyan-400"></i>
+                        <span class="text-[11px] font-medium text-slate-300 text-center">Concrete Base</span>
+                    </div>
+
+                    <!-- Outer Casing -->
+                    <div id="drag-outer-casing" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-cyan-500/30 rounded-xl hover:border-cyan-400 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-shield-halved text-slate-400 text-2xl group-hover:text-cyan-400"></i>
+                        <span class="text-[11px] font-medium text-slate-300 text-center">Metal Casing</span>
+                    </div>
+
+                    <!-- Receiver Bottle -->
+                    <div id="drag-receiver-bottle" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-cyan-500/30 rounded-xl hover:border-cyan-400 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-bottle-droplet text-slate-400 text-2xl group-hover:text-cyan-400"></i>
+                        <span class="text-[11px] font-medium text-slate-300 text-center">Glass Bottle</span>
+                    </div>
+
+                    <!-- Collecting Funnel -->
+                    <div id="drag-collecting-funnel" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-cyan-500/30 rounded-xl hover:border-cyan-400 flex flex-col items-center justify-center gap-1 group">
+                        <i class="fa-solid fa-filter text-slate-400 text-2xl group-hover:text-cyan-400"></i>
+                        <span class="text-[11px] font-medium text-slate-300 text-center">127mm Funnel</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PHASE 3: Interactive Tools & Measurements -->
+            <section id="card-measurement-tools" class="glass-panel p-4 rounded-2xl flex flex-col gap-3 hidden">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-emerald-300 flex items-center gap-2">
+                        <i class="fa-solid fa-ruler-combined"></i> Measurement Tools
+                    </h2>
+                    <span class="text-[10px] bg-emerald-950 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">Interactive</span>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                    <!-- Tool 1: Dipping Rod -->
+                    <div id="tool-dipping-rod" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-emerald-500/30 rounded-xl hover:border-emerald-400 flex flex-col items-center justify-center gap-1 text-center">
+                        <i class="fa-solid fa-ruler-vertical text-emerald-400 text-2xl"></i>
+                        <span class="text-xs font-bold text-slate-200">Dipping Rod</span>
+                        <span class="text-[10px] text-slate-400">Drag to Bottle</span>
+                    </div>
+
+                    <!-- Tool 2: Measuring Jar -->
+                    <div id="tool-measuring-jar" draggable="true" class="drag-item p-3 bg-slate-900/80 border border-emerald-500/30 rounded-xl hover:border-emerald-400 flex flex-col items-center justify-center gap-1 text-center">
+                        <i class="fa-solid fa-glass-water text-emerald-400 text-2xl"></i>
+                        <span class="text-xs font-bold text-slate-200">Measuring Jar</span>
+                        <span class="text-[10px] text-slate-400">Drag to Pour Zone</span>
+                    </div>
+                </div>
+
+                <!-- Pour Action Trigger Button -->
+                <button id="btn-pour-water" class="btn-bounce w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/30 flex items-center justify-center gap-2 hidden">
+                    <i class="fa-solid fa-bottle-water"></i> Pour Water into Jar
+                </button>
+
+                <!-- Live Measurements Output Box -->
+                <div class="bg-slate-950/90 border border-emerald-500/30 p-3 rounded-xl flex flex-col gap-1">
+                    <div class="text-[10px] text-slate-400 uppercase font-semibold">Gauge Reading Results</div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-300">Receiver Liquid:</span>
+                        <span id="read-receiver" class="font-mono text-cyan-400 font-bold">0.0 mm</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-300">Dipping Rod Depth:</span>
+                        <span id="read-dipping-rod" class="font-mono text-purple-400 font-bold">Not Inserted</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-300">Graduated Jar:</span>
+                        <span id="read-measuring-jar" class="font-mono text-emerald-400 font-bold">Empty</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ELI5 Hydrology Quiz & Reference Card -->
+            <section id="card-reference-guide" class="glass-panel p-4 rounded-2xl flex flex-col gap-3">
+                <div class="flex items-center justify-between border-b border-slate-700/50 pb-2">
+                    <h2 class="text-sm font-bold text-purple-300 flex items-center gap-2">
+                        <i class="fa-solid fa-graduation-cap"></i> Symon's Specifications
+                    </h2>
+                    <i class="fa-solid fa-book-open text-purple-400"></i>
+                </div>
+
+                <div class="text-xs space-y-2 text-slate-300 leading-relaxed">
+                    <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+                        <span class="text-cyan-400 font-bold">Diameter:</span> Funnel rim is exactly 127 mm (5 inches).
+                    </div>
+                    <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+                        <span class="text-cyan-400 font-bold">Height Above Ground:</span> Rim is set 30 cm above ground level to prevent splash-in.
+                    </div>
+                    <div class="p-2 bg-slate-900/60 rounded-lg border border-slate-800">
+                        <span class="text-cyan-400 font-bold">Concrete Foundation:</span> Embedded in a 60×60×60 cm concrete block.
+                    </div>
+                </div>
+
+                <!-- Interactive Mini-Quiz Button -->
+                <button id="btn-open-quiz" class="btn-bounce w-full py-2 bg-purple-950/60 hover:bg-purple-900/60 border border-purple-500/40 text-purple-300 font-semibold text-xs rounded-xl flex items-center justify-center gap-2 mt-1">
+                    <i class="fa-solid fa-brain"></i> Take Quick Concept Challenge
+                </button>
+            </section>
+        </aside>
+
+    </main>
+
+    <!-- CONCEPT QUIZ MODAL -->
+    <div id="modal-quiz" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 hidden">
+        <div class="glass-panel-neon max-w-md w-full p-6 rounded-3xl flex flex-col gap-4 border-purple-500/50">
+            <div class="flex justify-between items-center border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-bold text-purple-300 flex items-center gap-2">
+                    <i class="fa-solid fa-award"></i> Hydrology Concept Challenge
+                </h3>
+                <button id="btn-close-quiz" class="text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <div id="quiz-body" class="space-y-3">
+                <p id="quiz-question" class="text-sm font-medium text-slate-200">
+                    Why is the rim of Symon's Rain Gauge kept at 30 cm above ground level?
+                </p>
+
+                <div id="quiz-options" class="space-y-2 text-xs">
+                    <button data-correct="true" class="quiz-opt w-full text-left p-3 bg-slate-900 border border-slate-700 hover:border-purple-400 rounded-xl transition">
+                        A) To prevent rain splashing into the collector funnel from the surrounding soil.
+                    </button>
+                    <button data-correct="false" class="quiz-opt w-full text-left p-3 bg-slate-900 border border-slate-700 hover:border-purple-400 rounded-xl transition">
+                        B) To capture wind speed better during heavy thunderstorms.
+                    </button>
+                    <button data-correct="false" class="quiz-opt w-full text-left p-3 bg-slate-900 border border-slate-700 hover:border-purple-400 rounded-xl transition">
+                        C) To prevent small animals from climbing into the gauge.
+                    </button>
+                </div>
+            </div>
+
+            <div id="quiz-feedback" class="text-xs font-bold text-center hidden p-2 rounded-xl"></div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT ENGINE -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            // --- GLOBAL STATE ---
+            const state = {
+                phase: 1, // 1: Intro, 2: Assembly, 3: Rain Test, 4: Measurement/Quiz
+                voiceEnabled: true,
+                soundEnabled: true,
+                checklist: {
+                    basePlate: false,
+                    outerCasing: false,
+                    receiverBottle: false,
+                    collectingFunnel: false
+                },
+                rain: {
+                    active: false,
+                    intensity: 5.0, // mm/hr
+                    duration: 20,   // seconds
+                    elapsed: 0,     // seconds
+                    accumulatedMm: 0,
+                    particles: []
+                },
+                tools: {
+                    dippingRodInserted: false,
+                    measuringJarPlaced: false,
+                    pouredToJar: false,
+                    jarReadingMm: 0
+                },
+                windDrift: 0,
+                cameraZoom: 1.0,
+                targetZoom: 1.0,
+                graphData: []
+            };
+
+            // --- AUDIO SYNTHESIZER (WEB AUDIO API) ---
+            class SoundEngine {
+                constructor() {
+                    this.ctx = null;
+                }
+
+                init() {
+                    if (!this.ctx) {
+                        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                        this.ctx = new AudioCtx();
+                    }
+                    if (this.ctx.state === 'suspended') {
+                        this.ctx.resume();
+                    }
+                }
+
+                playTone(freq, type = 'sine', duration = 0.15, gainVal = 0.2) {
+                    if (!state.soundEnabled) return;
+                    this.init();
+                    try {
+                        const osc = this.ctx.createOscillator();
+                        const gain = this.ctx.createGain();
+                        osc.type = type;
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                        gain.gain.setValueAtTime(gainVal, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + duration);
+                        osc.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + duration);
+                    } catch(e) {}
+                }
+
+                playClick() { this.playTone(800, 'triangle', 0.08, 0.2); }
+                playSnap() { 
+                    this.playTone(440, 'sine', 0.05, 0.3);
+                    setTimeout(() => this.playTone(880, 'sine', 0.1, 0.3), 50);
+                }
+                playSuccess() {
+                    if (!state.soundEnabled) return;
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        setTimeout(() => this.playTone(freq, 'sine', 0.25, 0.2), idx * 80);
+                    });
+                }
+                playError() {
+                    this.playTone(180, 'sawtooth', 0.25, 0.3);
+                }
+                playPourSound() {
+                    if (!state.soundEnabled) return;
+                    this.init();
+                    try {
+                        const bufferSize = this.ctx.sampleRate * 0.8;
+                        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                        const data = buffer.getChannelData(0);
+                        for (let i = 0; i < bufferSize; i++) {
+                            data[i] = Math.random() * 2 - 1;
+                        }
+                        const noise = this.ctx.createBufferSource();
+                        noise.buffer = buffer;
+                        const filter = this.ctx.createBiquadFilter();
+                        filter.type = 'bandpass';
+                        filter.frequency.setValueAtTime(600, this.ctx.currentTime);
+                        filter.Q.setValueAtTime(3.0, this.ctx.currentTime);
+
+                        const gain = this.ctx.createGain();
+                        gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+
+                        noise.connect(filter);
+                        filter.connect(gain);
+                        gain.connect(this.ctx.destination);
+                        noise.start();
+                    } catch(e) {}
+                }
+            }
+
+            const soundSFX = new SoundEngine();
+
+            // --- SPEECH SYNTHESIS ENGINE ---
+            function speak(text) {
+                const speechElem = document.getElementById('speech-text');
+                if (speechElem) speechElem.innerText = text;
+
+                if (!state.voiceEnabled || !('speechSynthesis' in window)) return;
+
+                window.speechSynthesis.cancel(); // Stop any active speech
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.pitch = 1.2;
+                utterance.rate = 1.0;
+                
+                const voices = window.speechSynthesis.getVoices();
+                const friendlyVoice = voices.find(v => v.lang.includes('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha')));
+                if (friendlyVoice) utterance.voice = friendlyVoice;
+
+                window.speechSynthesis.speak(utterance);
+            }
+
+            // --- CANVAS SETUP & HIGH-DPI SCALING ---
+            const mainCanvas = document.getElementById('simulation-canvas');
+            const mainCtx = mainCanvas.getContext('2d');
+            const graphCanvas = document.getElementById('accumulation-graph');
+            const graphCtx = graphCanvas.getContext('2d');
+
+            function resizeCanvases() {
+                const ratio = window.devicePixelRatio || 1;
+                const container = document.getElementById('canvas-container');
+                
+                if (container && container.clientWidth > 0) {
+                    mainCanvas.width = container.clientWidth * ratio;
+                    mainCanvas.height = container.clientHeight * ratio;
+                    mainCtx.scale(ratio, ratio);
+                }
+
+                const graphBox = graphCanvas.parentElement;
+                if (graphBox && graphBox.clientWidth > 0) {
+                    graphCanvas.width = graphBox.clientWidth * ratio;
+                    graphCanvas.height = graphBox.clientHeight * ratio;
+                    graphCtx.scale(ratio, ratio);
+                    updateGraph(); // Immediately re-render graph on resize
+                }
+            }
+
+            // Observe resize events on graph parent so when panel unhides, canvas resizes correctly
+            const resizeObserver = new ResizeObserver(() => {
+                resizeCanvases();
+            });
+            if (graphCanvas.parentElement) resizeObserver.observe(graphCanvas.parentElement);
+            if (document.getElementById('canvas-container')) resizeObserver.observe(document.getElementById('canvas-container'));
+
+            window.addEventListener('resize', resizeCanvases);
+
+            // --- CANVAS RENDER ENGINE ---
+            function drawCanvas() {
+                const w = mainCanvas.clientWidth;
+                const h = mainCanvas.clientHeight;
+
+                mainCtx.clearRect(0, 0, w, h);
+
+                // Background Grid
+                mainCtx.strokeStyle = 'rgba(30, 41, 59, 0.4)';
+                mainCtx.lineWidth = 1;
+                const gridSize = 30;
+                for (let x = 0; x < w; x += gridSize) {
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(x, 0);
+                    mainCtx.lineTo(x, h);
+                    mainCtx.stroke();
+                }
+                for (let y = 0; y < h; y += gridSize) {
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(0, y);
+                    mainCtx.lineTo(w, y);
+                    mainCtx.stroke();
+                }
+
+                // Camera Transform
+                mainCtx.save();
+                const centerX = w / 2;
+                const centerY = h * 0.7;
+
+                // Smooth camera zoom interpolation
+                state.cameraZoom += (state.targetZoom - state.cameraZoom) * 0.05;
+                mainCtx.translate(centerX, centerY);
+                mainCtx.scale(state.cameraZoom, state.cameraZoom);
+                mainCtx.translate(-centerX, -centerY);
+
+                // Ground & Concrete Block Foundations
+                const groundY = h * 0.72;
+
+                // Ground Level Line
+                mainCtx.fillStyle = 'rgba(15, 23, 42, 0.8)';
+                mainCtx.fillRect(0, groundY, w, h - groundY);
+                mainCtx.strokeStyle = '#334155';
+                mainCtx.lineWidth = 2;
+                mainCtx.beginPath();
+                mainCtx.moveTo(0, groundY);
+                mainCtx.lineTo(w, groundY);
+                mainCtx.stroke();
+
+                // 1. Concrete Base Plate (Ghost / Assembled)
+                const baseW = 180;
+                const baseH = 50;
+                const baseX = centerX - baseW / 2;
+                const baseY = groundY - baseH + 20;
+
+                if (state.checklist.basePlate) {
+                    // Render Concrete Base Block
+                    mainCtx.fillStyle = '#334155';
+                    mainCtx.beginPath();
+                    mainCtx.roundRect(baseX, baseY, baseW, baseH, 8);
+                    mainCtx.fill();
+                    mainCtx.strokeStyle = '#06b6d4';
+                    mainCtx.lineWidth = 2;
+                    mainCtx.stroke();
+
+                    // Texture hatching
+                    mainCtx.fillStyle = '#475569';
+                    for (let i = 0; i < 5; i++) {
+                        mainCtx.fillRect(baseX + 20 + i * 30, baseY + 15, 10, 8);
+                    }
+
+                    // Label: "30 cm Above Ground Rim Standard"
+                    mainCtx.fillStyle = '#94a3b8';
+                    mainCtx.font = '10px "Exo 2"';
+                    mainCtx.fillText('60x60x60cm Concrete Foundation', baseX + 10, baseY + baseH - 8);
+                } else {
+                    // Ghost Outline
+                    mainCtx.strokeStyle = 'rgba(6, 182, 212, 0.4)';
+                    mainCtx.setLineDash([6, 6]);
+                    mainCtx.lineWidth = 2;
+                    mainCtx.strokeRect(baseX, baseY, baseW, baseH);
+                    mainCtx.setLineDash([]);
+                    
+                    mainCtx.fillStyle = 'rgba(6, 182, 212, 0.6)';
+                    mainCtx.font = '12px "Exo 2"';
+                    mainCtx.fillText('[ Drop Concrete Base Here ]', baseX + 15, baseY + 30);
+                }
+
+                // 2. Outer Casing
+                const caseW = 100;
+                const caseH = 160;
+                const caseX = centerX - caseW / 2;
+                const caseY = baseY - caseH;
+
+                if (state.checklist.outerCasing) {
+                    // Assembled Metal Cylinder Casing
+                    const grad = mainCtx.createLinearGradient(caseX, 0, caseX + caseW, 0);
+                    grad.addColorStop(0, '#475569');
+                    grad.addColorStop(0.5, '#94a3b8');
+                    grad.addColorStop(1, '#334155');
+
+                    mainCtx.fillStyle = grad;
+                    mainCtx.beginPath();
+                    mainCtx.roundRect(caseX, caseY, caseW, caseH, [10, 10, 0, 0]);
+                    mainCtx.fill();
+                    mainCtx.strokeStyle = '#38bdf8';
+                    mainCtx.lineWidth = 2;
+                    mainCtx.stroke();
+
+                    // Metallic Rim highlights
+                    mainCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                    mainCtx.lineWidth = 3;
+                    mainCtx.strokeRect(caseX + 5, caseY + 10, caseW - 10, 2);
+                } else if (state.checklist.basePlate) {
+                    // Ghost Outline for Casing
+                    mainCtx.strokeStyle = 'rgba(168, 85, 247, 0.5)';
+                    mainCtx.setLineDash([6, 6]);
+                    mainCtx.lineWidth = 2;
+                    mainCtx.strokeRect(caseX, caseY, caseW, caseH);
+                    mainCtx.setLineDash([]);
+
+                    mainCtx.fillStyle = 'rgba(168, 85, 247, 0.7)';
+                    mainCtx.font = '11px "Exo 2"';
+                    mainCtx.fillText('[ Drop Metal Casing ]', caseX + 5, caseY + caseH / 2);
+                }
+
+                // 3. Receiver Bottle inside Casing
+                const botW = 60;
+                const botH = 110;
+                const botX = centerX - botW / 2;
+                const botY = caseY + caseH - botH - 10;
+
+                if (state.checklist.receiverBottle) {
+                    // Glass Bottle
+                    mainCtx.fillStyle = 'rgba(56, 189, 248, 0.15)';
+                    mainCtx.beginPath();
+                    mainCtx.roundRect(botX, botY, botW, botH, 12);
+                    mainCtx.fill();
+                    mainCtx.strokeStyle = '#38bdf8';
+                    mainCtx.lineWidth = 2;
+                    mainCtx.stroke();
+
+                    // Bottle Neck
+                    mainCtx.fillStyle = 'rgba(56, 189, 248, 0.25)';
+                    mainCtx.fillRect(centerX - 12, botY - 18, 24, 18);
+                    mainCtx.strokeRect(centerX - 12, botY - 18, 24, 18);
+
+                    // Liquid level inside bottle
+                    const maxWaterHeight = botH - 15;
+                    const fillRatio = Math.min(1.0, state.rain.accumulatedMm / 50);
+                    const currentWaterH = maxWaterHeight * fillRatio;
+                    const waterY = botY + botH - currentWaterH - 5;
+
+                    if (currentWaterH > 0) {
+                        mainCtx.fillStyle = 'rgba(6, 182, 212, 0.75)';
+                        mainCtx.beginPath();
+                        mainCtx.roundRect(botX + 4, waterY, botW - 8, currentWaterH, [0, 0, 8, 8]);
+                        mainCtx.fill();
+
+                        // Surface highlight
+                        mainCtx.fillStyle = '#38bdf8';
+                        mainCtx.beginPath();
+                        mainCtx.arc(centerX, waterY, botW / 2 - 4, 0, Math.PI);
+                        mainCtx.fill();
+                    }
+
+                    // Dipping Rod inside bottle if used
+                    if (state.tools.dippingRodInserted) {
+                        mainCtx.fillStyle = '#a855f7';
+                        mainCtx.fillRect(centerX - 3, botY - 30, 6, botH + 20);
+                        
+                        // Scale markings on rod
+                        mainCtx.strokeStyle = '#ffffff';
+                        mainCtx.lineWidth = 1;
+                        for (let r = 0; r < 10; r++) {
+                            mainCtx.beginPath();
+                            mainCtx.moveTo(centerX - 3, botY + r * 10);
+                            mainCtx.lineTo(centerX + 3, botY + r * 10);
+                            mainCtx.stroke();
+                        }
+
+                        if (currentWaterH > 0) {
+                            mainCtx.fillStyle = '#e11d48';
+                            mainCtx.beginPath();
+                            mainCtx.arc(centerX + 8, waterY, 4, 0, Math.PI * 2);
+                            mainCtx.fill();
+
+                            mainCtx.fillStyle = '#f43f5e';
+                            mainCtx.font = 'bold 11px "Exo 2"';
+                            mainCtx.fillText(`${state.rain.accumulatedMm.toFixed(1)} mm`, centerX + 15, waterY + 4);
+                        }
+                    }
+                } else if (state.checklist.outerCasing) {
+                    mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.5)';
+                    mainCtx.setLineDash([4, 4]);
+                    mainCtx.strokeRect(botX, botY, botW, botH);
+                    mainCtx.setLineDash([]);
+                }
+
+                // 4. Collecting Funnel on Top
+                const funnelTopW = 120;
+                const funnelTopY = caseY - 35;
+
+                if (state.checklist.collectingFunnel) {
+                    mainCtx.fillStyle = 'rgba(148, 163, 184, 0.9)';
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(centerX - funnelTopW / 2, funnelTopY);
+                    mainCtx.lineTo(centerX + funnelTopW / 2, funnelTopY);
+                    mainCtx.lineTo(centerX + 10, caseY + 10);
+                    mainCtx.lineTo(centerX - 10, caseY + 10);
+                    mainCtx.closePath();
+                    mainCtx.fill();
+                    mainCtx.strokeStyle = '#06b6d4';
+                    mainCtx.lineWidth = 2;
+                    mainCtx.stroke();
+
+                    // Sharp Brass Rim
+                    mainCtx.strokeStyle = '#eab308';
+                    mainCtx.lineWidth = 3;
+                    mainCtx.strokeRect(centerX - funnelTopW / 2, funnelTopY - 2, funnelTopW, 4);
+
+                    // Dimension Label
+                    mainCtx.fillStyle = '#e2e8f0';
+                    mainCtx.font = '10px "Exo 2"';
+                    mainCtx.fillText('127 mm Rim Diameter', centerX - 48, funnelTopY - 10);
+                } else if (state.checklist.receiverBottle) {
+                    mainCtx.strokeStyle = 'rgba(6, 182, 212, 0.6)';
+                    mainCtx.setLineDash([4, 4]);
+                    mainCtx.beginPath();
+                    mainCtx.moveTo(centerX - funnelTopW / 2, funnelTopY);
+                    mainCtx.lineTo(centerX + funnelTopW / 2, funnelTopY);
+                    mainCtx.lineTo(centerX + 10, caseY + 10);
+                    mainCtx.lineTo(centerX - 10, caseY + 10);
+                    mainCtx.closePath();
+                    mainCtx.stroke();
+                    mainCtx.setLineDash([]);
+                }
+
+                // --- RAIN PARTICLES ANIMATION ---
+                if (state.rain.active) {
+                    mainCtx.strokeStyle = 'rgba(56, 189, 248, 0.8)';
+                    mainCtx.lineWidth = 1.5;
+
+                    state.rain.particles.forEach(p => {
+                        mainCtx.beginPath();
+                        mainCtx.moveTo(p.x, p.y);
+                        mainCtx.lineTo(p.x + state.windDrift * 3, p.y + p.length);
+                        mainCtx.stroke();
+
+                        p.y += p.speed;
+                        p.x += state.windDrift;
+
+                        if (p.y > groundY) {
+                            p.y = 0;
+                            p.x = Math.random() * w;
+                        }
+                    });
+                }
+
+                // 5. Measuring Jar placed nearby
+                if (state.tools.measuringJarPlaced) {
+                    const jarX = centerX + 140;
+                    const jarY = groundY - 80;
+                    const jarW = 40;
+                    const jarH = 80;
+
+                    mainCtx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                    mainCtx.beginPath();
+                    mainCtx.roundRect(jarX, jarY, jarW, jarH, 6);
+                    mainCtx.fill();
+                    mainCtx.strokeStyle = '#10b981';
+                    mainCtx.lineWidth = 2;
+                    mainCtx.stroke();
+
+                    // Graduated scale markings
+                    mainCtx.strokeStyle = '#6ee7b7';
+                    mainCtx.lineWidth = 1;
+                    for (let m = 0; m <= 8; m++) {
+                        mainCtx.beginPath();
+                        mainCtx.moveTo(jarX, jarY + m * 9 + 5);
+                        mainCtx.lineTo(jarX + (m % 2 === 0 ? 12 : 6), jarY + m * 9 + 5);
+                        mainCtx.stroke();
+                    }
+
+                    if (state.tools.pouredToJar) {
+                        const jarWaterH = Math.min(jarH - 10, (state.rain.accumulatedMm / 50) * (jarH - 10));
+                        mainCtx.fillStyle = 'rgba(16, 185, 129, 0.7)';
+                        mainCtx.beginPath();
+                        mainCtx.roundRect(jarX + 3, jarY + jarH - jarWaterH - 2, jarW - 6, jarWaterH, [0, 0, 4, 4]);
+                        mainCtx.fill();
+
+                        mainCtx.fillStyle = '#10b981';
+                        mainCtx.font = 'bold 12px "Exo 2"';
+                        mainCtx.fillText(`${state.rain.accumulatedMm.toFixed(1)} mm`, jarX - 10, jarY - 8);
+                    } else {
+                        mainCtx.fillStyle = '#94a3b8';
+                        mainCtx.font = '10px "Exo 2"';
+                        mainCtx.fillText('Empty Jar', jarX, jarY - 8);
+                    }
+                }
+
+                mainCtx.restore();
+                requestAnimationFrame(drawCanvas);
+            }
+
+            requestAnimationFrame(drawCanvas);
+
+            // --- REAL-TIME GRAPH CANVAS DRAWING ---
+            function updateGraph() {
+                const w = graphCanvas.clientWidth;
+                const h = graphCanvas.clientHeight;
+
+                if (w === 0 || h === 0) return;
+
+                graphCtx.clearRect(0, 0, w, h);
+
+                // Margin paddings for axis labels
+                const padL = 30;
+                const padB = 22;
+                const padT = 10;
+                const padR = 15;
+                const graphW = w - padL - padR;
+                const graphH = h - padB - padT;
+
+                // Graph Background
+                graphCtx.fillStyle = 'rgba(10, 15, 26, 0.9)';
+                graphCtx.fillRect(padL, padT, graphW, graphH);
+
+                // Grid lines & Y Ticks (0, 10, 20, 30 mm)
+                const maxY = 30; // Max Y-scale 30mm
+                graphCtx.strokeStyle = 'rgba(51, 65, 85, 0.5)';
+                graphCtx.lineWidth = 1;
+                graphCtx.fillStyle = '#94a3b8';
+                graphCtx.font = '9px "Exo 2"';
+
+                for (let v = 0; v <= maxY; v += 10) {
+                    const y = padT + graphH - (v / maxY) * graphH;
+                    graphCtx.beginPath();
+                    graphCtx.moveTo(padL, y);
+                    graphCtx.lineTo(padL + graphW, y);
+                    graphCtx.stroke();
+                    graphCtx.fillText(`${v}`, 8, y + 3);
+                }
+
+                // X Ticks (0, 10, 20, 30s)
+                const maxTime = Math.max(state.rain.duration, 20);
+                for (let t = 0; t <= maxTime; t += 10) {
+                    const x = padL + (t / maxTime) * graphW;
+                    graphCtx.beginPath();
+                    graphCtx.moveTo(x, padT);
+                    graphCtx.lineTo(x, padT + graphH);
+                    graphCtx.stroke();
+                    graphCtx.fillText(`${t}s`, x - 6, h - 6);
+                }
+
+                // Axes Lines
+                graphCtx.strokeStyle = '#06b6d4';
+                graphCtx.lineWidth = 1.5;
+                graphCtx.beginPath();
+                graphCtx.moveTo(padL, padT);
+                graphCtx.lineTo(padL, padT + graphH);
+                graphCtx.lineTo(padL + graphW, padT + graphH);
+                graphCtx.stroke();
+
+                // If no rain data yet, draw placeholder guidance line
+                if (state.graphData.length === 0) {
+                    graphCtx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+                    graphCtx.font = 'italic 10px "Exo 2"';
+                    graphCtx.fillText('Click "Start Rain" to see live curve', padL + 20, padT + graphH / 2);
+                    return;
+                }
+
+                // Plot accumulated line
+                graphCtx.strokeStyle = '#06b6d4';
+                graphCtx.lineWidth = 2.5;
+                graphCtx.beginPath();
+
+                state.graphData.forEach((pt, i) => {
+                    const x = padL + (pt.t / maxTime) * graphW;
+                    const y = padT + graphH - (Math.min(pt.mm, maxY) / maxY) * graphH;
+                    if (i === 0) graphCtx.moveTo(x, y);
+                    else graphCtx.lineTo(x, y);
+                });
+
+                graphCtx.stroke();
+
+                // Gradient fill under curve
+                const lastPt = state.graphData[state.graphData.length - 1];
+                const lastX = padL + (lastPt.t / maxTime) * graphW;
+                const lastY = padT + graphH - (Math.min(lastPt.mm, maxY) / maxY) * graphH;
+
+                const grad = graphCtx.createLinearGradient(0, padT, 0, padT + graphH);
+                grad.addColorStop(0, 'rgba(6, 182, 212, 0.4)');
+                grad.addColorStop(1, 'rgba(6, 182, 212, 0.0)');
+
+                graphCtx.lineTo(lastX, padT + graphH);
+                graphCtx.lineTo(padL, padT + graphH);
+                graphCtx.closePath();
+                graphCtx.fillStyle = grad;
+                graphCtx.fill();
+
+                // Current point glowing dot
+                graphCtx.fillStyle = '#38bdf8';
+                graphCtx.beginPath();
+                graphCtx.arc(lastX, lastY, 4, 0, Math.PI * 2);
+                graphCtx.fill();
+            }
+
+            // --- SIMULATION PHASE TRANSITIONS & NAVIGATION ---
+            function updatePhaseUI() {
+                // Update Stepper Buttons state
+                [1, 2, 3, 4].forEach(p => {
+                    const btn = document.getElementById(`step-btn-${p}`);
+                    if (!btn) return;
+
+                    if (p === state.phase) {
+                        btn.className = 'phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-cyan-400 bg-cyan-950/80 border border-cyan-400 flex items-center gap-1.5 shadow-md shadow-cyan-500/20';
+                        btn.querySelector('span').className = 'w-4 h-4 rounded-full bg-cyan-400 text-slate-950 text-[10px] font-bold flex items-center justify-center';
+                    } else if (p < state.phase) {
+                        btn.className = 'phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 flex items-center gap-1.5';
+                        btn.querySelector('span').className = 'w-4 h-4 rounded-full bg-emerald-500 text-slate-950 text-[10px] font-bold flex items-center justify-center';
+                    } else {
+                        btn.className = 'phase-step-btn px-3 py-1 rounded-xl text-xs font-semibold text-slate-400 hover:text-slate-200 flex items-center gap-1.5 transition';
+                        btn.querySelector('span').className = 'w-4 h-4 rounded-full bg-slate-800 text-slate-400 text-[10px] font-bold flex items-center justify-center';
+                    }
+                });
+
+                // Update cards visibility
+                document.getElementById('card-gauge-types').classList.toggle('hidden', state.phase !== 1);
+                document.getElementById('card-assembly-checklist').classList.toggle('hidden', state.phase !== 2);
+                document.getElementById('card-inventory').classList.toggle('hidden', state.phase !== 2);
+                document.getElementById('card-rain-controls').classList.toggle('hidden', state.phase < 3);
+                document.getElementById('card-measurement-tools').classList.toggle('hidden', state.phase < 3);
+
+                if (state.phase >= 3) {
+                    document.getElementById('wind-gesture-hint').classList.remove('opacity-0');
+                    setTimeout(resizeCanvases, 50); // Ensure graph canvas resizes immediately when card opens
+                }
+
+                // Phase badge header
+                const badgeNames = ['1. Introduction', '2. Assembly Phase', '3. Rain Simulation', '4. Measurements & Quiz'];
+                const badge = document.getElementById('phase-badge');
+                if (badge) badge.innerText = badgeNames[state.phase - 1] || '1. Introduction';
+            }
+
+            function transitionToPhase1() {
+                state.phase = 1;
+                state.targetZoom = 1.0;
+                updatePhaseUI();
+                speak("Welcome to Engineering Hydrology! Click 'Start Assembly' or select Symon's Rain Gauge on the left!");
+            }
+
+            function transitionToPhase2() {
+                state.phase = 2;
+                state.targetZoom = 1.0;
+                updatePhaseUI();
+                speak("Assembly Phase! Drag parts from the right inventory onto the canvas, or click Auto Assemble!");
+            }
+
+            function transitionToPhase3() {
+                state.phase = 3;
+                // Auto-fill assembly if skipped
+                state.checklist.basePlate = true;
+                state.checklist.outerCasing = true;
+                state.checklist.receiverBottle = true;
+                state.checklist.collectingFunnel = true;
+
+                state.targetZoom = 1.15;
+                updatePhaseUI();
+                speak("Rain Simulation Phase! Adjust intensity and duration, then click Start Rain to collect water!");
+            }
+
+            function transitionToPhase4() {
+                state.phase = 4;
+                state.targetZoom = 1.25;
+                updatePhaseUI();
+                // Open concept quiz modal
+                document.getElementById('modal-quiz').classList.remove('hidden');
+                speak("Measurement and Quiz Phase! Drag the Dipping Rod or Measuring Jar onto the canvas!");
+            }
+
+            function nextPhase() {
+                soundSFX.playClick();
+                if (state.phase < 4) {
+                    if (state.phase === 1) transitionToPhase2();
+                    else if (state.phase === 2) transitionToPhase3();
+                    else if (state.phase === 3) transitionToPhase4();
+                } else {
+                    document.getElementById('modal-quiz').classList.remove('hidden');
+                }
+            }
+
+            // Stepper Navigation Buttons click handlers
+            [1, 2, 3, 4].forEach(p => {
+                const btn = document.getElementById(`step-btn-${p}`);
+                if (btn) {
+                    btn.addEventListener('click', () => {
+                        soundSFX.playClick();
+                        if (p === 1) transitionToPhase1();
+                        else if (p === 2) transitionToPhase2();
+                        else if (p === 3) transitionToPhase3();
+                        else if (p === 4) transitionToPhase4();
+                    });
+                }
+            });
+
+            // Global & Panel Next Buttons
+            document.getElementById('btn-next-phase').addEventListener('click', nextPhase);
+            document.getElementById('btn-phase1-next').addEventListener('click', transitionToPhase2);
+            document.getElementById('btn-phase2-next').addEventListener('click', transitionToPhase3);
+            document.getElementById('btn-phase3-next').addEventListener('click', transitionToPhase4);
+
+            // Auto Assemble Button
+            document.getElementById('btn-auto-assemble').addEventListener('click', () => {
+                soundSFX.playSuccess();
+                state.checklist.basePlate = true;
+                state.checklist.outerCasing = true;
+                state.checklist.receiverBottle = true;
+                state.checklist.collectingFunnel = true;
+                
+                ['chk-base-plate', 'chk-outer-casing', 'chk-receiver-bottle', 'chk-collecting-funnel'].forEach(chkId => {
+                    updateChecklistUI(chkId);
+                });
+                ['drag-base-plate', 'drag-outer-casing', 'drag-receiver-bottle', 'drag-collecting-funnel'].forEach(dragId => {
+                    document.getElementById(dragId)?.classList.add('opacity-30', 'pointer-events-none');
+                });
+
+                speak("Auto assembly complete! Symon's Rain Gauge is fully built!");
+            });
+
+            // --- DRAG AND DROP ENGINE ---
+            const draggables = document.querySelectorAll('.drag-item');
+
+            draggables.forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    e.dataTransfer.setData('text/plain', e.target.id);
+                    e.target.classList.add('dragging');
+                    soundSFX.playClick();
+                });
+
+                item.addEventListener('dragend', (e) => {
+                    e.target.classList.remove('dragging');
+                });
+            });
+
+            const canvasBox = document.getElementById('canvas-container');
+
+            canvasBox.addEventListener('dragover', (e) => {
+                e.preventDefault();
+            });
+
+            canvasBox.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const itemId = e.dataTransfer.getData('text/plain');
+
+                if (state.phase === 2) {
+                    handleAssemblyDrop(itemId);
+                } else if (state.phase >= 3) {
+                    handleToolDrop(itemId);
+                }
+            });
+
+            function handleAssemblyDrop(itemId) {
+                if (itemId === 'drag-base-plate' && !state.checklist.basePlate) {
+                    state.checklist.basePlate = true;
+                    soundSFX.playSnap();
+                    updateChecklistUI('chk-base-plate');
+                    document.getElementById('drag-base-plate').classList.add('opacity-30', 'pointer-events-none');
+                    speak("Awesome! You set down the strong concrete foundation block!");
+                } else if (itemId === 'drag-outer-casing' && state.checklist.basePlate && !state.checklist.outerCasing) {
+                    state.checklist.outerCasing = true;
+                    soundSFX.playSnap();
+                    updateChecklistUI('chk-outer-casing');
+                    document.getElementById('drag-outer-casing').classList.add('opacity-30', 'pointer-events-none');
+                    speak("Super! The metallic outer casing protects against evaporation!");
+                } else if (itemId === 'drag-receiver-bottle' && state.checklist.outerCasing && !state.checklist.receiverBottle) {
+                    state.checklist.receiverBottle = true;
+                    soundSFX.playSnap();
+                    updateChecklistUI('chk-receiver-bottle');
+                    document.getElementById('drag-receiver-bottle').classList.add('opacity-30', 'pointer-events-none');
+                    speak("Great job! Glass receiver bottle is seated inside to catch rain!");
+                } else if (itemId === 'drag-collecting-funnel' && state.checklist.receiverBottle && !state.checklist.collectingFunnel) {
+                    state.checklist.collectingFunnel = true;
+                    soundSFX.playSuccess();
+                    updateChecklistUI('chk-collecting-funnel');
+                    document.getElementById('drag-collecting-funnel').classList.add('opacity-30', 'pointer-events-none');
+                    speak("Hooray! Symon's Rain Gauge is fully assembled! Advancing to Rain Test!");
+
+                    setTimeout(transitionToPhase3, 1200);
+                } else {
+                    soundSFX.playError();
+                    speak("Oopsie! Build step out of order. Place components from bottom to top!");
+                }
+            }
+
+            function updateChecklistUI(chkId) {
+                const el = document.getElementById(chkId);
+                if (el) {
+                    el.classList.remove('bg-slate-900/60', 'border-slate-800');
+                    el.classList.add('bg-purple-950/40', 'border-purple-500/50');
+                    const icon = el.querySelector('.chk-icon');
+                    if (icon) {
+                        icon.className = 'fa-solid fa-circle-check text-purple-400';
+                    }
+                }
+
+                const count = Object.values(state.checklist).filter(Boolean).length;
+                document.getElementById('assembly-progress').innerText = `${count}/4 Parts`;
+            }
+
+            function handleToolDrop(itemId) {
+                if (itemId === 'tool-dipping-rod') {
+                    state.tools.dippingRodInserted = true;
+                    soundSFX.playSnap();
+                    document.getElementById('read-dipping-rod').innerText = `${state.rain.accumulatedMm.toFixed(1)} mm`;
+                    speak(`The dipping rod shows water level depth at ${state.rain.accumulatedMm.toFixed(1)} millimeters!`);
+                } else if (itemId === 'tool-measuring-jar') {
+                    state.tools.measuringJarPlaced = true;
+                    soundSFX.playSnap();
+                    document.getElementById('read-measuring-jar').innerText = 'Ready to Pour';
+                    document.getElementById('btn-pour-water').classList.remove('hidden');
+                    speak("Measuring jar placed! Click 'Pour Water' to measure precision reading!");
+                }
+            }
+
+            // --- EVENT LISTENERS ---
+            
+            // Select Symon's Gauge
+            document.getElementById('select-symons-gauge').addEventListener('click', () => {
+                soundSFX.playClick();
+                transitionToPhase2();
+            });
+
+            // Sliders & Web Audio Pitch Shift
+            const sliderIntensity = document.getElementById('slider-intensity');
+            const sliderDuration = document.getElementById('slider-duration');
+
+            sliderIntensity.addEventListener('input', (e) => {
+                state.rain.intensity = parseFloat(e.target.value);
+                document.getElementById('label-intensity').innerText = `${state.rain.intensity.toFixed(1)} mm/hr`;
+                
+                const pitchFreq = 200 + state.rain.intensity * 80;
+                soundSFX.playTone(pitchFreq, 'sine', 0.08, 0.15);
+            });
+
+            sliderDuration.addEventListener('input', (e) => {
+                state.rain.duration = parseInt(e.target.value, 10);
+                document.getElementById('label-duration').innerText = `${state.rain.duration} sec`;
+                soundSFX.playClick();
+                updateGraph(); // Refresh graph X axis labels
+            });
+
+            // Start Rain Simulation
+            let rainTimer = null;
+            document.getElementById('btn-start-rain').addEventListener('click', () => {
+                if (state.rain.active) return;
+
+                soundSFX.playClick();
+                state.rain.active = true;
+                state.rain.elapsed = 0;
+                state.rain.accumulatedMm = 0;
+                state.graphData = [{ t: 0, mm: 0 }];
+                state.tools.dippingRodInserted = false;
+                state.tools.pouredToJar = false;
+
+                document.getElementById('read-receiver').innerText = '0.0 mm';
+                document.getElementById('read-dipping-rod').innerText = 'Not Inserted';
+                document.getElementById('read-measuring-jar').innerText = 'Empty';
+                document.getElementById('rain-status-tag').innerText = 'Simulating...';
+                document.getElementById('rain-status-tag').className = 'text-[10px] bg-cyan-950 text-cyan-400 border border-cyan-500/40 px-2 py-0.5 rounded-full animate-pulse';
+
+                // Spawn rain particles
+                state.rain.particles = [];
+                for (let i = 0; i < 60; i++) {
+                    state.rain.particles.push({
+                        x: Math.random() * mainCanvas.clientWidth,
+                        y: Math.random() * mainCanvas.clientHeight,
+                        speed: 6 + Math.random() * 8,
+                        length: 12 + Math.random() * 10
+                    });
+                }
+
+                speak("Rainfall started! Watch the real-time graph and water level!");
+
+                // Simulation loop timer
+                clearInterval(rainTimer);
+                rainTimer = setInterval(() => {
+                    if (!state.rain.active) return;
+
+                    state.rain.elapsed += 0.5;
+                    const ratePerSec = (state.rain.intensity / 3600) * 120;
+                    state.rain.accumulatedMm += ratePerSec * 0.5;
+
+                    document.getElementById('read-receiver').innerText = `${state.rain.accumulatedMm.toFixed(1)} mm`;
+                    document.getElementById('graph-val-total').innerText = `${state.rain.accumulatedMm.toFixed(1)} mm`;
+
+                    state.graphData.push({
+                        t: state.rain.elapsed,
+                        mm: state.rain.accumulatedMm
+                    });
+
+                    updateGraph();
+
+                    if (state.rain.elapsed >= state.rain.duration) {
+                        stopRainSimulation();
+                    }
+                }, 500);
+            });
+
+            function stopRainSimulation() {
+                state.rain.active = false;
+                clearInterval(rainTimer);
+                document.getElementById('rain-status-tag').innerText = 'Completed';
+                document.getElementById('rain-status-tag').className = 'text-[10px] bg-emerald-950 text-emerald-400 border border-emerald-500/40 px-2 py-0.5 rounded-full';
+                soundSFX.playSuccess();
+                speak(`Rain stopped! Total collected: ${state.rain.accumulatedMm.toFixed(1)} mm. Click Next to proceed to Measurement!`);
+            }
+
+            document.getElementById('btn-stop-rain').addEventListener('click', stopRainSimulation);
+
+            // Pour Water Action
+            document.getElementById('btn-pour-water').addEventListener('click', () => {
+                if (!state.tools.measuringJarPlaced) return;
+
+                soundSFX.playPourSound();
+                state.tools.pouredToJar = true;
+                document.getElementById('read-measuring-jar').innerText = `${state.rain.accumulatedMm.toFixed(1)} mm`;
+                speak(`Water poured into measuring jar! Exact precipitation reading is ${state.rain.accumulatedMm.toFixed(1)} millimeters!`);
+            });
+
+            // Wind Gesture Tracking
+            mainCanvas.addEventListener('mousemove', (e) => {
+                if (state.rain.active) {
+                    const rect = mainCanvas.getBoundingClientRect();
+                    const mouseX = e.clientX - rect.left;
+                    state.windDrift = (mouseX / mainCanvas.clientWidth - 0.5) * 4;
+                }
+            });
+
+            // Audio Controls Toggles
+            document.getElementById('btn-toggle-voice').addEventListener('click', () => {
+                state.voiceEnabled = !state.voiceEnabled;
+                document.getElementById('icon-voice').className = state.voiceEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark text-slate-500';
+                if (!state.voiceEnabled) window.speechSynthesis.cancel();
+            });
+
+            document.getElementById('btn-toggle-sound').addEventListener('click', () => {
+                state.soundEnabled = !state.soundEnabled;
+                document.getElementById('icon-sound').className = state.soundEnabled ? 'fa-solid fa-music' : 'fa-solid fa-slash-divider text-slate-500';
+            });
+
+            // Reset Button
+            document.getElementById('btn-reset-sim').addEventListener('click', () => {
+                location.reload();
+            });
+
+            // Concept Quiz Modal
+            const modalQuiz = document.getElementById('modal-quiz');
+            document.getElementById('btn-open-quiz').addEventListener('click', () => {
+                soundSFX.playClick();
+                modalQuiz.classList.remove('hidden');
+            });
+
+            document.getElementById('btn-close-quiz').addEventListener('click', () => {
+                modalQuiz.classList.add('hidden');
+            });
+
+            document.querySelectorAll('.quiz-opt').forEach(opt => {
+                opt.addEventListener('click', (e) => {
+                    const isCorrect = e.currentTarget.getAttribute('data-correct') === 'true';
+                    const feedback = document.getElementById('quiz-feedback');
+                    feedback.classList.remove('hidden', 'bg-emerald-950', 'text-emerald-300', 'bg-rose-950', 'text-rose-300');
+
+                    if (isCorrect) {
+                        soundSFX.playSuccess();
+                        feedback.classList.add('bg-emerald-950', 'text-emerald-300', 'border', 'border-emerald-500/40');
+                        feedback.innerText = 'Correct! The 30 cm height prevents ground splash-in from corrupting rainfall readings!';
+                        speak("Correct answer! Setting the rim 30 cm above ground avoids splash-in water!");
+                    } else {
+                        soundSFX.playError();
+                        feedback.classList.add('bg-rose-950', 'text-rose-300', 'border', 'border-rose-500/40');
+                        feedback.innerText = 'Not quite. The 30 cm height specifically prevents soil water splash-in during heavy downpours!';
+                        speak("Oops! Ground splash-in is the main reason for the 30 cm height specification!");
+                    }
+                });
+            });
+
+            // Start Initial Narration
+            updatePhaseUI();
+            speak("Welcome to Engineering Hydrology! Click 'Start Assembly' or select Symon's Rain Gauge on the left!");
+        });
+    </script>
+</body>
+</html>

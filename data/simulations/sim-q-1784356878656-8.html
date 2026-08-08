@@ -1,0 +1,1121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Climate Architect Sandbox</title>
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --neon-cyan: #00ffff;
+            --neon-purple: #8a2be2;
+            --neon-green: #00ff00;
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+
+            /* RGB versions for dynamic backgrounds based on neon color */
+            --neon-cyan-rgb: 0, 255, 255;
+            --neon-purple-rgb: 138, 43, 226;
+            --neon-green-rgb: 0, 255, 0;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Roboto Mono', monospace; /* Or 'Inter', sans-serif */
+            color: #eee;
+            background-color: var(--bg-dark);
+            overflow: hidden; /* Prevent body scrollbars */
+        }
+
+        #appContainer {
+            display: grid;
+            grid-template-rows: auto 1fr auto; /* Header, Main, Narration */
+            grid-template-columns: 1fr;
+            height: 100vh;
+            width: 100vw;
+        }
+
+        #headerBar {
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            z-index: 10;
+        }
+
+        #simulationArea {
+            display: flex; /* Canvas and Controls side-by-side */
+            flex-grow: 1;
+            overflow: hidden; /* Important for preventing internal scrollbars */
+        }
+
+        #simulationCanvas {
+            flex-grow: 1;
+            background-color: rgba(0, 0, 0, 0.3); /* Subtle dark base */
+            border: 1px solid var(--glass-border);
+            cursor: grab; /* For gesture detection */
+        }
+
+        #controlsPanel {
+            width: 350px; /* Fixed width, adjust as needed */
+            min-width: 280px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 25px;
+            overflow-y: auto; /* Allow scrolling within controls if content overflows */
+            box-shadow: -4px 0 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .glass-panel {
+            background-color: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: 10px;
+        }
+
+        h1, h3, h4 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            text-shadow: 0 0 8px currentColor; /* Neon glow */
+        }
+        .neon-cyan { color: var(--neon-cyan); }
+        .neon-purple { color: var(--neon-purple); }
+        .neon-green { color: var(--neon-green); }
+
+        .control-section {
+            padding: 15px;
+            border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+        }
+        .control-section:last-child { border-bottom: none; }
+
+        .slider-group {
+            margin-bottom: 15px;
+        }
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
+            transition: background 0.3s ease-in-out;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--neon-cyan);
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--neon-cyan);
+            transition: background 0.3s ease-in-out, box-shadow 0.3s ease-in-out;
+        }
+        input[type="range"]:hover::-webkit-slider-thumb {
+            background: var(--neon-green);
+            box-shadow: 0 0 15px var(--neon-green);
+        }
+
+        #narrationBox {
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            box-shadow: 0 -4px 8px rgba(0, 0, 0, 0.2);
+        }
+        #narrationText {
+            margin: 0;
+            flex-grow: 1;
+        }
+        #narrationToggle {
+            background: none;
+            border: 1px solid var(--neon-green);
+            color: var(--neon-green);
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2em;
+            transition: all 0.3s ease-in-out;
+        }
+        #narrationToggle:hover {
+            background-color: rgba(0, 255, 0, 0.1);
+            box-shadow: 0 0 10px var(--neon-green);
+        }
+
+        /* Draggable Cards */
+        #climateZoneCards {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        .draggable-card {
+            background-color: rgba(var(--neon-purple-rgb), 0.2); /* Dynamic background based on neon color */
+            border: 1px solid currentColor;
+            border-radius: 8px;
+            padding: 10px 15px;
+            cursor: grab;
+            display: inline-block;
+            box-shadow: 0 0 5px currentColor;
+            transition: all 0.2s ease-in-out;
+            user-select: none;
+        }
+        .draggable-card.neon-green {
+            background-color: rgba(var(--neon-green-rgb), 0.2);
+        }
+        .draggable-card.neon-cyan {
+            background-color: rgba(var(--neon-cyan-rgb), 0.2);
+        }
+        .draggable-card.neon-purple {
+            background-color: rgba(var(--neon-purple-rgb), 0.2);
+        }
+        .draggable-card:hover {
+            transform: translateY(-3px) scale(1.02);
+            box-shadow: 0 0 15px currentColor;
+        }
+        .draggable-card.dragging {
+            opacity: 0.7;
+            transform: scale(1.05);
+            z-index: 100;
+        }
+
+        /* Drop Targets */
+        .drop-target {
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 15px;
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: all 0.3s ease-in-out;
+        }
+        .drop-target.hovered {
+            border-color: var(--neon-green);
+            box-shadow: 0 0 20px var(--neon-green);
+            background-color: rgba(0, 255, 0, 0.05);
+        }
+        .status-ring {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            border: 2px solid transparent;
+            transition: border-color 0.3s ease-in-out;
+        }
+        .status-ring.pending { border-color: orange; }
+        .status-ring.success { border-color: var(--neon-green); }
+        .status-ring.fail { border-color: red; }
+
+        /* Capacity Visualizer (Superposition adaptation) */
+        .capacity-visualizer {
+            margin-top: 20px;
+        }
+        .bar-chart-container {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            width: 100%;
+        }
+        .bar-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .bar-item .label {
+            width: 80px; /* Fixed width for labels */
+            font-size: 0.9em;
+        }
+        .bar {
+            flex-grow: 1;
+            height: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .bar::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            width: var(--progress, 0%);
+            background: linear-gradient(to right, rgba(var(--neon-green-rgb), 0.5), var(--neon-green));
+            border-radius: 5px;
+            transition: width 0.5s ease-out;
+        }
+        #solarBar::before { background: linear-gradient(to right, rgba(255,0,0,0.5), red); }
+        #ventBar::before { background: linear-gradient(to right, rgba(0,0,255,0.5), blue); }
+        #shadeBar::before { background: linear-gradient(to right, rgba(0,255,0,0.5), var(--neon-green)); }
+
+        /* Dynamic Camera Zoom overlay */
+        #zoomOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(5px); /* Add blur for modal effect */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 200;
+        }
+        #zoomOverlay.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        #zoomContent {
+            background-color: rgba(var(--neon-purple-rgb), 0.1);
+            border: 2px solid var(--neon-purple);
+            padding: 20px;
+            border-radius: 10px;
+            max-width: 80%;
+            max-height: 80%;
+            overflow: auto;
+            position: relative;
+            box-shadow: 0 0 25px var(--neon-purple);
+            text-align: left; /* Ensure text inside is left-aligned */
+        }
+        #closeZoom {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            color: var(--neon-cyan);
+            cursor: pointer;
+            text-shadow: 0 0 10px var(--neon-cyan);
+        }
+        #closeZoom:hover { transform: scale(1.1); }
+
+        /* Playful bouncy keyframe */
+        @keyframes bouncy {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .bouncy-element {
+            animation: bouncy 0.6s ease-in-out infinite alternate;
+        }
+    </style>
+</head>
+<body>
+    <div id="appContainer">
+        <header id="headerBar" class="glass-panel">
+            <h1 class="neon-cyan">Climate Architect Sandbox</h1>
+        </header>
+
+        <main id="simulationArea">
+            <canvas id="simulationCanvas"></canvas>
+            <div id="controlsPanel" class="glass-panel">
+                <div id="parameterSliders" class="control-section">
+                    <h3 class="neon-purple">Playful Climate Controls:</h3>
+                    <div class="slider-group">
+                        <label for="sunAngleSlider" class="neon-green">Sun's Warm Hug Angle:</label>
+                        <input type="range" id="sunAngleSlider" min="0" max="90" value="45" step="1">
+                        <span id="sunAngleValue" class="neon-cyan">45°</span>
+                    </div>
+                    <div class="slider-group">
+                        <label for="windSpeedSlider" class="neon-green">Wind's Playful Push Strength:</label>
+                        <input type="range" id="windSpeedSlider" min="0" max="10" value="5" step="0.5">
+                        <span id="windSpeedValue" class="neon-cyan">5 m/s</span>
+                    </div>
+                    <!-- Building Orientation Dial/Slider will be integrated directly with canvas interaction -->
+                </div>
+
+                <div id="metricsDisplay" class="control-section">
+                    <h3 class="neon-purple">Building's Happy Vibe Meter:</h3>
+                    <p class="neon-cyan">Sun's Cozy Warmth Score: <span id="solarGainScore">0</span> / 100</p>
+                    <p class="neon-cyan">Wind's Fresh Air Flow: <span id="windVentilationScore">0</span> / 100</p>
+                    <p class="neon-green">Overall Building Happiness: <span id="overallComfortScore">😊</span></p>
+                    <div id="comfortBreakdown" class="capacity-visualizer">
+                        <h4 class="neon-purple">Happiness Factor Breakdown:</h4>
+                        <div class="bar-chart-container">
+                            <div class="bar-item">
+                                <span class="label neon-cyan">Solar Gain</span>
+                                <div class="bar" id="solarBar"></div>
+                            </div>
+                            <div class="bar-item">
+                                <span class="label neon-cyan">Ventilation</span>
+                                <div class="bar" id="ventBar"></div>
+                            </div>
+                            <div class="bar-item">
+                                <span class="label neon-cyan">Shading</span>
+                                <div class="bar" id="shadeBar"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="gamifiedChallenges" class="control-section">
+                    <h3 class="neon-purple">Climate Architect's Handbook:</h3>
+                    <div id="climateZoneCards">
+                        <div class="draggable-card neon-green" draggable="true" data-type="climate-zone" data-zone="hot-dry">Hot-Dry Zone</div>
+                        <div class="draggable-card neon-purple" draggable="true" data-type="climate-zone" data-zone="warm-humid">Warm-Humid Zone</div>
+                        <div class="draggable-card neon-cyan" draggable="true" data-type="climate-zone" data-zone="temperate">Temperate Zone</div>
+                    </div>
+                    <div id="handbookDropZone" class="drop-target glass-panel">
+                        Drag Climate Zone here to learn!
+                        <span class="status-ring"></span>
+                    </div>
+                </div>
+            </div>
+        </main>
+        <div id="narrationBox" class="glass-panel">
+            <p id="narrationText" class="neon-cyan">Welcome, little architect! Let's make buildings happy!</p>
+            <button id="narrationToggle" class="neon-green">🔊</button>
+        </div>
+    </div>
+    <script>
+        // --- GLOBAL VARIABLES & INITIAL SETUP ---
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        let dpi = window.devicePixelRatio || 1; // High-DPI support
+
+        const sunAngleSlider = document.getElementById('sunAngleSlider');
+        const sunAngleValueDisplay = document.getElementById('sunAngleValue');
+        const windSpeedSlider = document.getElementById('windSpeedSlider');
+        const windSpeedValueDisplay = document.getElementById('windSpeedValue');
+
+        const solarGainScoreDisplay = document.getElementById('solarGainScore');
+        const windVentilationScoreDisplay = document.getElementById('windVentilationScore');
+        const overallComfortScoreDisplay = document.getElementById('overallComfortScore');
+
+        const narrationText = document.getElementById('narrationText');
+        const narrationToggle = document.getElementById('narrationToggle');
+
+        const draggableCards = document.querySelectorAll('.draggable-card');
+        const handbookDropZone = document.getElementById('handbookDropZone');
+
+        let simulationRunning = true;
+        let animationFrameId;
+
+        // Building parameters
+        let building = {
+            x: 0, y: 0, width: 100, height: 100,
+            orientation: 0, // 0 to 360 degrees (0 = North, 90 = East)
+            color: '#3a3a5e',
+            windowRatio: 0.4, // Example
+            overhangDepth: 10 // Example
+        };
+
+        // Simulation parameters
+        let currentSunAngle = 45; // degrees from horizontal
+        let currentWindSpeed = 5; // m/s
+        let currentClimateZone = 'temperate'; // 'hot-dry', 'warm-humid', 'temperate'
+
+        // Mouse/Gesture tracking
+        let isDraggingBuilding = false;
+        let startDragAngle = 0;
+        let startMouseAngle = 0;
+        let mouse = { x: 0, y: 0 };
+        let prevMouseX = 0; // For horizontal sweep gesture
+
+        // Audio Context
+        let audioCtx;
+        let sunOscillator, windOscillator;
+        let narrationActive = true;
+
+        // --- UTILITY FUNCTIONS ---
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width * dpi;
+            canvas.height = rect.height * dpi;
+            ctx.scale(dpi, dpi);
+            building.x = canvas.width / (2 * dpi) - building.width / 2;
+            building.y = canvas.height / (2 * dpi) - building.height / 2;
+            drawSimulation();
+        }
+
+        function mapRange(value, inMin, inMax, outMin, outMax) {
+            return (value - inMin) * (outMax - outMin) / (inMax - inMin) + outMin;
+        }
+
+        function speakConcept(text) {
+            if (!narrationActive) return;
+            window.speechSynthesis.cancel(); // Stop previous speech
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'en-US';
+            utterance.pitch = mapRange(Math.random(), 0, 1, 0.8, 1.2); // Playful pitch
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+        }
+
+        function playSynthTone(oscillator, frequency, duration = 0.1) {
+            if (!audioCtx) return;
+            oscillator.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            if (oscillator.gainNode) {
+                oscillator.gainNode.cancelScheduledValues(audioCtx.currentTime);
+                oscillator.gainNode.setValueAtTime(0.2, audioCtx.currentTime); // Make tones softer
+                oscillator.gainNode.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            }
+        }
+
+        function initAudio() {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            // Sun Oscillator (bright tone)
+            sunOscillator = audioCtx.createOscillator();
+            sunOscillator.type = 'sine';
+            sunOscillator.gainNode = audioCtx.createGain();
+            sunOscillator.connect(sunOscillator.gainNode).connect(audioCtx.destination);
+            sunOscillator.gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start silent
+            sunOscillator.start();
+
+            // Wind Oscillator (whooshing/noise-like tone)
+            windOscillator = audioCtx.createOscillator();
+            windOscillator.type = 'sawtooth';
+            windOscillator.gainNode = audioCtx.createGain();
+            windOscillator.connect(windOscillator.gainNode).connect(audioCtx.destination);
+            windOscillator.gainNode.gain.setValueAtTime(0, audioCtx.currentTime); // Start silent
+            windOscillator.start();
+        }
+
+        // --- DRAWING FUNCTIONS (CANVAS) ---
+        function drawGrid() {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            const gridSize = 20;
+            for (let x = 0; x < canvas.width / dpi; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height / dpi);
+                ctx.stroke();
+            }
+            for (let y = 0; y < canvas.height / dpi; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width / dpi, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawBuilding(orientationAngle) {
+            ctx.save();
+            ctx.translate(building.x + building.width / 2, building.y + building.height / 2);
+            ctx.rotate(orientationAngle * Math.PI / 180); // Rotate building based on orientation
+            ctx.fillStyle = building.color;
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.5)'; // Neon outline
+            ctx.lineWidth = 2;
+            ctx.fillRect(-building.width / 2, -building.height / 2, building.width, building.height);
+            ctx.strokeRect(-building.width / 2, -building.height / 2, building.width, building.height);
+
+            // Dynamic "Sunlight Pour" animation on active facades
+            // Sun direction, assuming it's always coming from above relative to the canvas,
+            // but its 'angle' changes where it hits the building.
+            // Simplified: Sun at 0 deg is from left, 90 from top, 180 from right, etc.
+            // Sun angle slider represents sun's elevation. For horizontal incidence, we need an azimuth.
+            // Let's assume sun azimuth is fixed for now (e.g., from the South or changing with time of day, but not controlled by currentSunAngle slider)
+            // For simplicity, currentSunAngle slider will represent the angle of incidence onto a South-facing wall.
+            // A building with 0 orientation (North) will have its "front" facing South.
+
+            const sunAzimuthRelative = (-orientationAngle + 180 + 360) % 360; // Sun's direction relative to building's "front" (South)
+
+            let illuminatedFacade = '';
+            // Determine which facade is most directly hit by "sunlight" (simplified)
+            // Imagine sun from the 'top' (South) of the canvas view
+            if (currentSunAngle > 20) { // Only if sun is high enough
+                if (sunAzimuthRelative >= 315 || sunAzimuthRelative < 45) { // Sun hits the 'South' facade
+                    illuminatedFacade = 'south';
+                } else if (sunAzimuthRelative >= 45 && sunAzimuthRelative < 135) { // Sun hits the 'West' facade
+                    illuminatedFacade = 'west';
+                } else if (sunAzimuthRelative >= 135 && sunAzimuthRelative < 225) { // Sun hits the 'North' facade
+                    illuminatedFacade = 'north';
+                } else { // Sun hits the 'East' facade
+                    illuminatedFacade = 'east';
+                }
+            }
+
+
+            // "Sunlight Pour" - glowing texture
+            if (illuminatedFacade) {
+                ctx.beginPath();
+                ctx.fillStyle = `rgba(255, 165, 0, ${0.1 + Math.sin(Date.now() * 0.005) * 0.05})`; // Pulsing orange glow
+                ctx.strokeStyle = 'orange';
+                ctx.lineWidth = 3;
+                // Drawing the specific facade (relative to rotated building)
+                switch (illuminatedFacade) {
+                    case 'south': ctx.fillRect(-building.width / 2, building.height / 2 - building.height * 0.1, building.width, building.height * 0.1); break;
+                    case 'north': ctx.fillRect(-building.width / 2, -building.height / 2, building.width, building.height * 0.1); break;
+                    case 'east': ctx.fillRect(building.width / 2 - building.width * 0.1, -building.height / 2, building.width * 0.1, building.height); break;
+                    case 'west': ctx.fillRect(-building.width / 2, -building.height / 2, building.width * 0.1, building.height); break;
+                }
+                ctx.stroke();
+            }
+
+
+            // Draw windows as simple rectangles (dynamic width based on windowRatio)
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.5)';
+            const windowWidth = building.width * 0.2;
+            const windowHeight = building.height * building.windowRatio;
+
+            // Main window on the "South" facade (relative to building's rotation)
+            ctx.fillRect(-windowWidth / 2, building.height / 2 - windowHeight - 5, windowWidth, windowHeight);
+            
+            ctx.restore();
+        }
+
+        function drawSunPath(elevationAngle) {
+            const centerX = canvas.width / (2 * dpi);
+            const centerY = canvas.height / (2 * dpi);
+            const radius = Math.min(centerX, centerY) * 0.6;
+
+            ctx.save();
+            ctx.translate(centerX, centerY);
+
+            // Sun path arc (simplified: always from left to right, representing elevation)
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, Math.PI, 0); // Semicircle from West (left) to East (right)
+            ctx.strokeStyle = 'rgba(255, 255, 0, 0.3)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Sun position (horizontal position fixed, vertical position based on elevationAngle)
+            // Angle 0 degrees (slider) = sun at horizon, 90 degrees = sun directly overhead
+            const sunX = radius * Math.cos((180 - elevationAngle) * Math.PI / 180);
+            const sunY = -radius * Math.sin((180 - elevationAngle) * Math.PI / 180);
+
+            ctx.beginPath();
+            ctx.arc(sunX, sunY, 10, 0, Math.PI * 2);
+            ctx.fillStyle = 'yellow';
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = 'yellow';
+            ctx.fill();
+            ctx.shadowBlur = 0; // Reset shadow
+
+            // Sun rays
+            for (let i = 0; i < 8; i++) {
+                ctx.beginPath();
+                ctx.moveTo(sunX + Math.cos(i * Math.PI / 4) * 12, sunY + Math.sin(i * Math.PI / 4) * 12);
+                ctx.lineTo(sunX + Math.cos(i * Math.PI / 4) * 20, sunY + Math.sin(i * Math.PI / 4) * 20);
+                ctx.strokeStyle = 'rgba(255, 255, 0, 0.7)';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+            }
+
+            // Dynamic Shadows - (simplified, cast from building)
+            // Shadow direction is opposite to sun's direction.
+            // Simplified: Sun comes from top-right.
+            ctx.save();
+            ctx.translate(-building.width / 2, -building.height / 2); // Translate to building's top-left corner
+            const shadowAngleRad = (elevationAngle + 90) * Math.PI / 180; // Angle for shadow direction
+            const shadowOffsetX = Math.cos(shadowAngleRad) * 20 * (90 - elevationAngle) / 90; // Longer shadow for lower sun
+            const shadowOffsetY = Math.sin(shadowAngleRad) * 20 * (90 - elevationAngle) / 90;
+
+            // Draw a basic shadow polygon behind the building
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.moveTo(building.x + building.width, building.y + building.height);
+            ctx.lineTo(building.x + building.width + shadowOffsetX, building.y + building.height + shadowOffsetY);
+            ctx.lineTo(building.x + shadowOffsetX, building.y + building.height + shadowOffsetY);
+            ctx.lineTo(building.x, building.y + building.height);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        let windParticles = [];
+        function createWindParticles() {
+            windParticles = [];
+            for (let i = 0; i < 50; i++) {
+                windParticles.push({
+                    x: Math.random() * canvas.width / dpi,
+                    y: Math.random() * canvas.height / dpi,
+                    size: Math.random() * 2 + 1,
+                    speed: Math.random() * currentWindSpeed * 0.5 + 1,
+                    life: Math.random() * 50 + 50 // frames
+                });
+            }
+        }
+
+        function updateWindParticles() {
+            // Wind direction is from the "West" (left) to "East" (right) by default
+            // But interacts with the building's orientation.
+            // Let's make wind always come from the West (left) of the canvas,
+            // and we see how the building's orientation affects it.
+            const windDirectionX = 1; // Always blowing from left to right
+            const windDirectionY = 0;
+
+            for (let i = 0; i < windParticles.length; i++) {
+                const p = windParticles[i];
+                p.x += windDirectionX * p.speed;
+                p.y += windDirectionY * p.speed;
+                p.life--;
+
+                if (p.life <= 0 || p.x < 0 || p.x > canvas.width / dpi || p.y < 0 || p.y > canvas.height / dpi) {
+                    // Reset particle if it goes off screen or dies (re-spawn on the left)
+                    p.x = -10; // Respawn slightly off-screen left
+                    p.y = Math.random() * canvas.height / dpi;
+                    p.life = Math.random() * 50 + 50;
+                    p.speed = Math.random() * currentWindSpeed * 0.5 + 1;
+                }
+            }
+        }
+
+        function drawWindFlow() {
+            ctx.fillStyle = `rgba(0, 255, 255, ${mapRange(currentWindSpeed, 0, 10, 0.05, 0.2)})`; // Wind current glow
+            windParticles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Wind direction arrow (always from left, but show effect on building)
+            const arrowLength = 50;
+            const arrowOffset = 30; // Offset from building
+            const buildingMidX = building.x + building.width / 2;
+            const buildingMidY = building.y + building.height / 2;
+
+            ctx.save();
+            ctx.translate(buildingMidX, buildingMidY);
+            ctx.strokeStyle = `rgba(0, 255, 0, ${mapRange(currentWindSpeed, 0, 10, 0.3, 1)})`;
+            ctx.fillStyle = `rgba(0, 255, 0, ${mapRange(currentWindSpeed, 0, 10, 0.3, 1)})`;
+            ctx.lineWidth = 3;
+
+            // Draw arrow indicating wind direction relative to building (entering from the left side)
+            ctx.beginPath();
+            ctx.moveTo(-building.width / 2 - arrowOffset, 0);
+            ctx.lineTo(-building.width / 2 - arrowOffset + arrowLength, 0);
+            ctx.stroke();
+
+            ctx.beginPath(); // Arrow head
+            ctx.moveTo(-building.width / 2 - arrowOffset + arrowLength, 0);
+            ctx.lineTo(-building.width / 2 - arrowOffset + arrowLength - 10, -7);
+            ctx.lineTo(-building.width / 2 - arrowOffset + arrowLength - 10, 7);
+            ctx.closePath();
+            ctx.fill();
+
+            // Label "Wind" with background for legibility
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)'; // Text background
+            ctx.fillRect(-building.width / 2 - arrowOffset - 30, -25, 60, 25); // Adjusted position
+            ctx.font = '14px "Roboto Mono"';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = var_to_rgb('--neon-green');
+            ctx.fillText('Wind', -building.width / 2 - arrowOffset, -12);
+
+
+            ctx.restore();
+        }
+
+        function drawComfortMeter() {
+            const comfort = calculateOverallComfort(); // Get comfort value
+            // Position near the building for context
+            const centerX = building.x + building.width / 2;
+            const centerY = building.y - 30; // Above the building
+
+            let emoji = '😐';
+            let color = 'gray';
+            if (comfort > 70) { emoji = '😁'; color = var_to_rgb('--neon-green'); }
+            else if (comfort > 40) { emoji = '😊'; color = var_to_rgb('--neon-cyan'); }
+            else if (comfort < 20) { emoji = '😥'; color = 'red'; }
+
+            // Draw text with background for legibility
+            ctx.save();
+            ctx.font = '30px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            const textMetrics = ctx.measureText(emoji);
+            const textWidth = textMetrics.width;
+            const textHeight = 30; // Approx height for 30px font
+
+            // Draw background rectangle
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(centerX - textWidth / 2 - 5, centerY - textHeight / 2 - 5, textWidth + 10, textHeight + 10);
+
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = color;
+            ctx.fillStyle = color;
+            ctx.fillText(emoji, centerX, centerY);
+            ctx.shadowBlur = 0; // Reset shadow
+            ctx.restore();
+
+            // Add a bounce animation class to the element in the DOM for extra fun
+            overallComfortScoreDisplay.textContent = emoji;
+            overallComfortScoreDisplay.classList.toggle('bouncy-element', comfort > 70 || comfort < 20);
+        }
+
+        function var_to_rgb(cssVar) {
+            const style = getComputedStyle(document.body);
+            const value = style.getPropertyValue(cssVar);
+            // Simple regex to extract RGB values if available
+            const match = value.match(/(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+            if (match) return `rgb(${match[1]},${match[2]},${match[3]})`;
+            return value; // Return as is if not RGB
+        }
+
+        // --- SIMULATION LOGIC ---
+        function calculateSolarGain() {
+            // Simplified: more sun exposure at acute angles, less with good shading.
+            // Assuming building's "front" (South-facing if orientation is 0) is sensitive to sun.
+            // sunAngle is elevation. We need to consider building's rotation (orientation).
+            // A building at orientation 0 has its 'south' facade (front) receiving direct sun from currentSunAngle.
+            // A building at orientation 90 (East) has its 'west' facade receiving it etc.
+
+            // Adjust sunAngle based on building orientation.
+            // We want to calculate how much direct sunlight the primary facade receives.
+            // Let's say main facade is the one perpendicular to the orientation vector (0=South, 90=West, 180=North, 270=East).
+            // Solar gain is highest when a large facade faces the sun directly, and sun is high.
+            // Let's assume the sun is always broadly 'south' in the sky.
+
+            let effectiveSunExposureAngle = currentSunAngle; // Base on elevation
+            // Now adjust for building orientation:
+            // 0 deg: South facade gets full sun. 90 deg: East facade gets some. 180 deg: North facade gets minimal.
+            // We want to maximize sun exposure in cold, minimize in hot.
+
+            let solarGainFactor = Math.sin(effectiveSunExposureAngle * Math.PI / 180); // Higher sun = more direct impact
+            
+            // Influence of building orientation on solar gain (simplified)
+            // 0 (North): South face gets sun. 180 (South): North face gets minimal sun.
+            // Sun is generally from the South in Northern Hemisphere context.
+            // So, 0 orientation is good for winter gain (south face).
+            // 180 orientation is bad (north face).
+            // 90/270 orientation is side walls.
+
+            // How aligned is the "south" face of the building (oriented at 0) with the sun (assumed south)?
+            // If building is oriented 0, its south face is towards sun. If 180, its north face is towards sun.
+            // Relative angle of building's 'south' face to a fixed 'south' sun source.
+            const orientationRad = building.orientation * Math.PI / 180;
+            const southFaceAngle = Math.cos(orientationRad); // 1 for 0 deg, -1 for 180 deg.
+
+            solarGainFactor *= (southFaceAngle + 1) / 2; // More sun for South-facing. Max 1. Min 0.
+            
+            let gain = mapRange(solarGainFactor, 0, 1, 0, 100);
+
+            // Reduce if there's an overhang (simulated for simplicity)
+            // Overhangs are effective when sun is high (e.g., Summer sun)
+            if (building.overhangDepth > 0 && currentSunAngle > 45) { // Sun is higher
+                gain *= (1 - (building.overhangDepth / 20)); // Reduce gain based on overhang depth
+            }
+            return Math.max(0, gain);
+        }
+
+        function calculateWindVentilation() {
+            // Simplified: better ventilation if wind is perpendicular to building facades, creating cross-ventilation paths.
+            // Wind comes from the West (left side of canvas).
+            // Building orientation 0 (North) has wind hitting West face, exiting East. Good for cross-ventilation.
+            // Building orientation 90 (East) has wind hitting South face. Less direct cross.
+
+            // Angle of wind (fixed from West) relative to building's "West" facade (at orientation 0).
+            const windRelativeAngle = Math.abs((building.orientation - 270 + 360) % 360); // 270 is "West" if 0 is "North"
+            // If windRelativeAngle is near 0 or 180, wind hits a facade directly.
+            // Best cross-ventilation if wind is perpendicular to a major facade.
+            // E.g., wind from West. Building oriented 0 (N-S axis). Wind hits West face, exits East.
+            let ventilationFactor = 0;
+            if (windRelativeAngle < 45 || windRelativeAngle > 315 || (windRelativeAngle > 135 && windRelativeAngle < 225)) {
+                // Wind is generally perpendicular to one of the main axes (N-S or E-W)
+                ventilationFactor = Math.abs(Math.cos(windRelativeAngle * Math.PI / 180)); // Max at 0/180
+            }
+            
+            let ventilation = mapRange(currentWindSpeed, 0, 10, 0, 100) * (ventilationFactor * 0.8 + 0.2); // Base + orientation effect
+            return Math.max(0, ventilation);
+        }
+
+        function calculateShadingEffect() {
+            // Simplified: Shading is good when sun is high and building orientation minimizes direct sun,
+            // or when overhangs are effective.
+            const solarGain = calculateSolarGain();
+            let shading = 100 - solarGain; // Inverse of solar gain is a good starting point for shading effectiveness.
+
+            // Additional shading for overhangs at high sun angles
+            if (building.overhangDepth > 0 && currentSunAngle > 60) {
+                shading += building.overhangDepth * 2; // More shading when sun is overhead
+            }
+
+            return Math.min(100, Math.max(0, shading)); // Clamp between 0-100
+        }
+
+
+        function calculateOverallComfort() {
+            const solar = calculateSolarGain();
+            const ventilation = calculateWindVentilation();
+            const shading = calculateShadingEffect();
+
+            let comfort = 0;
+            switch (currentClimateZone) {
+                case 'hot-dry':
+                    // In hot-dry, minimize solar gain, maximize shading. Ventilation is good if it brings in cooler air.
+                    comfort = (100 - solar) * 0.4 + shading * 0.4 + ventilation * 0.2;
+                    break;
+                case 'warm-humid':
+                    // In warm-humid, maximize ventilation, minimize solar gain. Shading helps.
+                    comfort = (100 - solar) * 0.3 + ventilation * 0.5 + shading * 0.2;
+                    break;
+                case 'temperate':
+                default:
+                    // In temperate, balance all factors. Moderate solar gain in winter, good shading in summer.
+                    // For this simulation, we'll assume a mixed need.
+                    comfort = (100 - Math.abs(solar - 50)) * 0.4 + ventilation * 0.3 + shading * 0.3; // Aim for moderate solar
+                    break;
+            }
+
+            return Math.min(100, Math.max(0, comfort)); // Clamp between 0-100
+        }
+
+
+        // --- MAIN SIMULATION LOOP ---
+        function drawSimulation() {
+            ctx.clearRect(0, 0, canvas.width / dpi, canvas.height / dpi);
+            drawGrid();
+            drawBuilding(building.orientation);
+            drawSunPath(currentSunAngle);
+            drawWindFlow();
+            drawComfortMeter();
+
+            updateMetricsDisplay();
+            updateBarCharts();
+
+            if (simulationRunning) {
+                animationFrameId = requestAnimationFrame(loop);
+            }
+        }
+
+        function updateSimulation() {
+            updateWindParticles();
+        }
+
+        function loop() {
+            updateSimulation();
+            drawSimulation();
+        }
+
+        // --- EVENT LISTENERS ---
+
+        // Slider interactions
+        sunAngleSlider.addEventListener('input', () => {
+            currentSunAngle = parseInt(sunAngleSlider.value);
+            sunAngleValueDisplay.textContent = `${currentSunAngle}°`;
+            // ELI5: "Sun's getting sleepy!" (low angle) or "Sun's wide awake!" (high angle)
+            const sunMood = currentSunAngle < 30 ? "sleepy" : currentSunAngle > 70 ? "wide awake" : "just right";
+            speakConcept(`Sun's warm hug angle is now ${currentSunAngle} degrees! The sun feels ${sunMood}!`);
+            playSynthTone(sunOscillator, mapRange(currentSunAngle, 0, 90, 200, 800)); // Pitch shift
+        });
+
+        windSpeedSlider.addEventListener('input', () => {
+            currentWindSpeed = parseFloat(windSpeedSlider.value);
+            windSpeedValueDisplay.textContent = `${currentWindSpeed} m/s`;
+            // ELI5: "Whoosh! The wind is playful!"
+            const windVibe = currentWindSpeed < 3 ? "gentle" : currentWindSpeed > 7 ? "gusty" : "playful";
+            speakConcept(`Wind's playful push strength is now ${currentWindSpeed} meters per second! The wind feels ${windVibe}!`);
+            playSynthTone(windOscillator, mapRange(currentWindSpeed, 0, 10, 100, 500)); // Pitch shift
+        });
+
+        narrationToggle.addEventListener('click', () => {
+            narrationActive = !narrationActive;
+            narrationToggle.textContent = narrationActive ? '🔊' : '🔇';
+            if (!narrationActive) {
+                window.speechSynthesis.cancel();
+                speakConcept("Narration is off, but you can still play!");
+            } else {
+                speakConcept("Narration is back on! Let's build a happy home!");
+            }
+        });
+
+        // Building Rotation (Hand/Mouse Gesture)
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = (e.clientX - rect.left) / dpi;
+            mouse.y = (e.clientY - rect.top) / dpi;
+
+            const buildingCenterX = building.x + building.width / 2;
+            const buildingCenterY = building.y + building.height / 2;
+
+            // Check if clicking on the building for rotation
+            if (mouse.x > building.x && mouse.x < building.x + building.width &&
+                mouse.y > building.y && mouse.y < building.y + building.height) {
+                isDraggingBuilding = true;
+                startDragAngle = building.orientation;
+                startMouseAngle = Math.atan2(mouse.y - buildingCenterY, mouse.x - buildingCenterX) * 180 / Math.PI;
+                canvas.style.cursor = 'grabbing';
+                speakConcept("Ooh, spinning the building! Watch it find its best side!");
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            mouse.x = (e.clientX - rect.left) / dpi;
+            mouse.y = (e.clientY - rect.top) / dpi;
+
+            if (isDraggingBuilding) {
+                const buildingCenterX = building.x + building.width / 2;
+                const buildingCenterY = building.y + building.height / 2;
+                const currentMouseAngle = Math.atan2(mouse.y - buildingCenterY, mouse.x - buildingCenterX) * 180 / Math.PI;
+                let deltaAngle = currentMouseAngle - startMouseAngle;
+                building.orientation = (startDragAngle + deltaAngle + 360) % 360; // Keep between 0-360
+                // Small chime sound on rotation
+                playSynthTone(sunOscillator, 220, 0.05); // Subtle click
+                drawSimulation(); // Update faster during drag
+            } else {
+                // Hand/Mouse Motion Gesture Detection (Sweep to change orientation if not dragging building)
+                if (e.buttons === 0 && e.clientX !== prevMouseX) { // Only if no button is pressed and mouse moved
+                    const sweepThreshold = 2; // Pixels to detect a sweep
+                    if (Math.abs(mouse.x - prevMouseX) > sweepThreshold) {
+                        const deltaX = mouse.x - prevMouseX;
+                        building.orientation = (building.orientation + deltaX * 0.5 + 360) % 360; // Adjust sensitivity
+                        playSynthTone(windOscillator, 150 + Math.abs(deltaX) * 5, 0.05);
+                    }
+                }
+                prevMouseX = mouse.x;
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDraggingBuilding = false;
+            canvas.style.cursor = 'grab';
+            prevMouseX = 0; // Reset prevMouseX after interaction ends
+            speakConcept(`The building is now facing ${building.orientation.toFixed(0)} degrees!`);
+        });
+
+        canvas.addEventListener('mouseleave', () => {
+            isDraggingBuilding = false;
+            canvas.style.cursor = 'grab';
+            prevMouseX = 0;
+        });
+
+
+        // Drag & Drop for Climate Zone Cards
+        let currentDraggedElement = null;
+        draggableCards.forEach(card => {
+            card.addEventListener('dragstart', (e) => {
+                currentDraggedElement = card;
+                e.dataTransfer.setData('text/plain', card.dataset.type); // Store data type
+                e.dataTransfer.effectAllowed = 'move';
+                card.classList.add('dragging');
+                speakConcept(`Yay! You picked up the ${card.textContent} card! Where should it go?`);
+            });
+            card.addEventListener('dragend', () => {
+                currentDraggedElement.classList.remove('dragging');
+                currentDraggedElement = null;
+            });
+        });
+
+        handbookDropZone.addEventListener('dragover', (e) => {
+            e.preventDefault(); // Allow drop
+            if (e.dataTransfer.types.includes('text/plain') && currentDraggedElement && currentDraggedElement.dataset.type === 'climate-zone') {
+                handbookDropZone.classList.add('hovered');
+                e.dataTransfer.dropEffect = 'move';
+            }
+        });
+
+        handbookDropZone.addEventListener('dragleave', () => {
+            handbookDropZone.classList.remove('hovered');
+        });
+
+        handbookDropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            handbookDropZone.classList.remove('hovered');
+            if (currentDraggedElement && currentDraggedElement.dataset.type === 'climate-zone') {
+                const zone = currentDraggedElement.dataset.zone;
+                currentClimateZone = zone;
+                handbookDropZone.innerHTML = `You dropped: <span class="neon-green">${currentDraggedElement.textContent}</span> here! Calculating... <span class="status-ring success"></span>`;
+                speakConcept(`Amazing! We are now in a ${zone.replace('-', ' ')} climate! Let's see how our building likes it.`);
+                playSynthTone(sunOscillator, 600, 0.2); // Success chime
+                drawSimulation(); // Recalculate and redraw
+
+                // Gamified "Codebook" - Dynamic Camera Zoom
+                // Example: Zoom into a textual explanation relevant to the climate zone
+                showZoomOverlay(`Climate Zone: ${zone.toUpperCase().replace('-', ' ')}`,
+                    `<p class="neon-cyan">In a <strong class="neon-green">${currentDraggedElement.textContent}</strong> climate, we need to think specially about our building!</p>
+                    ${zone === 'hot-dry' ? '<p>For hot-dry zones, we want to hide from the sun and maximize shading to keep cool. Ventilation is good if it brings in cooler air at night!</p>' : ''}
+                    ${zone === 'warm-humid' ? '<p>In warm-humid zones, it\'s all about letting the air flow (maximize ventilation) and minimizing solar gain to prevent heat build-up!</p>' : ''}
+                    ${zone === 'temperate' ? '<p>For temperate zones, we need a balance! Sometimes we want sun for warmth, sometimes shade to cool down. Good ventilation is always a plus!</p>' : ''}
+                    <p>Look at how the scores change based on this zone!</p>`,
+                    'var(--neon-green)'
+                );
+            } else {
+                handbookDropZone.innerHTML = `Oops! Wrong card. Try again! <span class="status-ring fail"></span>`;
+                speakConcept("Oopsie! That's not the right card for the Climate Handbook. Try a different one!");
+                playSynthTone(windOscillator, 100, 0.2); // Fail tone
+            }
+        });
+
+
+        // Dynamic Camera Zoom Overlay (Adaptation of 'Dynamic Camera Zooms')
+        const zoomOverlay = document.createElement('div');
+        zoomOverlay.id = 'zoomOverlay';
+        document.body.appendChild(zoomOverlay);
+
+        function showZoomOverlay(title, contentHTML, highlightColor) {
+            zoomOverlay.innerHTML = `
+                <div id="zoomContent" style="border-color: ${highlightColor}; box-shadow: 0 0 25px ${highlightColor};">
+                    <button id="closeZoom" style="color: ${highlightColor}; text-shadow: 0 0 10px ${highlightColor};">X</button>
+                    <h3 class="neon-cyan">${title}</h3>
+                    ${contentHTML}
+                </div>
+            `;
+            zoomOverlay.classList.add('active');
+            // Add click-away dismissal
+            zoomOverlay.addEventListener('click', (e) => {
+                if (e.target.id === 'zoomOverlay') { // Only if clicked on backdrop
+                    hideZoomOverlay();
+                }
+            });
+            document.getElementById('closeZoom').addEventListener('click', hideZoomOverlay);
+            speakConcept(`Zooming in to learn more about ${title.toLowerCase().replace('climate zone:', '')}!`);
+        }
+
+        function hideZoomOverlay() {
+            zoomOverlay.classList.remove('active');
+            // Remove event listener to prevent memory leaks / multiple listeners
+            const closeBtn = document.getElementById('closeZoom');
+            if (closeBtn) {
+                closeBtn.removeEventListener('click', hideZoomOverlay);
+            }
+            zoomOverlay.removeEventListener('click', (e) => {
+                if (e.target.id === 'zoomOverlay') {
+                    hideZoomOverlay();
+                }
+            });
+            speakConcept("Zooming back out to our sandbox!");
+        }
+
+        // Update performance metrics display
+        function updateMetricsDisplay() {
+            solarGainScoreDisplay.textContent = calculateSolarGain().toFixed(0);
+            windVentilationScoreDisplay.textContent = calculateWindVentilation().toFixed(0);
+        }
+
+        // Update Superposition/Capacity Visualizer (Bar Charts)
+        function updateBarCharts() {
+            const solar = calculateSolarGain();
+            const ventilation = calculateWindVentilation();
+            const shading = calculateShadingEffect();
+
+            document.getElementById('solarBar').style.setProperty('--progress', `${solar}%`);
+            document.getElementById('ventBar').style.setProperty('--progress', `${ventilation}%`);
+            document.getElementById('shadeBar').style.setProperty('--progress', `${shading}%`);
+        }
+
+        // --- INITIALIZATION ---
+        function initSimulation() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            if (window.speechSynthesis) {
+                speakConcept("Welcome, little architect! Let's make buildings happy by finding their perfect spot!");
+            } else {
+                narrationText.textContent = "Your browser doesn't support speech synthesis. Narration disabled.";
+                narrationToggle.disabled = true;
+            }
+            initAudio();
+            createWindParticles(); // Initialize particles
+            // Start animation loop
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        window.onload = initSimulation;
+    </script>
+</body>
+</html>
