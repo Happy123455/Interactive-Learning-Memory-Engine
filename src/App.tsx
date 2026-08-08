@@ -833,7 +833,7 @@ export const App: React.FC = () => {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <BarChart3 size={20} color="#c084fc" />
                 <h3 style={{ margin: 0, fontSize: '16px', color: 'white', fontWeight: 'bold' }}>
-                  Darshan UMS LMS Content Tracker Dashboard
+                  UMS LMS Content Tracker Dashboard
                 </h3>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -848,9 +848,23 @@ export const App: React.FC = () => {
                 </a>
                 <button
                   onClick={() => setShowUmsDashboardModal(false)}
-                  style={{ background: 'transparent', border: 'none', fontSize: '22px', color: 'var(--text-secondary)', cursor: 'pointer' }}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    border: '1px solid #ef4444',
+                    color: '#f87171',
+                    padding: '6px 14px',
+                    borderRadius: '6px',
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(239, 68, 68, 0.2)'
+                  }}
+                  title="Close Dashboard"
                 >
-                  &times;
+                  Close ✖
                 </button>
               </div>
             </div>
